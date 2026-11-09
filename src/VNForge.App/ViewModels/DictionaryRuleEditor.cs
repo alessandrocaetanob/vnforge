@@ -99,10 +99,6 @@ public sealed partial class DictionaryRuleEditor : ObservableObject
 
     public string Title => $"{(Original is null ? "Nova regra" : "Editar regra")} do {(Side == DictionarySide.Pre ? "pré" : "pós")}-dicionário";
 
-    public string SaveLabel => "Salvar regra";
-
-    public string PatternLabel => "Trocar";
-
     public ObservableCollection<DictionaryConditionEditor> Conditions { get; }
 
     public string Pattern
@@ -184,10 +180,18 @@ public sealed partial class DictionaryRuleEditor : ObservableObject
 
     private void Refresh()
     {
-        Problem = Pattern.Length == 0
-            ? "Escreva o texto a trocar."
-            : DictionaryStage.Validate(ToRule()) is { } error ? Capitalize(error) : null;
+        Problem = ProblemOf();
         impactRequested(this);
+    }
+
+    private string? ProblemOf()
+    {
+        if (Pattern.Length == 0)
+        {
+            return "Escreva o texto a trocar.";
+        }
+
+        return DictionaryStage.Validate(ToRule()) is { } error ? Capitalize(error) : null;
     }
 
     private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];

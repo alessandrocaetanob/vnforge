@@ -72,9 +72,18 @@ public sealed partial class SettingsViewModel
 
     public bool HasBlocked => BlockedLine is not null;
 
-    public string PreviewEmpty => SelectedRule is null
-        ? "Escolha uma regra para ver onde ela troca."
-        : HasApplied || HasBlocked ? string.Empty : "Nenhuma linha do projeto tem este texto.";
+    public string PreviewEmpty
+    {
+        get
+        {
+            if (SelectedRule is null)
+            {
+                return "Escolha uma regra para ver onde ela troca.";
+            }
+
+            return HasApplied || HasBlocked ? string.Empty : "Nenhuma linha do projeto tem este texto.";
+        }
+    }
 
     public bool HasPreviewEmpty => PreviewEmpty.Length > 0;
 
@@ -99,7 +108,7 @@ public sealed partial class SettingsViewModel
 
         FillRows(baseProfile.Dictionary);
         var version = dictionaryVersion;
-        dictionaryData = Task.Run(() => ReadDictionaryData(opened));
+        dictionaryData = Task.Run(() => ReadDictionaryData(opened), CancellationToken.None);
         DictionaryCounting = CountDictionaryAsync(version);
         RefreshDictionaryState();
     }
@@ -151,7 +160,7 @@ public sealed partial class SettingsViewModel
         }
 
         var rules = baseProfile.Dictionary;
-        var counted = await Task.Run(() => Count(rules, data)).ConfigureAwait(true);
+        var counted = await Task.Run(() => Count(rules, data), CancellationToken.None).ConfigureAwait(true);
         if (version != dictionaryVersion)
         {
             return;
@@ -252,7 +261,7 @@ public sealed partial class SettingsViewModel
     {
         var colon = unit.Id.LastIndexOf(':');
         var number = colon < 0 ? unit.Id : unit.Id[(colon + 1)..].TrimStart('0').PadLeft(4, '0');
-        var speaker = context?.Line(unit).Speakers.LastOrDefault();
+        var speaker = context?.Line(unit).Speakers is { Count: > 0 } speakers ? speakers[^1] : null;
         return speaker is null ? $"Linha {number}" : $"Linha {number} · {speaker}";
     }
 
@@ -338,9 +347,28 @@ public sealed partial class SettingsViewModel
         OnPropertyChanged(nameof(IsEditorOpen));
     }
 
+    /// <summary>Cancela e libera a contagem do diálogo da regra que ainda estiver em andamento.</summary>
+    public void Dispose() => StopImpactCancel();
+
+    private void ReplaceImpactCancel()
+    {
+        var previous = editorImpactCancel;
+        editorImpactCancel = new CancellationTokenSource();
+        previous?.Cancel();
+        previous?.Dispose();
+    }
+
+    private void StopImpactCancel()
+    {
+        var previous = editorImpactCancel;
+        editorImpactCancel = null;
+        previous?.Cancel();
+        previous?.Dispose();
+    }
+
     private void CloseEditor()
     {
-        editorImpactCancel?.Cancel();
+        StopImpactCancel();
         editing = null;
         if (Editor is not null)
         {
@@ -391,9 +419,8 @@ public sealed partial class SettingsViewModel
 
     private void RequestEditorImpact(DictionaryRuleEditor editor)
     {
-        editorImpactCancel?.Cancel();
-        var cancel = editorImpactCancel = new CancellationTokenSource();
-        var token = cancel.Token;
+        ReplaceImpactCancel();
+        var token = editorImpactCancel!.Token;
         if (editor.Problem is not null)
         {
             editor.ImpactTitle = "Sem contagem";
@@ -404,8 +431,7 @@ public sealed partial class SettingsViewModel
 
         var rule = editor.ToRule();
         var side = editor.Side;
-        var loading = dictionaryData;
-        EditorImpactLoading = ComputeEditorImpactAsync(editor, rule, side, loading, token);
+        EditorImpactLoading = ComputeEditorImpactAsync(editor, rule, side, dictionaryData, token);
     }
 
     private static async Task ComputeEditorImpactAsync(DictionaryRuleEditor editor, DictionaryRule rule, DictionarySide side, Task<DictionaryData?> loading, CancellationToken token)
@@ -416,7 +442,16 @@ public sealed partial class SettingsViewModel
             return;
         }
 
-        var impact = await Task.Run(() => TryImpact(rule, side, data), token).ConfigureAwait(true);
+        DictionaryImpact? impact;
+        try
+        {
+            impact = await Task.Run(() => TryImpact(rule, side, data), token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
         if (token.IsCancellationRequested)
         {
             return;

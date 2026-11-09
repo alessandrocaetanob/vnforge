@@ -17,7 +17,7 @@ public class PreDictionaryTests
         new(id, TextUnitKind.Dialogue, speaker, source, null, TranslationStatus.Untranslated);
 
     private static TranslationBatchBuilder Builder(params DictionaryRule[] pre) =>
-        new(NoTerms, NoCast, preDictionary: new PreDictionary(pre));
+        new(NoTerms, NoCast) { Pre = new PreDictionary(pre) };
 
     private static string Key(TranslationBatchBuilder builder, TextUnit unit)
     {
@@ -48,7 +48,7 @@ public class PreDictionaryTests
     [Fact]
     public void Glossario_casa_com_o_texto_normalizado()
     {
-        var builder = new TranslationBatchBuilder([new GlossaryTerm("先輩", "senpai")], NoCast, preDictionary: new PreDictionary([new DictionaryRule("せんぱい", "先輩")]));
+        var builder = new TranslationBatchBuilder([new GlossaryTerm("先輩", "senpai")], NoCast) { Pre = new PreDictionary([new DictionaryRule("せんぱい", "先輩")]) };
 
         var batch = builder.Build([Unit("a:1", "せんぱい、こんにちは")]);
 
@@ -75,7 +75,7 @@ public class PreDictionaryTests
         var rule = new DictionaryRule("ぼ、ぼく", "ぼく");
         var line = Unit("a:1", "ぼ、ぼく、行く");
         string KeyWith(int before, params DictionaryRule[] pre) =>
-            Key(new TranslationBatchBuilder(NoTerms, NoCast, maxPreviousLines: before, preDictionary: new PreDictionary(pre)), line);
+            Key(new TranslationBatchBuilder(NoTerms, NoCast, maxPreviousLines: before) { Pre = new PreDictionary(pre) }, line);
 
         Assert.NotEqual(KeyWith(2, rule), KeyWith(4, rule));
         Assert.NotEqual(KeyWith(4), KeyWith(4, rule));

@@ -71,8 +71,10 @@ internal static class ReviewCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms(),
-            preDictionary: PreDictionary.For(project));
+            addressTerms: project.LoadAddressTerms())
+        {
+            Pre = PreDictionary.For(project),
+        };
 
         if (parseResult.GetValue(Common.DryRun))
         {

@@ -165,7 +165,7 @@ public sealed record EncodingTechnicalRow(string Id, string Name, string Sample,
 /// da IA, o estilo da tradução (<see cref="Style"/> e o guia), o perfil de formatação com prévia ao vivo e a estratégia de acentuação.
 /// Modelo, esforço, lote, acentuação, estilo, guia e formatação valem para o projeto aberto e são gravados a cada mudança (<see cref="ProjectSaved"/>); chave e paralelismo valem para o usuário.
 /// </summary>
-public sealed partial class SettingsViewModel : ObservableObject
+public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 {
     /// <summary>O texto da barra de status da moldura enquanto os Ajustes estão abertos (artboard de Ajustes).</summary>
     public const string AutosaveNote = "Salvo";
@@ -1461,7 +1461,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 var pending = opened.LoadAllText().Values.SelectMany(units => units).Where(u => u.Status == TranslationStatus.Untranslated).ToList();
                 return (pending.Count, CostEstimator.EstimateForModels(pending, ids));
-            });
+            }, CancellationToken.None);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {

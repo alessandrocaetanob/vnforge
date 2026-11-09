@@ -27,7 +27,7 @@ public sealed record DictionarySample(TextUnit Unit, string Before, string After
 public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample? FirstApplied, DictionarySample? FirstBlocked)
 {
     /// <summary>Conta o alcance de <paramref name="rule"/> em <paramref name="units"/>. A regra desligada também é contada: o número diz o que ela faria.</summary>
-    /// <param name="kinds">Os papéis que o build formata (<see cref="FormattingProfile.Kinds"/>). No pós só contam as linhas que o build grava (<see cref="TextUnit.NeedsRewrite"/>) desses papéis; nulo conta todo papel.</param>
+    /// <param name="kinds">Os papéis que o build formata (<see cref="FormattingProfile.Kinds"/>). No pós só contam as linhas que o build grava (<see cref="TextUnit.NeedsRewrite"/>) desses papéis; nulo conta qualquer papel.</param>
     /// <exception cref="FormattingException">O padrão é vazio, a regex é inválida ou passou do tempo limite.</exception>
     public static DictionaryImpact Of(DictionaryRule rule, DictionarySide side, IEnumerable<TextUnit> units, DictionaryContext? context = null, IReadOnlyCollection<TextUnitKind>? kinds = null)
     {
@@ -36,51 +36,71 @@ public sealed record DictionaryImpact(int Applies, int Blocked, DictionarySample
         context ??= DictionaryContext.Empty;
 
         var bare = new DictionaryStage("dictionary-impact", [rule with { Enabled = true, Conditions = [] }], "$.rule");
-        var applies = 0;
-        var blocked = 0;
-        DictionarySample? firstApplied = null;
-        DictionarySample? firstBlocked = null;
+        var tally = new Tally();
         foreach (var unit in units)
         {
-            if (side == DictionarySide.Post && (!unit.NeedsRewrite || (kinds is not null && !kinds.Contains(unit.Kind))))
+            if (Sample(bare, side, kinds, unit) is not { } sample)
             {
                 continue;
             }
 
-            var text = side == DictionarySide.Pre ? unit.Source : unit.Translation;
-            if (string.IsNullOrEmpty(text))
-            {
-                continue;
-            }
+            tally.Add(sample, rule.Conditions.Count == 0 || context.Line(unit).Matches(rule.Conditions));
+        }
 
-            string after;
-            try
-            {
-                after = bare.Apply(text, new FormattingContext());
-            }
-            catch (ArgumentException)
-            {
-                continue;
-            }
+        return new DictionaryImpact(tally.Applies, tally.Blocked, tally.FirstApplied, tally.FirstBlocked);
+    }
 
-            if (string.Equals(after, text, StringComparison.Ordinal))
-            {
-                continue;
-            }
+    /// <summary>A troca que a regra faria na linha; nula quando a linha não entra na conta, não tem texto ou a regra não a muda.</summary>
+    private static DictionarySample? Sample(DictionaryStage bare, DictionarySide side, IReadOnlyCollection<TextUnitKind>? kinds, TextUnit unit)
+    {
+        if (side == DictionarySide.Post && !IsBuilt(unit, kinds))
+        {
+            return null;
+        }
 
-            var sample = new DictionarySample(unit, text, after);
-            if (rule.Conditions.Count == 0 || context.Line(unit).Matches(rule.Conditions))
+        var text = side == DictionarySide.Pre ? unit.Source : unit.Translation;
+        if (string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        try
+        {
+            var after = bare.Apply(text, new FormattingContext());
+            return string.Equals(after, text, StringComparison.Ordinal) ? null : new DictionarySample(unit, text, after);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>O build grava a tradução da linha e formata o papel dela.</summary>
+    private static bool IsBuilt(TextUnit unit, IReadOnlyCollection<TextUnitKind>? kinds) =>
+        unit.NeedsRewrite && (kinds is null || kinds.Contains(unit.Kind));
+
+    private sealed class Tally
+    {
+        public int Applies { get; private set; }
+
+        public int Blocked { get; private set; }
+
+        public DictionarySample? FirstApplied { get; private set; }
+
+        public DictionarySample? FirstBlocked { get; private set; }
+
+        public void Add(DictionarySample sample, bool applies)
+        {
+            if (applies)
             {
-                applies++;
-                firstApplied ??= sample;
+                Applies++;
+                FirstApplied ??= sample;
             }
             else
             {
-                blocked++;
-                firstBlocked ??= sample;
+                Blocked++;
+                FirstBlocked ??= sample;
             }
         }
-
-        return new DictionaryImpact(applies, blocked, firstApplied, firstBlocked);
     }
 }

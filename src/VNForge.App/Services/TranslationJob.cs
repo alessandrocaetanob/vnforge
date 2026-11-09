@@ -74,8 +74,10 @@ public sealed class TranslationJob(
             style: projectConfig.Style,
             maxPreviousLines: config.ContextBefore,
             maxNextLines: config.ContextAfter,
-            addressTerms: project.LoadAddressTerms(),
-            preDictionary: PreDictionary.For(project));
+            addressTerms: project.LoadAddressTerms())
+        {
+            Pre = PreDictionary.For(project),
+        };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
         var raw = providerFactory(profile.Model, effort);

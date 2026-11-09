@@ -9,6 +9,10 @@ namespace VNForge.Core.Formatting;
 public static class FormattingProfileSerializer
 {
     private const string MaxLinesKey = "maxLines";
+    private const string PatternKey = "pattern";
+    private const string WithKey = "with";
+    private const string RegexKey = "regex";
+    private const string EnabledKey = "enabled";
 
     private static readonly JsonDocumentOptions ReadOptions = new()
     {
@@ -66,7 +70,7 @@ public static class FormattingProfileSerializer
             writer.WriteEndArray();
 
             writer.WriteStartObject("wrap");
-            writer.WriteBoolean("enabled", profile.Wrap.Enabled);
+            writer.WriteBoolean(EnabledKey, profile.Wrap.Enabled);
             writer.WriteNumber("maxWidth", profile.Wrap.MaxWidth);
             if (profile.Wrap.MaxLines is { } maxLines)
             {
@@ -143,11 +147,11 @@ public static class FormattingProfileSerializer
         foreach (var replacement in replacements)
         {
             writer.WriteStartObject();
-            writer.WriteString("pattern", replacement.Pattern);
-            writer.WriteString("with", replacement.With);
+            writer.WriteString(PatternKey, replacement.Pattern);
+            writer.WriteString(WithKey, replacement.With);
             if (replacement.Regex)
             {
-                writer.WriteBoolean("regex", true);
+                writer.WriteBoolean(RegexKey, true);
             }
 
             writer.WriteEndObject();
@@ -162,16 +166,16 @@ public static class FormattingProfileSerializer
         foreach (var rule in rules)
         {
             writer.WriteStartObject();
-            writer.WriteString("pattern", rule.Pattern);
-            writer.WriteString("with", rule.With);
+            writer.WriteString(PatternKey, rule.Pattern);
+            writer.WriteString(WithKey, rule.With);
             if (rule.Regex)
             {
-                writer.WriteBoolean("regex", true);
+                writer.WriteBoolean(RegexKey, true);
             }
 
             if (!rule.Enabled)
             {
-                writer.WriteBoolean("enabled", false);
+                writer.WriteBoolean(EnabledKey, false);
             }
 
             if (rule.Conditions.Count > 0)
@@ -315,7 +319,7 @@ public static class FormattingProfileSerializer
         if (reader.OptionalObject("wrap") is { } wrapReader)
         {
             wrap = new WrapRule(
-                wrapReader.OptionalBool("enabled") ?? wrap.Enabled,
+                wrapReader.OptionalBool(EnabledKey) ?? wrap.Enabled,
                 wrapReader.OptionalInt("maxWidth") ?? wrap.MaxWidth,
                 wrapReader.HasProperty(MaxLinesKey) ? wrapReader.OptionalInt(MaxLinesKey, allowNull: true) :wrap.MaxLines,
                 wrapReader.OptionalCharWidth("charWidth") ?? wrap.CharWidth);
@@ -616,13 +620,13 @@ public static class FormattingProfileSerializer
             {
                 var itemReader = new ObjectReader(item, $"{PathOf(name)}[{replacements.Count}]");
                 var replacement = new Replacement(
-                    itemReader.RequiredString("pattern"),
-                    itemReader.RequiredString("with"),
-                    itemReader.OptionalBool("regex") ?? false);
+                    itemReader.RequiredString(PatternKey),
+                    itemReader.RequiredString(WithKey),
+                    itemReader.OptionalBool(RegexKey) ?? false);
                 itemReader.EnsureNoUnknownProperties();
                 if (ReplacementStage.Validate(replacement) is { } error)
                 {
-                    throw new FormattingProfileException(itemReader.PathOf("pattern"), error);
+                    throw new FormattingProfileException(itemReader.PathOf(PatternKey), error);
                 }
 
                 replacements.Add(replacement);
@@ -648,17 +652,17 @@ public static class FormattingProfileSerializer
             {
                 var itemReader = new ObjectReader(item, $"{PathOf(name)}[{rules.Count}]");
                 var rule = new DictionaryRule(
-                    itemReader.RequiredString("pattern"),
-                    itemReader.RequiredString("with"),
-                    itemReader.OptionalBool("regex") ?? false)
+                    itemReader.RequiredString(PatternKey),
+                    itemReader.RequiredString(WithKey),
+                    itemReader.OptionalBool(RegexKey) ?? false)
                 {
-                    Enabled = itemReader.OptionalBool("enabled") ?? true,
+                    Enabled = itemReader.OptionalBool(EnabledKey) ?? true,
                     Conditions = itemReader.OptionalConditions("when") ?? [],
                 };
                 itemReader.EnsureNoUnknownProperties();
                 if (DictionaryStage.Validate(rule) is { } error)
                 {
-                    throw new FormattingProfileException(itemReader.PathOf(rule.Conditions.Any(c => string.IsNullOrWhiteSpace(c.Value)) ? "when" : "pattern"), error);
+                    throw new FormattingProfileException(itemReader.PathOf(rule.Conditions.Any(c => string.IsNullOrWhiteSpace(c.Value)) ? "when" : PatternKey), error);
                 }
 
                 rules.Add(rule);

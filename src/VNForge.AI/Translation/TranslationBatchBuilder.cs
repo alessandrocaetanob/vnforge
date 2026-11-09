@@ -17,9 +17,11 @@ public sealed class TranslationBatchBuilder(
     int maxPreviousLines = TranslationBatchBuilder.DefaultContextLines,
     StyleConfig? style = null,
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
-    IReadOnlyList<AddressTerm>? addressTerms = null,
-    PreDictionary? preDictionary = null)
+    IReadOnlyList<AddressTerm>? addressTerms = null)
 {
+    /// <summary>O pré-dicionário do projeto, que normaliza o original de todas as linhas do lote; nulo não normaliza nada.</summary>
+    public PreDictionary? Pre { get; init; }
+
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
 
@@ -34,7 +36,6 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
-    private readonly PreDictionary _preDictionary = preDictionary ?? PreDictionary.None;
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
@@ -50,9 +51,10 @@ public sealed class TranslationBatchBuilder(
     {
         ArgumentNullException.ThrowIfNull(lines);
 
-        lines = _preDictionary.Apply(lines);
-        previous = previous is null ? null : _preDictionary.Apply(previous);
-        next = next is null ? null : _preDictionary.Apply(next);
+        var pre = Pre ?? PreDictionary.None;
+        lines = pre.Apply(lines);
+        previous = previous is null ? null : pre.Apply(previous);
+        next = next is null ? null : pre.Apply(next);
 
         var matchedGlossary = _glossary
             .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))

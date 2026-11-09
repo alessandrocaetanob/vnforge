@@ -59,8 +59,10 @@ internal static class TranslateCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms(),
-            preDictionary: PreDictionary.For(project));
+            addressTerms: project.LoadAddressTerms())
+        {
+            Pre = PreDictionary.For(project),
+        };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 
