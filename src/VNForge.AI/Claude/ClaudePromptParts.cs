@@ -19,6 +19,9 @@ internal static class ClaudePromptParts
 
         if (!string.IsNullOrWhiteSpace(batch.StyleGuide))
             sb.AppendLine().AppendLine("Guia de estilo:").AppendLine(batch.StyleGuide.Trim());
+
+        if (!string.IsNullOrWhiteSpace(batch.Synopsis))
+            sb.AppendLine().AppendLine("Sinopse do jogo:").AppendLine(batch.Synopsis.Trim());
     }
 
     /// <summary>O glossário e os personagens do lote, que mudam a cada lote: vão no bloco do sistema sem <c>cache_control</c>.</summary>
@@ -46,7 +49,28 @@ internal static class ClaudePromptParts
                 sb.AppendLine($"- {a.From} chama {a.To} de {a.Source} => {a.Target}");
         }
 
+        if (batch.Scenes.Count > 0)
+        {
+            sb.AppendLine().AppendLine("Cena das linhas (o que acontece, para o tom e a coerência; não traduzir):");
+            foreach (var scene in batch.Scenes)
+                AppendScene(sb, scene);
+        }
+
         return sb.ToString().TrimStart();
+    }
+
+    private static void AppendScene(StringBuilder sb, VNForge.Core.Bible.BibleScene scene)
+    {
+        // O lote pode juntar linhas de mais de uma cena (um script curto não enche o lote): o id da linha começa pela chave da cena.
+        sb.AppendLine($"- Cena{(string.IsNullOrWhiteSpace(scene.Name) ? string.Empty : $" \"{scene.Name.Trim()}\"")} (linhas com id {scene.Key}:...):");
+        if (scene.Summary.Length > 0)
+            sb.AppendLine($"  Resumo: {scene.Summary}");
+        if (scene.Tone.Count > 0)
+            sb.AppendLine($"  Tom: {string.Join("; ", scene.Tone)}");
+        if (scene.Jokes.Count > 0)
+            sb.AppendLine($"  Piadas e motivos que voltam (traduza sempre igual): {string.Join("; ", scene.Jokes)}");
+        foreach (var relation in scene.Relations)
+            sb.AppendLine($"  Relação, {relation.Between}: {relation.Note}");
     }
 
     /// <summary>Acrescenta ao prompt do usuário o contexto anterior, que o modelo lê mas não processa.</summary>
