@@ -1,5 +1,6 @@
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
+using VNForge.AI.Eval;
 using VNForge.AI.Translation;
 using VNForge.App.Services;
 using VNForge.Core;
@@ -15,6 +16,10 @@ public sealed partial class MainWindowViewModel
     /// <summary>Monta o provedor da IA para (modelo, esforço). O app passa o Claude com a chave do usuário; os testes passam o provedor falso.</summary>
     public Func<string, ClaudeEffort, ITranslationProvider> TranslationProviderFactory { get; init; } =
         static (_, _) => throw new InvalidOperationException("Nenhum provedor de IA configurado.");
+
+    /// <summary>Monta o juiz de IA do banco de provas para o modelo escolhido. O app passa o Claude com a chave do usuário; os testes passam o juiz falso.</summary>
+    public Func<string, IJudgeProvider> JudgeProviderFactory { get; init; } =
+        static _ => throw new InvalidOperationException("Nenhum juiz de IA configurado.");
 
     /// <summary>Monta o provedor da bíblia do jogo; o app passa o Claude com a chave do usuário. Sem ele, a página Bíblia pede a chave.</summary>
     public Func<string, ClaudeEffort, VNForge.AI.Bible.IBibleProvider>? BibleProviderFactory

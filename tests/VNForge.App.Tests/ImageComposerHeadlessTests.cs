@@ -1,0 +1,183 @@
+using VNForge.App.Services;
+using VNForge.Core.Images;
+
+namespace VNForge.App.Tests;
+
+/// <summary>O compositor de verdade (Skia headless): apaga a área, escreve o texto e devolve um PNG que o app lê de volta.</summary>
+public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
+{
+    private const int Width = 200;
+    private const int Height = 100;
+
+    private static RasterPicture Background()
+    {
+        var bgra = new byte[Width * Height * 4];
+        for (var i = 0; i < bgra.Length; i += 4)
+        {
+            (bgra[i], bgra[i + 1], bgra[i + 2], bgra[i + 3]) = (180, 120, 60, 255);
+        }
+
+        // O "texto original": pixels escuros na área que vai ser apagada.
+        for (var y = 40; y < 60; y++)
+        {
+            for (var x = 60; x < 140; x++)
+            {
+                var at = ((y * Width) + x) * 4;
+                (bgra[at], bgra[at + 1], bgra[at + 2]) = (0, 0, 0);
+            }
+        }
+
+        return new RasterPicture(Width, Height, bgra);
+    }
+
+    private static ImageEdit Edit(string text) =>
+        new("img.ypf", "bg/portao.png", "ab", Width, Height, new ImageRegion(50, 30, 100, 40), ImageEraseModes.Surrounding, null, text, "Noto Sans", 20, true, "#ffffff", null, true);
+
+    private static bool IsBackground(RasterPicture picture, int x, int y)
+    {
+        var at = ((y * picture.Width) + x) * 4;
+        return Math.Abs(picture.Bgra[at] - 180) <= 2 && Math.Abs(picture.Bgra[at + 1] - 120) <= 2 && Math.Abs(picture.Bgra[at + 2] - 60) <= 2;
+    }
+
+    [Fact]
+    public async Task WithoutTextTheAreaIsErasedWithTheSurroundingColourAndTheRestIsUntouched()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var result = composer.Decode(composer.Render(Background(), Edit(string.Empty)));
+
+                Assert.Equal((Width, Height), (result.Width, result.Height));
+                Assert.True(IsBackground(result, 100, 50), "a área do texto original continua escura");
+                Assert.True(IsBackground(result, 5, 5));
+                Assert.True(IsBackground(result, 195, 95));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task TheTextIsWrittenInsideTheAreaAndNothingIsDrawnOutsideIt()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var result = composer.Decode(composer.Render(Background(), Edit("Portão")));
+
+                var inside = Enumerable.Range(30, 40).SelectMany(y => Enumerable.Range(50, 100).Select(x => (x, y))).Count(p => !IsBackground(result, p.x, p.y));
+                var outside = Enumerable.Range(0, Height).SelectMany(y => Enumerable.Range(0, Width).Select(x => (x, y)))
+                    .Count(p => (p.x < 50 || p.x >= 150 || p.y < 30 || p.y >= 70) && !IsBackground(result, p.x, p.y));
+                Assert.True(inside > 30, $"só {inside} pixels de texto na área");
+                Assert.Equal(0, outside);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task MeasureGrowsWithTheTextAndTheFontSize()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var small = composer.Measure(Edit("Portão"));
+                var longer = composer.Measure(Edit("Portão do colégio"));
+                var bigger = composer.Measure(Edit("Portão") with { FontSize = 40 });
+
+                Assert.True(longer.Width > small.Width);
+                Assert.True(bigger.Height > small.Height);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task SomethingThatIsNotAnImageIsRefused()
+    {
+        await fixture.Session.Dispatch(
+            () => Assert.Throws<InvalidDataException>(() => new AvaloniaImageComposer().Decode([1, 2, 3, 4])),
+            TestContext.Current.CancellationToken);
+    }
+
+    private static byte[] HeaderOnly(int width, int height)
+    {
+        var bytes = new List<byte> { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13 };
+        bytes.AddRange("IHDR"u8.ToArray());
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(0), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 8;
+        bytes.AddRange(header);
+        bytes.AddRange(new byte[4]);
+        return [.. bytes];
+    }
+
+    [Theory]
+    [InlineData(8193, 100)]
+    [InlineData(100, 20000)]
+    [InlineData(8000, 8000)]
+    public async Task AnImageThatDeclaresATooBigSizeIsRefusedBeforeDecoding(int width, int height)
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var error = Assert.Throws<InvalidDataException>(() => composer.Decode(HeaderOnly(width, height)));
+                Assert.Contains("acima do que o editor abre", error.Message);
+                Assert.Throws<InvalidDataException>(() => composer.Thumbnail(HeaderOnly(width, height), 120));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ThumbnailKeepsTheProportionAtTheAskedWidth()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var png = composer.Render(Background(), Edit(string.Empty));
+
+                var thumbnail = composer.Decode(composer.Thumbnail(png, 50));
+
+                Assert.Equal((50, 25), (thumbnail.Width, thumbnail.Height));
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task SemiTransparentPixelsOutsideTheAreaComeBackWithTheSameAlphaAndColour()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var bgra = new byte[Width * Height * 4];
+                for (var i = 0; i < bgra.Length; i += 4)
+                {
+                    // Pré-multiplicado, como o Decode devolve: cor 200 com alfa 128 vira 100.
+                    (bgra[i], bgra[i + 1], bgra[i + 2], bgra[i + 3]) = (100, 60, 30, 128);
+                }
+
+                var rendered = composer.Decode(composer.Render(new RasterPicture(Width, Height, bgra), Edit(string.Empty)));
+
+                foreach (var (x, y) in new[] { (5, 5), (190, 90), (10, 95) })
+                {
+                    var at = ((y * Width) + x) * 4;
+                    Assert.InRange(rendered.Bgra[at + 3], 127, 129);
+                    Assert.InRange(rendered.Bgra[at], 99, 101);
+                    Assert.InRange(rendered.Bgra[at + 1], 59, 61);
+                    Assert.InRange(rendered.Bgra[at + 2], 29, 31);
+                }
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task TheEmbeddedFontsComeFirstInTheChoices()
+    {
+        await fixture.Session.Dispatch(
+            () => Assert.Equal("Zen Kaku Gothic New", new AvaloniaImageComposer().FontFamilies[0]),
+            TestContext.Current.CancellationToken);
+    }
+}
