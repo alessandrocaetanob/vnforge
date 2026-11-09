@@ -101,6 +101,16 @@
       </Setter>
     </Style>
 
+    <!-- Botões da barra de ferramentas: o tema pinta o texto no ContentPresenter, então o peso do quadro (600) também vai para lá. -->
+    <Style Selector="Button.tool /template/ ContentPresenter#PART_ContentPresenter, Button.tool.accent /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- Campo Fonte: o fundo do quadro é o do painel; o modelo do ComboBox pinta o dele. -->
+    <Style Selector="ComboBox.fontbox /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    </Style>
+
     <!-- Amostra de cor do texto: um círculo de 24px; a escolhida ganha o anel accent de 2px por fora. -->
     <Style Selector="Button.swatch">
       <Setter Property="Background" Value="Transparent"/>
@@ -163,7 +173,7 @@
             </StackPanel>
           </StackPanel>
 
-          <ListBox Grid.Row="2" Classes="thumbs" Margin="-6,8,-6,0" Padding="6,6" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="88" AutomationProperties.Name="Imagens do inventário"
+          <ListBox Grid.Row="2" Classes="thumbs" Margin="-6,6,-6,0" Padding="6,6" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="88" AutomationProperties.Name="Imagens do inventário"
                    IsVisible="{Binding !IsEmpty}">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -190,8 +200,8 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <Grid Grid.Row="3" Margin="0,6,0,0" ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding HasImage}">
-            <Button Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsSelectTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.SelectArea}"
+          <Grid Grid.Row="3" Margin="0,2,0,0" ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding HasImage}">
+            <Button Classes="sm tool" Padding="14,0" FontWeight="SemiBold" Classes.accent="{Binding IsSelectTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.SelectArea}"
                     AutomationProperties.Name="Selecionar área">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -199,10 +209,10 @@
                     <Path StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round" Stroke="{Binding $parent[Button].Foreground}" Data="M4,4 H16 V16 H4 Z" StrokeDashArray="1.7,1.4"/>
                   </Canvas>
                 </Viewbox>
-                <TextBlock Text="Selecionar área"/>
+                <TextBlock FontWeight="SemiBold" Text="Selecionar área"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="1" Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsEraseTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Erase}"
+            <Button Grid.Column="1" Classes="sm tool" Padding="14,0" FontWeight="SemiBold" Classes.accent="{Binding IsEraseTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Erase}"
                     Click="OnEraseToolClick" AutomationProperties.Name="Apagar">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -210,10 +220,10 @@
                     <Path StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round" Stroke="{Binding $parent[Button].Foreground}" Data="M4,12.5 L10,6 L15.5,11 L11.5,15.5 H7.5 Z M8,16 H16"/>
                   </Canvas>
                 </Viewbox>
-                <TextBlock Text="Apagar"/>
+                <TextBlock FontWeight="SemiBold" Text="Apagar"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="2" Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsTextTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Text}"
+            <Button Grid.Column="2" Classes="sm tool" Padding="14,0" FontWeight="SemiBold" Classes.accent="{Binding IsTextTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Text}"
                     Click="OnTextToolClick" AutomationProperties.Name="Texto">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -221,10 +231,10 @@
                     <Path StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round" Stroke="{Binding $parent[Button].Foreground}" Data="M5,5 H15 M10,5 V15 M8,15 H12"/>
                   </Canvas>
                 </Viewbox>
-                <TextBlock Text="Texto"/>
+                <TextBlock FontWeight="SemiBold" Text="Texto"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="3" Classes="subtle sm" Padding="12,0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding UndoCommand}" AutomationProperties.Name="Desfazer">
+            <Button Grid.Column="3" Classes="subtle sm tool" Padding="12,0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding UndoCommand}" AutomationProperties.Name="Desfazer">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
                 <TextBlock Text="Desfazer"/>
@@ -307,7 +317,7 @@
                     <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
                     <Border Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
                       <StackPanel Spacing="4">
-                        <SelectableTextBlock TextWrapping="Wrap" FontWeight="Normal" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
+                        <TextBlock TextWrapping="Wrap" FontWeight="Normal" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
                                              Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
                         <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SelectedItem.Translation}"
                                    IsVisible="{Binding SelectedItem.HasTranslation}" AutomationProperties.Name="Tradução sugerida pela IA"/>
@@ -321,7 +331,7 @@
                   <Grid ColumnDefinitions="*,80" ColumnSpacing="10">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="overline" Text="Fonte"/>
-                      <ComboBox ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" FontWeight="Normal" Background="{DynamicResource Vnf.BgCard}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
+                      <ComboBox Classes="fontbox" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" FontWeight="Normal" Background="{DynamicResource Vnf.BgCard}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
                       <TextBlock Classes="overline" Text="Tamanho"/>
