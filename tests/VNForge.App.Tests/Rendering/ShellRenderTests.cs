@@ -121,6 +121,23 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
         });
     }
 
+    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo com a segunda linha, completo e compacto. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
+    [Theory]
+    [InlineData(1000, false, 181, 231)]
+    [InlineData(768, true, 82, 82)]
+    public async Task O_cabecalho_do_jogo_ocupa_a_altura_combinada(int height, bool compact, int expectedHeader, int expectedWithSections)
+    {
+        await Abrir(ThemeVariant.Dark, height == 768 ? 1366 : ScreenRenderer.Width, height, NavKey.Dashboard, (window, _) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            var border = header.GetVisualDescendants().OfType<Border>().First(b => b.BorderThickness == new Thickness(0, 0, 0, 1));
+            Assert.Equal(compact, header.IsCompact);
+            var page = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "PageArea");
+            Assert.Equal(expectedHeader, (int)Math.Round(border.Bounds.Height));
+            Assert.Equal(expectedWithSections, (int)Math.Round(page.TranslatePoint(default, header)!.Value.Y));
+        });
+    }
+
     [Fact]
     public async Task Fora_do_jogo_a_Biblioteca_e_Ajustes_nao_mostram_cabecalho_nem_abas()
     {
@@ -133,7 +150,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             ScreenRenderer.Settle(window);
 
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
-            Assert.Equal("Ajustes", vm.Breadcrumb);
+            Assert.Equal("Biblioteca › " + vm.ProjectTitle, vm.Breadcrumb);
         });
     }
 

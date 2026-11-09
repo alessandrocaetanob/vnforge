@@ -20,6 +20,15 @@ public sealed partial class GameHeaderView : UserControl
 
     public GameHeaderView() => InitializeComponent();
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsCompactProperty)
+        {
+            Classes.Set("compact", IsCompact);
+        }
+    }
+
     public bool IsCompact
     {
         get => GetValue(IsCompactProperty);

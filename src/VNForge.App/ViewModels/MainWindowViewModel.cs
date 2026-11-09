@@ -79,6 +79,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
     private readonly NavItemViewModel reviewItem = new(NavKey.Review, "Revisão", "Icon.Check", isEnabled: false);
     private NavItemViewModel lastTranslationItem;
+    private NavItemViewModel? lastGameItem;
+    private CancellationTokenSource? progressRefresh;
     private readonly Action<string> openFolder;
     private readonly FormattingProfileCache profiles = new();
     private bool editorCountIsNewer;
@@ -126,8 +128,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         BottomNav = [settingsItem];
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem];
         lastTranslationItem = dashboardItem;
-        Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, chega com a Biblioteca. Por enquanto o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
-        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo chegam depois. Por enquanto, Testar no jogo abre o jogo com a tradução.", "Abrir Testar no jogo", () => SelectedNav = buildItem);
+        Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
+        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
         selectedNav = startItem;
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -145,6 +147,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LinesSaved += (_, saved) =>
         {
+            ScheduleProgressRefresh();
             Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
             OfferCorrections(saved);
         };
@@ -282,7 +285,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
-    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel))]
+    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(CanReturnToGame), nameof(Breadcrumb))]
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
@@ -375,11 +378,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
+            var wasInGame = InGame;
             if (SetProperty(ref selectedNav, value))
             {
                 if (GameTabOf(value.Key) == GameTab.Translation)
                 {
                     lastTranslationItem = value;
+                }
+
+                if (GameTabOf(value.Key) is not null)
+                {
+                    lastGameItem = value;
                 }
 
                 RaiseShellChanged();
@@ -398,9 +407,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 };
                 if (value.Key == NavKey.Dashboard)
                 {
-                    _ = Dashboard.ReloadAsync();
+                    DashboardRefresh = Dashboard.ReloadAsync();
                 }
-                else if (value.Key == NavKey.Start)
+                else if (!wasInGame && GameTabOf(value.Key) is not null)
+                {
+                    // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
+                    DashboardRefresh = Dashboard.ReloadAsync();
+                }
+
+                if (value.Key == NavKey.Start)
                 {
                     // O anel, a porcentagem e o próximo passo do Início vêm da pasta, que o Editor e a Conferência mudam; a cotação e o limite também.
                     _ = Start.LoadAsync();
@@ -458,8 +473,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         else if (e.PropertyName is nameof(DashboardViewModel.ReadyLines) or nameof(DashboardViewModel.TotalLines))
         {
-            OnPropertyChanged(nameof(GameProgressPercent));
-            OnPropertyChanged(nameof(GameProgressLabel));
+            RaiseProgressChanged();
         }
     }
 
@@ -483,6 +497,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void OnLineSaved(object? sender, LineSavedEventArgs saved)
     {
+        ScheduleProgressRefresh();
         ShowLineSaved(saved);
         OfferCorrections(saved);
     }
@@ -775,6 +790,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (CurrentProject?.Root != summary.Root)
         {
             Toasts.Clear();
+        }
+
+        if (CurrentProject?.Root != summary.Root)
+        {
+            lastGameItem = null;
+            lastTranslationItem = dashboardItem;
         }
 
         CurrentProject = summary;

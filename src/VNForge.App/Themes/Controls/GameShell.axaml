@@ -115,6 +115,18 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.StatusTranslatedBg}"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
+  <Style Selector="Border.game-pill.done">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.none">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.done > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.none > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+  </Style>
   <Style Selector="Border.game-pill > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusTranslatedFg}"/>
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>

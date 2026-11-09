@@ -112,7 +112,42 @@ public sealed class MainWindowShellTests
         Assert.False(vm.InGame);
         Assert.Same(vm.Settings, vm.CurrentPage);
         Assert.Null(vm.SelectedTopNav);
+        Assert.Equal("Biblioteca › Minha VN", vm.Breadcrumb);
+    }
+
+    [Fact]
+    public void Ajustes_sem_projeto_aberto_so_dizem_Ajustes_na_barra_de_titulo()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp, temp.SubFolder("vn"));
+
+        vm.SelectedBottomNav = vm.BottomNav[0];
+
         Assert.Equal("Ajustes", vm.Breadcrumb);
+        Assert.False(vm.CanReturnToGame);
+    }
+
+    [Fact]
+    public async Task Dos_Ajustes_ou_da_Biblioteca_um_botao_volta_ao_ultimo_jogo_aberto()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedAsync(temp);
+        Assert.False(vm.CanReturnToGame);
+        vm.SelectedNav = Item(vm, NavKey.Editor);
+        Assert.False(vm.CanReturnToGame);
+
+        vm.SelectedBottomNav = vm.BottomNav[0];
+        Assert.True(vm.CanReturnToGame);
+        vm.ReturnToGameCommand.Execute(null);
+
+        Assert.Same(vm.Editor, vm.CurrentPage);
+        Assert.True(vm.InGame);
+        Assert.False(vm.CanReturnToGame);
+
+        vm.OpenLibraryCommand.Execute(null);
+        Assert.True(vm.CanReturnToGame);
+        vm.ReturnToGameCommand.Execute(null);
+        Assert.Same(vm.Editor, vm.CurrentPage);
     }
 
     [Fact]
@@ -288,7 +323,7 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public async Task O_botao_do_proximo_passo_do_Painel_sobe_para_o_cabecalho_do_jogo()
+    public async Task O_Painel_tem_o_proximo_passo_que_o_cabecalho_mostra_no_botao()
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp, TranslationStatus.Machine, TranslationStatus.Machine);
@@ -301,14 +336,58 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
+    public async Task Entrar_direto_pelo_Editor_tambem_carrega_o_proximo_passo_do_cabecalho()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedAsync(temp, TranslationStatus.Machine, TranslationStatus.Machine);
+        Assert.False(vm.Dashboard.HasNextStep);
+
+        vm.SelectedNav = Item(vm, NavKey.Editor);
+        await vm.DashboardRefresh;
+
+        Assert.True(vm.Dashboard.HasNextStep);
+        Assert.Equal("Sem tradução ainda", vm.GameProgressLabel);
+        Assert.True(vm.GameProgressNone);
+    }
+
+    [Fact]
+    public async Task Aprovar_uma_linha_no_Editor_atualiza_a_pilula_e_a_barra_do_cabecalho()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine, TranslationStatus.Approved);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)))
+        {
+            Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: a => a()),
+            ProgressRefreshDelay = TimeSpan.Zero,
+        };
+        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
+        await vm.Editor.Loading;
+        vm.SelectedNav = Item(vm, NavKey.Editor);
+        await vm.DashboardRefresh;
+        Assert.Equal("Em tradução · 50%", vm.GameProgressLabel);
+        Assert.False(vm.GameProgressDone);
+
+        vm.Editor.SelectedLine = vm.Editor.Lines[0];
+        vm.Editor.Detail!.ApproveCommand.Execute(null);
+        await vm.DashboardRefresh;
+
+        Assert.Equal(100, vm.GameProgressPercent);
+        Assert.Equal("Traduzido · 100%", vm.GameProgressLabel);
+        Assert.True(vm.GameProgressDone);
+    }
+
+    [Fact]
     public async Task A_paleta_lista_a_Biblioteca_e_as_paginas_do_jogo_como_telas()
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
 
         vm.Palette.Open();
-        vm.Palette.Query = "Biblioteca";
-        Assert.Contains(vm.Palette.Results, r => r.Title == "Biblioteca" && r.Subtitle == "Tela");
+        foreach (var screen in new[] { "Biblioteca", "Ficha", "Jogar", "Painel" })
+        {
+            vm.Palette.Query = screen;
+            Assert.Contains(vm.Palette.Results, r => r.Title == screen && r.Subtitle == "Tela");
+        }
     }
 
     [Fact]

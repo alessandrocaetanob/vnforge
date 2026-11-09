@@ -151,6 +151,12 @@ public sealed partial class MainWindowViewModel
             return Start.LoadAsync();
         }
 
+        if (InGame && !ReferenceEquals(CurrentPage, Conference))
+        {
+            // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar.
+            return DashboardRefresh = Dashboard.ReloadAsync();
+        }
+
         return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
     }
 

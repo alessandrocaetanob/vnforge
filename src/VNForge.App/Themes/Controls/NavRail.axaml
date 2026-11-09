@@ -4,7 +4,7 @@
   <!-- Trilho do v3 (quadro da #544): ícone de 22px com rótulo curto em 11px; o item atual em accent-soft com texto accent-text, sem barra lateral. -->
   <Style Selector="ListBox.navrail">
     <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="Padding" Value="0,4"/>
+    <Setter Property="Padding" Value="0,13"/>
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem">
@@ -37,6 +37,9 @@
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="ListBox.navrail > ListBoxItem:selected TextBlock">
+    <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>

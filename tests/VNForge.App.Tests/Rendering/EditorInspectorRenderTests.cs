@@ -40,7 +40,7 @@ public sealed class EditorInspectorRenderTests(HeadlessFixture fixture, DemoFold
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demo.Root), new FixedClock(Now));
                 var editor = new EditorViewModel(scriptLabel: DemoProject.Label) { Explanations = new ExplicacaoDeExemplo() };
                 var vm = new MainWindowViewModel(start) { Editor = editor };
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.GameWindowHeight(ScreenRenderer.Height), RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();

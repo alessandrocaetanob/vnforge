@@ -68,8 +68,22 @@ public sealed partial class MainWindowViewModel
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
-    /// <summary>"Biblioteca › Amaoto no Hakoniwa" dentro do jogo; "Ajustes" nos Ajustes; "Biblioteca" no resto.</summary>
-    public string Breadcrumb => InGame ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : "Biblioteca";
+    /// <summary>"Biblioteca › Amaoto no Hakoniwa" dentro do jogo e nos Ajustes de um projeto aberto; "Ajustes" nos Ajustes sem projeto; "Biblioteca" no resto.</summary>
+    public string Breadcrumb => InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : "Biblioteca";
+
+    /// <summary>Atraso entre gravar uma linha e reler o andamento do jogo para o cabeçalho; várias gravações seguidas fazem uma leitura só.</summary>
+    public TimeSpan ProgressRefreshDelay { get; set; } = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>A última releitura do Painel que o cabeçalho pediu (ao entrar no jogo ou depois de gravar linhas); os testes a aguardam.</summary>
+    public Task DashboardRefresh { get; private set; } = Task.CompletedTask;
+
+    /// <summary>Há um jogo aberto antes e a página de agora é a Biblioteca ou os Ajustes: o botão da barra de título volta a ele.</summary>
+    public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Settings;
+
+    /// <summary>Verde quando o jogo está todo pronto, neutro quando nada foi feito, azul no meio.</summary>
+    public bool GameProgressDone => GameProgress.Percent(ReadyLines, TotalLines) >= 100;
+
+    public bool GameProgressNone => GameProgress.Percent(ReadyLines, TotalLines) == 0;
 
     public string GameEngineLabel => CurrentProject is { } project ? ProjectLabels.EngineName(project.EngineId) : string.Empty;
 
@@ -130,6 +144,50 @@ public sealed partial class MainWindowViewModel
     [RelayCommand]
     private void OpenLibrary() => SelectedNav = Nav[0];
 
+    [RelayCommand]
+    private void ReturnToGame()
+    {
+        if (lastGameItem is { } item)
+        {
+            SelectedNav = item;
+        }
+    }
+
+    /// <summary>Gravar linhas muda o andamento e o próximo passo: relê o Painel depois de um instante, sem reler a cada tecla.</summary>
+    private void ScheduleProgressRefresh()
+    {
+        if (CurrentProject is null)
+        {
+            return;
+        }
+
+        progressRefresh?.Cancel();
+        var source = progressRefresh = new CancellationTokenSource();
+        DashboardRefresh = RefreshProgressAsync(source.Token);
+    }
+
+    private async Task RefreshProgressAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(ProgressRefreshDelay, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await Dashboard.ReloadAsync();
+    }
+
+    private void RaiseProgressChanged()
+    {
+        OnPropertyChanged(nameof(GameProgressPercent));
+        OnPropertyChanged(nameof(GameProgressLabel));
+        OnPropertyChanged(nameof(GameProgressDone));
+        OnPropertyChanged(nameof(GameProgressNone));
+    }
+
     private void OpenSection(NavItemViewModel section)
     {
         if (ReferenceEquals(section, reviewItem))
@@ -168,5 +226,6 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(Breadcrumb));
         OnPropertyChanged(nameof(SelectedGameTab));
         OnPropertyChanged(nameof(SelectedSection));
+        OnPropertyChanged(nameof(CanReturnToGame));
     }
 }

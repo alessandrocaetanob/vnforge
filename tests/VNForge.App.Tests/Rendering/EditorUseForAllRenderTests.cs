@@ -43,7 +43,7 @@ public sealed class EditorUseForAllRenderTests(HeadlessFixture fixture) : IClass
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var editor = new EditorViewModel();
                 var vm = new MainWindowViewModel(start) { Editor = editor };
-                var window = new MainWindow { Width = width, Height = ScreenRenderer.GameWindowHeight(height), RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();

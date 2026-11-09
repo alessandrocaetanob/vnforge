@@ -5,20 +5,46 @@
              x:Class="VNForge.App.Views.GameHeaderView"
              x:DataType="vm:MainWindowViewModel">
 
+  <UserControl.Resources>
+    <DataTemplate x:Key="SectionItem" x:DataType="vm:NavItemViewModel">
+      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+        <Border IsVisible="{Binding HasBadge}" MinWidth="16" Height="16" Padding="4,0" CornerRadius="8" VerticalAlignment="Center"
+                Background="{DynamicResource Vnf.SignalErrorBg}">
+          <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                     Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
+        </Border>
+        <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
+                 ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <UserControl.Styles>
     <Style Selector="ListBox.sections > ListBoxItem" x:DataType="vm:NavItemViewModel">
       <Setter Property="IsEnabled" Value="{Binding IsEnabled}"/>
       <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
     </Style>
+    <Style Selector="ListBox#Sections">
+      <Setter Property="Grid.Row" Value="1"/>
+      <Setter Property="Margin" Value="32,16,32,0"/>
+    </Style>
+    <!-- Janela baixa: a segunda linha da Tradução sobe para a linha das abas, à direita. -->
+    <Style Selector="v|GameHeaderView.compact ListBox#Sections">
+      <Setter Property="Grid.Row" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+      <Setter Property="Margin" Value="0,0,32,4"/>
+    </Style>
   </UserControl.Styles>
 
-  <StackPanel>
+  <Grid RowDefinitions="Auto,Auto">
     <!-- O cabeçalho do jogo: a volta para a Biblioteca, a capa (ainda um selo sobre o andamento), o nome, a engine, o andamento e o próximo passo; abaixo, as abas. -->
     <Border Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
-      <StackPanel Margin="32,12,32,0" Spacing="12">
+      <StackPanel Margin="32,8,32,0">
 
         <!-- Janela baixa: a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
-        <Grid Name="Regular" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+        <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
           <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
                   AutomationProperties.Name="Voltar para a Biblioteca">
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -27,9 +53,9 @@
             </StackPanel>
           </Button>
           <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-            <Border Width="56" Height="75" ClipToBounds="True" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}"
-                    AutomationProperties.AccessibilityView="Raw">
-              <Panel>
+            <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                    Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
+              <Panel ClipToBounds="True">
                 <Viewbox Width="30" Height="30" Margin="0,0,0,6" Opacity="0.35">
                   <Path Data="{StaticResource Brand.Seal}" Fill="{DynamicResource Vnf.TextPrimary}"/>
                 </Viewbox>
@@ -45,7 +71,7 @@
                 <Border Classes="game-tag">
                   <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
                 </Border>
-                <Border Classes="game-pill">
+                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
                   <TextBlock Name="Progress" Text="{Binding GameProgressLabel}"/>
                 </Border>
               </StackPanel>
@@ -60,7 +86,7 @@
           </Grid>
         </Grid>
 
-        <Grid Name="Compact" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
           <Button Classes="subtle sm icon" Command="{Binding OpenLibraryCommand}" VerticalAlignment="Center"
                   AutomationProperties.Name="Voltar para a Biblioteca" ToolTip.Tip="Voltar para a Biblioteca">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
@@ -70,7 +96,7 @@
             <Border Classes="game-tag">
               <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
             </Border>
-            <Border Classes="game-pill">
+            <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
               <TextBlock Text="{Binding GameProgressLabel}"/>
             </Border>
           </StackPanel>
@@ -80,33 +106,20 @@
           </Button>
         </Grid>
 
-        <ListBox Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:GameTabItem">
-              <TextBlock Text="{Binding Label}"/>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+        <Grid ColumnDefinitions="Auto,*">
+          <ListBox Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameTabItem">
+                <TextBlock Text="{Binding Label}"/>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
       </StackPanel>
     </Border>
 
     <!-- A segunda linha da Tradução. O Editor e a Revisão são a mesma página; Conferir leva o contador de erros. -->
-    <ListBox Classes="sections" Margin="32,16,32,0" IsVisible="{Binding ShowSections}" ItemsSource="{Binding Sections}"
-             SelectedItem="{Binding SelectedSection}" AutomationProperties.Name="Seções da tradução">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:NavItemViewModel">
-          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-            <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
-            <Border IsVisible="{Binding HasBadge}" MinWidth="16" Height="16" Padding="4,0" CornerRadius="8" VerticalAlignment="Center"
-                    Background="{DynamicResource Vnf.SignalErrorBg}">
-              <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
-                         Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
-            </Border>
-            <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
-                     ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
-          </StackPanel>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
-  </StackPanel>
+    <ListBox Name="Sections" Classes="sections" IsVisible="{Binding ShowSections}" ItemsSource="{Binding Sections}"
+             ItemTemplate="{StaticResource SectionItem}" SelectedItem="{Binding SelectedSection}" AutomationProperties.Name="Seções da tradução"/>
+  </Grid>
 </UserControl>
