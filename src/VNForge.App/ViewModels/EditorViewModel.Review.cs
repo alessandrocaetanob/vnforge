@@ -167,22 +167,23 @@ public sealed partial class EditorViewModel
     }
 
     /// <summary>As sugestões da passada de editor (#532) em <c>.cache/editor-suggestions.json</c>; sem pasta de projeto, sem arquivo ou com ele ilegível, nenhuma.</summary>
-    private static PendingEditorSuggestions LoadEditorSuggestions(string? root)
+    private static EditorSuggestionsFile LoadEditorSuggestions(string? root)
     {
         if (root is null)
         {
-            return PendingEditorSuggestions.Empty;
+            return EditorSuggestionsFile.Empty;
         }
 
         try
         {
-            return PendingEditorSuggestions.Load(ProjectFolder.Open(root));
+            return EditorSuggestionsFile.Load(ProjectFolder.Open(root));
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
-            return PendingEditorSuggestions.Empty;
+            return EditorSuggestionsFile.Empty;
         }
     }
+
     /// <summary>Os personagens que têm linhas da IA para revisar, na ordem em que aparecem na história.</summary>
     public IReadOnlyList<ReviewableSpeaker> ReviewableSpeakers
     {

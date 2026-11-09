@@ -46,4 +46,9 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
     <Setter Property="TextDecorations" Value="Strikethrough"/>
   </Style>
+  <!-- A tradução de hoje, riscada, na sugestão do editor (#532): em signal-error-fg, como no quadro. -->
+  <Style Selector="Run.sug-del">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    <Setter Property="TextDecorations" Value="Strikethrough"/>
+  </Style>
 </Styles>

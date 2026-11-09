@@ -26,7 +26,7 @@ internal static class RiskStatusReport
     public static int Run(VnfCli cli, ProjectFolder project, int top, bool json, TextWriter output)
     {
         var lines = ProjectLines.Read(project);
-        var queue = RiskQueue.Build(lines, PendingEditorSuggestions.Load(project));
+        var queue = RiskQueue.Build(lines, EditorSuggestionsFile.Load(project));
         var high = queue.Count(RiskLevel.High);
         var pace = ReviewPace.Compute(SessionsFile.Load(project), queue.Lines.Count, DateTimeOffset.UtcNow, TimeZoneInfo.Local);
         var shown = queue.Lines.Take(top).ToList();

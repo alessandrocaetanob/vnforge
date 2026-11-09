@@ -8,9 +8,10 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Services;
 
-/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade e os scripts do escopo.</summary>
+/// <summary>O que a janela "Traduzir com IA" pediu: o escopo, a qualidade, os scripts do escopo, se, depois de traduzir, vem a passada de editor em cada cena (#532) e se o pedido vai pelo lote da noite.</summary>
+/// <param name="EditorPass">A passada de editor depois da tradução. Não vale no lote da noite: o resultado dele chega horas depois, e a passada lê a tradução pronta.</param>
 /// <param name="Overnight">Mandar pela Message Batches API, com metade do preço e resultado em até 24 h, em vez de traduzir agora.</param>
-public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys, bool Overnight = false);
+public sealed record TranslationRequest(TranslationScope Scope, TranslationQuality Quality, IReadOnlyList<string> ScriptKeys, bool EditorPass = false, bool Overnight = false);
 
 /// <summary>A cotação, o limite de gasto e as chamadas em paralelo de uma execução. <paramref name="Delay"/> troca a espera entre tentativas (os testes não esperam).</summary>
 public sealed record TranslationJobSettings(ExchangeRate Rate, BudgetLimits Limits, int Concurrency, Func<TimeSpan, CancellationToken, Task>? Delay = null);

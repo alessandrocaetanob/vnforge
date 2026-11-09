@@ -13,13 +13,13 @@ public sealed class RiskReview
 {
     private readonly int[] highFrom;
 
-    public RiskReview(RiskQueue queue, ReviewPace pace, PendingEditorSuggestions? suggestions = null)
+    public RiskReview(RiskQueue queue, ReviewPace pace, EditorSuggestionsFile? suggestions = null)
     {
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(pace);
         Queue = queue;
         Pace = pace;
-        Suggestions = suggestions ?? PendingEditorSuggestions.Empty;
+        Suggestions = suggestions ?? EditorSuggestionsFile.Empty;
         Items = [.. queue.Lines.Select(l => new ReviewItem(l.Line.ScriptKey, l.Line.Number, l.Line.Unit.Id))];
         highFrom = new int[queue.Lines.Count + 1];
         for (var i = queue.Lines.Count - 1; i >= 0; i--)
@@ -33,7 +33,7 @@ public sealed class RiskReview
     public ReviewPace Pace { get; }
 
     /// <summary>As sugestões da passada de editor com que a fila foi pontuada, para pontuar de novo a linha de agora depois de uma gravação.</summary>
-    public PendingEditorSuggestions Suggestions { get; }
+    public EditorSuggestionsFile Suggestions { get; }
 
     public IReadOnlyList<ReviewItem> Items { get; }
 
@@ -191,7 +191,7 @@ public sealed partial class ReviewModeViewModel
         }
 
         var stored = review.Queue.Lines[Position];
-        currentRisk = editor.EntryOf(review.Items[Position]) is { } entry ? LineRisk.Of(entry, review.Suggestions.Covers(entry.ScriptKey, entry.Unit)) : stored;
+        currentRisk = editor.EntryOf(review.Items[Position]) is { } entry ? LineRisk.Of(entry, review.Suggestions.For(entry.ScriptKey, entry.Unit) is not null) : stored;
     }
 
     private static string LevelLabel(RiskLevel level) => level switch

@@ -161,6 +161,9 @@ public sealed class RiskQueueTests
         Assert.Equal(24, fila.Lines[0].Score);
     }
 
+    private static EditorSuggestion Sugestao(string unitId, string baseText) =>
+        new("a", unitId, EditorSuggestionKind.Voice, baseText, "proposta", "voz", DateTimeOffset.UnixEpoch);
+
     [Fact]
     public void Sugestao_do_editor_so_conta_enquanto_vale_para_a_linha()
     {
@@ -168,10 +171,13 @@ public sealed class RiskQueueTests
         var velha = Linha("a", 2);
         var aprovada = Linha("a", 3, TranslationStatus.Approved);
         var linhas = ProjectLines.Create(Textos(("a", [viva, velha, aprovada, Linha("a", 4)])));
-        var sugestoes = PendingEditorSuggestions.Of(
-            ("a", viva.Id, viva.Translation!),
-            ("a", velha.Id, "tradução antiga"),
-            ("a", aprovada.Id, aprovada.Translation!));
+        var sugestoes = new EditorSuggestionsFile(
+            EditorSuggestionsFile.CurrentVersion,
+            [
+                Sugestao(viva.Id, viva.Translation!),
+                Sugestao(velha.Id, "tradução antiga"),
+                Sugestao(aprovada.Id, aprovada.Translation!),
+            ]);
 
         var fila = RiskQueue.Build(linhas, sugestoes);
 
@@ -236,69 +242,4 @@ public sealed class RiskQueueTests
     [InlineData(1500, "25 h")]
     public void O_tempo_sai_em_horas_e_minutos(int minutos, string esperado) =>
         Assert.Equal(esperado, RiskQueue.FormatTime(TimeSpan.FromMinutes(minutos)));
-}
-
-public sealed class PendingEditorSuggestionsTests : IDisposable
-{
-    private readonly TempFolder _temp = new();
-    private readonly ProjectFolder _project;
-
-    public PendingEditorSuggestionsTests()
-    {
-        _project = ProjectFolder.Create(
-            Path.Combine(_temp.Path, "projeto"),
-            new ProjectConfig(
-                "Teste",
-                new GameConfig("jogo", "Jogo.exe"),
-                new EngineConfig("fake"),
-                new LanguagesConfig("ja", "pt-BR"),
-                new EncodingConfig("cp1252"),
-                AiConfig.Default));
-    }
-
-    public void Dispose() => _temp.Dispose();
-
-    private void Gravar(string json)
-    {
-        Directory.CreateDirectory(_project.CacheDirectory);
-        File.WriteAllText(Path.Combine(_project.CacheDirectory, "editor-suggestions.json"), json);
-    }
-
-    [Fact]
-    public void Sem_arquivo_nao_ha_sugestoes()
-    {
-        Assert.Equal(PendingEditorSuggestions.Empty, PendingEditorSuggestions.Load(_project));
-    }
-
-    [Fact]
-    public void Le_a_linha_e_a_traducao_em_que_a_passada_se_baseou()
-    {
-        Gravar("""
-            {"version":1,"suggestions":[
-              {"scriptKey":"yst1","unitId":"yst1:000001","kind":"fluency","base":"Olá.","proposed":"Oi.","reason":"mais natural","at":"2026-11-08T10:00:00+00:00"},
-              {"scriptKey":"yst1","unitId":"yst1:000002","kind":"voice","base":"Tchau.","proposed":"Até.","reason":"voz","at":"2026-11-08T10:00:00+00:00"}
-            ]}
-            """);
-
-        var lidas = PendingEditorSuggestions.Load(_project);
-        var viva = new TextUnit("yst1:000001", TextUnitKind.Dialogue, null, "a", "Olá.", TranslationStatus.Machine);
-
-        Assert.True(lidas.Covers("yst1", viva));
-        Assert.False(lidas.Covers("yst1", viva with { Translation = "Olá!" }));
-        Assert.False(lidas.Covers("yst2", viva));
-    }
-
-    [Theory]
-    [InlineData("não é json")]
-    [InlineData("""{"version":9,"suggestions":[{"scriptKey":"a","unitId":"a:1","base":"x"}]}""")]
-    [InlineData("""{"version":1}""")]
-    [InlineData("""{"version":1,"suggestions":[{"scriptKey":"a"},{"unitId":"a:1","base":"x"}]}""")]
-    public void Arquivo_ilegivel_ou_de_outra_versao_nao_trava_e_nao_conta(string json)
-    {
-        Gravar(json);
-
-        var lidas = PendingEditorSuggestions.Load(_project);
-
-        Assert.Equal(PendingEditorSuggestions.Empty, lidas);
-    }
 }

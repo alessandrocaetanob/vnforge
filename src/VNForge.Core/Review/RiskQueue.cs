@@ -59,7 +59,7 @@ public sealed class RiskQueue
     public RiskDistribution Distribution { get; }
 
     /// <summary>Monta a fila das linhas do projeto. Sem <paramref name="suggestions"/>, a sugestão do editor não pesa.</summary>
-    public static RiskQueue Build(ProjectLines lines, PendingEditorSuggestions? suggestions = null)
+    public static RiskQueue Build(ProjectLines lines, EditorSuggestionsFile? suggestions = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
         return Build(lines.Scripts.SelectMany(script => lines.LinesOf(script.Key)), suggestions);
@@ -69,20 +69,24 @@ public sealed class RiskQueue
     /// Monta a fila de <paramref name="lines"/>, na ordem da história (scripts em ordem ordinal e, dentro deles, a ordem do arquivo). Aceita uma cópia das linhas
     /// tirada na thread da tela, para a conta rodar longe dela sem ler dados que a tela muda.
     /// </summary>
-    public static RiskQueue Build(IEnumerable<LineEntry> lines, PendingEditorSuggestions? suggestions = null)
+    public static RiskQueue Build(IEnumerable<LineEntry> lines, EditorSuggestionsFile? suggestions = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+        // EditorSuggestionsFile.For varre a lista a cada chamada; com dezenas de milhares de linhas indexa-se uma vez e usa-se o mesmo critério (IsLiveFor).
+        var byLine = suggestions?.Suggestions.ToLookup(s => (s.ScriptKey, s.UnitId));
         var scored = new List<LineRisk>();
         foreach (var line in lines)
         {
             if (line.Unit.Status is TranslationStatus.Machine or TranslationStatus.Translated)
             {
-                scored.Add(LineRisk.Of(line, suggestions?.Covers(line.ScriptKey, line.Unit) == true));
+                var hasSuggestion = byLine is not null && byLine[(line.ScriptKey, line.Unit.Id)].Any(s => s.IsLiveFor(line.Unit));
+                scored.Add(LineRisk.Of(line, hasSuggestion));
             }
         }
 
         return new RiskQueue([.. scored.OrderByDescending(l => l.Score)]);
     }
+
     public int Count(RiskLevel level) => level switch
     {
         RiskLevel.High => high,

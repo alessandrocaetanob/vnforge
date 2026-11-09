@@ -80,7 +80,7 @@ public sealed record RiskFactor(RiskFactorKind Kind, int Points, string Label, b
 /// <param name="Line">A linha pontuada, com os avisos do QA que a atingem.</param>
 public sealed record LineRisk(LineEntry Line, int Score, RiskLevel Level, IReadOnlyList<RiskFactor> Factors)
 {
-    /// <param name="hasEditorSuggestion">A passada de editor tem um ajuste que ainda vale para a linha (<see cref="PendingEditorSuggestions.Covers"/>).</param>
+    /// <param name="hasEditorSuggestion">A passada de editor tem um ajuste que ainda vale para a linha (<see cref="EditorSuggestionsFile.For"/>).</param>
     public static LineRisk Of(LineEntry line, bool hasEditorSuggestion = false)
     {
         ArgumentNullException.ThrowIfNull(line);

@@ -18,6 +18,8 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+    <PackageVersion Include="SharpCompress" Version="0.50.7" />
+    <PackageVersion Include="VCDiff" Version="5.0.0" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.13" />
     <PackageVersion Include="System.CommandLine" Version="2.0.13" />
     <PackageVersion Include="WeCantSpell.Hunspell" Version="7.0.1" />

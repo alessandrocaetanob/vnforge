@@ -26,11 +26,17 @@ public sealed partial class LineDetailViewModel
     public ObservableCollection<MemorySuggestionViewModel> MemorySuggestions { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard))]
+    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard), nameof(IsCompactInspector))]
     public partial bool HasMemory { get; private set; }
 
+    /// <summary>
+    /// O inspetor compacto: o cartão da memória (#537) ou o da passada de editor (#532) está aberto. A cena fica recolhida, o campo da tradução baixo e o número de caracteres sobe
+    /// para o cabeçalho, para o cartão e a caixa do jogo caberem na tela (quadros do #537 e do #532).
+    /// </summary>
+    public bool IsCompactInspector => HasMemory || HasEditorSuggestion;
+
     /// <summary>Altura mínima do campo da tradução: 72 px normalmente e 28 px (44 com a margem) com o cartão da memória aberto, para a caixa do jogo e o "Cabe" ficarem na tela (quadro do #537).</summary>
-    public double TranslationMinHeight => HasMemory ? 28 : 72;
+    public double TranslationMinHeight => IsCompactInspector ? 28 : 72;
 
     /// <summary>O aviso do cartão quando o arquivo da memória não pôde ser lido: diz o caminho e que nada foi alterado. Nulo quando a busca correu bem.</summary>
     [ObservableProperty]
@@ -52,7 +58,7 @@ public sealed partial class LineDetailViewModel
     /// <summary>
     /// Com o cartão da memória aberto o "Na cena" fica recolhido para o cartão ter espaço (quadro do #537); a pessoa abre pelo cabeçalho. Sem o cartão a cena aparece como sempre.
     /// </summary>
-    public bool IsSceneCollapsed => HasMemory && !IsSceneOpen;
+    public bool IsSceneCollapsed => IsCompactInspector && !IsSceneOpen;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSceneCollapsed))]
