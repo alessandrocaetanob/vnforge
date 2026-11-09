@@ -101,6 +101,24 @@ public sealed class BibleCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Bible_json_ilegivel_para_o_generate_antes_de_pagar_e_nao_toca_o_backup()
+    {
+        _project.SaveBible(GameBible.From([new BibleScene("yst1") { Summary = "Boa" }]));
+        _project.KeepPreviousBible();
+        var backup = File.ReadAllText(_project.PreviousBiblePath);
+        File.WriteAllText(_project.BiblePath, "{ isto não é json");
+        _cli.SetInput("s\n");
+
+        var result = await Run("generate");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("bible.json", result.Error + result.Output, StringComparison.Ordinal);
+        Assert.Contains("inválido", result.Error + result.Output, StringComparison.Ordinal);
+        Assert.Empty(_provider.SceneCalls);
+        Assert.Equal(backup, File.ReadAllText(_project.PreviousBiblePath));
+    }
+
+    [Fact]
     public async Task O_modelo_vem_da_opcao()
     {
         var result = await Run("generate", "--yes", "--model", "claude-sonnet-5-5");

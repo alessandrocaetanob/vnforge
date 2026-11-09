@@ -145,8 +145,46 @@ public sealed partial class SceneSummaryInRequestTests
         Assert.Equal(batch.Synopsis, single.Synopsis);
     }
 
+    private static TranslationBatch BatchWithWindow(GameBible? bible, int before, int after) =>
+        new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: before, maxNextLines: after, bible: bible).Build([Unit("yst1:000001", "a")]);
+
     [Fact]
-    public void O_cache_de_traducoes_muda_quando_o_resumo_da_cena_muda_e_so_nessa_cena()
+    public void A_chave_do_cache_leva_a_janela_estreita_e_as_cenas_ao_mesmo_tempo()
+    {
+        var standard = TranslationCache.ContextFor("m", BatchWithWindow(Bible(), 2, 2));
+        var narrow = TranslationCache.ContextFor("m", BatchWithWindow(Bible(), 1, 1));
+        var narrowEdited = TranslationCache.ContextFor("m", BatchWithWindow(Bible().WithScene(Bible().Scene("yst1")!.EditSummary("Outro resumo.")), 1, 1));
+
+        Assert.NotEqual(standard, narrow);
+        Assert.NotEqual(narrow, narrowEdited);
+        Assert.Contains("janela:1/1", narrow, StringComparison.Ordinal);
+        Assert.Contains("Kenta e Ren chegam atrasados", narrow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Sem_biblia_a_janela_padrao_mantem_a_chave_de_antes_e_a_estreita_a_muda()
+    {
+        var plain = TranslationCache.ContextFor("m", new TranslationBatch([Unit("yst1:000001", "a")]));
+
+        Assert.Equal(plain, TranslationCache.ContextFor("m", BatchWithWindow(null, 2, 2)));
+        Assert.NotEqual(plain, TranslationCache.ContextFor("m", BatchWithWindow(null, 1, 1)));
+    }
+
+    [Fact]
+    public void ForLines_mantem_a_janela_estreita_junto_das_cenas()
+    {
+        var batch = new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: 1, maxNextLines: 3, bible: Bible())
+            .Build([Unit("yst1:000001", "a"), Unit("yst1:000002", "b")]);
+
+        var single = batch.ForLines([batch.Lines[0]]);
+
+        Assert.Equal(new ContextWindow(1, 3), single.Window);
+        Assert.Equal(batch.Scenes, single.Scenes);
+        Assert.Equal(TranslationCache.ContextFor("m", batch), TranslationCache.ContextFor("m", single));
+    }
+
+    [Fact]
+    public void O_cache_de_traducoes_muda_quando_o_resumo_da_cena_muda_mas_nao_para_um_lote_de_outra_cena()
     {
         var before = Builder(Bible()).Build([Unit("yst1:000001", "a")]);
         var edited = Bible().WithScene(Bible().Scene("yst1")!.EditSummary("Outro resumo."));

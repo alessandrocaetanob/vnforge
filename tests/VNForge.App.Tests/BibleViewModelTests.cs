@@ -1,4 +1,6 @@
 using VNForge.AI.Bible;
+using VNForge.AI.Claude;
+using VNForge.AI.Cost;
 using VNForge.App.ViewModels;
 using VNForge.Core.Bible;
 using VNForge.Core.Projects;
@@ -180,6 +182,106 @@ public sealed class BibleViewModelTests : IDisposable
 
         Assert.Equal("leve", vm.ToneText);
         Assert.Equal("Antigo", vm.SummaryText);
+    }
+
+    private sealed class StubClient(Func<ClaudeReply> reply) : IClaudeMessageClient
+    {
+        public int Calls { get; private set; }
+
+        public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(reply());
+        }
+    }
+
+    private BibleViewModel OpenWith(StubClient client, BudgetLimits? limits = null)
+    {
+        var provider = new ClaudeBibleProvider(client);
+        var vm = new BibleViewModel { ProviderFactory = (_, _) => provider };
+        if (limits is not null)
+        {
+            vm.Limits = () => limits;
+        }
+
+        vm.Open(ProjectSummaryReader.Read(_root));
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+        return vm;
+    }
+
+    [Fact]
+    public async Task Reescrever_com_recusa_da_IA_mostra_a_mensagem_e_registra_o_gasto()
+    {
+        var client = new StubClient(() => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(2_000, 500, 0, 0)));
+        var vm = OpenWith(client);
+
+        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
+
+        Assert.Equal(1, client.Calls);
+        Assert.Contains("não quis ler", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
+    }
+
+    [Fact]
+    public async Task Reescrever_com_falha_de_rede_nao_escapa_do_comando_e_fala_em_portugues()
+    {
+        var provider = new FakeBibleProvider(describe: (_, _) => throw new HttpRequestException("socket"));
+        var vm = new BibleViewModel { ProviderFactory = (_, _) => provider };
+        vm.Open(ProjectSummaryReader.Read(_root));
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
+
+        Assert.Contains("Falha de rede", vm.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reescrever_recusa_o_pedido_que_nao_cabe_no_limite_e_nao_chama_a_IA()
+    {
+        var client = new StubClient(() => throw new InvalidOperationException("não devia chamar"));
+        var vm = OpenWith(client, new BudgetLimits(0.0001m, null));
+
+        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
+
+        Assert.Equal(0, client.Calls);
+        Assert.Contains("limite", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(0m, AiUsageLog.Load(_project).Dollars);
+    }
+
+    [Fact]
+    public async Task Gerar_recusa_a_estimativa_que_nao_cabe_no_limite_e_nao_chama_a_IA()
+    {
+        var client = new StubClient(() => throw new InvalidOperationException("não devia chamar"));
+        var vm = OpenWith(client, new BudgetLimits(0.0001m, null));
+        vm.OpenGenerateCommand.Execute(null);
+        await vm.Generation;
+
+        vm.ConfirmGenerateCommand.Execute(null);
+        await vm.Generation;
+
+        Assert.Equal(0, client.Calls);
+        Assert.Contains("limite", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.False(vm.IsRunning);
+        Assert.False(_project.LoadBible().Scenes.Any());
+    }
+
+    [Fact]
+    public async Task Bible_json_ilegivel_nao_deixa_gerar_nao_paga_e_nao_toca_o_backup()
+    {
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "Boa" }]));
+        _project.KeepPreviousBible();
+        var backup = File.ReadAllText(_project.PreviousBiblePath);
+        File.WriteAllText(_project.BiblePath, "{ isto não é json");
+        var client = new StubClient(() => new ClaudeReply("end_turn", "{}", new ClaudeUsage(1, 1, 0, 0)));
+        var vm = OpenWith(client);
+
+        vm.OpenGenerateCommand.Execute(null);
+        await vm.Generation;
+
+        Assert.False(vm.ConfirmGenerateCommand.CanExecute(null));
+        Assert.Contains("inválido", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(0, client.Calls);
+        Assert.Equal(backup, File.ReadAllText(_project.PreviousBiblePath));
     }
 
     [Fact]
