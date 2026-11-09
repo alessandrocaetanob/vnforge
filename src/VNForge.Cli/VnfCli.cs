@@ -5,6 +5,7 @@ using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using VNForge.AI.Claude;
+using VNForge.AI.Eval;
 using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
@@ -101,6 +102,12 @@ public sealed class VnfCli
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
     public Func<string, ClaudeEffort, IReviewProvider>? ReviewProviderFactory { get; set; }
+
+    /// <summary>
+    /// Cria o juiz de IA do <c>vnf eval</c> para o modelo e o esforço escolhidos; os testes trocam por um juiz falso.
+    /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<string, ClaudeEffort, IJudgeProvider>? JudgeProviderFactory { get; set; }
 
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();

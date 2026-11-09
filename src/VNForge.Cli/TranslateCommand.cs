@@ -268,7 +268,7 @@ internal static class TranslateCommand
     }
 
     /// <summary>O orçamento do <c>app.json</c>. Arquivo ilegível avisa no erro padrão e só segue com <c>--yes</c>: ele pode esconder um limite que a pessoa pôs.</summary>
-    private static BudgetSettings ReadBudget(ParseResult parseResult, VnfCli cli, TextWriter error)
+    internal static BudgetSettings ReadBudget(ParseResult parseResult, VnfCli cli, TextWriter error)
     {
         var reading = AppBudgetFile.Load(cli.UserConfigDirectory);
         if (reading.Problem is not { } problem)
