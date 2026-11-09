@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Text;
@@ -61,7 +62,8 @@ public static class LinePreviewer
         }
 
         var config = project.LoadConfig();
-        var preview = Create(project.LoadFormatting(), unit, unit.Translation, SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter));
+        var profile = project.LoadFormatting();
+        var preview = Create(profile, unit, unit.Translation, SpeakerBoxMarks.For(config.Encoding.Strategy, config.Style.SpeakerDelimiter), DictionaryContext.For(project, profile));
 
         // O nome da caixa de nome é o que o build grava (#464), como na placa do app.
         var encoder = TextEncoderRegistry.Default.Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
@@ -79,8 +81,9 @@ public static class LinePreviewer
     /// O que o jogo desenha em volta da fala com falante (#453): a abertura invisível da <c>cp1252</c> ocupa uma coluna na primeira linha, e o fechamento (<c>»</c> no estilo <c>« »</c>) na última.
     /// Só a medida e o texto de <see cref="LinePreview.Boxes"/> os contam; <see cref="LinePreview.Text"/> e a quebra de linha do pipeline seguem a tradução. Sem falante, nada é somado.
     /// </param>
+    /// <param name="dictionary">Falante e cena para as regras do pós-dicionário com condição; sem ele só valem as regras sem condição e as de trecho do original.</param>
     /// <exception cref="VNForgeException">Texto que o pipeline recusa.</exception>
-    public static LinePreview Create(FormattingProfile profile, TextUnit unit, string translation, SpeakerBoxMarks marks = default)
+    public static LinePreview Create(FormattingProfile profile, TextUnit unit, string translation, SpeakerBoxMarks marks = default, DictionaryContext? dictionary = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(unit);
@@ -91,7 +94,7 @@ public static class LinePreviewer
             && profile.Kinds.Contains(unit.Kind);
         try
         {
-            var result = formatted ? FormattingPipeline.Create(profile).Format(translation) : new FormattedText(translation, []);
+            var result = formatted ? FormattingPipeline.Create(profile).Format(translation, (dictionary ?? DictionaryContext.Empty).Line(unit)) : new FormattedText(translation, []);
             var width = profile.Wrap.ToOptions().Width;
             return new LinePreview(
                 unit.Id,

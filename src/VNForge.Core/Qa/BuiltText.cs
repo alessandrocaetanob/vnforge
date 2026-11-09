@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Formatting;
 using VNForge.Core.Text;
 
@@ -8,9 +9,10 @@ internal static class BuiltText
 {
     /// <summary>
     /// A tradução depois do pipeline do perfil, quando a linha é de um papel que o perfil formata (como o build faz); sem tradução a gravar
-    /// ou com marcador inválido devolve nulo, porque as outras regras é que apontam isso.
+    /// ou com marcador inválido devolve nulo, porque as outras regras é que apontam isso. <paramref name="dictionary"/> dá o falante e a cena às regras
+    /// do pós-dicionário com condição; sem ele só valem as regras sem condição e as de trecho do original.
     /// </summary>
-    public static string? For(TextUnit unit, FormattingProfile profile)
+    public static string? For(TextUnit unit, FormattingProfile profile, DictionaryContext? dictionary = null)
     {
         if (!unit.NeedsRewrite)
         {
@@ -25,7 +27,7 @@ internal static class BuiltText
 
         try
         {
-            return FormattingPipeline.Create(profile).Format(text).Text;
+            return FormattingPipeline.Create(profile).Format(text, (dictionary ?? DictionaryContext.Empty).Line(unit)).Text;
         }
         catch (Exception ex) when (ex is ArgumentException or FormattingException)
         {

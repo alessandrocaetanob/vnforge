@@ -4,6 +4,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Review;
 using VNForge.AI.Translation;
+using VNForge.Core.Dictionaries;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
@@ -72,6 +73,7 @@ internal static class ReviewCommand
             maxNextLines: config.Ai.ContextAfter,
             addressTerms: project.LoadAddressTerms())
         {
+            Pre = PreDictionary.For(project),
             Bible = TranslateCommand.ReadBible(project, error),
         };
 

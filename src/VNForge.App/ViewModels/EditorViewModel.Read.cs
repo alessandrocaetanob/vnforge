@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.Core;
@@ -120,7 +121,7 @@ public sealed partial class EditorViewModel
         var unit = line.Entry.Unit;
         var showsSource = !unit.HasTranslation;
         var text = showsSource ? unit.Source : unit.Translation!;
-        var preview = new TextboxPreviewViewModel(unit, CurrentProfile() ?? FormattingProfile.Default, text, CurrentSpeakerMarks(), CurrentSpeakerNaming());
+        var preview = new TextboxPreviewViewModel(unit, CurrentProfile() ?? FormattingProfile.Default, text, CurrentSpeakerMarks(), CurrentSpeakerNaming(), CurrentDictionary());
         return new ReadingLine(preview.Layout, preview.Layout is null ? preview.Problem ?? "Não foi possível montar a caixa desta fala." : null, showsSource);
     }
 }

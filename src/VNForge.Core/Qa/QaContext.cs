@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -48,6 +49,9 @@ public sealed record QaContext(
     /// <summary>Título do jogo do <c>vnforge.json</c>, que a <see cref="GameTitleEncodingRule"/> confere; nulo quando o projeto não tem título ou o contexto não vem de um projeto.</summary>
     public GameTitleConfig? GameTitle { get; init; }
 
+    /// <summary>Falante e cena de cada linha para as regras do pós-dicionário com condição, que o <see cref="BuiltText"/> consulta; sem nomes de script nem personagens quando o contexto não vem de um projeto.</summary>
+    public DictionaryContext Dictionary { get; init; } = DictionaryContext.Empty;
+
     /// <summary>Contexto só com textos, para regras que não precisam do resto.</summary>
     public static QaContext ForTexts(IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts) =>
         new(texts, [], [], FormattingProfile.Default);
@@ -70,6 +74,7 @@ public sealed record QaContext(
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(config.Encoding.Strategy, config.Style.SpeakerDelimiter);
         var ignoredWords = project.LoadIgnoredWordsOrEmpty(out var ignoredProblem);
-        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), project.LoadFormatting(), encoder) { Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms(), IgnoredWords = ignoredWords, IgnoredWordsProblem = ignoredProblem };
+        var formatting = project.LoadFormatting();
+        return new QaContext(project.LoadAllText(), project.LoadGlossary(), project.LoadCharacters(), formatting, encoder) { Dictionary = DictionaryContext.For(project, formatting), Style = config.Style, GameTitle = config.Game.Title, AddressTerms = project.LoadAddressTerms(), IgnoredWords = ignoredWords, IgnoredWordsProblem = ignoredProblem };
     }
 }

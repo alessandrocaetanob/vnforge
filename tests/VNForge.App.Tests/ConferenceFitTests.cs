@@ -51,6 +51,25 @@ public sealed class ConferenceFitTests : IDisposable
     }
 
     [Fact]
+    public async Task Caixa_cheia_por_regra_do_pos_dicionario_com_condicao_de_falante_mostra_o_aviso()
+    {
+        folder.SaveFormatting(FormattingProfile.Default with
+        {
+            Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform),
+            Dictionary = new VNForge.Core.Dictionaries.DictionaryRules([], [new VNForge.Core.Dictionaries.DictionaryRule("xx", Palavras(16)) { Conditions = [new(VNForge.Core.Dictionaries.DictionaryConditionKind.Speaker, "蓮")] }]),
+        });
+        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "蓮", "原文0", "xx", TranslationStatus.Translated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root), Shortener = new Encurtador("curta") };
+        await vm.RefreshAsync();
+
+        vm.SelectedRow = vm.Rows.Single(r => r.RuleId == BoxLineLimitRule.RuleId);
+
+        var aviso = Assert.IsType<FitWarningViewModel>(vm.SelectedFit);
+        Assert.True(vm.HasSelectedFit);
+        Assert.True(aviso.IsVisible);
+    }
+
+    [Fact]
     public async Task Problema_de_caixa_selecionado_mostra_o_aviso_com_as_duas_saidas()
     {
         var vm = await Conferir(new Encurtador("curta"));

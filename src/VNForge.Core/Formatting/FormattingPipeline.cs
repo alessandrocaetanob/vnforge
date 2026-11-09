@@ -1,4 +1,5 @@
 using System.Globalization;
+using VNForge.Core.Dictionaries;
 
 namespace VNForge.Core.Formatting;
 
@@ -35,6 +36,11 @@ public sealed class FormattingPipeline
         ArgumentNullException.ThrowIfNull(profile);
 
         var stages = new List<IFormattingStage>();
+        if (profile.Dictionary.Post.Any(rule => rule.Enabled))
+        {
+            stages.Add(new DictionaryStage("dictionary-post", profile.Dictionary.Post, "$.dictionary.post"));
+        }
+
         var normalization = profile.Normalization;
         if (normalization.Nfc)
         {
@@ -111,13 +117,15 @@ public sealed class FormattingPipeline
         return new FormattingPipeline(stages);
     }
 
+    /// <param name="text">A tradução, com os marcadores.</param>
+    /// <param name="line">A linha da tradução, para as regras do pós-dicionário com condição; sem ela só valem as regras sem condição.</param>
     /// <exception cref="ArgumentException">A tradução tem um marcador inválido.</exception>
     /// <exception cref="FormattingException">Uma etapa alterou um marcador de controle.</exception>
-    public FormattedText Format(string text)
+    public FormattedText Format(string text, DictionaryLine? line = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        var context = new FormattingContext();
+        var context = new FormattingContext { Line = line };
         var current = text;
         foreach (var stage in _stages)
         {

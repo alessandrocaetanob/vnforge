@@ -36,7 +36,7 @@ public sealed class UnencodableCharacterRule : UnitQaRule, IQaFixer
 
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
-        if (context.Encoder is not { } encoder || BuiltText.For(unit, context.Formatting) is not { } built)
+        if (context.Encoder is not { } encoder || BuiltText.For(unit, context.Formatting, context.Dictionary) is not { } built)
         {
             yield break;
         }

@@ -21,7 +21,7 @@ public sealed class FieldByteLimitRule : UnitQaRule
     {
         if (context.Encoder is not { } encoder
             || !context.Formatting.ByteLimits.TryGetValue(unit.Kind, out var limit)
-            || BuiltText.For(unit, context.Formatting) is not { } built)
+            || BuiltText.For(unit, context.Formatting, context.Dictionary) is not { } built)
         {
             return [];
         }
