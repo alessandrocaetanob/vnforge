@@ -106,7 +106,7 @@
         </StackPanel>
 
         <StackPanel Spacing="12">
-          <TextBlock Text="{Binding Title}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontWeight="Bold" FontSize="20" LineHeight="29" TextWrapping="Wrap"
+          <TextBlock Text="{Binding Title}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontWeight="Bold" FontSize="20" LineHeight="28" TextWrapping="Wrap"
                      AutomationProperties.Name="Título da janela"/>
           <TextBlock Text="{Binding Intro}" IsVisible="{Binding HasIntro}" Classes="secondary" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
 
