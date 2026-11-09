@@ -76,11 +76,14 @@ internal static class ReleaseCommand
             Resolve(cli, parseResult.GetValue(InstallerOption)),
             parseResult.GetValue(AllowWarningsOption));
 
-        var steps = new InlineProgress<ReleaseStep>(step =>
+        ReleaseStep? announced = null;
+        var steps = new InlineProgress<ReleaseProgress>(progress =>
         {
-            if (!json)
+            // O Core relata o mesmo passo várias vezes (detalhe, andamento do patch); a linha sai uma vez por passo.
+            if (!json && announced != progress.Step)
             {
-                output.WriteLine($"[{(int)step + 1}/6] {Label(step)}");
+                announced = progress.Step;
+                output.WriteLine($"[{(int)progress.Step + 1}/6] {Label(progress.Step)}");
             }
         });
 
@@ -121,9 +124,9 @@ internal static class ReleaseCommand
         ReleaseStep.Check => "Conferir a tradução",
         ReleaseStep.Build => "Reconstruir o build",
         ReleaseStep.Diff => "Calcular as diferenças",
-        ReleaseStep.Verify => "Aplicar numa cópia limpa e conferir byte a byte",
-        ReleaseStep.Package => "Montar o instalador",
-        _ => "Escrever leia-me, créditos e mudanças",
+        ReleaseStep.Patch => "Gravar o patch",
+        ReleaseStep.Package => "Montar o instalador e escrever leia-me, créditos e mudanças",
+        _ => "Aplicar numa cópia limpa e conferir byte a byte",
     };
 
     private static void WriteSummary(TextWriter output, ReleaseResult result)
