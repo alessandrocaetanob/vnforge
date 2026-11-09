@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VNForge.Core.Projects;
+using VNForge.Core.Publishing;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
@@ -96,6 +97,36 @@ public sealed class ReleaseCommandTests : IDisposable
         Assert.Contains(names, n => n!.EndsWith("-PT-BR-1.0.0.exe", StringComparison.Ordinal));
         Assert.Contains("Tradução: Equipe Chuva Mansa", await File.ReadAllTextAsync(Path.Combine(Out("1.0.0"), "CREDITOS.txt"), Token));
         Assert.Contains("idênticos ao build", result.Output);
+
+        // Os seis passos saem uma vez cada, na ordem do quadro: o patch é gravado antes do instalador, e a verificação vem por último.
+        var announced = result.Output.Split('\n').Where(l => l.StartsWith('[')).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(
+            [
+                "[1/6] Conferir a tradução",
+                "[2/6] Reconstruir o build",
+                "[3/6] Calcular as diferenças",
+                "[4/6] Gravar o patch",
+                "[5/6] Montar o instalador e escrever leia-me, créditos e mudanças",
+                "[6/6] Aplicar numa cópia limpa e conferir byte a byte",
+            ],
+            announced);
+    }
+
+    [Fact]
+    public async Task Guarda_os_arquivos_do_jogo_e_o_texto_da_versao_para_a_estimativa_da_proxima()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        Assert.Equal(0, (await Release("1.0.0")).ExitCode);
+
+        var record = ReleaseService.LoadRecords(ProjectFolder.Open(ProjectPath)).Single();
+        Assert.NotNull(record.GameFiles);
+        Assert.Equal([YsbinYpf], record.GameFiles.Select(f => f.Path));
+        Assert.All(record.GameFiles, f => Assert.True(f.PatchSize > 0));
+        var texts = ReleaseTexts.Load(ProjectFolder.Open(ProjectPath), "1.0.0");
+        Assert.NotNull(texts);
+        Assert.Contains(texts![Yst1].Values, t => t.StartsWith("Traduzido", StringComparison.Ordinal));
     }
 
     [Fact]

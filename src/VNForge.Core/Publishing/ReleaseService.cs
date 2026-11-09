@@ -6,6 +6,7 @@ using VNForge.Core.Engines;
 using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.Text;
 using VNForge.Patching;
 
 namespace VNForge.Core.Publishing;
@@ -44,19 +45,39 @@ public sealed record ReleaseResult(
     PatchVerification Verification,
     ChangesSinceTest Changes);
 
-/// <summary>Os passos de <see cref="ReleaseService.Create"/>, na ordem.</summary>
+/// <summary>Os passos de <see cref="ReleaseService.Create"/>, na ordem: o que o jogador recebe só é verificado depois de montado.</summary>
 public enum ReleaseStep
 {
+    /// <summary>Lê os textos e compara com a versão anterior.</summary>
     Check,
+
+    /// <summary>Reconstrói o <c>build/</c>.</summary>
     Build,
+
+    /// <summary>Descobre quais arquivos do jogo mudam.</summary>
     Diff,
-    Verify,
+
+    /// <summary>Calcula o delta de cada um e grava o <c>.vnfpatch</c>.</summary>
+    Patch,
+
+    /// <summary>Junta o instalador e escreve o leia-me, os créditos, as mudanças e as licenças.</summary>
     Package,
-    Documents,
+
+    /// <summary>Aplica o patch numa cópia limpa e compara com o build.</summary>
+    Verify,
 }
 
-/// <summary>O que o projeto guarda de cada versão lançada: de onde o próximo lançamento tira "o que mudou desde o patch anterior".</summary>
-public sealed record ReleaseRecord(string Version, DateTimeOffset CreatedAt, TranslationSnapshot? Snapshot, IReadOnlyList<ReleaseFile> Files);
+/// <summary>
+/// Um relato de <see cref="ReleaseService.Create"/>. O primeiro de cada <paramref name="Step"/> o abre (sem detalhe); os seguintes o acompanham.
+/// </summary>
+/// <param name="Detail">O que o passo achou, em português ("4 arquivos"); nulo enquanto não sabe.</param>
+/// <param name="Fraction">De 0 a 1, quando o passo sabe o quanto já fez (o patch, arquivo a arquivo).</param>
+/// <param name="Item">O arquivo do jogo em que o passo está.</param>
+public sealed record ReleaseProgress(ReleaseStep Step, string? Detail = null, double? Fraction = null, string? Item = null);
+
+/// <summary>O que o projeto guarda de cada versão lançada: de onde o próximo lançamento tira "o que mudou desde o patch anterior" e a estimativa do patch.</summary>
+/// <param name="GameFiles">Os arquivos do jogo que o patch tocou; nulo nos registros anteriores a este campo.</param>
+public sealed record ReleaseRecord(string Version, DateTimeOffset CreatedAt, TranslationSnapshot? Snapshot, IReadOnlyList<ReleaseFile> Files, IReadOnlyList<ReleaseGameFile>? GameFiles = null);
 
 /// <summary>
 /// <c>vnf release</c>: confere e reconstrói o <c>build/</c>, calcula um delta por arquivo do jogo que muda, aplica o patch numa cópia limpa e compara com o
@@ -83,7 +104,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
 
     /// <exception cref="QaBlockedException">A Conferência achou erro (ou aviso, sem <see cref="ReleaseOptions.AllowWarnings"/>).</exception>
     /// <exception cref="VNForgeException">Versão inválida, instalador ausente, nada para lançar, jogo que não é a versão de referência, ou a verificação do patch falhou.</exception>
-    public ReleaseResult Create(ProjectFolder project, ReleaseOptions options, IProgress<ReleaseStep>? steps = null, CancellationToken cancellationToken = default)
+    public ReleaseResult Create(ProjectFolder project, ReleaseOptions options, IProgress<ReleaseProgress>? steps = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(options);
@@ -113,16 +134,18 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
 
         Directory.CreateDirectory(output);
 
-        steps?.Report(ReleaseStep.Check);
+        steps?.Report(new ReleaseProgress(ReleaseStep.Check));
         var texts = project.LoadAllText();
         var snapshot = TranslationChanges.Snapshot(texts);
         var changes = previous is null
             ? ChangesSinceTest.None
             : TranslationChanges.Since(new GameLastTest(previous.CreatedAt, GameTestKind.Translation, [], previous.Snapshot), texts);
 
-        steps?.Report(ReleaseStep.Build);
-        ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: options.AllowWarnings, cancellationToken: cancellationToken);
+        steps?.Report(new ReleaseProgress(ReleaseStep.Build));
+        var built = ProjectBuilder.Build(project, engines, qa: qa, allowWarnings: options.AllowWarnings, cancellationToken: cancellationToken);
+        steps?.Report(new ReleaseProgress(ReleaseStep.Build, Detail: BuildDetail(built)));
 
+        steps?.Report(new ReleaseProgress(ReleaseStep.Diff));
         var patches = GameTester.PlanExecutablePatches(project, engines);
         try
         {
@@ -148,8 +171,9 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
             var sources = plan.Files
                 .Select(f => new PatchSource(f.RelativePath, f.OriginalSha256 is null ? null : f.OriginalSource, f.BuildPath))
                 .ToList();
+            steps?.Report(new ReleaseProgress(ReleaseStep.Diff, Detail: $"{sources.Count} {(sources.Count == 1 ? "arquivo" : "arquivos")}"));
 
-            return Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, new PatchExtras(gameVersion, cover), steps, cancellationToken);
+            return Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, texts, new PatchExtras(gameVersion, cover), steps, cancellationToken);
         }
         catch (PatchException ex)
         {
@@ -227,8 +251,9 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         List<PatchSource> sources,
         ChangesSinceTest changes,
         TranslationSnapshot snapshot,
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         PatchExtras extras,
-        IProgress<ReleaseStep>? steps,
+        IProgress<ReleaseProgress>? steps,
         CancellationToken cancellationToken)
     {
         var gameName = GameNameOf(config);
@@ -238,45 +263,67 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         var documents = new ReleaseDocuments(gameName, version, previous?.Version, date, credits, changes);
         var readMe = documents.ReadMe();
 
-        steps?.Report(ReleaseStep.Diff);
+        steps?.Report(new ReleaseProgress(ReleaseStep.Patch));
         var patchPath = Path.Combine(output, baseName + ".vnfpatch");
         PatchManifest manifest;
+        var perFile = new FileProgress(p =>
+        {
+            if (p.Total > 0)
+            {
+                steps?.Report(new ReleaseProgress(ReleaseStep.Patch, Fraction: (double)p.Done / p.Total, Item: p.Path));
+            }
+        });
         using (var file = new FileStream(patchPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
         {
-            manifest = PatchBuilder.Build(new PatchInfo(gameName, version, previous?.Version, credits, readMe, extras.GameVersion, extras.Cover), sources, file, cancellationToken: cancellationToken);
+            manifest = PatchBuilder.Build(new PatchInfo(gameName, version, previous?.Version, credits, readMe, extras.GameVersion, extras.Cover), sources, file, perFile, cancellationToken);
         }
 
-        steps?.Report(ReleaseStep.Verify);
-        PatchVerification verification;
-        var workDirectory = Path.Combine(project.CacheDirectory, "release-check", Guid.NewGuid().ToString("N"));
-        using (var package = PatchPackage.Open(new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read)))
-        {
-            verification = PatchVerifier.Verify(package, sources, workDirectory, cancellationToken: cancellationToken);
-        }
-
-        steps?.Report(ReleaseStep.Package);
+        steps?.Report(new ReleaseProgress(ReleaseStep.Package));
         var installerPath = Path.Combine(output, baseName + Path.GetExtension(stub));
         using (var package = new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             InstallerBundle.Create(stub, package, installerPath);
         }
 
-        steps?.Report(ReleaseStep.Documents);
         WriteText(Path.Combine(output, "LEIA-ME.txt"), readMe);
         WriteText(Path.Combine(output, "CREDITOS.txt"), documents.Credits());
         WriteText(Path.Combine(output, "MUDANCAS.txt"), documents.Changes());
         WriteText(Path.Combine(output, ThirdPartyLicenses.FileName), ThirdPartyLicenses.Text);
 
+        steps?.Report(new ReleaseProgress(ReleaseStep.Verify));
+        PatchVerification verification;
+        var workDirectory = Path.Combine(project.CacheDirectory, "release-check", Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var package = PatchPackage.Open(new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+            verification = PatchVerifier.Verify(package, sources, workDirectory, cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // O instalador e os textos já estão na pasta (o quadro monta antes de verificar): sem verificação, nada disso pode parecer uma versão pronta.
+            foreach (var unverified in new[] { installerPath, Path.Combine(output, "LEIA-ME.txt"), Path.Combine(output, "CREDITOS.txt"), Path.Combine(output, "MUDANCAS.txt"), Path.Combine(output, ThirdPartyLicenses.FileName) })
+            {
+                TryDelete(unverified);
+            }
+
+            throw;
+        }
+
         var files = new[] { installerPath, patchPath }
             .Select(p => new ReleaseFile(Path.GetFileName(p), new FileInfo(p).Length, GamePathsSha(p)))
             .Concat(new[] { "LEIA-ME.txt", "CREDITOS.txt", "MUDANCAS.txt", ThirdPartyLicenses.FileName }.Select(n => new ReleaseFile(n, new FileInfo(Path.Combine(output, n)).Length, null)))
             .ToList();
-        SaveRecord(project, new ReleaseRecord(version, _clock.GetUtcNow(), snapshot, files));
         var gameFiles = manifest.Files
             .Select(f => new ReleaseGameFile(f.Path, f.OriginalSize, f.Length, f.ResultSize, f.Created))
             .ToList();
+        ReleaseTexts.Save(project, version, texts);
+        SaveRecord(project, new ReleaseRecord(version, _clock.GetUtcNow(), snapshot, files, gameFiles));
         return new ReleaseResult(version, previous?.Version, output, files, gameFiles, verification, changes);
     }
+
+    private static string BuildDetail(BuildResult built) => built.ReusedScripts > 0
+        ? $"{built.ReusedScripts} de {built.ScriptCount} scripts reaproveitados"
+        : $"{built.RebuiltScripts.Count} de {built.ScriptCount} scripts reconstruídos";
 
     /// <summary>As versões já lançadas deste projeto, lidas de <c>releases/*.json</c>; um registro ilegível é pulado.</summary>
     public static IReadOnlyList<ReleaseRecord> LoadRecords(ProjectFolder project)
@@ -357,6 +404,23 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream));
     }
 
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Limpeza do que sobrou de uma verificação que falhou: o erro que importa é o da verificação.
+        }
+    }
+
+    private sealed class FileProgress(Action<PatchProgress> handler) : IProgress<PatchProgress>
+    {
+        public void Report(PatchProgress value) => handler(value);
+    }
+
     private static string SafeName(string name)
     {
         var invalid = Path.GetInvalidFileNameChars();
@@ -380,18 +444,25 @@ internal sealed class ReleaseDocuments(string gameName, string version, string? 
         text.AppendLine("COMO INSTALAR");
         text.AppendLine("1. Feche o jogo.");
         text.AppendLine("2. Execute o instalador.");
-        text.AppendLine("3. Aponte a pasta do jogo e confirme a instalação.");
-        text.AppendLine("O instalador confere se o jogo é a versão certa e guarda uma cópia dos arquivos originais antes de mexer em qualquer coisa.").AppendLine();
+        text.AppendLine("3. Aponte a pasta do jogo e clique em Instalar.").AppendLine();
         text.AppendLine("COMO DESINSTALAR");
-        text.AppendLine("Execute o instalador de novo e escolha Voltar ao jogo original. Os arquivos originais voltam byte a byte e os seus saves não são tocados.").AppendLine();
+        text.AppendLine("Execute o instalador de novo e escolha");
+        text.AppendLine("Voltar ao jogo original.").AppendLine();
         text.AppendLine(previousVersion is null ? "O QUE HÁ NESTA VERSÃO" : $"O QUE MUDOU DESDE A {previousVersion}");
         text.AppendLine(Summary()).AppendLine();
         if (credits is not null)
         {
-            text.AppendLine("CRÉDITOS").AppendLine(credits);
+            // Os créditos vêm numa linha só ("Tradução: Equipe · Revisão: Hana"); no LEIA-ME cada papel ocupa a sua.
+            text.AppendLine("CRÉDITOS");
+            foreach (var role in credits.Split(" · ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                text.AppendLine(role);
+            }
+
+            text.AppendLine();
         }
 
-        text.AppendLine().AppendLine("AVISOS").Append("O instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).");
+        text.AppendLine("AVISOS").Append("O instalador usa a biblioteca VCDiff (Apache 2.0) e outras bibliotecas de código aberto. Os textos das licenças estão em LICENCAS.txt e no próprio instalador (instalador --licencas).");
         return text.ToString().TrimEnd() + "\n";
     }
 

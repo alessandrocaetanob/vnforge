@@ -291,6 +291,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
     {
         Assert.DoesNotContain("YPF", texts, StringComparison.Ordinal);
         Assert.DoesNotContain("YU-RIS", texts, StringComparison.Ordinal);
+        Assert.DoesNotContain("Yu-RIS", texts, StringComparison.Ordinal);
         Assert.DoesNotContain("token", texts, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("claude-", texts, StringComparison.Ordinal);
         Assert.DoesNotContain(@":\", texts, StringComparison.Ordinal);

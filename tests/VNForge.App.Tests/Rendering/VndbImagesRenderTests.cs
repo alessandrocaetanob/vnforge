@@ -246,23 +246,25 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
             "v31201", "Amaoto no Hakoniwa", "雨音の箱庭", [], ["Amaoto jogo"], "ja", 0, "2019-05-31", ["ja"], ["win"], Cover("00/1"), 3, 1080, 10,
             "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou.", [], 78.6);
         var disc = main with { Id = "v31202", Title = "Amaoto no Hakoniwa: Fan Disc", AltTitle = "雨音の箱庭 ファンディスク", Aliases = [], Released = "2020-03-01", Length = 2, LengthMinutes = 180, Image = Cover("00/2"), Rating = 72 };
-        VndbCharacter Character(string id, string name, string original, string? gender, string role, double sexual = 0) =>
-            new(id, name, original, [], null, new VndbImage($"https://t.vndb.org/ch/12/{id}.jpg", null, 256, 300, sexual, 0),
+        VndbCharacter Character(string id, string name, string original, string? gender, string role, double sexual = 0, params string[] aliases) =>
+            new(id, name, original, aliases, null, new VndbImage($"https://t.vndb.org/ch/12/{id}.jpg", null, 256, 300, sexual, 0),
                 gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance("v31201", role, 0, null)], []);
         return new FakeVndbCatalog(
             [main, disc],
             [
-                Character("c1", "Kenta Aizawa", "相沢 健太", "m", "main"),
-                Character("c2", "Aoi Sakura", "佐倉 葵", "f", "primary"),
-                Character("c3", "Ren Hayase", "早瀬 蓮", "m", "side"),
-                Character("c4", "Misaki Todo", "藤堂 美咲", "f", "side", sexual: 2),
+                Character("c1", "Aizawa Kenta", "相沢 健太", "m", "main", 0, "Ken", "Kenta-kun"),
+                Character("c2", "Sakura Aoi", "佐倉 葵", "f", "primary", 0, "Aoi-chan"),
+                Character("c3", "Hayase Ren", "早瀬 蓮", "m", "side", 0, "Ren"),
+                Character("c4", "Tōdō Misaki", "藤堂 美咲", "f", "side", 0, "Tōdō-sensei"),
                 Character("c5", "Coadjuvante", "名無し", null, "appears"),
+                Character("c6", "Kimura Sora", "木村 空", "m", "appears"),
+                Character("c7", "Ono Hana", "小野 花", "f", "appears"),
             ]);
     }
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task O_resultado_do_vndb_mostra_as_capas_e_a_ficha_os_retratos_e_o_adulto_fica_no_marcador(string themeName)
+    public async Task O_resultado_do_vndb_mostra_as_capas_e_a_ficha_os_retratos_a_coluna_No_jogo_e_o_personagem_sem_par(string themeName)
     {
         var theme = Variant(themeName);
         await fixture.Session.Dispatch<int>(
@@ -270,9 +272,16 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
             {
                 using var scope = Scope.Start(() => new LibraryPrivacy());
                 var temp = scope.Temp;
-                var game = temp.SubFolder("jogo");
+                var game = temp.SubFolder("Amaoto jogo");
                 File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
-                var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new YuRisFake()], appSettings: new AppSettingsFile(temp.SubFolder("config")), clock: new FixedClock(Now), vndb: Catalog());
+                var wizard = new NewProjectWizardViewModel(
+                    new FakeFolderPicker(null),
+                    [new YuRisFake()],
+                    appSettings: new AppSettingsFile(temp.SubFolder("config")),
+                    clock: new FixedClock(Now),
+                    vndb: Catalog(),
+                    gameCharacterNames: (_, _, _) => ["相沢 健太", "佐倉 葵", "早瀬 蓮", "藤堂 美咲", "Coadjuvante 08"],
+                    translatedSynopsis: _ => "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.");
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, newProjectWizard: () => wizard);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
@@ -283,15 +292,14 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     await wizard.SetGameFolderAsync(game);
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
                     await wizard.NextCommand.ExecuteAsync(null);
-                    wizard.SearchTitle = "Amaoto";
-                    await wizard.SearchVndbCommand.ExecuteAsync(null);
+                    Assert.Contains("Título lido do jogo (yscfg.ybn): 雨音の箱庭.", wizard.VndbDetail, StringComparison.Ordinal);
                     await WaitForImages(window, 2);
 
                     var covers = window.GetVisualDescendants().OfType<Cover>().Where(c => c.IsEffectivelyVisible).ToList();
                     Assert.Equal(2, covers.Count);
                     Assert.All(covers, c => Assert.Equal((72.0, 96.0), (c.Bounds.Width, c.Bounds.Height)));
-                    Assert.Contains(VisibleTexts(window), t => t.Contains("nota 7,9", StringComparison.Ordinal));
-                    Assert.Contains(VisibleTexts(window), t => t.Contains("nota 7,2", StringComparison.Ordinal));
+                    Assert.Contains("2019 · Média · 18 h · Yu-RIS · nota 7,9", VisibleTexts(window));
+                    Assert.Contains("2020 · Curta · 3 h · Yu-RIS · nota 7,2", VisibleTexts(window));
                     Snapshot(window, "vndb-imagens-resultado", theme);
 
                     await wizard.NextCommand.ExecuteAsync(null);
@@ -300,7 +308,12 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.Equal(5, portraits.Count);
                     Assert.All(portraits, p => Assert.Equal((28.0, 28.0), (p.Bounds.Width, p.Bounds.Height)));
                     Assert.Equal(4, portraits.Count(p => p.HasImage));
-                    Assert.DoesNotContain(scope.Downloader.Requested, u => u.AbsolutePath.EndsWith("c4.jpg", StringComparison.Ordinal));
+                    var texts = VisibleTexts(window);
+                    Assert.Contains("7 do VNDB, 4 casados com os nomes do jogo (ES.CHAR.NAME)", texts);
+                    Assert.Contains("O aviso “5 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", texts);
+                    Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 2", "ES.CHAR.NAME 3", "ES.CHAR.NAME 4", "sem par no VNDB"], texts.Where(t => t.StartsWith("ES.CHAR.NAME", StringComparison.Ordinal) || t == "sem par no VNDB"));
+                    Assert.DoesNotContain("Papel", texts);
+                    Assert.Contains("Traduzida pela IA, você revisa depois", texts);
                     Snapshot(window, "vndb-imagens-ficha", theme);
                 }
                 finally
@@ -314,9 +327,15 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     /// <summary>Uma engine que se diz YU-RIS e oferece o patch do executável, como a do teste do assistente.</summary>
-    private sealed class YuRisFake : IEngine, IGamePatchProvider
+    private sealed class YuRisFake : IEngine, IGamePatchProvider, IGameTitleSource
     {
         public string Id => "yuris";
+
+        public GameTitleFile? ReadTitle(string unpackedDirectory) => null;
+
+        public string? ReadTitleFromGame(string gameDir) => "雨音の箱庭";
+
+        public byte[] WithTitle(GameTitleFile file, string title, ITextEncoder encoder) => [];
 
         public EngineDetection Detect(string gameDir) => EngineDetection.Matched("parece fake", new Dictionary<string, string>
         {
