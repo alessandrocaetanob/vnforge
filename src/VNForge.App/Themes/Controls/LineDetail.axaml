@@ -25,12 +25,12 @@
   <Style Selector="Border.memory-pill">
     <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
-    <Setter Property="Padding" Value="8,0"/>
-    <Setter Property="MinHeight" Value="{DynamicResource Vnf.PillHeight}"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="MinHeight" Value="24"/>
   </Style>
   <Style Selector="Border.memory-pill > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
-    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>

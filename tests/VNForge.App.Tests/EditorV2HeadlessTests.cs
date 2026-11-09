@@ -122,7 +122,7 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
             },
             CancellationToken.None);
 
-        Assert.Contains("yst00001:000001", shown);
+        Assert.Contains("yst00001:000001 · Diálogo", shown);
         Assert.Contains("Original", shown);
         Assert.Contains("Tradução", shown);
         Assert.Contains("Contexto", shown);

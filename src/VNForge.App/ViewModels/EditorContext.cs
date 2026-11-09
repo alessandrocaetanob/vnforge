@@ -3,6 +3,7 @@ using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Spelling;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -11,6 +12,9 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
 {
     /// <summary>Os tratamentos entre personagens (<c>address-terms.json</c>), que o corretor aceita como palavras do projeto ("Ken-chan").</summary>
     public IReadOnlyList<AddressTerm> AddressTerms { get; init; } = [];
+
+    /// <summary>O papel de cada personagem do VNDB neste jogo (<c>main</c>, <c>primary</c>, <c>side</c>, <c>appears</c>), por id (<c>c1234</c>), lido de <c>vndb.json</c>; vazio sem ligação.</summary>
+    public IReadOnlyDictionary<string, string> VndbRoles { get; init; } = new Dictionary<string, string>();
 
     /// <summary>As palavras que o revisor mandou o corretor ignorar (<c>ignored-words.json</c>).</summary>
     public IReadOnlyList<IgnoredWord> IgnoredWords { get; init; } = [];
@@ -33,14 +37,39 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
             return Empty;
         }
 
-        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary)) { AddressTerms = Try(folder.LoadAddressTerms), IgnoredWords = Try(folder.LoadIgnoredWords) };
+        return new EditorContext(new CharacterBook(Try(folder.LoadCharacters)), Try(folder.LoadGlossary)) { AddressTerms = Try(folder.LoadAddressTerms), IgnoredWords = Try(folder.LoadIgnoredWords), VndbRoles = ReadRoles(folder) };
     }
 
     /// <summary>O contexto de uma linha: o falante cadastrado e os termos do glossário que aparecem no original.</summary>
     public LineContext For(string? speaker, string source)
     {
         var character = Characters.Find(speaker);
-        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary), character is { Gender: CharacterGender.Unknown }, CharacterPalette.For(character));
+        return new LineContext(character?.Target, character?.Tone, GlossaryMatcher.Find(source, Glossary), character is { Gender: CharacterGender.Unknown }, CharacterPalette.For(character))
+        {
+            SpeakerImage = character?.Image,
+            SpeakerRole = character is { VndbId: { } id } && VndbRoles.TryGetValue(id, out var role) ? RoleLabel(role, character.Gender) : null,
+        };
+    }
+
+    /// <summary>"Protagonista", "Principal", "Secundária"/"Secundário" (concorda com o gênero) ou "Aparece": o papel do VNDB, como o cabeçalho do inspetor o diz.</summary>
+    public static string RoleLabel(string role, CharacterGender gender) => role switch
+    {
+        "main" => "Protagonista",
+        "primary" => "Principal",
+        "side" => gender == CharacterGender.Female ? "Secundária" : "Secundário",
+        _ => "Aparece",
+    };
+
+    private static Dictionary<string, string> ReadRoles(ProjectFolder folder)
+    {
+        try
+        {
+            return folder.LoadVndbLink()?.Characters.ToDictionary(c => c.Id, c => c.Role, StringComparer.Ordinal) ?? [];
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return [];
+        }
     }
 
     private static IReadOnlyList<T> Try<T>(Func<IReadOnlyList<T>> read)
@@ -62,4 +91,11 @@ public sealed record EditorContext(CharacterBook Characters, IReadOnlyList<Gloss
 /// <param name="Glossary">Os termos do glossário que aparecem no original, na ordem do glossário.</param>
 /// <param name="GenderMissing">O falante está cadastrado sem gênero definido, e a concordância da tradução pode sair errada.</param>
 /// <param name="SpeakerColor">A cor do falante cadastrado (#467); nula quando ele não está no Glossário.</param>
-public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary, bool GenderMissing = false, CharacterColor? SpeakerColor = null);
+public sealed record LineContext(string? SpeakerTarget, string? Voice, IReadOnlyList<GlossaryTerm> Glossary, bool GenderMissing = false, CharacterColor? SpeakerColor = null)
+{
+    /// <summary>A imagem do falante no VNDB, para o retrato do cabeçalho do inspetor; nula sem imagem (o retrato desenhado vale).</summary>
+    public VndbImageRef? SpeakerImage { get; init; }
+
+    /// <summary>O papel do falante no jogo ("Secundária"), quando o projeto está ligado ao VNDB; nulo sem ligação.</summary>
+    public string? SpeakerRole { get; init; }
+}
