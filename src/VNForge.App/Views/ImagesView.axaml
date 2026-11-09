@@ -16,7 +16,7 @@
     </Style>
     <Style Selector="ListBox.thumbs > ListBoxItem">
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Margin" Value="0,4,14,4"/>
+      <Setter Property="Margin" Value="0,0,14,0"/>
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Template">
@@ -88,6 +88,19 @@
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     </Style>
 
+    <!-- O selo "N imagens alteradas" do cartão é o botão que abre a regravação: parece o selo do quadro, sem moldura de botão. -->
+    <Style Selector="Button.pill">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter" Background="Transparent" Content="{TemplateBinding Content}"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
     <!-- Amostra de cor do texto: um círculo de 24px; a escolhida ganha o anel accent de 2px por fora. -->
     <Style Selector="Button.swatch">
       <Setter Property="Background" Value="Transparent"/>
@@ -150,7 +163,7 @@
             </StackPanel>
           </StackPanel>
 
-          <ListBox Grid.Row="2" Classes="thumbs" Margin="0,10,0,0" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="76" AutomationProperties.Name="Imagens do inventário"
+          <ListBox Grid.Row="2" Classes="thumbs" Margin="-6,8,-6,0" Padding="6,6" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="88" AutomationProperties.Name="Imagens do inventário"
                    IsVisible="{Binding !IsEmpty}">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -160,9 +173,10 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ImageItemViewModel">
                 <Panel Width="120" Height="68" ToolTip.Tip="{Binding Caption}">
-                  <Border Classes="thumb" BorderThickness="3" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+                  <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
                     <Image Source="{Binding ThumbnailPng, Converter={x:Static c:PngBytesConverter.Instance}}" Stretch="UniformToFill"/>
                   </Border>
+                  <Border Classes="thumb" Margin="-5" BorderThickness="3" CornerRadius="11" IsHitTestVisible="False"/>
                   <Border Width="14" Height="14" CornerRadius="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                           Background="{DynamicResource Vnf.BgLayer}" Padding="2">
                     <Panel>
@@ -176,8 +190,8 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <Grid Grid.Row="3" Margin="0,8,0,0" ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding HasImage}">
-            <Button Classes="sm" Classes.accent="{Binding IsSelectTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.SelectArea}"
+          <Grid Grid.Row="3" Margin="0,6,0,0" ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding HasImage}">
+            <Button Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsSelectTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.SelectArea}"
                     AutomationProperties.Name="Selecionar área">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -188,7 +202,7 @@
                 <TextBlock Text="Selecionar área"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding IsEraseTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Erase}"
+            <Button Grid.Column="1" Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsEraseTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Erase}"
                     Click="OnEraseToolClick" AutomationProperties.Name="Apagar">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -199,7 +213,7 @@
                 <TextBlock Text="Apagar"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="2" Classes="sm" Classes.accent="{Binding IsTextTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Text}"
+            <Button Grid.Column="2" Classes="sm" Padding="12,0" FontWeight="SemiBold" Classes.accent="{Binding IsTextTool}" Command="{Binding UseToolCommand}" CommandParameter="{x:Static vm:ImageTool.Text}"
                     Click="OnTextToolClick" AutomationProperties.Name="Texto">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Viewbox Width="16" Height="16">
@@ -210,7 +224,7 @@
                 <TextBlock Text="Texto"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="3" Classes="subtle sm" Command="{Binding UndoCommand}" AutomationProperties.Name="Desfazer">
+            <Button Grid.Column="3" Classes="subtle sm" Padding="12,0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding UndoCommand}" AutomationProperties.Name="Desfazer">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
                 <TextBlock Text="Desfazer"/>
@@ -265,13 +279,14 @@
 
               <Border Classes="panel" Padding="16,14">
                 <StackPanel Spacing="10">
-                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                  <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Classes="title-sm" VerticalAlignment="Center" Text="O que muda no build"/>
-                    <Button Grid.Column="1" Classes="sm" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" Content="{Binding RewriteLabel}"
-                            AutomationProperties.Name="Regravar as imagens no pacote"/>
-                    <Border Grid.Column="2" Height="24" Background="{DynamicResource Vnf.StatusAiBg}" CornerRadius="12" Padding="10,0" VerticalAlignment="Center">
-                      <TextBlock Classes="caption" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding MarkedText}"/>
-                    </Border>
+                    <Button Grid.Column="1" Classes="pill" Command="{Binding RewriteCommand}" IsEnabled="{Binding CanRewrite}" AutomationProperties.Name="Regravar as imagens no pacote"
+                            ToolTip.Tip="{Binding RewriteLabel}">
+                      <Border Height="24" Background="{DynamicResource Vnf.StatusAiBg}" CornerRadius="12" Padding="10,0" VerticalAlignment="Center">
+                        <TextBlock Classes="caption" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding MarkedText}"/>
+                      </Border>
+                    </Button>
                   </Grid>
                   <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="4">
                     <TextBlock Classes="body-sm secondary" Text="Área apagada"/>
@@ -290,9 +305,9 @@
                 <StackPanel Spacing="12">
                   <StackPanel Spacing="6" IsVisible="{Binding SelectedItem.HasText}">
                     <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
-                    <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
+                    <Border Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
                       <StackPanel Spacing="4">
-                        <SelectableTextBlock TextWrapping="Wrap" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
+                        <SelectableTextBlock TextWrapping="Wrap" FontWeight="Normal" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
                                              Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
                         <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SelectedItem.Translation}"
                                    IsVisible="{Binding SelectedItem.HasTranslation}" AutomationProperties.Name="Tradução sugerida pela IA"/>
@@ -301,16 +316,16 @@
                   </StackPanel>
                   <StackPanel Spacing="6">
                     <TextBlock Classes="overline" Text="Texto na imagem"/>
-                    <TextBox Name="ImageText" Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Texto da tradução na imagem"/>
+                    <TextBox Name="ImageText" BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1.5" Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Texto da tradução na imagem"/>
                   </StackPanel>
                   <Grid ColumnDefinitions="*,80" ColumnSpacing="10">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="overline" Text="Fonte"/>
-                      <ComboBox ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
+                      <ComboBox ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" FontWeight="Normal" Background="{DynamicResource Vnf.BgCard}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
                       <TextBlock Classes="overline" Text="Tamanho"/>
-                      <TextBox Text="{Binding FontSizeText}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
+                      <TextBox Text="{Binding FontSizeText}" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
                     </StackPanel>
                   </Grid>
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
@@ -338,7 +353,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
                       <TextBlock Classes="overline" Text="Contorno"/>
-                      <TextBox Text="{Binding OutlineText}" AutomationProperties.Name="Contorno do texto"/>
+                      <TextBox Text="{Binding OutlineText}" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" AutomationProperties.Name="Contorno do texto"/>
                     </StackPanel>
                   </Grid>
                   <StackPanel Spacing="6">
@@ -359,13 +374,13 @@
                   </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="0,12,0,0">
-                  <Button Classes="accent" Command="{Binding MarkCommand}" AutomationProperties.Name="Marcar para o build">
+                  <Button Classes="accent" Height="32" Padding="16,0" FontWeight="SemiBold" Command="{Binding MarkCommand}" AutomationProperties.Name="Marcar para o build">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
                       <TextBlock Text="Marcar para o build"/>
                     </StackPanel>
                   </Button>
-                  <Button Command="{Binding UnmarkCommand}" IsEnabled="{Binding IsMarked}" AutomationProperties.Name="Tirar do build" ToolTip.Tip="Tira a imagem do build sem perder a edição">
+                  <Button Height="32" Padding="16,0" FontWeight="SemiBold" Command="{Binding UnmarkCommand}" IsEnabled="{Binding IsMarked}" AutomationProperties.Name="Tirar do build" ToolTip.Tip="Tira a imagem do build sem perder a edição">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
                       <TextBlock Text="Desfazer"/>
@@ -411,7 +426,7 @@
       <c:ScreenDialog.Footer>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
           <Button Content="Cancelar" Command="{Binding CancelRewriteCommand}"/>
-          <Button Classes="accent lg" Content="{Binding ConfirmationButton}" Command="{Binding ConfirmRewriteCommand}" AutomationProperties.Name="{Binding ConfirmationButton}"/>
+          <Button Classes="accent lg" FontWeight="SemiBold" Content="{Binding ConfirmationButton}" Command="{Binding ConfirmRewriteCommand}" AutomationProperties.Name="{Binding ConfirmationButton}"/>
         </StackPanel>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>
@@ -436,7 +451,7 @@
       <c:ScreenDialog.Footer>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
           <Button Content="Cancelar" Command="{Binding CancelScanCommand}"/>
-          <Button Classes="accent lg" Content="Ler as imagens" Command="{Binding ConfirmScanCommand}" AutomationProperties.Name="Ler as imagens"/>
+          <Button Classes="accent lg" FontWeight="SemiBold" Content="Ler as imagens" Command="{Binding ConfirmScanCommand}" AutomationProperties.Name="Ler as imagens"/>
         </StackPanel>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>
