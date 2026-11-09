@@ -18,7 +18,9 @@ public sealed class MainWindowNightBatchTests : IDisposable
 
     public void Dispose() => temp.Dispose();
 
-    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool withClient = true, Func<string, Task>? beforeOpen = null)
+    private StartViewModel? start;
+
+    private async Task<(MainWindowViewModel Vm, string Root)> OpenAsync(bool withClient = true, Func<string, Task>? beforeOpen = null, Func<IMessageBatchClient>? factory = null)
     {
         var root = StartFixtures.Create(
             temp.SubFolder("vn"),
@@ -29,11 +31,11 @@ public sealed class MainWindowNightBatchTests : IDisposable
             await beforeOpen(root);
         }
 
-        var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now));
+        start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now));
         var settings = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("ajustes")), _ => null);
         var vm = new MainWindowViewModel(start, new ResolvedApiKey("chave", ApiKeySource.Vault), null, settings)
         {
-            MessageBatchClientFactory = withClient ? () => client : null,
+            MessageBatchClientFactory = withClient ? factory ?? (() => client) : null,
             NightBatchPollInterval = TimeSpan.FromHours(1),
         };
         await start.OpenAsync(root);
@@ -146,17 +148,81 @@ public sealed class MainWindowNightBatchTests : IDisposable
     public async Task Cancelar_lote_pede_o_cancelamento_a_API_e_o_que_ja_voltou_e_gravado_quando_ela_encerra()
     {
         var (vm, root) = await OpenAsync();
+        var polled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.AfterGet = () => polled.TrySetResult();
         await SendOvernightAsync(vm);
         var task = vm.TaskService.Tasks.Single();
+        await polled.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var watching = vm.NightBatchWatching;
 
         task.CancelCommand.Execute(null);
-        await task.Completion;
+        await watching;
 
         Assert.Equal(1, client.Cancels);
         Assert.Equal(BackgroundTaskState.Cancelled, task.State);
         Assert.Equal(NightBatchPhase.Canceling, Assert.Single(new NightBatchStore(ProjectFolder.Open(root)).Open()).Phase);
-        await WaitForAsync(() => vm.TaskService.Tasks.Count == 2);
         Assert.Equal(2, vm.TaskService.Tasks.Count);
+    }
+
+    [Fact]
+    public async Task Sem_a_chave_ao_retomar_a_tarefa_do_lote_aparece_com_o_motivo_e_o_lote_segue_na_API()
+    {
+        var (vm, root) = await OpenAsync(
+            beforeOpen: async root => await new NightBatchService(client, ProjectFolder.Open(root)).SubmitAsync(
+                new NightBatchOrder("O capítulo", ClaudeModels.Opus, ClaudeEffort.Medium, 20, new ExchangeRate(5m), key => key == "yst00001"),
+                TestContext.Current.CancellationToken),
+            factory: () => throw new InvalidOperationException("sem chave"));
+
+        var task = Assert.Single(vm.TaskService.Tasks);
+        await vm.NightBatchWatching;
+        await task.Completion;
+
+        Assert.Equal(BackgroundTaskState.Failed, task.State);
+        Assert.StartsWith("Sem chave de API", task.Message, StringComparison.Ordinal);
+        Assert.Contains("msgbatch_fake0001 segue na API", task.Message, StringComparison.Ordinal);
+        Assert.Equal(0, client.Cancels);
+        Assert.Single(new NightBatchStore(ProjectFolder.Open(root)).Open());
+    }
+
+    [Fact]
+    public async Task Verificacoes_que_falham_varias_vezes_seguidas_param_a_tarefa_com_o_motivo_e_o_lote_segue_na_API()
+    {
+        var (vm, root) = await OpenAsync();
+        client.GetFails = new HttpRequestException("sem rede");
+        await SendOvernightAsync(vm);
+        var task = vm.TaskService.Tasks.Single();
+
+        for (var i = 1; i < MainWindowViewModel.MaxCheckFailures; i++)
+        {
+            task.CheckNowCommand!.Execute(null);
+        }
+
+        await task.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        Assert.Equal(BackgroundTaskState.Failed, task.State);
+        Assert.Equal(MainWindowViewModel.MaxCheckFailures, client.Gets);
+        Assert.Contains("Não foi possível verificar o lote msgbatch_fake0001", task.Message, StringComparison.Ordinal);
+        Assert.Equal(0, client.Cancels);
+        Assert.Single(new NightBatchStore(ProjectFolder.Open(root)).Open());
+    }
+
+    [Fact]
+    public async Task Lote_que_chega_com_outro_projeto_aberto_grava_no_dele_e_nao_mexe_no_projeto_atual()
+    {
+        var (vm, root) = await OpenAsync();
+        client.OutcomeOf = _ => MessageBatchOutcome.Errored;
+        await SendOvernightAsync(vm);
+        var task = vm.TaskService.Tasks.Single();
+        var other = StartFixtures.Create(temp.SubFolder("vn2"), "Outra VN", lines: [("yst00001", TranslationStatus.Untranslated)]);
+        await start!.OpenAsync(other);
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(vm.CurrentProject!.Root));
+
+        await FinishAsync(vm, client, task);
+        task.ShowLinesCommand!.Execute(null);
+
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(vm.CurrentProject!.Root));
+        Assert.Contains("outro projeto", vm.Toasts.Toasts.Last().Message, StringComparison.Ordinal);
+        Assert.Empty(new NightBatchStore(ProjectFolder.Open(root)).Open());
     }
 
     [Fact]

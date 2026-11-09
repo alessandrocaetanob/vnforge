@@ -267,4 +267,128 @@ public sealed class NightBatchServiceTests : IDisposable
 
         Assert.Empty(new NightBatchStore(_project).List());
     }
+
+    [Fact]
+    public async Task Resposta_que_parou_por_recusa_marca_as_linhas_como_recusadas_e_nao_como_erro()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Reply = _ => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(10, 0, 0, 0));
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(0, applied.Outcome!.Translated);
+        Assert.Equal(44, applied.Outcome.Refused);
+        Assert.Equal(0, applied.Outcome.Failed);
+        Assert.Equal(44, applied.Outcome.UnfinishedIds.Count);
+        Assert.Null(applied.Outcome.RestorePointId);
+        Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
+        Assert.True(applied.Outcome.Dollars > 0m);
+    }
+
+    [Fact]
+    public async Task Resposta_cortada_por_max_tokens_conta_como_erro_e_ainda_cobra_os_tokens()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Reply = _ => new ClaudeReply("max_tokens", """{"translations":[{"id":"x","trans""", new ClaudeUsage(1000, 500, 0, 0));
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(0, applied.Outcome!.Translated);
+        Assert.Equal(44, applied.Outcome.Failed);
+        Assert.Equal(0, applied.Outcome.Refused);
+        Assert.Equal(0.021m, applied.Outcome.Dollars);
+        Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
+    }
+
+    [Theory]
+    [InlineData(MessageBatchOutcome.Errored)]
+    [InlineData(MessageBatchOutcome.Expired)]
+    [InlineData(MessageBatchOutcome.Canceled)]
+    public async Task Pedido_errored_expired_ou_canceled_deixa_as_linhas_dele_sem_traducao_e_o_resto_e_gravado(MessageBatchOutcome outcome)
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.OutcomeOf = item => item.CustomId == "r00003" ? outcome : MessageBatchOutcome.Succeeded;
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(40, applied.Outcome!.Translated);
+        Assert.Equal(4, applied.Outcome.Failed);
+        Assert.Equal(Enumerable.Range(40, 4).Select(Id), applied.Outcome.UnfinishedIds);
+        var units = _project.LoadText(Key);
+        Assert.Equal(TranslationStatus.Machine, units[39].Status);
+        Assert.Equal(TranslationStatus.Untranslated, units[40].Status);
+        Assert.Equal(NightBatchPhase.Applied, applied.Phase);
+        Assert.NotNull(applied.Outcome.RestorePointId);
+    }
+
+    [Fact]
+    public async Task Dois_processos_vendo_o_lote_terminado_gravam_uma_vez_so()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+
+        var checks = await Task.WhenAll(
+            Task.Run(() => Service().CheckAsync(state.Id, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken),
+            Task.Run(() => Service().CheckAsync(state.Id, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, checks.Count(c => c.JustApplied));
+        var saved = new NightBatchStore(_project).Find(state.Id)!;
+        Assert.Equal(NightBatchPhase.Applied, saved.Phase);
+        Assert.Equal(44, saved.Outcome!.Translated);
+        Assert.NotNull(saved.Outcome.RestorePointId);
+        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
+        Assert.Single(new RestorePointStore(_project, _clock).List());
+    }
+
+    [Fact]
+    public async Task Com_a_trava_do_lote_com_outro_processo_a_consulta_nao_grava_e_o_lote_segue_aberto()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+        var store = new NightBatchStore(_project);
+
+        using (store.TryClaim(state.Id))
+        {
+            var blocked = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+            Assert.False(blocked.JustApplied);
+            Assert.Equal(NightBatchPhase.Processing, blocked.State.Phase);
+            Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
+        }
+
+        var freed = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+        Assert.True(freed.JustApplied);
+        Assert.Equal(44, freed.State.Outcome!.Translated);
+    }
+
+    [Fact]
+    public async Task Estado_ja_gravado_por_outro_depois_da_trava_nao_e_regravado()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+        var first = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        var again = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.False(again.JustApplied);
+        Assert.Equal(first.State.Outcome!.RestorePointId, new NightBatchStore(_project).Find(state.Id)!.Outcome!.RestorePointId);
+        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
+    }
+
+    [Fact]
+    public async Task Se_o_estado_nao_puder_ser_guardado_o_lote_e_cancelado_na_API()
+    {
+        // Um arquivo no lugar da pasta faz o Save falhar depois de o lote já existir na API.
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(Path.Combine(_project.CacheDirectory, "lote-noturno"), "no lugar da pasta");
+
+        var error = await Assert.ThrowsAsync<NightBatchException>(() => Service().SubmitAsync(Order(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("foi cancelado na API", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, _client.Creates);
+        Assert.Equal(1, _client.Cancels);
+    }
 }

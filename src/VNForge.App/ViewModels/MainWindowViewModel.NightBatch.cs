@@ -59,8 +59,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            var text = e is VNForgeException or IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
-            Toasts.Show($"O lote não foi enviado: {text}", ToastKind.Error, key: ToastKey);
+            Toasts.Show($"O lote não foi enviado: {DescribeNightError(e)}", ToastKind.Error, key: ToastKey);
             return;
         }
 
@@ -106,57 +105,90 @@ public sealed partial class MainWindowViewModel
         batchWatchers.Add(WatchAsync(projectRoot, initial, factory));
     }
 
+    /// <summary>Quantas verificações seguidas podem falhar antes de a tarefa desistir e mostrar o erro; o lote segue na API e o app o retoma ao abrir de novo.</summary>
+    public const int MaxCheckFailures = 5;
+
     private async Task WatchAsync(string projectRoot, NightBatchState initial, Func<IMessageBatchClient> factory)
     {
         using var wake = new SemaphoreSlim(0, int.MaxValue);
         NightBatchCheck? last = null;
         var canceled = false;
+        string? cancelError = null;
         BackgroundTaskItem task;
         try
         {
             var service = new NightBatchService(factory(), ProjectFolder.Open(projectRoot));
+            failedBatchTasks.Remove(initial.Id);
             task = TaskService.Start(NightPrefix + initial.Title, async (reporter, ct) =>
             {
                 reporter.Report(0);
-                while (true)
+                var failures = 0;
+                try
                 {
-                    try
+                    while (true)
                     {
-                        last = await service.CheckAsync(initial.Id, ct).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                    {
-                        canceled = true;
-                        await TryCancelBatchAsync(service, initial.Id).ConfigureAwait(false);
-                        throw;
-                    }
-                    catch (Exception e) when (e is not NightBatchException and not OperationCanceledException)
-                    {
-                        // Rede fora do ar numa verificação: o lote continua na API, então a tarefa segue esperando.
-                        var message = $"Não foi possível verificar agora: {ClaudeErrorMessages.Describe(e)} Tentando de novo.";
-                        TaskService.Post(() => SetDetail(initial.Id, message));
+                        try
+                        {
+                            last = await service.CheckAsync(initial.Id, ct).ConfigureAwait(false);
+                            failures = 0;
+                        }
+                        catch (Exception e) when (e is not NightBatchException and not OperationCanceledException)
+                        {
+                            // Rede fora do ar numa verificação: o lote continua na API, então a tarefa segue esperando. Chave recusada ou lote que
+                            // não existe (401, 403, 404) não passa sozinho, e várias falhas seguidas também não: aí a tarefa mostra o erro.
+                            var why = ClaudeErrorMessages.Describe(e);
+                            if (ClaudeErrorMessages.IsPermanent(e) || ++failures >= MaxCheckFailures)
+                            {
+                                throw new NightBatchException($"Não foi possível verificar o lote {initial.Id}: {why} Ele segue na API; o app o retoma quando abrir de novo.", e);
+                            }
+
+                            var message = $"Não foi possível verificar agora: {why} Tentando de novo.";
+                            TaskService.Post(() => SetDetail(initial.Id, message));
+                            await WaitAsync(wake, ct).ConfigureAwait(false);
+                            continue;
+                        }
+
+                        if (last.State.Phase == NightBatchPhase.Applied)
+                        {
+                            reporter.Report(1);
+                            return;
+                        }
+
+                        var info = last.Info;
+                        reporter.Report(info?.Fraction);
+                        var detail = DescribeProgress(last.State, info);
+                        TaskService.Post(() => SetDetail(initial.Id, detail));
                         await WaitAsync(wake, ct).ConfigureAwait(false);
-                        continue;
                     }
-
-                    if (last.State.Phase == NightBatchPhase.Applied)
-                    {
-                        reporter.Report(1);
-                        return;
-                    }
-
-                    var info = last.Info;
-                    reporter.Report(info?.Fraction);
-                    var detail = DescribeProgress(last.State, info);
-                    TaskService.Post(() => SetDetail(initial.Id, detail));
-                    await WaitAsync(wake, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // "Cancelar lote" em qualquer ponto do laço, na verificação ou na espera, cancela o lote na API: sem isso ele seguiria rodando e sendo cobrado.
+                    canceled = true;
+                    cancelError = await TryCancelBatchAsync(service, initial.Id).ConfigureAwait(false);
+                    throw;
                 }
             }, usesAi: true);
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
         {
-            Toasts.Show($"Não foi possível acompanhar o lote {initial.Id}: {e.Message}", ToastKind.Error, key: ToastKey);
             watchedBatches.Remove(initial.Id);
+            return;
+        }
+        catch (Exception e)
+        {
+            // Sem a chave, sem a pasta ou com o disco fora do ar: a lista mostra o lote com o motivo, em vez de a tarefa falhar calada.
+            watchedBatches.Remove(initial.Id);
+            var text = DescribeNightError(e, initial.Id);
+            // SetProject roda mais de uma vez por abertura e cada passada tenta retomar o lote de novo: a linha de falha que já está na lista basta.
+            if (!failedBatchTasks.TryGetValue(initial.Id, out var previous) || !TaskService.Tasks.Contains(previous))
+            {
+                var failed = TaskService.Start(NightPrefix + initial.Title, (_, _) => Task.FromException(new NightBatchException(text, e)), usesAi: true);
+                failed.IsBatch = true;
+                failedBatchTasks[initial.Id] = failed;
+            }
+
+            Toasts.Show(text, ToastKind.Error, key: ToastKey);
             return;
         }
 
@@ -179,8 +211,11 @@ public sealed partial class MainWindowViewModel
         if (canceled)
         {
             const string CancelText = "Cancelamento pedido. O que já tinha voltado é gravado quando a API encerrar o lote.";
-            TaskService.Post(() => Finish(task, CancelText));
-            Toasts.Show("Cancelamento do lote pedido. O que já tinha voltado é gravado quando a API encerrar o lote.", ToastKind.Warning, key: ToastKey);
+            TaskService.Post(() => Finish(task, cancelError is null ? CancelText : $"Não foi possível cancelar na API: {cancelError}"));
+            Toasts.Show(
+                cancelError is null ? "Cancelamento do lote pedido. O que já tinha voltado é gravado quando a API encerrar o lote." : $"Não foi possível cancelar o lote na API: {cancelError} Ele segue rodando; tente de novo.",
+                cancelError is null ? ToastKind.Warning : ToastKind.Error,
+                key: ToastKey);
             if (new NightBatchStore(ProjectFolder.Open(projectRoot)).Find(initial.Id) is { IsOpen: true } open)
             {
                 WatchNightBatch(projectRoot, open);
@@ -208,14 +243,46 @@ public sealed partial class MainWindowViewModel
             if (unfinished.Count > 0)
             {
                 task.ShowLinesLabel = unfinished.Count == 1 ? "Ver a linha" : $"Ver as {ProjectLabels.Number(unfinished.Count)} linhas";
-                task.ShowLinesCommand = new RelayCommand(() => OpenLineInEditor(LineOf(unfinished[0])));
+                task.ShowLinesCommand = new RelayCommand(() => ShowUnfinishedLine(projectRoot, unfinished[0]));
             }
         });
 
-        Editor.Reload();
-        var (text, kind) = DescribeNightOutcome(arrived, outcome);
-        Toasts.Show(text, kind, key: ToastKey);
-        await RefreshSummaryPageAsync();
+        var (text2, kind) = DescribeNightOutcome(arrived, outcome);
+        Toasts.Show(text2, kind, key: ToastKey);
+
+        // O lote pode chegar com outro projeto aberto: o Editor e as páginas de resumo são do projeto atual, e recarregá-los não mostraria o que o lote gravou.
+        if (SameProject(projectRoot))
+        {
+            Editor.Reload();
+            await RefreshSummaryPageAsync();
+        }
+    }
+
+    private bool SameProject(string projectRoot) =>
+        CurrentProject is { } current && string.Equals(Path.GetFullPath(current.Root), Path.GetFullPath(projectRoot), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"Ver as N linhas": abre a primeira linha sem tradução no Editor, se o projeto do lote é o aberto; senão avisa qual projeto abrir.</summary>
+    private void ShowUnfinishedLine(string projectRoot, string unitId)
+    {
+        if (SameProject(projectRoot))
+        {
+            OpenLineInEditor(LineOf(unitId));
+            return;
+        }
+
+        Toasts.Show($"Essas linhas são de outro projeto. Abra {Path.GetFileName(Path.TrimEndingDirectorySeparator(projectRoot))} para vê-las.", ToastKind.Info, key: ToastKey);
+    }
+
+    /// <summary>A frase de um erro ao enviar ou acompanhar o lote. A fábrica do cliente lança <see cref="InvalidOperationException"/> quando falta a chave.</summary>
+    private static string DescribeNightError(Exception e, string? batchId = null)
+    {
+        var tail = batchId is null ? string.Empty : $" O lote {batchId} segue na API e o app o retoma quando a chave voltar.";
+        return e switch
+        {
+            InvalidOperationException => $"Sem chave de API: informe a chave em Ajustes, na aba IA e gasto.{tail}",
+            VNForgeException or IOException or UnauthorizedAccessException => $"{e.Message}{(batchId is null ? string.Empty : $" O lote {batchId} segue na API.")}",
+            _ => $"{ClaudeErrorMessages.Describe(e)}{(batchId is null ? string.Empty : $" O lote {batchId} segue na API.")}",
+        };
     }
 
     /// <summary>Tira da tarefa o que só vale enquanto o lote espera (Verificar agora, andamento) e, se houver, põe a mensagem final.</summary>
@@ -230,6 +297,7 @@ public sealed partial class MainWindowViewModel
     }
 
     private readonly Dictionary<string, BackgroundTaskItem> batchTasks = [];
+    private readonly Dictionary<string, BackgroundTaskItem> failedBatchTasks = [];
 
     private void SetDetail(string batchId, string detail)
     {
@@ -241,15 +309,17 @@ public sealed partial class MainWindowViewModel
 
     private async Task WaitAsync(SemaphoreSlim wake, CancellationToken ct) => await wake.WaitAsync(NightBatchPollInterval, ct).ConfigureAwait(false);
 
-    private static async Task TryCancelBatchAsync(NightBatchService service, string batchId)
+    /// <summary>Pede à API o cancelamento do lote; devolve o motivo em português quando ela não o aceitou, ou <see langword="null"/>.</summary>
+    private static async Task<string?> TryCancelBatchAsync(NightBatchService service, string batchId)
     {
         try
         {
             await service.CancelAsync(batchId, CancellationToken.None).ConfigureAwait(false);
+            return null;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            // O cancelamento não chegou à API: o estado do lote continua aberto e a próxima verificação o retoma.
+            return e is VNForgeException or IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
         }
     }
 

@@ -22,6 +22,12 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     /// <summary>Faz o próximo <see cref="CreateAsync"/> falhar com esta exceção.</summary>
     public Exception? CreateFails { get; set; }
 
+    /// <summary>Faz toda consulta ao lote falhar com esta exceção, como uma rede fora do ar.</summary>
+    public Exception? GetFails { get; set; }
+
+    /// <summary>Roda depois de cada consulta que deu certo; o teste o usa para saber que o app já perguntou.</summary>
+    public Action? AfterGet { get; set; }
+
     /// <summary>Quantas vezes cada operação foi chamada.</summary>
     public int Creates { get; private set; }
 
@@ -53,7 +59,14 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     {
         ct.ThrowIfCancellationRequested();
         Gets++;
-        return Task.FromResult(Find(batchId).Info());
+        if (GetFails is { } failure)
+        {
+            throw failure;
+        }
+
+        var info = Find(batchId).Info();
+        AfterGet?.Invoke();
+        return Task.FromResult(info);
     }
 
     public Task<MessageBatchInfo> CancelAsync(string batchId, CancellationToken ct)

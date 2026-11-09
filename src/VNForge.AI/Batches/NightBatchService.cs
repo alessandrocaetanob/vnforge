@@ -100,8 +100,30 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
             PriceBrl(order.Rate.ToBrl(estimate.Dollars)),
             [.. requests.SelectMany(r => r.Lines).Select(l => ScriptKeyOf(l.Id)).Distinct(StringComparer.Ordinal)],
             requests);
-        store.Save(state);
+        try
+        {
+            store.Save(state);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Sem o id guardado ninguém retomaria o lote, e ele seria cobrado sem resultado: cancela na API.
+            await TryCancelAsync(info.Id).ConfigureAwait(false);
+            throw new NightBatchException($"Não foi possível guardar o lote em .cache/lote-noturno/ ({e.Message}). O lote foi cancelado na API, então nada será cobrado.", e);
+        }
+
         return state;
+    }
+
+    private async Task TryCancelAsync(string batchId)
+    {
+        try
+        {
+            await client.CancelAsync(batchId, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // O cancelamento também não chegou: o erro que sobe é o do disco, e o lote fica visível no console da Anthropic.
+        }
     }
 
     /// <summary>
@@ -125,6 +147,19 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
                 store.Save(state);
             }
 
+            return new NightBatchCheck(state, info, false);
+        }
+
+        // O app e o vnf podem ver o lote terminado ao mesmo tempo: só um grava. Quem não pega a trava deixa o estado como está, e o outro o fecha.
+        using var claim = store.TryClaim(batchId);
+        if (claim is null)
+        {
+            return new NightBatchCheck(store.Find(batchId) ?? state, info, false);
+        }
+
+        state = store.Find(batchId) ?? state;
+        if (!state.IsOpen)
+        {
             return new NightBatchCheck(state, info, false);
         }
 

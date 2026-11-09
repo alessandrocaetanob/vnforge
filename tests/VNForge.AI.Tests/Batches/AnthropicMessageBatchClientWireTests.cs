@@ -117,4 +117,25 @@ public sealed class AnthropicMessageBatchClientWireTests
         Assert.Equal(3, reply.Usage.CacheReadInputTokens);
         Assert.Contains("overloaded_error", entries[1].Error, StringComparison.Ordinal);
     }
+
+    private sealed class StatusHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("""{"type":"error","error":{"type":"x","message":"y"}}""", Encoding.UTF8, "application/json") });
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, true)]
+    [InlineData(HttpStatusCode.Forbidden, true)]
+    [InlineData(HttpStatusCode.NotFound, true)]
+    [InlineData(HttpStatusCode.TooManyRequests, false)]
+    [InlineData(HttpStatusCode.InternalServerError, false)]
+    public async Task Erro_permanente_e_o_que_repetir_nao_resolve(HttpStatusCode status, bool permanent)
+    {
+        var sdk = new AnthropicClient { ApiKey = "chave-de-teste", MaxRetries = 0, HttpClient = new HttpClient(new StatusHandler(status)) };
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => new AnthropicMessageBatchClient(sdk).GetAsync("msgbatch_01", TestContext.Current.CancellationToken));
+
+        Assert.Equal(permanent, ClaudeErrorMessages.IsPermanent(error));
+    }
 }

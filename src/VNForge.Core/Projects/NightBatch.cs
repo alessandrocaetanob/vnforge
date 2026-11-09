@@ -143,6 +143,26 @@ public sealed class NightBatchStore(ProjectFolder project)
         }
     }
 
+    /// <summary>
+    /// O arquivo de trava de um lote: quem grava o resultado o abre com <see cref="FileShare.None"/>, então o app e o <c>vnf</c> não gravam o mesmo lote juntos.
+    /// O arquivo fica na pasta depois do uso; só a abertura exclusiva vale como trava.
+    /// </summary>
+    public string ClaimPath(string id) => Path.ChangeExtension(PathOf(id), ".apply.lock");
+
+    /// <summary>Tenta reivindicar a gravação do lote; <see langword="null"/> quando outro processo ou thread já a reivindicou. Descarte o resultado para soltar a trava.</summary>
+    public FileStream? TryClaim(string id)
+    {
+        System.IO.Directory.CreateDirectory(StoreDirectory);
+        try
+        {
+            return new FileStream(ClaimPath(id), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
     private string PathOf(string id)
     {
         var safe = new string([.. id.Select(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' ? c : '_')]);
