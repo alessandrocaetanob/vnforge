@@ -125,11 +125,16 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
     /// <param name="vndb">O catálogo do VNDB do passo "Ficha do VNDB"; sem ele o passo avisa que a busca não está disponível e deixa seguir.</param>
+    /// <param name="translatedSynopsis">
+    /// O ponto de ligação da sinopse em português (#554): devolve a sinopse que a IA já traduziu para o jogo confirmado, ou nulo. A ficha mostra o texto traduzido com o selo
+    /// "Traduzida pela IA, você revisa depois"; sem tradução fica o texto do VNDB, no idioma dele. O assistente não chama a IA: quem traduz é a #554.
+    /// </param>
     /// <param name="gameCharacterNames">Lê os nomes de personagem do jogo (<c>ES.CHAR.NAME</c>) para a ficha mostrar quais casam com o VNDB; por padrão <see cref="ProjectInitializer.ReadGameCharacterNames"/>.</param>
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameCharacterNames = null)
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameCharacterNames = null, Func<VndbLink, string?>? translatedSynopsis = null)
     {
         this.vndb = vndb;
         this.gameCharacterNames = gameCharacterNames ?? ProjectInitializer.ReadGameCharacterNames;
+        this.translatedSynopsis = translatedSynopsis ?? (_ => null);
         this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;

@@ -278,7 +278,8 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     appSettings: new AppSettingsFile(temp.SubFolder("config")),
                     clock: new FixedClock(Now),
                     vndb: Catalog(),
-                    gameCharacterNames: (_, _, _) => ["相沢 健太", "佐倉 葵", "早瀬 蓮", "藤堂 美咲", "名無し 08"]);
+                    gameCharacterNames: (_, _, _) => ["相沢 健太", "佐倉 葵", "早瀬 蓮", "藤堂 美咲", "名無し 08"],
+                    translatedSynopsis: _ => "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.");
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, newProjectWizard: () => wizard);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
@@ -310,6 +311,7 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.Contains("O aviso “5 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", texts);
                     Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 2", "ES.CHAR.NAME 3", "ES.CHAR.NAME 4", "sem par no VNDB"], texts.Where(t => t.StartsWith("ES.CHAR.NAME", StringComparison.Ordinal) || t == "sem par no VNDB"));
                     Assert.DoesNotContain("Papel", texts);
+                    Assert.Contains("Traduzida pela IA, você revisa depois", texts);
                     Snapshot(window, "vndb-imagens-ficha", theme);
                 }
                 finally

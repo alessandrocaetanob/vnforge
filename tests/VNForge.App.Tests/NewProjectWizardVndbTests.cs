@@ -272,9 +272,35 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
-    public void O_passo_traz_o_credito_da_licenca_dos_dados_do_VNDB()
+    public async Task Sem_traducao_da_IA_a_sinopse_fica_no_idioma_do_VNDB_sem_o_selo()
     {
-        Assert.Equal(VndbCredit.ShortText, NewProjectWizardViewModel.VndbCreditText);
+        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.False(vm.Preview!.IsSynopsisTranslated);
+        Assert.Equal("Numa cidade onde chove.", vm.Preview.Synopsis);
+        Assert.Equal("Fica guardada no projeto, no idioma do VNDB.", vm.Preview.SynopsisNote);
+    }
+
+    [Fact]
+    public async Task Com_a_sinopse_traduzida_pela_IA_a_ficha_mostra_a_traducao_e_o_selo()
+    {
+        var vm = new NewProjectWizardViewModel(
+            new FakeFolderPicker(null),
+            [new TitledEngine(Title)],
+            vndb: Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)),
+            gameCharacterNames: (_, _, _) => null,
+            translatedSynopsis: link => link.VisualNovelId == "v1" ? "  Numa cidade onde chove quase sempre.  " : null);
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        await vm.NextCommand.ExecuteAsync(null);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.True(vm.Preview!.IsSynopsisTranslated);
+        Assert.True(vm.Preview.HasSynopsis);
+        Assert.Equal("Numa cidade onde chove quase sempre.", vm.Preview.Synopsis);
     }
 
     [Fact]

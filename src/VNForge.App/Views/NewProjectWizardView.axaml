@@ -237,7 +237,19 @@
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Sinopse para a bíblia"/>
                 <TextBlock MaxLines="3" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Text="{Binding Preview.Synopsis}"/>
-                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Preview.SynopsisNote}" IsVisible="{Binding Preview.HasSynopsis}"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Preview.SynopsisNote}">
+                  <TextBlock.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                      <Binding Path="Preview.HasSynopsis"/>
+                      <Binding Path="!Preview.IsSynopsisTranslated"/>
+                    </MultiBinding>
+                  </TextBlock.IsVisible>
+                </TextBlock>
+                <Border HorizontalAlignment="Left" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}"
+                        IsVisible="{Binding Preview.IsSynopsisTranslated}">
+                  <TextBlock Classes="caption" FontSize="11" LineHeight="18" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.StatusAiFg}"
+                             Text="Traduzida pela IA, você revisa depois"/>
+                </Border>
               </StackPanel>
             </Border>
             <Border Classes="panel" Padding="16" AutomationProperties.Name="Aviso que some">
@@ -249,9 +261,6 @@
           </StackPanel>
         </Grid>
       </StackPanel>
-
-      <TextBlock Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsVndbStep}"
-                 Text="{x:Static vm:NewProjectWizardViewModel.VndbCreditText}"/>
 
       <!-- 3. Idiomas e nome -->
       <StackPanel Spacing="20" IsVisible="{Binding IsNamesStep}">

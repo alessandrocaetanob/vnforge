@@ -108,24 +108,27 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate, string? e
 public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame, bool Paired = true);
 
 /// <summary>O que o jogo confirmado traz ao projeto: personagens e sinopse.</summary>
-public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote)
+public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote, bool IsSynopsisTranslated = false)
 {
     /// <summary>Nome do personagem do jogo que o VNDB não tem, no lugar do nome original.</summary>
     private const string NoPair = "sem par no VNDB";
 
     /// <param name="link">O jogo do VNDB confirmado, com os personagens.</param>
     /// <param name="gameNames">Os nomes de personagem do jogo (<c>ES.CHAR.NAME</c>), na ordem em que o jogo os traz; nulo quando não foi possível lê-los.</param>
-    public static VndbPreview From(VndbLink link, IReadOnlyList<string>? gameNames = null)
+    /// <param name="translatedSynopsis">A sinopse que a IA já traduziu, quando há; a tela a mostra com o selo "Traduzida pela IA, você revisa depois". Nulo: fica o texto no idioma do VNDB.</param>
+    public static VndbPreview From(VndbLink link, IReadOnlyList<string>? gameNames = null, string? translatedSynopsis = null)
     {
+        var translated = string.IsNullOrWhiteSpace(translatedSynopsis) ? null : translatedSynopsis.Trim();
         var (rows, countText, genderNote) = gameNames is null ? Unpaired(link) : Paired(link, gameNames);
         return new VndbPreview(
             $"{link.Title}, {link.VisualNovelId}",
             countText,
             rows,
-            link.Synopsis ?? "O VNDB não tem sinopse deste jogo.",
-            link.Synopsis is not null,
+            translated ?? link.Synopsis ?? "O VNDB não tem sinopse deste jogo.",
+            translated is not null || link.Synopsis is not null,
             "Fica guardada no projeto, no idioma do VNDB.",
-            genderNote);
+            genderNote,
+            translated is not null);
     }
 
     /// <summary>Sem os nomes do jogo: lista os personagens do VNDB e diz que o casamento vem na extração.</summary>
@@ -207,6 +210,7 @@ public sealed partial class NewProjectWizardViewModel
 {
     private readonly IVndbCatalog? vndb;
     private readonly Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?> gameCharacterNames;
+    private readonly Func<VndbLink, string?> translatedSynopsis;
     private VndbLink? confirmedLink;
     private string? vndbSearchedFolder;
     private CancellationTokenSource? vndbCts;
@@ -238,9 +242,6 @@ public sealed partial class NewProjectWizardViewModel
 
     [ObservableProperty]
     public partial VndbPreview? Preview { get; private set; }
-
-    /// <summary>O crédito da licença dos dados do VNDB, que a tela mostra sempre que há dado dele.</summary>
-    public static string VndbCreditText => VndbCredit.ShortText;
 
     public bool IsVndbChoosing => Stage == VndbStage.Choosing;
 
@@ -464,7 +465,7 @@ public sealed partial class NewProjectWizardViewModel
             }
 
             confirmedLink = VndbProjectLinker.From(chosen.Candidate.VisualNovel, characters);
-            Preview = VndbPreview.From(confirmedLink, gameNames);
+            Preview = VndbPreview.From(confirmedLink, gameNames, translatedSynopsis(confirmedLink));
             Stage = VndbStage.Preview;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
