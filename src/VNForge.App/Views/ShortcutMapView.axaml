@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:VNForge.App.Controls"
              xmlns:vm="using:VNForge.App.ViewModels"
              x:Class="VNForge.App.Views.ShortcutMapView"
              x:DataType="vm:MainWindowViewModel">
@@ -22,7 +23,7 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ShortcutGroup">
               <StackPanel Spacing="8" Margin="0,0,0,12">
-                <TextBlock Classes="overline" Text="{Binding Title}"/>
+                <c:OverlineText Classes="overline" Text="{Binding Title}"/>
                 <ItemsControl ItemsSource="{Binding Entries}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ShortcutEntry">

@@ -6,7 +6,7 @@
              x:DataType="vm:TranslateDialogViewModel">
 
   <!-- Traduzir com IA (U12): o diálogo vive na camada de sobreposição, sobre o Editor; Escape e o X fecham. Três perguntas: o que, com que qualidade e por quanto. -->
-  <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+  <c:ScreenDialog Title="Traduzir com IA" DialogWidth="780" ShowClose="True" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <ScrollViewer.Styles>
         <!-- Escopo sem linha pendente: o cartão fica apagado, como o QualityCard desligado. O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
@@ -17,7 +17,7 @@
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="O que traduzir"/>
+          <c:OverlineText Classes="overline" Text="O que traduzir"/>
           <ItemsControl ItemsSource="{Binding Scopes}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -29,7 +29,10 @@
                 <RadioButton Classes="option" GroupName="TranslateScope" VerticalAlignment="Stretch" VerticalContentAlignment="Center" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                              IsEnabled="{Binding IsAvailable}" AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
-                    <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Border Classes="radio-mark"/>
+                      <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Summary}"/>
                   </StackPanel>
                 </RadioButton>
@@ -39,7 +42,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Com que qualidade"/>
+          <c:OverlineText Classes="overline" Text="Com que qualidade"/>
           <ItemsControl ItemsSource="{Binding Qualities}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -57,7 +60,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8" IsVisible="{Binding ShowWhen}">
-          <TextBlock Classes="overline" Text="Quando"/>
+          <c:OverlineText Classes="overline" Text="Quando"/>
           <ItemsControl ItemsSource="{Binding Whens}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -69,9 +72,10 @@
                 <RadioButton Classes="option" GroupName="TranslateWhen" Margin="0,0,8,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
                              IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
                   <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                      <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
-                      <Border Grid.Column="1" Height="20" Padding="6,0,8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                      <Border Classes="radio-mark"/>
+                      <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                      <Border Grid.Column="2" Height="20" Padding="6,0,8,0" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                               Background="{DynamicResource Vnf.StatusAiBg}" TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}"
                               IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -89,7 +93,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Quanto custa"/>
+          <c:OverlineText Classes="overline" Text="Quanto custa"/>
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">

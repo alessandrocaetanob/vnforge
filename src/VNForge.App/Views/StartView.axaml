@@ -83,7 +83,7 @@
 
                 <StackPanel Grid.Column="1" Spacing="16" VerticalAlignment="Center" MinWidth="0">
                   <StackPanel Spacing="4">
-                    <TextBlock Classes="overline" Text="Continuar de onde parou"/>
+                    <c:OverlineText Classes="overline" Text="Continuar de onde parou"/>
                     <TextBlock Classes="title-md" Text="{Binding Selected.Name}" TextWrapping="Wrap"/>
                     <TextBlock Classes="body-strong" Text="{Binding Detail.NextStepScene}" TextWrapping="Wrap"
                                IsVisible="{Binding Detail.NextStepScene, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>

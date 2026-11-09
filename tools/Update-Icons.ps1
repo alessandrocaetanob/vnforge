@@ -64,6 +64,10 @@ $Icons = [ordered]@{
     'Icon.Document' = @('Document Text', 'document_text')
 }
 
+# O PathIcon estica a geometria até a caixa, pelos limites do traçado; o SVG do quadro é desenhado numa grade de 20 e um glifo de 13 por 15 sai a 0,8 do tamanho.
+# Dois pontos soltos nos cantos da grade (sem área, nada é pintado) fazem os limites serem 0 a 20, e o ícone sai na mesma escala do quadro.
+$Frame = 'M0 0L0 0M20 20L20 20'
+
 $sb = [System.Text.StringBuilder]::new()
 [void]$sb.AppendLine('<!-- Gerado por tools/Update-Icons.ps1. Fluent UI System Icons (Microsoft, MIT), Regular 20. -->')
 [void]$sb.AppendLine('<ResourceDictionary xmlns="https://github.com/avaloniaui"')
@@ -73,7 +77,7 @@ foreach ($entry in $Icons.GetEnumerator()) {
     $url = "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/$Ref/assets/$([uri]::EscapeDataString($folder))/SVG/ic_fluent_${file}_20_regular.svg"
     $svg = (Invoke-WebRequest -Uri $url -UseBasicParsing).Content
     if ($svg -notmatch ' d="([^"]+)"') { throw "Sem atributo d em $url" }
-    [void]$sb.AppendLine("  <StreamGeometry x:Key=`"$($entry.Key)`">$($Matches[1])</StreamGeometry>")
+    [void]$sb.AppendLine("  <StreamGeometry x:Key=`"$($entry.Key)`">$($Matches[1])$Frame</StreamGeometry>")
 }
 [void]$sb.AppendLine('</ResourceDictionary>')
 [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($Output), $sb.ToString().Replace("`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))

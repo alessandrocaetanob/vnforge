@@ -237,7 +237,7 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.False(vm.ShowReport);
         Assert.Equal("Par 1 de 12", vm.PairTitle);
         Assert.StartsWith("原文", vm.OriginalText);
-        Assert.Matches(@"^ORIGINAL · CENA 1, LINHA \d{4}$", vm.OriginalMeta);
+        Assert.Matches(@"^Original · Cena 1, linha \d{4}$", vm.OriginalMeta);
         Assert.Equal(1d / 12, vm.PairFraction, 6);
         Assert.NotEqual(vm.TextA, vm.TextB);
         Assert.Contains("de 3 linhas", vm.FitA);

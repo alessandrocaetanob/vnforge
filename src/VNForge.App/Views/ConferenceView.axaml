@@ -218,34 +218,34 @@
                   </StackPanel>
                   <TextBlock Classes="title-md" Text="{Binding DetailTitle}" TextWrapping="Wrap"/>
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="O que é isso"/>
+                    <c:OverlineText Classes="overline" Text="O que é isso"/>
                     <TextBlock Classes="body-sm secondary" Text="{Binding Explanation}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <!-- O nome como está no texto extraído, para copiar para o Glossário sem digitar de cabeça (um C largo e um C latino não casam). -->
                   <StackPanel Spacing="6" IsVisible="{Binding HasSpeaker}">
-                    <TextBlock Classes="overline" Text="Quem fala"/>
+                    <c:OverlineText Classes="overline" Text="Quem fala"/>
                     <Border Classes="original">
                       <SelectableTextBlock Classes="jp-body" Text="{Binding Speaker}" TextWrapping="Wrap" c:SpeakerMenu.Original="{Binding Speaker}" AutomationProperties.Name="Quem fala"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasCharacterList}">
-                    <TextBlock Classes="overline" Text="Nesta fala"/>
+                    <c:OverlineText Classes="overline" Text="Nesta fala"/>
                     <TextBlock Classes="body-sm" Text="{Binding CharacterSentence}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasOriginal}">
-                    <TextBlock Classes="overline" Text="Original"/>
+                    <c:OverlineText Classes="overline" Text="Original"/>
                     <Border Classes="original">
                       <TextBlock Classes="jp-body" c:MarkedText.Source="{Binding Original}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasTranslation}">
-                    <TextBlock Classes="overline" Text="{Binding TranslationLabel}"/>
+                    <c:OverlineText Classes="overline" Text="{Binding TranslationLabel}"/>
                     <Border Classes="original">
                       <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">
-                    <TextBlock Classes="overline" Text="Como vai ficar"/>
+                    <c:OverlineText Classes="overline" Text="Como vai ficar"/>
                     <Border Classes="original proposal">
                       <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
                     </Border>
