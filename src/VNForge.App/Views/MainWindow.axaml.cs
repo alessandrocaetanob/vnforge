@@ -45,8 +45,8 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// O cabeçalho completo (com a capa) só cabe onde a página sobra: o Painel, a Ficha e Jogar, em janela alta. As telas de trabalho (Editor, Conferir, Testar, Glossário)
-    /// e as janelas baixas usam o compacto, de uma linha, para ficar com a altura.
+    /// O cabeçalho completo (com a capa) só cabe onde a página sobra: o Painel, a Ficha e Jogar, em janela alta. As telas de trabalho (Editor, Conferir, Testar, Lançar, Glossário,
+    /// Bíblia e Imagens) e as janelas baixas usam o compacto, de uma linha, para ficar com a altura.
     /// </summary>
     private void UpdateCompactHeader() =>
         GameHeader.IsCompact = HeaderCompactOverride ?? (ClientSize.Height < GameHeaderView.CompactBelow || DataContext is ViewModels.MainWindowViewModel { CurrentPage: not (ViewModels.DashboardViewModel or ViewModels.GameTabPlaceholderViewModel) });

@@ -80,8 +80,8 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             var dashboard = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             Assert.Empty(dashboard.GetVisualDescendants().OfType<PageHeader>());
             var scroll = Assert.Single(dashboard.GetVisualDescendants().OfType<ScrollViewer>());
-            // A faixa Visão geral | Provas do banco de provas (#529) tomou 38 px da página; o Painel rola só esse tanto em 1440x1000.
-            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 48, $"o Painel rola mais que a faixa de abas em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
+            // A faixa Visão geral | Provas do banco de provas (#529) tomou 42 px da página (medidos em 1440x1000); o Painel rola só esse tanto.
+            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 42.5, $"o Painel rola mais que os 42 px da faixa de abas em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             Assert.True(header.Bounds.Height < 260, $"o cabeçalho e a segunda linha ocupam {header.Bounds.Height:0} px");
 
             ScreenRenderer.Settle(window);
