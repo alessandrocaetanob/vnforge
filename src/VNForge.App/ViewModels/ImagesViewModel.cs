@@ -261,6 +261,22 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsSelectTool), nameof(IsEraseTool), nameof(IsTextTool))]
     public partial ImageTool ActiveTool { get; set; } = ImageTool.SelectArea;
 
+    /// <summary>O tamanho da fonte como o campo mostra: "18 px". Aceita o número com ou sem o "px"; o que não for número volta ao que vale.</summary>
+    public string FontSizeText
+    {
+        get => $"{Plain(FontSize)} px";
+        set
+        {
+            var digits = value.Replace("px", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+            if (double.TryParse(digits, NumberStyles.Float, CultureInfo.CurrentCulture, out var size) || double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+            {
+                FontSize = size;
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
     public bool IsSelectTool => ActiveTool == ImageTool.SelectArea;
 
     public bool IsEraseTool => ActiveTool == ImageTool.Erase;
@@ -465,7 +481,11 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     partial void OnFontChanged(string value) => FieldsChanged();
 
-    partial void OnFontSizeChanged(double value) => FieldsChanged();
+    partial void OnFontSizeChanged(double value)
+    {
+        OnPropertyChanged(nameof(FontSizeText));
+        FieldsChanged();
+    }
 
     partial void OnIsBoldChanged(bool value) => FieldsChanged();
 

@@ -40,6 +40,54 @@
     </Style>
 
     
+    <!-- Segmentado em pílula (v3-seg do quadro): trilho inset arredondado, o segmento escolhido sobe para a cor de cartão com fio de 1px. -->
+    <Style Selector="ListBox.pillseg">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="17"/>
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="4"/>
+        </ItemsPanelTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.pillseg > ListBoxItem">
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Padding" Value="15,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Foreground="{TemplateBinding Foreground}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.pillseg > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+    <Style Selector="ListBox.pillseg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+
     <!-- Amostra de cor do texto: um círculo de 24px; a escolhida ganha o anel accent de 2px por fora. -->
     <Style Selector="Button.swatch">
       <Setter Property="Background" Value="Transparent"/>
@@ -162,7 +210,7 @@
                 <TextBlock Text="Texto"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="3" Classes="subtle sm" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Desfazer">
+            <Button Grid.Column="3" Classes="subtle sm" Command="{Binding UndoCommand}" AutomationProperties.Name="Desfazer">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
                 <TextBlock Text="Desfazer"/>
@@ -244,9 +292,10 @@
                     <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
                     <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
                       <StackPanel Spacing="4">
-                        <SelectableTextBlock Classes="jp-row" TextWrapping="Wrap" Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
-                        <SelectableTextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SelectedItem.Translation}"
-                                             IsVisible="{Binding SelectedItem.HasTranslation}" AutomationProperties.Name="Tradução sugerida pela IA"/>
+                        <SelectableTextBlock TextWrapping="Wrap" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
+                                             Text="{Binding SelectedItem.JapaneseText}" AutomationProperties.Name="Texto em japonês lido na imagem"/>
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SelectedItem.Translation}"
+                                   IsVisible="{Binding SelectedItem.HasTranslation}" AutomationProperties.Name="Tradução sugerida pela IA"/>
                       </StackPanel>
                     </Border>
                   </StackPanel>
@@ -261,11 +310,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
                       <TextBlock Classes="overline" Text="Tamanho"/>
-                      <TextBox Text="{Binding FontSize}" AutomationProperties.Name="Tamanho da fonte em pixels">
-                        <TextBox.InnerRightContent>
-                          <TextBlock Classes="body-sm secondary" Margin="0,0,10,0" VerticalAlignment="Center" Text="px"/>
-                        </TextBox.InnerRightContent>
-                      </TextBox>
+                      <TextBox Text="{Binding FontSizeText}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
                     </StackPanel>
                   </Grid>
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
@@ -298,7 +343,7 @@
                   </Grid>
                   <StackPanel Spacing="6">
                     <TextBlock Classes="overline" Text="Apagar a área"/>
-                    <ListBox Name="EraseModes" Classes="seg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
+                    <ListBox Name="EraseModes" Classes="pillseg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding UsesSolidErase}">
                       <Ellipse Width="24" Height="24" Fill="{Binding EraseColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
                       <TextBox Grid.Column="1" Text="{Binding EraseColor}" AutomationProperties.Name="Cor lisa da área apagada"/>

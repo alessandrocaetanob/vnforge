@@ -59,7 +59,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
             "Amaoto no Hakoniwa", new GameConfig(game, "jogo.exe"), new EngineConfig("yuris"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
         folder.SaveImageInventory(
         [
-            new ImageTextEntry(Pack, Gate, Convert.ToHexStringLower(SHA256.HashData(gate)), Width, Height, "桜ヶ丘高校 校門"),
+            new ImageTextEntry(Pack, Gate, Convert.ToHexStringLower(SHA256.HashData(gate)), Width, Height, "桜ヶ丘高校 校門", "Colégio Sakuragaoka, portão"),
             new ImageTextEntry(Pack, "ui/titulo.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, "タイトル"),
             new ImageTextEntry(Pack, "ui/logo.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, "ロゴ"),
             new ImageTextEntry(Pack, "bg/rua.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, string.Empty),
