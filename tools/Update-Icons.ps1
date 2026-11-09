@@ -61,6 +61,7 @@ $Icons = [ordered]@{
     'Icon.Link'     = @('Link', 'link')
     'Icon.Filter'   = @('Filter', 'filter')
     'Icon.Database' = @('Database', 'database')
+    'Icon.Document' = @('Document Text', 'document_text')
 }
 
 # O PathIcon estica a geometria até a caixa, pelos limites do traçado; o SVG do quadro é desenhado numa grade de 20 e um glifo de 13 por 15 sai a 0,8 do tamanho.

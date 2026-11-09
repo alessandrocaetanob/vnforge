@@ -71,6 +71,40 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
     }
 
     [Fact]
+    public async Task Pronta_com_patch_anterior_mostra_a_tabela_estimada_e_o_antes_e_o_depois_das_falas()
+    {
+        var read = ReleaseViewModelTests.ReadyWithPreviousPatch() with
+        {
+            ChangeExamples = [new ChangeExample(1, 2, "Lá fora, a chuva ainda não parou.", "Lá fora, a chuva não parou desde cedo.")],
+        };
+        var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync(read);
+        using var _t = temp;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                try
+                {
+                    Assert.True(Mostra(window, "O que o patch muda no jogo"));
+                    Assert.Contains("Game/script.ypf", Textos(window));
+                    Assert.Contains("4 de 312 arquivos tocados", Textos(window));
+                    Assert.Contains("Cena 1 · linha 2", Textos(window));
+                    Assert.Contains("Lá fora, a chuva ainda não parou.", Textos(window));
+                    Assert.Contains("e mais 40 linhas em 2 cenas", Textos(window));
+                    Assert.Contains("5,1 MB", Textos(window));
+                    Assert.Contains("9 KB", Textos(window));
+                    SemTravessao(window);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Com_erros_na_conferencia_o_gerar_fica_desabilitado_e_a_faixa_oferece_os_erros()
     {
         var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync(ReleaseViewModelTests.Ready(errors: 2));
@@ -130,7 +164,7 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
                         Assert.False(gerar.IsEffectivelyEnabled);
                         Assert.Contains("Gerando...", Textos(window));
                         Assert.Contains("Gerando a versão 1.2.0", Textos(window));
-                        Assert.Contains("Calcular as diferenças e gravar o patch", Textos(window));
+                        Assert.Contains("Calcular as diferenças", Textos(window));
                         Assert.Single(window.GetVisualDescendants().OfType<ProgressBar>(), p => p.IsEffectivelyVisible && p.IsIndeterminate);
                         SemTravessao(window);
                     }
@@ -165,8 +199,9 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
                 {
                     Assert.True(Mostra(window, "Arquivos gerados"));
                     Assert.True(Mostra(window, "Verificação"));
-                    Assert.True(Mostra(window, "O que o patch muda no jogo"));
+                    Assert.False(Mostra(window, "O que o patch muda no jogo"));
                     Assert.True(Mostra(window, "LEIA-ME.txt"));
+                    Assert.DoesNotContain("LICENCAS.txt", Textos(window));
                     Assert.False(Mostra(window, "O que o jogador recebe"));
                     Assert.False(Mostra(window, "A versão"));
                     Assert.Equal(2, Visiveis(window, "Copiar checksum").Count());
@@ -188,7 +223,8 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
     [Fact]
     public async Task Fora_da_versao_de_referencia_trava_o_gerar_e_so_mostra_os_detalhes_a_pedido()
     {
-        var read = ReleaseViewModelTests.Ready(reference: ReleaseReference.Differs, problem: "O jogo mudou desde a extração. Arquivos alterados: Game/Game.exe.");
+        var read = ReleaseViewModelTests.Ready(reference: ReleaseReference.Differs, problem: "O jogo mudou desde a extração. Arquivos alterados: Game/Game.exe.")
+            with { ChangedFiles = [new VNForge.Core.Injection.ChangedGameFile("Game/Game.exe", "3f9a" + new string('0', 56) + "c21d", "77b0" + new string('1', 56) + "e04a")] };
         var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync(read);
         using var _t = temp;
 
@@ -200,6 +236,9 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
                 {
                     Assert.True(Mostra(window, "Checksum diferente"));
                     Assert.True(Mostra(window, "O que fazer"));
+                    Assert.Contains("Esperado (referência)", Textos(window));
+                    Assert.Contains("Encontrado na pasta", Textos(window));
+                    Assert.Contains("SHA-256 3f9a…c21d", window.GetVisualDescendants().OfType<SelectableTextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? string.Empty));
                     Assert.True(Mostra(window, "Escolher outra pasta"));
                     Assert.True(Mostra(window, "Ver os detalhes"));
                     Assert.False(Mostra(window, "Detalhes do checksum"));

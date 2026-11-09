@@ -21,8 +21,8 @@ internal static class ScreenRenderer
     public static string FileName(string screen, ThemeVariant theme) =>
         $"{screen}-{(theme == ThemeVariant.Light ? "claro" : "escuro")}.png";
 
-    /// <summary>Monta a janela, deixa o layout assentar e devolve o quadro renderizado. Chamar na thread da sessão headless.</summary>
-    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height, Action<Window>? inspect = null)
+    /// <summary>Monta a janela, deixa o layout assentar e devolve o quadro renderizado. <paramref name="prepare"/> ajusta a janela já montada antes do quadro (texto de exibição que o dado de teste não reproduz). Chamar na thread da sessão headless.</summary>
+    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height, Action<Window>? inspect = null, Action<Window>? prepare = null)
     {
         var window = new Window
         {
@@ -36,6 +36,12 @@ internal static class ScreenRenderer
         {
             window.Show();
             Settle(window);
+            if (prepare is not null)
+            {
+                prepare(window);
+                Settle(window);
+            }
+
             Save(window, path);
             inspect?.Invoke(window);
         }
