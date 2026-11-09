@@ -71,8 +71,9 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
-      <!-- Espaço transparente em volta para a sombra do quadro (0 8 24) caber na janela do popup: o cartão fica onde o quadro o põe e TaskBar.FlyoutMargin compensa o deslocamento. -->
+      <!-- A janela do popup recorta o que passa da caixa do presenter: o respiro transparente de 32 deixa a sombra do quadro (0 8 24) aparecer. O Avalonia posiciona o popup sem contar a margem do filho, e o presenter recorta a si mesmo por padrão (ClipToBounds), o que cortaria a sombra. -->
       <Setter Property="Margin" Value="32"/>
+      <Setter Property="ClipToBounds" Value="False"/>
     </Style>
     <Style Selector="FlyoutPresenter.tasks /template/ Border#LayoutRoot">
       <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
@@ -118,7 +119,7 @@
         </StackPanel>
       </Panel>
       <Button.Flyout>
-        <Flyout Placement="TopEdgeAlignedLeft" FlyoutPresenterClasses="tasks" VerticalOffset="24">
+        <Flyout Placement="TopEdgeAlignedLeft" FlyoutPresenterClasses="tasks" VerticalOffset="-8">
           <StackPanel>
             <StackPanel.ContextFlyout>
               <!-- O quadro não desenha "Limpar concluídas": a ação continua à mão no menu de contexto da lista. -->
