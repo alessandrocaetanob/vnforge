@@ -17,6 +17,7 @@
     <!-- Os tokens e a lista de ícones saem do design system; um teste confere que o Tokens.axaml está em dia com o tokens.json. -->
     <None Include="..\..\docs\design\tokens.json" Link="design\tokens.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\VNForge.App\Themes\Tokens.axaml" Link="design\Tokens.axaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\VNForge.App\Themes\TextScale.axaml" Link="design\TextScale.axaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

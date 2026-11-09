@@ -576,7 +576,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.True(Part<TextBlock>(withActions, "PART_Breadcrumb").IsVisible);
             Assert.False(Part<TextBlock>(bare, "PART_Breadcrumb").IsVisible);
             Assert.Equal("Minha VN", Part<TextBlock>(withActions, "PART_Title").Text);
-            Assert.Equal(26, Part<TextBlock>(withActions, "PART_Title").FontSize);
+            Assert.Equal(24, Part<TextBlock>(withActions, "PART_Title").FontSize);
 
             var button = withActions.GetVisualDescendants().OfType<Button>().Single();
             var title = Part<TextBlock>(withActions, "PART_Title");

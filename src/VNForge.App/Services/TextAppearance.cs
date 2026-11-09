@@ -17,7 +17,10 @@ public static class TextAppearance
 
     private const double BasePillHeight = 20;
 
-    /// <summary>Nome do token, tamanho e altura de linha a 100%.</summary>
+    /// <summary>
+    /// Nome do token, tamanho e altura de linha a 100%. São os do tokens.json (<c>TypographyTokensTests</c> confere), menos a altura de linha de
+    /// <c>TitleLg</c> (35, não 32) e de <c>TitleMd</c> (25, não 24): a fonte de exibição corta as descendentes abaixo dos 1,45 por corpo.
+    /// </summary>
     public static IReadOnlyList<(string Name, double Size, double Line)> Scales { get; } =
     [
         ("Body", 14, 20),
@@ -26,8 +29,13 @@ public static class TextAppearance
         ("Mono", 12, 18),
         ("MonoXs", 11, 14),
         ("Pill", 11, 14),
+        ("TitleXl", 34, 40),
+        ("TitleLg", 24, 35),
         ("TitleMd", 17, 25),
-        ("JpBody", 15, 24),
+        ("TitleSm", 15, 20),
+        ("ColumnHeader", 12, 16),
+        ("Overline", 11, 16),
+        ("JpBody", 19, 30),
         ("JpRow", 13, 18),
         ("BodyLoose", 14, 22),
         ("ReviewSource", 18, 27),
