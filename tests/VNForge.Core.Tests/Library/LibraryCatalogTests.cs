@@ -265,7 +265,7 @@ public sealed class LibraryCatalogTests
         var sheets = new FakeSheets(new LibrarySheet(
             "Uma história de família, em português.",
             true,
-            [new LibrarySheetCharacter("Nagisa Furukawa", "古河 渚", "Protagonista", "Uma garota frágil.", true, [new LibrarySheetTrait("Tímida", 0), new LibrarySheetTrait("Morre", 2)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
+            [new LibrarySheetCharacter("Nagisa Furukawa", "古河 渚", "Protagonista", "Uma garota frágil.", true, [new LibrarySheetTrait("Tímida", 0, false, false), new LibrarySheetTrait("Morre", 2, false, false)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
             new Dictionary<string, string> { ["g1"] = "Drama (pt)" }));
 
         var translated = Render([Clannad()], sheets: sheets).Html;
@@ -305,13 +305,109 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
+    public void Traco_sexual_e_o_sem_marca_somem_sem_o_conteudo_adulto_e_a_mentira_sem_os_spoilers()
+    {
+        var sheets = new FakeSheets(new LibrarySheet(
+            null,
+            false,
+            [
+                new LibrarySheetCharacter(
+                    "Ana",
+                    null,
+                    null,
+                    null,
+                    false,
+                    [
+                        new LibrarySheetTrait("Tímida", 0, false, false),
+                        new LibrarySheetTrait("Traço picante", 0, false, true),
+                        new LibrarySheetTrait("Traço de ficha antiga", 0, false, null),
+                        new LibrarySheetTrait("Traço enganoso", 0, true, false),
+                    ],
+                    null,
+                    0),
+            ],
+            new Dictionary<string, string>()));
+
+        var hidden = Render([Clannad()], sheets: sheets).Html;
+        var adult = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(false, true)), sheets).Html;
+        var spoilers = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, false)), sheets).Html;
+
+        Assert.Contains("Tímida", hidden, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço picante", hidden, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço de ficha antiga", hidden, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço enganoso", hidden, StringComparison.Ordinal);
+        Assert.Contains("Traço picante", adult, StringComparison.Ordinal);
+        Assert.Contains("Traço de ficha antiga", adult, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço enganoso", adult, StringComparison.Ordinal);
+        Assert.Contains("Traço enganoso", spoilers, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço picante", spoilers, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_ultima_sessao_usa_o_fuso_da_hora_de_geracao_e_nao_o_da_maquina()
+    {
+        var game = Clannad();
+        var log = new PlayLog();
+        var end = new DateTimeOffset(2026, 11, 9, 23, 30, 0, TimeSpan.FromHours(-3));
+        log.Upsert(game.Id, new PlaySession("s1", end.AddHours(-1), end, TimeSpan.FromHours(1)));
+        var libraryOf = new GameLibrary([game]);
+
+        var inBrasilia = LibraryCatalog.Render(libraryOf, log, new DateTimeOffset(2026, 11, 10, 9, 0, 0, TimeSpan.FromHours(-3)), null, null, _ => null).Html;
+        var inUtc = LibraryCatalog.Render(libraryOf, log, new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero), null, null, _ => null).Html;
+
+        Assert.Contains("a última em 09/11/2026", inBrasilia, StringComparison.Ordinal);
+        Assert.Contains("a última em 10/11/2026", inUtc, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Texto_com_caractere_que_o_XML_nao_aceita_continua_gerando_documento_valido()
+    {
+        var game = Clannad();
+        var broken = game with
+        {
+            Info = game.Info! with { Title = "Ruim\uD800\uFFFE\uFFFF\u0001Fim \uD83D\uDE00 par", Synopsis = "Sozinho\uDC00 depois" },
+        };
+
+        var html = Render([broken]).Html;
+
+        _ = Parse(html);
+        Assert.Contains("RuimFim \uD83D\uDE00 par", html, StringComparison.Ordinal);
+        Assert.Contains("Sozinho depois", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Destino_dentro_da_pasta_de_um_jogo_e_reconhecido()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
+        var gameFolder = Path.Combine(root, "CLANNAD");
+        var other = Path.Combine(root, "CLANNAD 2");
+        Directory.CreateDirectory(gameFolder);
+        Directory.CreateDirectory(other);
+        try
+        {
+            var game = Clannad() with { Folder = gameFolder };
+            var library = new GameLibrary([game]);
+
+            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "catalogo.html")));
+            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "novo", "catalogo.html")));
+            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "novo", "..", "catalogo.html")));
+            Assert.Null(LibraryCatalog.GameHolding(library, Path.Combine(other, "catalogo.html")));
+            Assert.Null(LibraryCatalog.GameHolding(library, Path.Combine(root, "catalogo.html")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void A_pagina_e_um_documento_bem_formado_e_abre_sem_erro()
     {
         var game = Clannad();
         var sheets = new FakeSheets(new LibrarySheet(
             "Sinopse & \"aspas\"",
             true,
-            [new LibrarySheetCharacter("Ana", null, "Principal", "Descrição", true, [new LibrarySheetTrait("Alta", 0)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
+            [new LibrarySheetCharacter("Ana", null, "Principal", "Descrição", true, [new LibrarySheetTrait("Alta", 0, false, false)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
             new Dictionary<string, string>()));
 
         var html = Render([game, Adult(), Unmatched()], new LibraryCatalogOptions(new LibraryPrivacy(true, true), true), sheets, Played(game), _ => Counts(1, 1, 2)).Html;
@@ -343,6 +439,51 @@ public sealed class LibraryCatalogTests
 
             Assert.Null(LibraryCatalog.ReadTranslation(game));
             Assert.Null(LibraryCatalog.ReadTranslation(game with { ProjectPath = null }));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"version\": 1, \"units\": [{\"id\": \"a:1\", \"text\"")]
+    [InlineData("")]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("{\"version\": 1, \"units\": [null]}")]
+    [InlineData("{\"version\": 1, \"units\": {\"a\": 1}}")]
+    [InlineData("{\"version\": 1, \"version\": 2, \"units\": []}")]
+    public void Projeto_com_texto_truncado_ou_malformado_nao_derruba_o_catalogo(string textJson)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(folder, "text"));
+        try
+        {
+            File.WriteAllText(Path.Combine(folder, "vnforge.json"), "{\"version\": 1");
+            File.WriteAllText(Path.Combine(folder, "text", "script.json"), textJson);
+            var game = Clannad() with { ProjectPath = folder };
+
+            Assert.Null(LibraryCatalog.ReadTranslation(game));
+            Assert.Equal(1, LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated).Games);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Projeto_com_texto_fora_de_UTF8_nao_derruba_o_catalogo()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(folder, "text"));
+        try
+        {
+            File.WriteAllText(Path.Combine(folder, "vnforge.json"), "{}");
+            File.WriteAllBytes(Path.Combine(folder, "text", "script.json"), [0x7B, 0xFF, 0xFE, 0x7D]);
+
+            Assert.Null(LibraryCatalog.ReadTranslation(Clannad() with { ProjectPath = folder }));
         }
         finally
         {

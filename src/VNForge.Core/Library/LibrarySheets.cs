@@ -37,5 +37,8 @@ public sealed record LibrarySheetCharacter(
     VndbImageRef? Image,
     int Spoiler);
 
-/// <summary>Um traço do personagem; <paramref name="Spoiler"/> é o nível do VNDB (0, 1 ou 2).</summary>
-public sealed record LibrarySheetTrait(string Name, int Spoiler);
+/// <summary>
+/// Um traço do personagem. <paramref name="Spoiler"/> é o nível do VNDB (0, 1 ou 2); <paramref name="Lie"/> marca o traço que o VNDB diz ser mentira da história; <paramref name="Sexual"/> é
+/// a marca sexual do VNDB, nula quando a ficha foi gravada sem o campo. O catálogo aplica a regra da ficha (<see cref="Factsheet.SheetViewer.IsTraitHidden(int, bool, bool?, LibraryPrivacy)"/>).
+/// </summary>
+public sealed record LibrarySheetTrait(string Name, int Spoiler, bool Lie, bool? Sexual);

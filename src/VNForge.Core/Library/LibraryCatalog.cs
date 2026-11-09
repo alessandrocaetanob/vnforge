@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 
@@ -56,7 +57,7 @@ public static partial class LibraryCatalog
 
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
-    /// <summary>Gera a página. <paramref name="generatedAt"/> sai no rodapé como veio (o chamador passa a hora local). <paramref name="translation"/> dá a contagem de linhas do projeto de um jogo; sem ela, <see cref="ReadTranslation"/> lê o projeto no disco.</summary>
+    /// <summary>Gera a página. <paramref name="generatedAt"/> sai no rodapé como veio (o chamador passa a hora local) e o seu deslocamento vale também para a data da última sessão, para a página não mudar com o fuso da máquina. <paramref name="translation"/> dá a contagem de linhas do projeto de um jogo; sem ela, <see cref="ReadTranslation"/> lê o projeto no disco.</summary>
     public static LibraryCatalogResult Render(
         GameLibrary library,
         PlayLog played,
@@ -90,7 +91,7 @@ public static partial class LibraryCatalog
 
         foreach (var game in games)
         {
-            AppendGame(html, game, options, sheets?.SheetOf(game), played.StatsOf(game.Id), translation(game));
+            AppendGame(html, game, options, sheets?.SheetOf(game), played.StatsOf(game.Id), translation(game), generatedAt.Offset);
         }
 
         html.Append("</main>\n");
@@ -128,7 +129,21 @@ public static partial class LibraryCatalog
         AtomicFile.WriteAllText(path, html);
     }
 
-    private static void AppendGame(StringBuilder html, LibraryGame game, LibraryCatalogOptions options, LibrarySheet? sheet, PlayStats stats, StatusCounts? counts)
+    /// <summary>
+    /// O jogo da biblioteca em cuja pasta <paramref name="path"/> cai (a própria pasta ou qualquer coisa dentro dela, seguindo links), ou nulo. O catálogo não grava na pasta de um jogo:
+    /// o VNForge só altera essa pasta pelo fluxo de backup.
+    /// </summary>
+    public static LibraryGame? GameHolding(GameLibrary library, string path)
+    {
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var target = ProjectExtractor.ResolveLinks(path);
+        var typed = Path.GetFullPath(path);
+        return library.Games.FirstOrDefault(g => !string.IsNullOrWhiteSpace(g.Folder)
+            && (ProjectExtractor.IsInside(Path.GetFullPath(g.Folder), typed) || ProjectExtractor.IsInside(ProjectExtractor.ResolveLinks(g.Folder), target)));
+    }
+
+    private static void AppendGame(StringBuilder html, LibraryGame game, LibraryCatalogOptions options, LibrarySheet? sheet, PlayStats stats, StatusCounts? counts, TimeSpan offset)
     {
         var privacy = options.Privacy;
         var card = LibraryVisibility.Card(game, privacy)!;
@@ -173,14 +188,14 @@ public static partial class LibraryCatalog
         }
 
         AppendLine(html, "facts", facts);
-        AppendMine(html, game, options, stats, counts);
+        AppendMine(html, game, options, stats, counts, offset);
         AppendSynopsis(html, game, privacy, sheet);
         AppendTags(html, card, sheet);
         AppendCharacters(html, privacy, sheet);
         html.Append("</div>\n</article>\n");
     }
 
-    private static void AppendMine(StringBuilder html, LibraryGame game, LibraryCatalogOptions options, PlayStats stats, StatusCounts? counts)
+    private static void AppendMine(StringBuilder html, LibraryGame game, LibraryCatalogOptions options, PlayStats stats, StatusCounts? counts, TimeSpan offset)
     {
         var mine = new List<string>();
         if (game.CurrentList is { } state)
@@ -212,7 +227,7 @@ public static partial class LibraryCatalog
         if (stats.Sessions > 0)
         {
             var sessions = stats.Sessions == 1 ? "1 sessão" : $"{stats.Sessions} sessões";
-            var last = stats.LastPlayedAt is { } at ? $", a última em {at.ToLocalTime().ToString("d", PortugueseBrazil)}" : string.Empty;
+            var last = stats.LastPlayedAt is { } at ? $", a última em {at.ToOffset(offset).ToString("d", PortugueseBrazil)}" : string.Empty;
             AppendLine(html, "played", [$"Jogado: {E(PlayTime.Format(stats.Total))} em {sessions}{E(last)}"]);
         }
 
@@ -299,7 +314,7 @@ public static partial class LibraryCatalog
                 html.Append(" <em>").Append(E(character.Role)).Append("</em>");
             }
 
-            var traits = character.Traits.Where(t => privacy.ShowSpoilers || t.Spoiler == 0).Select(t => t.Name).ToList();
+            var traits = character.Traits.Where(t => !SheetViewer.IsTraitHidden(t.Spoiler, t.Lie, t.Sexual, privacy)).Select(t => t.Name).ToList();
             if (traits.Count > 0)
             {
                 html.Append("<br />").Append(E(string.Join(", ", traits)));
@@ -358,7 +373,7 @@ public static partial class LibraryCatalog
 
     private static string Percent(double value) => value.ToString("0.#", PortugueseBrazil) + "%";
 
-    /// <summary>Escapa para texto e atributo, e tira os caracteres de controle que um documento XML não aceita.</summary>
+    /// <summary>Escapa para texto e atributo, e tira o que um documento XML não aceita: controles abaixo de espaço, substituto UTF-16 sem par, U+FFFE e U+FFFF.</summary>
     private static string E(string? text)
     {
         if (string.IsNullOrEmpty(text))
@@ -367,8 +382,15 @@ public static partial class LibraryCatalog
         }
 
         var builder = new StringBuilder(text.Length + 8);
-        foreach (var c in text)
+        for (var i = 0; i < text.Length; i++)
         {
+            var c = text[i];
+            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                builder.Append(c).Append(text[++i]);
+                continue;
+            }
+
             switch (c)
             {
                 case '&': builder.Append("&amp;"); break;
@@ -377,6 +399,8 @@ public static partial class LibraryCatalog
                 case '"': builder.Append("&quot;"); break;
                 case '\'': builder.Append("&#39;"); break;
                 case < ' ' when c is not ('\t' or '\n' or '\r'): break;
+                case >= '\uD800' and <= '\uDFFF': break;
+                case '\uFFFE' or '\uFFFF': break;
                 default: builder.Append(c); break;
             }
         }

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
@@ -51,12 +52,17 @@ internal static partial class LibraryCommand
     private static int Export(VnfCli cli, ParseResult parseResult)
     {
         var path = Path.GetFullPath(parseResult.GetValue(CatalogOutputOption) ?? DefaultCatalogFile, cli.CurrentDirectory);
+        var library = FileOf(cli).Load();
+        if (LibraryCatalog.GameHolding(library, path) is { } holder)
+        {
+            throw new UsageException($"'{path}' fica dentro da pasta do jogo '{holder.Title}' ({holder.Folder}). O VNForge não grava na pasta de um jogo fora do backup; use --output com um destino fora das pastas dos jogos.");
+        }
+
         if (File.Exists(path) && !parseResult.GetValue(CatalogForceOption))
         {
             throw new UsageException($"'{path}' já existe; use --force para trocá-lo ou --output para outro arquivo.");
         }
 
-        var library = FileOf(cli).Load();
         var playFile = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
         var played = playFile.Load();
         WriteWarnings(parseResult, playFile, played);
@@ -67,8 +73,7 @@ internal static partial class LibraryCommand
         };
         var options = new LibraryCatalogOptions(privacy, parseResult.GetValue(CatalogNotesOption));
 
-        // A ficha em português (d9, #554) entra aqui como ILibrarySheetSource; até lá o catálogo usa o texto original do VNDB.
-        var result = LibraryCatalog.Render(library, played, cli.Clock.GetLocalNow(), options);
+        var result = LibraryCatalog.Render(library, played, cli.Clock.GetLocalNow(), options, new SheetCatalogSource(SheetStoreOf(cli)));
         if (result.Games == 0)
         {
             throw new LibraryException("Nenhum jogo da biblioteca tem jogo do VNDB confirmado, então não há o que exportar. Rode vnf library match para casar os jogos.");

@@ -1,5 +1,8 @@
 using System.Text.Json;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
+using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Cli.Tests;
 
@@ -127,6 +130,104 @@ public sealed class LibraryExportCommandTests : IDisposable
         Assert.Equal(1, data.GetProperty("games").GetInt32());
         Assert.Equal(1, data.GetProperty("skipped").GetInt32());
         Assert.False(data.GetProperty("includesNotes").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Export_usa_a_ficha_traduzida_quando_existe_e_o_texto_do_VNDB_quando_nao()
+    {
+        Prepare();
+        var store = new SheetStore(_cli.UserConfigDirectory);
+        store.SaveGame(new GameSheet(
+            "v4",
+            "CLANNAD",
+            null,
+            new SheetText("A story.", "Uma história em português.", TranslationStatus.Translated),
+            null,
+            null,
+            0,
+            [new LibraryTag("g1", "Drama", "cont", 3, 0)],
+            ["c1"],
+            false,
+            T0));
+        store.SaveCharacter(new CharacterSheet("c1", "Tomoya Okazaki", null, [], null, null, new SheetText("The hero.", "O herói da história.", TranslationStatus.Translated), [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false)], [new SheetAppearance("v4", "main", 0)]));
+        store.Update(s =>
+        {
+            var terms = new SheetTerms();
+            terms.Ensure(SheetTermKind.Tag, "g1", "Drama", null);
+            terms.Replace(SheetTermKind.Tag, "g1", new SheetText("Drama", "Drama em português", TranslationStatus.Translated));
+            terms.Ensure(SheetTermKind.Trait, "i1", "Long Hair", "Hair");
+            terms.Replace(SheetTermKind.Trait, "i1", new SheetText("Long Hair", "Cabelo comprido", TranslationStatus.Translated));
+            s.SaveTerms(terms);
+        });
+
+        var result = await Run("library", "export");
+
+        Assert.Equal(0, result.ExitCode);
+        var html = await File.ReadAllTextAsync(Target, Ct);
+        Assert.Contains("Uma história em português.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("texto original do VNDB", html, StringComparison.Ordinal);
+        Assert.Contains("Drama em português", html, StringComparison.Ordinal);
+        Assert.Contains("Tomoya Okazaki", html, StringComparison.Ordinal);
+        Assert.Contains("O herói da história.", html, StringComparison.Ordinal);
+        Assert.Contains("Cabelo comprido", html, StringComparison.Ordinal);
+        Assert.Contains("protagonista", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Export_nao_mostra_o_traco_adulto_da_ficha_sem_a_opcao()
+    {
+        Prepare();
+        var store = new SheetStore(_cli.UserConfigDirectory);
+        store.SaveGame(new GameSheet("v4", "CLANNAD", null, null, null, null, 0, [], ["c1"], false, T0));
+        store.SaveCharacter(new CharacterSheet(
+            "c1",
+            "Tomoya Okazaki",
+            null,
+            [],
+            null,
+            null,
+            null,
+            [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false), new VndbTrait("i2", "Traço adulto", "i20", "Sexual", 0, false, true), new VndbTrait("i3", "Traço antigo", "i20", "Sexual", 0, false, null)],
+            [new SheetAppearance("v4", "main", 0)]));
+
+        await Run("library", "export");
+        var hidden = await File.ReadAllTextAsync(Target, Ct);
+        await Run("library", "export", "--force", "--show-adult");
+        var shown = await File.ReadAllTextAsync(Target, Ct);
+
+        Assert.Contains("Long Hair", hidden, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço adulto", hidden, StringComparison.Ordinal);
+        Assert.DoesNotContain("Traço antigo", hidden, StringComparison.Ordinal);
+        Assert.Contains("Traço adulto", shown, StringComparison.Ordinal);
+        Assert.Contains("Traço antigo", shown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Export_recusa_destino_dentro_da_pasta_de_um_jogo_mesmo_com_force()
+    {
+        var gameFolder = Path.Combine(_cli.WorkingDirectory, "jogos", "CLANNAD");
+        Directory.CreateDirectory(gameFolder);
+        var existing = Path.Combine(gameFolder, "catalogo.html");
+        await File.WriteAllTextAsync(existing, "do jogo", Ct);
+        var game = new LibraryGame("g1", gameFolder, null, LibraryEngine.Unknown, "CLANNAD", null, T0)
+        {
+            VndbId = "v4",
+            Confirmation = LibraryConfirmation.Manual,
+            Info = new LibraryVndbInfo("CLANNAD", null, null, null, null, null, null, 0, [], false),
+        };
+        new LibraryFile(_cli.UserConfigDirectory).Save(new GameLibrary([game]));
+
+        var inside = await Run("library", "export", "--output", existing, "--force");
+        var nested = await Run("library", "export", "--output", Path.Combine(gameFolder, "novo", "vns.html"));
+        var outside = await Run("library", "export", "--output", Path.Combine(_cli.WorkingDirectory, "fora.html"));
+
+        Assert.NotEqual(0, inside.ExitCode);
+        Assert.Contains("dentro da pasta do jogo", inside.Error, StringComparison.Ordinal);
+        Assert.Contains("CLANNAD", inside.Error, StringComparison.Ordinal);
+        Assert.Equal("do jogo", await File.ReadAllTextAsync(existing, Ct));
+        Assert.NotEqual(0, nested.ExitCode);
+        Assert.False(Directory.Exists(Path.Combine(gameFolder, "novo")));
+        Assert.Equal(0, outside.ExitCode);
     }
 
     [Fact]
