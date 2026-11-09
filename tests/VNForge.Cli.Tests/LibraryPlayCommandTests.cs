@@ -264,6 +264,15 @@ public sealed class LibraryPlayCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Aviso:", result.Error);
         Assert.Contains("CLANNAD", result.Output);
+        var copy = Assert.Single(Directory.GetFiles(_cli.UserConfigDirectory, "playtime.json.invalido-*"));
+        Assert.Contains(copy, result.Error);
+
+        // Jogar regrava o arquivo sem a sessão inválida; a cópia do original continua uma só.
+        UseLauncher((TimeSpan.FromMinutes(5), GameProcessState.Exited));
+        var played = await Run("library", "play", "CLANNAD");
+        Assert.Equal(0, played.ExitCode);
+        Assert.Equal([copy], Directory.GetFiles(_cli.UserConfigDirectory, "playtime.json.invalido-*"));
+        Assert.Empty(new PlayLogFile(_cli.UserConfigDirectory).Load().Warnings);
     }
 
     [Fact]

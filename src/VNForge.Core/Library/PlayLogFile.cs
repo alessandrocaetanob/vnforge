@@ -9,7 +9,7 @@ namespace VNForge.Core.Library;
 /// um arquivo ilegível não vira lista vazia: <see cref="Load"/> recusa em vez de deixar o próximo <see cref="Save"/> sobrescrevê-lo. Uma sessão isolada com
 /// duração negativa ou que termina antes de começar é outra coisa: é descartada com um aviso (<see cref="PlayLog.Warnings"/>), sem derrubar o resto.
 /// </summary>
-public sealed class PlayLogFile(string directory)
+public sealed class PlayLogFile(string directory, TimeProvider? clock = null, TimeSpan? lockTimeout = null)
 {
     public const string FileName = "playtime.json";
     public const int CurrentVersion = 1;
@@ -22,8 +22,11 @@ public sealed class PlayLogFile(string directory)
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>Quanto <see cref="Update{T}(Func{PlayLog, T})"/> espera outro processo soltar a trava.</summary>
-    public static TimeSpan LockTimeout { get; } = TimeSpan.FromSeconds(15);
+    /// <summary>Quanto <see cref="Update{T}(Func{PlayLog, T})"/> espera, por padrão, outro processo soltar a trava.</summary>
+    public static TimeSpan DefaultLockTimeout { get; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>Prefixo da cópia do arquivo original que guarda o que o <see cref="Parse"/> descartou: <c>playtime.json.invalido-aaaammdd-hhmmss</c> (UTC).</summary>
+    public const string InvalidCopyPrefix = FileName + ".invalido-";
 
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
@@ -46,6 +49,42 @@ public sealed class PlayLogFile(string directory)
         }
     }
 
+    /// <summary>
+    /// Quando a leitura descartou alguma sessão (<see cref="PlayLog.Warnings"/>), guarda uma cópia do arquivo original ao lado, em <c>playtime.json.invalido-aaaammdd-hhmmss</c>,
+    /// porque a próxima gravação o reescreve sem elas. Só copia uma vez: se uma cópia idêntica já existe, devolve o caminho dela. Devolve <see langword="null"/> quando nada foi descartado.
+    /// </summary>
+    /// <param name="loaded">O que <see cref="Load"/> devolveu para o arquivo de agora.</param>
+    /// <exception cref="LibraryException">A cópia não pôde ser feita; nesse caso nada deve ser regravado.</exception>
+    public string? BackUpDiscarded(PlayLog loaded)
+    {
+        ArgumentNullException.ThrowIfNull(loaded);
+        if (loaded.Warnings.Count == 0 || !File.Exists(Path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var current = File.ReadAllBytes(Path);
+            var folder = System.IO.Path.GetDirectoryName(Path)!;
+            foreach (var existing in Directory.EnumerateFiles(folder, InvalidCopyPrefix + "*"))
+            {
+                if (File.ReadAllBytes(existing).AsSpan().SequenceEqual(current))
+                {
+                    return existing;
+                }
+            }
+
+            var stamp = (clock ?? TimeProvider.System).GetUtcNow().ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+            var copy = System.IO.Path.Combine(folder, InvalidCopyPrefix + stamp);
+            File.Copy(Path, copy, overwrite: true);
+            return copy;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"Não foi possível guardar uma cópia de '{Path}' antes de descartar sessões inválidas: {e.Message}", e);
+        }
+    }
     public void Save(PlayLog log)
     {
         ArgumentNullException.ThrowIfNull(log);
@@ -56,13 +95,14 @@ public sealed class PlayLogFile(string directory)
     /// Lê o arquivo, aplica <paramref name="change"/> e grava, com o arquivo travado (<c>playtime.json.lock</c>): uma sessão que outro processo (outra janela, a CLI)
     /// gravou enquanto esta rodava não se perde.
     /// </summary>
-    /// <exception cref="LibraryException">O arquivo está ilegível, ou outro processo o segurou por mais de <see cref="LockTimeout"/>.</exception>
+    /// <exception cref="LibraryException">O arquivo está ilegível, ou outro processo o segurou por mais de <see cref="DefaultLockTimeout"/>.</exception>
     public T Update<T>(Func<PlayLog, T> change)
     {
         ArgumentNullException.ThrowIfNull(change);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        using var gate = FileLock.Acquire(Path + ".lock", LockTimeout, $"O tempo de jogo ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
+        using var gate = FileLock.Acquire(Path + ".lock", lockTimeout ?? DefaultLockTimeout, $"O tempo de jogo ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
         var log = Load();
+        BackUpDiscarded(log);
         var result = change(log);
         Save(log);
         return result;
@@ -120,7 +160,7 @@ public sealed class PlayLogFile(string directory)
             {
                 if (string.IsNullOrWhiteSpace(id) || session is null || session.EndedAt < session.StartedAt || session.Duration < TimeSpan.Zero)
                 {
-                    warnings.Add($"Uma sessão do jogo '{id}' foi descartada: duração negativa ou fim anterior ao começo.");
+                    warnings.Add($"Uma sessão do jogo '{id}' foi descartada: duração negativa ou fim anterior ao começo. Antes da próxima gravação o arquivo original fica copiado ao lado, em {InvalidCopyPrefix}*.");
                     continue;
                 }
 

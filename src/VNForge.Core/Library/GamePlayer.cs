@@ -43,7 +43,7 @@ public sealed record PlayTrackingOptions(TimeSpan PollInterval, TimeSpan MaxSusp
 /// outro executável antes do jogo. O tempo é medido com o relógio monotônico do <see cref="TimeProvider"/> (<see cref="TimeProvider.GetTimestamp"/>); o relógio de
 /// parede só dá o <see cref="PlaySession.StartedAt"/>, então acertar a hora do PC no meio da partida não muda nada. Os testes andam o tempo sem esperar.
 /// </summary>
-public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProvider? time = null, PlayTrackingOptions? options = null)
+public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProvider? time = null, PlayTrackingOptions? options = null, Action<string>? warn = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly PlayTrackingOptions _options = options ?? PlayTrackingOptions.Default;
@@ -53,6 +53,10 @@ public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProv
     /// <see cref="PlayTrackingOptions.Heartbeat"/>: se o app ou o terminal fechar no meio, ela fica como interrompida, com o que foi contado, e não some.
     /// Se <paramref name="token"/> for cancelado, a contagem para e a sessão é gravada como interrompida; o jogo continua aberto, o VNForge nunca o encerra.
     /// </summary>
+    /// <remarks>
+    /// Com o jogo já aberto, uma falha ao gravar (a trava presa por mais de 15 s, o disco) não derruba a partida: a contagem segue em memória, cada batida do
+    /// <see cref="PlayTrackingOptions.Heartbeat"/> tenta gravar de novo, e se a gravação do fim também falhar, <c>warn</c> recebe um aviso com o tempo jogado e a sessão é devolvida mesmo assim.
+    /// </remarks>
     /// <exception cref="LibraryException">O programa não abriu, ou o <c>playtime.json</c> existe e é ilegível (nada é aberto nesse caso).</exception>
     public async Task<PlaySession> PlayAsync(string gameId, GameLaunch launch, CancellationToken token)
     {
@@ -66,15 +70,29 @@ public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProv
         var startedAt = _time.GetUtcNow();
         var origin = _time.GetTimestamp();
         var open = new PlaySession(PlaySession.NewId(), startedAt, startedAt, TimeSpan.Zero, Open: true);
-        log.Update(played =>
+        try
         {
-            played.CloseStale(startedAt, _options.StaleAfter);
-            played.Upsert(gameId, open);
-            return 0;
-        });
+            log.Update(played =>
+            {
+                played.CloseStale(startedAt, _options.StaleAfter);
+                played.Upsert(gameId, open);
+                return 0;
+            });
+        }
+        catch (LibraryException e)
+        {
+            warn?.Invoke($"Não foi possível gravar o início da sessão: {e.Message} O VNForge conta o tempo em memória e tenta gravar de novo.");
+        }
 
         var closed = await Track(process, gameId, open, origin, token);
-        log.Record(gameId, closed);
+        try
+        {
+            log.Record(gameId, closed);
+        }
+        catch (LibraryException e)
+        {
+            warn?.Invoke($"Não foi possível gravar a sessão em '{log.Path}': {e.Message} Você jogou {PlayTime.Format(closed.Duration)}; esse tempo não entrou no total.");
+        }
         return closed;
     }
 

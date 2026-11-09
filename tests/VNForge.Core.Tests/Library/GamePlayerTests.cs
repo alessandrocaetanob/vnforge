@@ -216,6 +216,48 @@ public sealed class GamePlayerTests : IDisposable
         Assert.Equal(Start.AddMinutes(8), Saved().StatsOf("g1").LastPlayedAt);
     }
 
+    private FileStream HoldLock() =>
+        new(new PlayLogFile(_dir.Path).Path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+    private GamePlayer PlayerWithShortLock(FakeLauncher launcher, List<string> warnings, TimeSpan heartbeat) =>
+        new(launcher, new PlayLogFile(_dir.Path, lockTimeout: TimeSpan.FromMilliseconds(50)), _clock, Options(heartbeat: heartbeat), warnings.Add);
+
+    [Fact]
+    public async Task Trava_presa_o_tempo_todo_nao_derruba_a_partida_e_avisa_o_tempo_jogado()
+    {
+        var warnings = new List<string>();
+        var launcher = new FakeLauncher(_clock, (Minute * 30, GameProcessState.Running), (Minute * 30, GameProcessState.Exited));
+        PlaySession session;
+        using (HoldLock())
+        {
+            session = await PlayerWithShortLock(launcher, warnings, TimeSpan.FromMinutes(10)).PlayAsync("g1", Launch, Ct);
+        }
+
+        Assert.Equal(TimeSpan.FromMinutes(60), session.Duration);
+        Assert.False(session.Open);
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("1 h 00 min", warnings[1]);
+        Assert.False(File.Exists(new PlayLogFile(_dir.Path).Path));
+    }
+
+    [Fact]
+    public async Task Trava_que_solta_no_meio_da_partida_grava_na_proxima_batida_e_no_fim()
+    {
+        var warnings = new List<string>();
+        var hold = HoldLock();
+        var launcher = new FakeLauncher(_clock, (Minute * 4, GameProcessState.Running), (Minute * 4, GameProcessState.Running), (Minute * 4, GameProcessState.Running), (Minute * 4, GameProcessState.Exited))
+        {
+            OnPoll = index => { if (index == 0) { hold.Dispose(); } },
+        };
+
+        var session = await PlayerWithShortLock(launcher, warnings, TimeSpan.FromMinutes(5)).PlayAsync("g1", Launch, Ct);
+
+        Assert.Single(warnings);
+        Assert.Contains("início da sessão", warnings[0]);
+        Assert.Equal([session], Saved().SessionsOf("g1"));
+        Assert.Equal(TimeSpan.FromMinutes(16), session.Duration);
+    }
+
     private sealed class FakeLauncher(TestClock clock, params (TimeSpan Advance, GameProcessState State)[] script) : IGameLauncher
     {
         public GameLaunch? Launched { get; private set; }

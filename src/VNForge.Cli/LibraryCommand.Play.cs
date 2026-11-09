@@ -78,10 +78,12 @@ internal static partial class LibraryCommand
             parseResult.InvocationConfiguration.Error.WriteLine($"Abrindo {game.Title}{how}. O tempo conta até o jogo fechar; Ctrl+C para de contar e deixa o jogo aberto.");
         }
 
-        var file = new PlayLogFile(cli.UserConfigDirectory);
-        WriteWarnings(parseResult, file.Load());
-        var session = await new GamePlayer(cli.GameLauncher, file, cli.Clock, cli.PlayTracking).PlayAsync(game.Id, launch, token).ConfigureAwait(false);
-        var stats = file.Load().StatsOf(game.Id);
+        var file = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
+        WriteWarnings(parseResult, file, file.Load());
+        var error = parseResult.InvocationConfiguration.Error;
+        var player = new GamePlayer(cli.GameLauncher, file, cli.Clock, cli.PlayTracking, message => error.WriteLine($"Aviso: {message}"));
+        var session = await player.PlayAsync(game.Id, launch, token).ConfigureAwait(false);
+        var stats = TotalsAfter(file, game.Id, session);
 
         if (json)
         {
@@ -186,11 +188,30 @@ internal static partial class LibraryCommand
         return ErrorHandler.OkExitCode;
     }
 
-    private static void WriteWarnings(ParseResult parseResult, PlayLog played)
+    private static void WriteWarnings(ParseResult parseResult, PlayLogFile file, PlayLog played)
     {
+        var error = parseResult.InvocationConfiguration.Error;
         foreach (var warning in played.Warnings)
         {
-            parseResult.InvocationConfiguration.Error.WriteLine($"Aviso: {warning}");
+            error.WriteLine($"Aviso: {warning}");
+        }
+
+        if (file.BackUpDiscarded(played) is { } copy)
+        {
+            error.WriteLine($"Aviso: cópia do arquivo original, com as sessões descartadas: {copy}");
+        }
+    }
+
+    // Se a gravação da sessão falhou, o arquivo pode estar ilegível ou preso: o total mostrado vira só o desta sessão, já avisado.
+    private static PlayStats TotalsAfter(PlayLogFile file, string gameId, PlaySession session)
+    {
+        try
+        {
+            return file.Load().StatsOf(gameId);
+        }
+        catch (LibraryException)
+        {
+            return new PlayStats(session.Duration, session.EndedAt, 1);
         }
     }
     private static object PlayData(PlayStats stats) => new

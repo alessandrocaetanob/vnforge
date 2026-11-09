@@ -132,6 +132,40 @@ public sealed class PlayLogTests : IDisposable
     }
 
     [Fact]
+    public void Antes_de_regravar_sem_a_sessao_invalida_guarda_uma_copia_do_original_uma_vez()
+    {
+        var clock = new TestClock(T0);
+        var file = new PlayLogFile(_dir.Path, clock);
+        const string Original = """{"version":1,"games":{"g1":[{"id":"a","startedAt":"2026-11-09T20:00:00+00:00","endedAt":"2026-11-09T19:00:00+00:00","duration":"00:30:00"},{"id":"c","startedAt":"2026-11-09T20:00:00+00:00","endedAt":"2026-11-09T20:30:00+00:00","duration":"00:30:00"}]}}""";
+        File.WriteAllText(file.Path, Original);
+
+        file.Record("g2", Session(1, 5));
+        clock.Advance(TimeSpan.FromMinutes(5));
+        file.Record("g2", Session(2, 5));
+
+        var copy = Assert.Single(Directory.GetFiles(_dir.Path, "playtime.json.invalido-*"));
+        Assert.Equal("playtime.json.invalido-20261109-200000", Path.GetFileName(copy));
+        Assert.Equal(Original, File.ReadAllText(copy));
+        Assert.Equal(["c"], file.Load().SessionsOf("g1").Select(s => s.Id));
+        Assert.Empty(file.Load().Warnings);
+    }
+
+    [Fact]
+    public void BackUpDiscarded_repetido_devolve_a_mesma_copia_e_nada_descartado_nao_copia()
+    {
+        var file = new PlayLogFile(_dir.Path, new TestClock(T0));
+        File.WriteAllText(file.Path, """{"version":1,"games":{"g1":[{"id":"a","startedAt":"2026-11-09T20:00:00+00:00","endedAt":"2026-11-09T19:00:00+00:00","duration":"00:30:00"}]}}""");
+
+        var first = file.BackUpDiscarded(file.Load());
+        var second = file.BackUpDiscarded(file.Load());
+
+        Assert.NotNull(first);
+        Assert.Equal(first, second);
+        Assert.Single(Directory.GetFiles(_dir.Path, "playtime.json.invalido-*"));
+        Assert.Null(new PlayLogFile(_dir.Path).BackUpDiscarded(new PlayLog()));
+    }
+
+    [Fact]
     public void Sessao_com_o_mesmo_id_troca_a_anterior_e_sessao_invalida_nao_entra()
     {
         var log = new PlayLog();

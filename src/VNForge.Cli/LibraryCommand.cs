@@ -497,8 +497,9 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
         var library = FileOf(cli).Load();
-        var played = new PlayLogFile(cli.UserConfigDirectory).Load();
-        WriteWarnings(parseResult, played);
+        var playFile = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
+        var played = playFile.Load();
+        WriteWarnings(parseResult, playFile, played);
         var privacy = library.Privacy with
         {
             ShowSpoilers = library.Privacy.ShowSpoilers || parseResult.GetValue(ShowSpoilersOption),
