@@ -640,7 +640,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         Received.Add(new ReleaseReceivedRow(
             "Leia-me, créditos e mudanças",
             Size(files?.Where(f => f.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && f.Name != ThirdPartyLicenses.FileName).Sum(f => f.Size)),
-            "Icon.Glossary"));
+            "Icon.Document"));
     }
 
     private static ReleaseFile? InstallerFile(IEnumerable<ReleaseFile> files) =>
@@ -884,7 +884,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         foreach (var file in result.Files.Where(f => f.Name != ThirdPartyLicenses.FileName))
         {
             var isPackage = file.Sha256 is not null;
-            Files.Add(new ReleaseFileRow(file.Name, FormatSize(file.Size), file.Sha256, isPackage ? "Icon.Box" : "Icon.Glossary"));
+            Files.Add(new ReleaseFileRow(file.Name, FormatSize(file.Size), file.Sha256, isPackage ? "Icon.Box" : "Icon.Document"));
         }
 
         // Na versão pronta o lugar da tabela de estimativa é da verificação.

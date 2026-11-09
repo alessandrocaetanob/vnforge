@@ -127,29 +127,43 @@
           <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding IsGenerating}" AutomationProperties.Name="Etapas">
             <StackPanel>
               <Border Padding="20,12,20,8">
-                <TextBlock Classes="title-sm" Text="Etapas"/>
+                <TextBlock Classes="title-sm" LineHeight="20" Text="Etapas"/>
               </Border>
               <ItemsControl Classes="steps" ItemsSource="{Binding Steps}">
                 <ItemsControl.Styles>
-                  <!-- O quadro não traça linha entre o título e a primeira etapa. -->
+                  <!-- O quadro não traça linha entre o título e a primeira etapa; a etapa pronta tem 50 px, a atual 59 (barra de 8 px) e a pendente 45. -->
                   <Style Selector="ItemsControl.steps > ContentPresenter:nth-child(1) > Border.divider-top">
                     <Setter Property="BorderThickness" Value="0"/>
+                  </Style>
+                  <Style Selector="Border.step.done">
+                    <Setter Property="MinHeight" Value="50"/>
+                  </Style>
+                  <Style Selector="ProgressBar.step">
+                    <Setter Property="Height" Value="8"/>
+                    <Setter Property="MinHeight" Value="8"/>
+                    <Setter Property="CornerRadius" Value="4"/>
+                    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+                  </Style>
+                  <Style Selector="ProgressBar.step /template/ Border#PART_Indicator">
+                    <Setter Property="CornerRadius" Value="4"/>
                   </Style>
                 </ItemsControl.Styles>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ReleaseStepRow">
-                    <Border Classes="divider-top" Padding="20,12">
+                    <Border Classes="divider-top step" Classes.done="{Binding IsDone}" Padding="20,12">
                       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                         <Panel Width="20" Height="20" VerticalAlignment="Top">
-                          <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
-                          <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.Accent}" Data="{StaticResource Icon.ArrowSync}" IsVisible="{Binding IsRunning}"/>
+                          <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
+                          <!-- Um anel de 270° como o do quadro; gira com as animações ligadas (PathIcon.spin). -->
+                          <PathIcon Classes="spin" Width="20" Height="20" Foreground="{DynamicResource Vnf.Accent}" IsVisible="{Binding IsRunning}"
+                                    Data="M17.071 2.929 A10 10 0 1 1 2.929 2.929 L4.343 4.343 A8 8 0 1 0 15.657 4.343 Z"/>
                           <Ellipse Width="18" Height="18" StrokeThickness="1.5" Stroke="{DynamicResource Vnf.StrokeControl}" IsVisible="{Binding IsPending}"/>
                         </Panel>
                         <StackPanel Grid.Column="1" Spacing="6">
                           <TextBlock Classes="body-strong" Text="{Binding Label}" IsVisible="{Binding !IsPending}"/>
                           <TextBlock Classes="body secondary" Text="{Binding Label}" IsVisible="{Binding IsPending}"/>
-                          <ProgressBar Classes="thin" IsIndeterminate="{Binding IsIndeterminate}" Minimum="0" Maximum="100" Value="{Binding Percent}" ShowProgressText="False"
-                                       MaxWidth="420" HorizontalAlignment="Left" IsVisible="{Binding IsRunning}" AutomationProperties.Name="Andamento da etapa"/>
+                          <ProgressBar Classes="thin step" IsIndeterminate="{Binding IsIndeterminate}" Minimum="0" Maximum="100" Value="{Binding Percent}" ShowProgressText="False"
+                                       Width="420" HorizontalAlignment="Left" IsVisible="{Binding IsRunning}" AutomationProperties.Name="Andamento da etapa"/>
                         </StackPanel>
                         <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding StatusText}"/>
                       </Grid>
@@ -165,15 +179,15 @@
             <StackPanel>
               <Border Padding="20,12,20,6">
                 <StackPanel Spacing="0">
-                  <TextBlock Classes="title-sm" Text="O que o patch muda no jogo"/>
+                  <TextBlock Classes="title-sm" LineHeight="20" Text="O que o patch muda no jogo"/>
                   <TextBlock Classes="body-sm secondary" LineHeight="20" TextWrapping="Wrap" Text="Só diferenças. Nenhum arquivo inteiro do jogo vai no patch."/>
                 </StackPanel>
               </Border>
               <Grid ColumnDefinitions="*,110,110,110" ColumnSpacing="12" Height="32" Margin="20,0">
-                <TextBlock Classes="column-header" VerticalAlignment="Center" Text="Arquivo do jogo"/>
-                <TextBlock Grid.Column="1" Classes="column-header" VerticalAlignment="Center" TextAlignment="Right" Text="Original"/>
-                <TextBlock Grid.Column="2" Classes="column-header" VerticalAlignment="Center" TextAlignment="Right" Text="Patch"/>
-                <TextBlock Grid.Column="3" Classes="column-header" VerticalAlignment="Center" TextAlignment="Right" Text="Troca"/>
+                <TextBlock Classes="column-header secondary" VerticalAlignment="Center" Text="Arquivo do jogo"/>
+                <TextBlock Grid.Column="1" Classes="column-header secondary" VerticalAlignment="Center" TextAlignment="Right" Text="Original"/>
+                <TextBlock Grid.Column="2" Classes="column-header secondary" VerticalAlignment="Center" TextAlignment="Right" Text="Patch"/>
+                <TextBlock Grid.Column="3" Classes="column-header secondary" VerticalAlignment="Center" TextAlignment="Right" Text="Troca"/>
               </Grid>
               <ItemsControl ItemsSource="{Binding GameFiles}">
                 <ItemsControl.ItemTemplate>
@@ -201,22 +215,21 @@
           <!-- Versão pronta: os arquivos, a verificação e o que o patch muda no jogo. -->
           <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding IsDone}" AutomationProperties.Name="Arquivos gerados">
             <StackPanel>
-              <Border Classes="divider-bottom" Padding="20,12">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="title-md" Text="Arquivos gerados"/>
-                  <SelectableTextBlock FontFamily="{DynamicResource Vnf.FontMono}" FontSize="{DynamicResource Vnf.FontSize.MonoXs}"
-                                       Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding FilesFolder}" TextTrimming="CharacterEllipsis"
-                                       AutomationProperties.Name="Pasta de saída"/>
+              <Border Padding="20,12,20,8">
+                <StackPanel Spacing="0">
+                  <TextBlock Classes="title-sm" LineHeight="20" Text="Arquivos gerados"/>
+                  <SelectableTextBlock Classes="caption" LineHeight="20" Foreground="{DynamicResource Vnf.TextSecondary}"
+                                       Text="{Binding FilesFolder}" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Pasta de saída"/>
                 </StackPanel>
               </Border>
               <ItemsControl ItemsSource="{Binding Files}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ReleaseFileRow">
-                    <Border Classes="divider-top" Padding="20,8">
+                    <Border Classes="divider-top" Padding="20,10,20,9">
                       <Grid ColumnDefinitions="24,*,90,Auto" ColumnSpacing="12" MinHeight="24">
-                        <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}"
+                        <PathIcon Width="14" Height="14" Margin="3,0,0,0" HorizontalAlignment="Left" Foreground="{DynamicResource Vnf.Accent}"
                                   Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
-                        <TextBlock Grid.Column="1" Classes="mono" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}"/>
+                        <TextBlock Grid.Column="1" Classes="mono" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}"/>
                         <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" TextAlignment="Right" Text="{Binding SizeText}"/>
                         <Button Grid.Column="3" Classes="sm subtle" IsVisible="{Binding HasChecksum}"
                                 Command="{Binding $parent[ItemsControl].((vm:ReleaseViewModel)DataContext).CopyChecksumCommand}" CommandParameter="{Binding}"
@@ -234,28 +247,35 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="panel" Padding="20,16" IsVisible="{Binding IsDone}" AutomationProperties.Name="Verificação">
-            <StackPanel Spacing="6">
-              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
+          <Border Classes="panel" Padding="20,18,20,16" IsVisible="{Binding IsDone}" AutomationProperties.Name="Verificação">
+            <StackPanel Spacing="9">
+              <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12">
+                <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
                 <TextBlock Grid.Column="1" Classes="body-strong" VerticalAlignment="Center" Text="Verificação"/>
                 <TextBlock Grid.Column="2" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding VerificationTime}"/>
               </Grid>
-              <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding VerificationText}"/>
+              <TextBlock Classes="caption secondary" LineHeight="20" TextWrapping="Wrap" Text="{Binding VerificationText}"/>
             </StackPanel>
           </Border>
 
           <!-- Travado: o jogo da pasta não é a versão de referência. Cada arquivo alterado traz o SHA-256 esperado e o encontrado. -->
           <Border Classes="panel" Padding="20,16" BorderBrush="{DynamicResource Vnf.SignalErrorFg}" IsVisible="{Binding IsBlocked}" AutomationProperties.Name="Checksum diferente">
             <StackPanel Spacing="6">
-              <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-                <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}"/>
+              <StackPanel Orientation="Horizontal" Spacing="12" Height="26" Margin="0,0,0,19">
+                <Panel Width="20" Height="20">
+                  <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}"/>
+                </Panel>
                 <TextBlock Classes="body-strong" VerticalAlignment="Center" Text="Checksum diferente"/>
               </StackPanel>
               <ItemsControl ItemsSource="{Binding ChecksumFiles}" IsVisible="{Binding HasChecksumFiles}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="6"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ReleaseChecksumRow">
-                    <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
                       <TextBlock Classes="body-sm secondary" LineHeight="20" Text="Arquivo"/>
                       <TextBlock Grid.Column="1" Classes="mono" FontWeight="Medium" FontSize="13" LineHeight="20" Text="{Binding Path}"/>
                       <TextBlock Grid.Row="1" Classes="body-sm secondary" LineHeight="20" Text="Esperado (referência)"/>
@@ -278,6 +298,7 @@
                 <SelectableTextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" c:CopyMenu.Enabled="True" Text="{Binding ProblemDetails}"
                                      AutomationProperties.Name="Detalhes do checksum"/>
               </Grid>
+              <Border Height="8"/>
             </StackPanel>
           </Border>
 
@@ -294,22 +315,22 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,*" MinWidth="0">
 
           <Border Classes="panel" Padding="16" IsVisible="{Binding ShowReceived}" AutomationProperties.Name="O que o jogador recebe">
-            <StackPanel Spacing="10">
-              <TextBlock Classes="title-sm" Text="O que o jogador recebe"/>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="title-sm" LineHeight="20" Text="O que o jogador recebe"/>
               <ItemsControl ItemsSource="{Binding Received}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ReleaseReceivedRow">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,5">
-                      <PathIcon Width="18" Height="18" Foreground="{DynamicResource Vnf.Accent}"
+                    <Grid ColumnDefinitions="18,*,Auto" ColumnSpacing="16" Height="23" Margin="0,5">
+                      <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.Accent}"
                                 Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
-                      <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" Text="{Binding Label}"/>
+                      <TextBlock Grid.Column="1" Classes="body" VerticalAlignment="Center" Text="{Binding Label}"/>
                       <TextBlock Grid.Column="2" Classes="mono" VerticalAlignment="Center" Text="{Binding SizeText}"/>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Border Classes="divider-top" Padding="0,8,0,0">
-                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding ReceivedNote}"/>
+              <Border Classes="divider-top" Padding="0,8,0,0" Margin="0,3,0,6">
+                <TextBlock Classes="caption secondary" LineHeight="16" TextWrapping="Wrap" Text="{Binding ReceivedNote}"/>
               </Border>
               <Button Classes="accent lg" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding GenerateCommand}"
                       AutomationProperties.Name="Gerar patch e instalador">
@@ -326,7 +347,7 @@
             <StackPanel>
               <Border Padding="20,12,20,10">
                 <StackPanel Spacing="0">
-                  <TextBlock Classes="title-sm" Text="{Binding ChangesTitle}"/>
+                  <TextBlock Classes="title-sm" LineHeight="20" Text="{Binding ChangesTitle}"/>
                   <TextBlock Classes="body-sm secondary" LineHeight="20" TextWrapping="Wrap" Text="{Binding ChangesSubtitle}"/>
                 </StackPanel>
               </Border>
@@ -370,7 +391,7 @@
           <Border Grid.Row="1" Classes="panel" Padding="16" IsVisible="{Binding IsDone}" AutomationProperties.Name="LEIA-ME.txt">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="title-sm" Text="LEIA-ME.txt"/>
+                <TextBlock Classes="title-sm" LineHeight="20"><Run Text="LEIA-ME"/><Run Text=".txt" FontWeight="Normal"/></TextBlock>
                 <TextBlock Grid.Column="1" Classes="caption secondary" Text="o que o jogador lê"/>
               </Grid>
               <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="16,14">
