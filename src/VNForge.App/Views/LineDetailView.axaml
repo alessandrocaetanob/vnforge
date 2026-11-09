@@ -184,14 +184,13 @@
                 </Border>
               </Grid>
               <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding SceneSummary}"/>
-              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SceneTone}" IsVisible="{Binding SceneTone, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
           </Border>
 
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
-            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !IsCompactInspector}"/>
-            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding IsCompactInspector}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
+            <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !UsesSceneToggle}"/>
+            <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding UsesSceneToggle}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronRight}" IsVisible="{Binding IsSceneCollapsed}"/>
                 <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}" IsVisible="{Binding !IsSceneCollapsed}"/>

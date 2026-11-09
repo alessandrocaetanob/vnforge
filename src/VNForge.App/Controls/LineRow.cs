@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.Controls;
 
@@ -36,6 +37,7 @@ public sealed class LineRow : TemplatedControl
     public static readonly StyledProperty<bool> SpeakerChangedProperty = AvaloniaProperty.Register<LineRow, bool>(nameof(SpeakerChanged));
     public static readonly StyledProperty<string?> SpeakerTipProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerTip));
     public static readonly StyledProperty<CharacterColor?> SpeakerColorProperty = AvaloniaProperty.Register<LineRow, CharacterColor?>(nameof(SpeakerColor));
+    public static readonly StyledProperty<VndbImageRef?> SpeakerImageProperty = AvaloniaProperty.Register<LineRow, VndbImageRef?>(nameof(SpeakerImage));
     public static readonly StyledProperty<string?> SpeakerOriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(SpeakerOriginal));
     public static readonly StyledProperty<string?> OriginalProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Original));
     public static readonly StyledProperty<string?> TranslationProperty = AvaloniaProperty.Register<LineRow, string?>(nameof(Translation));
@@ -102,6 +104,13 @@ public sealed class LineRow : TemplatedControl
     {
         get => GetValue(SpeakerColorProperty);
         set => SetValue(SpeakerColorProperty, value);
+    }
+
+    /// <summary>A imagem do personagem no VNDB, para o retrato ao lado do nome; sem ela o retrato desenhado do quadro vale.</summary>
+    public VndbImageRef? SpeakerImage
+    {
+        get => GetValue(SpeakerImageProperty);
+        set => SetValue(SpeakerImageProperty, value);
     }
 
     /// <summary>O nome do personagem como está no texto extraído, quando <see cref="Speaker"/> mostra a tradução; é o que o menu do nome copia. Sem ele vale o próprio <see cref="Speaker"/>.</summary>

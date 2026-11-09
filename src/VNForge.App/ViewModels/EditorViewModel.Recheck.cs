@@ -104,7 +104,7 @@ public sealed partial class EditorViewModel
         foreach (var line in scriptLines)
         {
             var character = context.Characters.Find(line.Entry.Unit.EffectiveSpeaker);
-            line.UpdateSpeaker(character?.Target, CharacterPalette.For(character));
+            line.UpdateSpeaker(character?.Target, CharacterPalette.For(character), character?.Image);
         }
     }
 

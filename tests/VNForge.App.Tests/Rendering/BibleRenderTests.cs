@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Bible;
 using VNForge.AI.Cost;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -65,7 +66,7 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
     private static IReadOnlyList<TextUnit> SceneLines(params (string Speaker, int Count)[] speakers) =>
     [
         .. speakers.SelectMany(s => Enumerable.Range(0, s.Count).Select(i => (s.Speaker, i)))
-            .Select((line, index) => new TextUnit($"yst00001:{index:D6}", TextUnitKind.Dialogue, line.Speaker, $"「{line.i}」", null, TranslationStatus.Untranslated)),
+            .Select((line, index) => new TextUnit($"yst00001:{index:D6}", TextUnitKind.Dialogue, line.Speaker, $"「相沢、佐倉。二人そろって五分遅刻だ」{line.i}", $"Aizawa, Sakura. Os dois, cinco minutos atrasados. {line.i}", TranslationStatus.Machine)),
     ];
 
     private static string VisibleText(Control root) =>
@@ -280,15 +281,16 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
         });
     }
 
-    [Fact]
-    public async Task O_inspetor_do_Editor_mostra_o_cartao_Resumo_da_cena_com_o_selo_Biblia()
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_inspetor_do_Editor_mostra_o_cartao_Resumo_da_cena_com_o_selo_Biblia(string themeName)
     {
-        await WithBiblePage("Dark", async (window, vm, theme) =>
+        await WithBiblePage(themeName, async (window, vm, theme) =>
         {
             vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
             await vm.Editor.Loading;
             ScreenRenderer.Settle(window);
-            vm.Editor.SelectedLine = vm.Editor.Lines.First();
+            vm.Editor.SelectedLine = vm.Editor.Lines.First(l => l.SpeakerName == "Misaki");
             ScreenRenderer.Settle(window);
 
             var card = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "SceneSummaryCard" && b.IsEffectivelyVisible);
@@ -296,7 +298,20 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             Assert.Contains("Resumo da cena", texts, StringComparison.Ordinal);
             Assert.Contains("Bíblia", texts, StringComparison.Ordinal);
             Assert.Contains("professor responsável de braços cruzados", texts, StringComparison.Ordinal);
-            Assert.Contains("cômico leve · tenso no fim", texts, StringComparison.Ordinal);
+            Assert.DoesNotContain("cômico leve", texts, StringComparison.Ordinal);
+
+            // O quadro: a grade tem um retrato redondo ao lado de cada nome e nenhuma coluna Linha; "Na cena" vem recolhido, com a conta de falas.
+            var grid = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
+            Assert.Contains(grid.GetVisualDescendants().OfType<Portrait>(), p => p.IsEffectivelyVisible && p.Size == PortraitSize.Sm);
+            Assert.DoesNotContain("Linha", VisibleText(window.GetVisualDescendants().OfType<EditorView>().Single(v => v.IsEffectivelyVisible)).Split('\n'));
+            var scene = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SceneToggle");
+            Assert.True(scene.IsEffectivelyVisible, "o Na cena é um cabeçalho que abre");
+            Assert.False(window.GetVisualDescendants().OfType<ContextLines>().Single(c => c.Name == "SceneLines").IsEffectivelyVisible, "o Na cena começa recolhido");
+
+            // Uma linha já traduzida não oferece "Sugerir" nem os chips de reescrever: o quadro não os mostra neste estado.
+            var inspectorText = VisibleText(window.GetVisualDescendants().OfType<LineDetailView>().Single(v => v.IsEffectivelyVisible));
+            Assert.DoesNotContain("Sugerir", inspectorText, StringComparison.Ordinal);
+            Assert.DoesNotContain("Reescrever com um toque", inspectorText, StringComparison.Ordinal);
 
             Snapshot(window, "biblia-v6-editor", theme);
         });

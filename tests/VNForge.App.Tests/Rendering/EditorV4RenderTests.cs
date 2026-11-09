@@ -46,24 +46,25 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
                     var linhas = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
                     var grade = linhas.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
-                    var cabecalho = (Grid)grade.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("divider-bottom") && b.Child is Grid { ColumnDefinitions.Count: 6 }).Child!;
+                    var cabecalho = (Grid)grade.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("divider-bottom") && b.Child is Grid { ColumnDefinitions.Count: 5 }).Child!;
                     var colunas = cabecalho.ColumnDefinitions;
                     var titulos = cabecalho.Children.OfType<TextBlock>().ToList();
 
-                    Assert.Equal([56d, 92d, 132d, 32d], new[] { colunas[0], colunas[1], colunas[2], colunas[5] }.Select(c => c.Width.Value));
-                    Assert.True(colunas[3].Width.IsStar && colunas[4].Width.IsStar);
-                    Assert.Equal(1.2, colunas[4].Width.Value / colunas[3].Width.Value, 3);
-                    Assert.Equal("Quem fala", titulos[2].Text);
+                    Assert.Equal([92d, 148d, 32d], new[] { colunas[0], colunas[1], colunas[4] }.Select(c => c.Width.Value));
+                    Assert.True(colunas[2].Width.IsStar && colunas[3].Width.IsStar);
+                    Assert.Equal(1.2, colunas[3].Width.Value / colunas[2].Width.Value, 3);
+                    Assert.Equal("Quem fala", titulos[1].Text);
 
-                    var texto = colunas[3].ActualWidth + colunas[4].ActualWidth;
+                    var texto = colunas[2].ActualWidth + colunas[3].ActualWidth;
                     // Antes da v4 as duas somavam uns 194 px de 598 (32%); com o inspetor de volta a 474 px elas passam de 40% da grade.
                     Assert.True(texto >= 245 && texto >= grade.Bounds.Width * 0.40, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade ({texto / grade.Bounds.Width:P0})");
-                    Assert.True(colunas[4].ActualWidth > colunas[3].ActualWidth, "a tradução leva um pouco mais que o original");
+                    Assert.True(colunas[3].ActualWidth > colunas[2].ActualWidth, "a tradução leva um pouco mais que o original");
 
                     var linha = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
-                    foreach (var (nome, indice) in new[] { ("PART_Number", 0), ("PART_Speaker", 2), ("PART_Original", 3), ("PART_Translation", 4) })
+                    foreach (var (nome, indice) in new[] { ("PART_Speaker", 1), ("PART_Original", 2), ("PART_Translation", 3) })
                     {
-                        var parte = linha.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == nome);
+                        // Quem fala começa pelo retrato de 28 px; o nome vem 37 px depois dele.
+                        Control parte = nome == "PART_Speaker" ? linha.GetVisualDescendants().OfType<Portrait>().Single() : linha.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == nome);
                         var xLinha = parte.TranslatePoint(default, window)!.Value.X;
                         var xCabecalho = titulos[indice].TranslatePoint(default, window)!.Value.X;
                         Assert.True(Math.Abs(xLinha - xCabecalho) <= Tolerance, $"{nome} começa em {xLinha:0.#} e o cabeçalho em {xCabecalho:0.#}");
@@ -94,8 +95,8 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                 {
                     var linhas = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
                     var grade = linhas.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
-                    var colunas = ((Grid)grade.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("divider-bottom") && b.Child is Grid { ColumnDefinitions.Count: 6 }).Child!).ColumnDefinitions;
-                    var texto = colunas[3].ActualWidth + colunas[4].ActualWidth;
+                    var colunas = ((Grid)grade.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("divider-bottom") && b.Child is Grid { ColumnDefinitions.Count: 5 }).Child!).ColumnDefinitions;
+                    var texto = colunas[2].ActualWidth + colunas[3].ActualWidth;
                     Assert.True(texto >= grade.Bounds.Width * 0.45, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade ({texto / grade.Bounds.Width:P0})");
                 }
                 finally
