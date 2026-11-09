@@ -26,7 +26,7 @@ public sealed partial class LineDetailViewModel
     public ObservableCollection<MemorySuggestionViewModel> MemorySuggestions { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard), nameof(IsCompactInspector))]
+    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard), nameof(IsCompactInspector), nameof(UsesSceneToggle))]
     public partial bool HasMemory { get; private set; }
 
     /// <summary>
@@ -58,7 +58,10 @@ public sealed partial class LineDetailViewModel
     /// <summary>
     /// Com o cartão da memória aberto o "Na cena" fica recolhido para o cartão ter espaço (quadro do #537); a pessoa abre pelo cabeçalho. Sem o cartão a cena aparece como sempre.
     /// </summary>
-    public bool IsSceneCollapsed => IsCompactInspector && !IsSceneOpen;
+    public bool IsSceneCollapsed => UsesSceneToggle && !IsSceneOpen;
+
+    /// <summary>O "Na cena" é um cabeçalho que abre e fecha, e não uma lista sempre aberta: com o cartão da memória ou da sugestão no inspetor e com o "Resumo da cena" da bíblia (quadro do #530: "Na cena, 2 falas").</summary>
+    public bool UsesSceneToggle => IsCompactInspector || HasSceneSummary;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSceneCollapsed))]
