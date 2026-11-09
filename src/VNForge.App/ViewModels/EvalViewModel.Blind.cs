@@ -143,9 +143,9 @@ public sealed partial class EvalViewModel
     {
         var name = folder?.LoadScriptNames().DisplayName(sample.ScriptKey) ?? sample.ScriptKey;
         var number = sample.LineId.Contains(':', StringComparison.Ordinal) && int.TryParse(sample.LineId[(sample.LineId.LastIndexOf(':') + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n)
-            ? $", LINHA {n.ToString("0000", CultureInfo.InvariantCulture)}"
+            ? $", linha {n.ToString("0000", CultureInfo.InvariantCulture)}"
             : string.Empty;
-        return $"ORIGINAL · {name.ToUpperInvariant()}{number}";
+        return $"Original · {name}{number}";
     }
 
     private static string ContextFor(EvalSample sample) => (sample.Before.Length > 0, sample.After.Length > 0) switch

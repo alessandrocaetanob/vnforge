@@ -234,7 +234,7 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.False(vm.ShowReport);
         Assert.Equal("Par 1 de 12", vm.PairTitle);
         Assert.StartsWith("原文", vm.OriginalText);
-        Assert.StartsWith("ORIGINAL · ", vm.OriginalMeta);
+        Assert.StartsWith("Original · ", vm.OriginalMeta);
         Assert.NotEqual(vm.TextA, vm.TextB);
         Assert.Contains("de 3 linhas", vm.FitA);
         Assert.Equal("você escolhe sem saber qual configuração gerou cada texto", vm.BlindSubtitle);

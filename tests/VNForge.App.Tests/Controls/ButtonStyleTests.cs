@@ -100,6 +100,18 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         });
     }
 
+    [Fact]
+    public async Task Rotulo_do_botao_primario_e_semibold()
+    {
+        await OnUi(window =>
+        {
+            var primario = new Button { Content = "Salvar regra", Classes = { "accent" } };
+            Show(window, primario);
+
+            Assert.Equal(FontWeight.SemiBold, Text(primario, "Salvar regra").FontWeight);
+        });
+    }
+
     [Theory]
     [InlineData("subtle")]
     [InlineData("subtle evalrow")]

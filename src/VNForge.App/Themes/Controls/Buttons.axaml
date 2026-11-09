@@ -34,6 +34,7 @@
   <!-- O FluentTheme pinta fundo, texto e borda no ContentPresenter do modelo, em todos os estados; só o que chega nele vale.
        Ativo: on-accent sobre accent (dark 8,6:1, claro 8,6:1). Desligado: fundo neutro e texto apagado, para não parecer o botão ligado. -->
   <Style Selector="Button.accent">
+    <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
@@ -103,6 +104,10 @@
     <Setter Property="Padding" Value="12,0"/>
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.BodySm}"/>
   </Style>
+  <!-- O link de rodapé de ação (TodoItem: "link sm") guarda os 8px de antes: o sm do quadro (12px) não vale para ele, que não tem caixa. -->
+  <Style Selector="Button.link.sm">
+    <Setter Property="Padding" Value="8,0"/>
+  </Style>
   <Style Selector="Button.lg">
     <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlLg}"/>
     <Setter Property="Padding" Value="16,0"/>
@@ -123,6 +128,12 @@
   <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
     <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+
+  <!-- O chevron do ComboBox: 8px no quadro (o glifo do FluentTheme vem em 12). -->
+  <Style Selector="ComboBox /template/ PathIcon#DropDownGlyph">
+    <Setter Property="Width" Value="8"/>
+    <Setter Property="Height" Value="8"/>
   </Style>
 
   <Style Selector="Border.kbd">
