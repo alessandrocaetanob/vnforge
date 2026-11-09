@@ -73,7 +73,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
     private const double AgreementBonus = 0.05;
     private const double EvidenceThreshold = 0.6;
     private const int MaxTags = 40;
-    private const double AdultImageLevel = 1.0;
+    private const double AdultImageLevel = VndbImageVisibility.AdultLevel;
 
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
