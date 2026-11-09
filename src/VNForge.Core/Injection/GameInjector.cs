@@ -383,12 +383,14 @@ public sealed partial class GameInjector
     private static void EnsureGameUnchangedSinceExtraction(ProjectFolder project, string gameDirectory, BackupHistory history)
     {
         var changed = new List<string>();
+        var details = new List<ChangedGameFile>();
         foreach (var original in project.LoadState().Originals.OrderBy(o => o.Path, StringComparer.Ordinal))
         {
             var path = ResolveInside(gameDirectory, original.Path);
             if (!File.Exists(path))
             {
                 changed.Add($"{original.Path} (ausente)");
+                details.Add(new ChangedGameFile(original.Path, original.Sha256, null));
                 continue;
             }
 
@@ -408,13 +410,17 @@ public sealed partial class GameInjector
             }
 
             changed.Add(original.Path);
+            details.Add(new ChangedGameFile(original.Path, original.Sha256, current));
         }
 
         if (changed.Count > 0)
         {
             throw new InjectionException(
                 $"O jogo mudou desde a extração (uma atualização, talvez), então a injeção foi recusada e nada foi gravado. Arquivos alterados: {string.Join(", ", changed)}. "
-                + "Rode vnf extract de novo para o projeto acompanhar a nova versão do jogo.");
+                + "Rode vnf extract de novo para o projeto acompanhar a nova versão do jogo.")
+            {
+                ChangedFiles = details,
+            };
         }
     }
 

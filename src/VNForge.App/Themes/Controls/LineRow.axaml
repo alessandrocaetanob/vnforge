@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- docs/design/components/LineRow: colunas 56 · 92 · 132 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm, o número em mono.
+  <!-- docs/design/components/LineRow: colunas 92 · 148 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm. O quadro do #530 não tem coluna Linha: o número vai só no nome de acessibilidade da linha e na dica.
        As três colunas de texto moram numa grade interna (PART_Text): a mesma conta de larguras, e a densidade Roteiro (#460) as empilha em três linhas dessa grade, sem coluna de falante. -->
   <Style Selector="c|LineRow">
     <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
@@ -10,12 +10,15 @@
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}">
-        <Grid Name="PART_Row" ColumnDefinitions="56,92,*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}">
-          <TextBlock Name="PART_Number" Classes="mono secondary" Text="{TemplateBinding NumberText}"/>
-          <c:StatusBadge Name="PART_Status" Grid.Column="1" Status="{TemplateBinding Status}"/>
-          <Grid Name="PART_Text" Grid.Column="2" ColumnDefinitions="132,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
-            <SelectableTextBlock Name="PART_Speaker" Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{TemplateBinding SpeakerText}"
-                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
+        <Grid Name="PART_Row" ColumnDefinitions="92,*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}">
+          <c:StatusBadge Name="PART_Status" Status="{TemplateBinding Status}"/>
+          <Grid Name="PART_Text" Grid.Column="1" ColumnDefinitions="148,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
+            <!-- Quem fala: o retrato de 28 px (a imagem do VNDB, o busto desenhado ou o livro da narração) e o nome (quadro: retrato redondo ao lado do nome, 9 px de vão). -->
+            <Grid Name="PART_Who" ColumnDefinitions="Auto,*" ColumnSpacing="9" VerticalAlignment="Center">
+              <c:Portrait Name="PART_Portrait" Size="Sm" Image="{TemplateBinding SpeakerImage}" Seed="{TemplateBinding SpeakerText}" VerticalAlignment="Center"/>
+              <SelectableTextBlock Name="PART_Speaker" Grid.Column="1" Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{TemplateBinding SpeakerText}"
+                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
+            </Grid>
             <TextBlock Name="PART_Original" Classes="jp-row" Text="{TemplateBinding Original}" TextTrimming="CharacterEllipsis"/>
             <Grid Name="PART_TranslationCell" ColumnDefinitions="*,Auto">
               <TextBlock Name="PART_Translation" Classes="body-sm" Text="{TemplateBinding TranslationText}" TextTrimming="CharacterEllipsis"/>
@@ -25,7 +28,7 @@
               </Border>
             </Grid>
           </Grid>
-          <Panel Name="PART_Issue" Grid.Column="3">
+          <Panel Name="PART_Issue" Grid.Column="2">
             <PathIcon Name="PART_Warning" Width="16" Height="16" HorizontalAlignment="Left" IsVisible="False" Data="{DynamicResource Icon.Warning}"
                       Foreground="{DynamicResource Vnf.SignalWarningFg}" AutomationProperties.Name="{TemplateBinding IssueLabel}" ToolTip.Tip="{TemplateBinding IssueTip}"/>
             <PathIcon Name="PART_Error" Width="16" Height="16" HorizontalAlignment="Left" IsVisible="False" Data="{DynamicResource Icon.Error}"
@@ -42,11 +45,16 @@
   <Style Selector="c|LineRow /template/ Grid#PART_Row">
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
-  <Style Selector="c|LineRow /template/ TextBlock#PART_Number, c|LineRow /template/ c|StatusBadge#PART_Status, c|LineRow /template/ Panel#PART_Issue">
+  <Style Selector="c|LineRow /template/ c|StatusBadge#PART_Status, c|LineRow /template/ Panel#PART_Issue">
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
-  <Style Selector="c|LineRow /template/ SelectableTextBlock#PART_Speaker">
+  <Style Selector="c|LineRow /template/ Grid#PART_Who">
     <Setter Property="Grid.Column" Value="0"/>
+  </Style>
+  <Style Selector="c|LineRow:narration /template/ c|Portrait#PART_Portrait">
+    <Setter Property="IsNarrator" Value="True"/>
+  </Style>
+  <Style Selector="c|LineRow /template/ SelectableTextBlock#PART_Speaker">
     <Setter Property="MaxLines" Value="1"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
@@ -73,14 +81,21 @@
   <Style Selector="c|LineRow:script /template/ Grid#PART_Row">
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
-  <Style Selector="c|LineRow:script /template/ TextBlock#PART_Number, c|LineRow:script /template/ c|StatusBadge#PART_Status, c|LineRow:script /template/ Panel#PART_Issue">
+  <Style Selector="c|LineRow:script /template/ c|StatusBadge#PART_Status, c|LineRow:script /template/ Panel#PART_Issue">
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
   <Style Selector="c|LineRow:script /template/ Grid#PART_Text">
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
-  <Style Selector="c|LineRow:script /template/ SelectableTextBlock#PART_Speaker">
+  <Style Selector="c|LineRow:script /template/ c|Portrait#PART_Portrait">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ Grid#PART_Who">
+    <Setter Property="ColumnSpacing" Value="0"/>
     <Setter Property="Grid.ColumnSpan" Value="3"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+  <Style Selector="c|LineRow:script /template/ SelectableTextBlock#PART_Speaker">
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
     <Setter Property="FontWeight" Value="Medium"/>
