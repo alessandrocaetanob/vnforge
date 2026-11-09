@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Services;
 using VNForge.Core.Vndb;
@@ -20,8 +21,9 @@ public abstract class VndbImageControl : Control
     public static readonly StyledProperty<VndbImageRef?> ImageProperty = AvaloniaProperty.Register<VndbImageControl, VndbImageRef?>(nameof(Image));
     public static readonly StyledProperty<string?> SeedProperty = AvaloniaProperty.Register<VndbImageControl, string?>(nameof(Seed));
 
-    private Bitmap? bitmap;
+    private BitmapLease? lease;
     private CancellationTokenSource? loading;
+    private IVndbImageSource? watching;
 
     static VndbImageControl()
     {
@@ -52,20 +54,33 @@ public abstract class VndbImageControl : Control
     }
 
     /// <summary>A imagem do VNDB está na tela; falso quando o controle mostra o marcador.</summary>
-    public bool HasImage => bitmap is not null;
+    public bool HasImage => lease is not null;
 
     /// <summary>O bitmap já carregado; nulo mostra o marcador.</summary>
-    protected Bitmap? LoadedBitmap => bitmap;
+    protected Bitmap? LoadedBitmap => lease?.Bitmap;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (VndbImages.Source is { } source)
+        {
+            watching = source;
+            source.PrivacyChanged += OnPrivacyChanged;
+        }
+
         Reload();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         CancelLoading();
+        if (watching is not null)
+        {
+            watching.PrivacyChanged -= OnPrivacyChanged;
+            watching = null;
+        }
+
+        SetLease(null);
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -74,16 +89,18 @@ public abstract class VndbImageControl : Control
     /// <summary>O nome que o leitor de tela diz quando a tela não deu um (<c>AutomationProperties.Name</c>).</summary>
     protected abstract string DefaultAutomationName { get; }
 
+    // A privacidade pode mudar em qualquer thread (a CLI trocou o ajuste): a tela relê a imagem na UI e a esconde se for o caso.
+    private void OnPrivacyChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(Reload);
+
     private void Reload()
     {
         CancelLoading();
-        var hadBitmap = bitmap is not null;
-        bitmap = null;
+        SetLease(null);
         if (Image is { } image && VndbImages.Source is { } source && VisualRoot is not null)
         {
             if (source.TryGet(image) is { } ready)
             {
-                bitmap = ready;
+                SetLease(ready);
             }
             else
             {
@@ -91,22 +108,30 @@ public abstract class VndbImageControl : Control
                 _ = LoadAsync(source, image, cts);
             }
         }
+    }
 
-        if (hadBitmap || bitmap is not null)
+    private void SetLease(BitmapLease? next)
+    {
+        var previous = lease;
+        lease = next;
+        if (previous is not null || next is not null)
         {
             InvalidateVisual();
         }
+
+        previous?.Dispose();
     }
 
     private async Task LoadAsync(IVndbImageSource source, VndbImageRef image, CancellationTokenSource owner)
     {
+        BitmapLease? loaded = null;
         try
         {
-            var loaded = await source.LoadAsync(image, owner.Token);
+            loaded = await source.LoadAsync(image, owner.Token);
             if (!owner.IsCancellationRequested && loaded is not null)
             {
-                bitmap = loaded;
-                InvalidateVisual();
+                SetLease(loaded);
+                loaded = null;
             }
         }
         catch (OperationCanceledException)
@@ -115,6 +140,8 @@ public abstract class VndbImageControl : Control
         }
         finally
         {
+            // Uma carga que chegou depois de a imagem mudar devolve a posse sem mostrar nada.
+            loaded?.Dispose();
             if (ReferenceEquals(loading, owner))
             {
                 loading = null;

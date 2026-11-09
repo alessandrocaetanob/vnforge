@@ -203,6 +203,29 @@ public sealed class VndbImageCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task Imagem_rejeitada_some_do_disco_e_so_e_baixada_de_novo_depois_da_espera()
+    {
+        var time = new FakeTimeProvider();
+        var downloader = new FakeDownloader(_ => Jpeg);
+        using var cache = Cache(downloader, time: time);
+        var image = new VndbImageRef(Portrait);
+        var path = await cache.GetAsync(image, Ct);
+        Assert.NotNull(path);
+
+        cache.Reject(image);
+
+        Assert.False(File.Exists(path));
+        Assert.Null(cache.Find(image));
+        Assert.Null(await cache.GetAsync(image, Ct));
+        Assert.Equal(1, downloader.Calls);
+
+        time.Advance(VndbImageCache.RetryAfter + TimeSpan.FromSeconds(1));
+
+        Assert.NotNull(await cache.GetAsync(image, Ct));
+        Assert.Equal(2, downloader.Calls);
+    }
+
+    [Fact]
     public async Task Pedidos_ao_mesmo_tempo_da_mesma_imagem_viram_um_download()
     {
         var downloader = new FakeDownloader(_ => Png);

@@ -14,9 +14,7 @@ public sealed class HttpImageDownloader : IImageDownloader
     /// <summary>O maior corpo que se aceita, o mesmo teto do <see cref="VndbImageCache"/>.</summary>
     public const long DefaultMaxBytes = VndbImageCache.MaxBytes;
 
-    // Sem redirecionamento: o endereço já foi conferido como de vndb.org, e um 302 poderia levar a outro lugar.
-    private static readonly Lazy<HttpClient> SharedHttp = new(() =>
-        new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan });
+    private static readonly Lazy<HttpClient> SharedHttp = new(CreateClient);
 
     private readonly HttpClient _http;
     private readonly TimeSpan _timeout;
@@ -30,6 +28,13 @@ public sealed class HttpImageDownloader : IImageDownloader
         _timeout = timeout ?? DefaultTimeout;
         _maxBytes = maxBytes;
     }
+
+    /// <summary>
+    /// O <see cref="HttpClient"/> do <see cref="Create"/>. Sem redirecionamento: o endereço já foi conferido como de vndb.org, e um 302 poderia levar a outro lugar;
+    /// a resposta 3xx não é de sucesso e vira <c>null</c>.
+    /// </summary>
+    internal static HttpClient CreateClient() =>
+        new(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
 
     /// <summary>O downloader do app e da CLI: um <see cref="HttpClient"/> só para o processo.</summary>
     public static HttpImageDownloader Create() => new(SharedHttp.Value);

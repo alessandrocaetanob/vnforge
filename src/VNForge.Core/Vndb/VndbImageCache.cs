@@ -118,6 +118,28 @@ public sealed class VndbImageCache : IDisposable
         }
     }
 
+    /// <summary>
+    /// Descarta a imagem do disco porque quem a recebeu não conseguiu decodificá-la (os bytes tinham a assinatura de uma imagem, mas o arquivo está corrompido). A falha vale
+    /// como a de um download: <see cref="GetAsync"/> devolve nulo por <see cref="RetryAfter"/> e só então baixa de novo.
+    /// </summary>
+    public void Reject(VndbImageRef image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        foreach (var extension in Extensions)
+        {
+            try
+            {
+                File.Delete(PathFor(image.Url, extension));
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Outro processo segura o arquivo: a próxima tentativa, depois da espera, apaga de novo.
+            }
+        }
+
+        _failedAt[image.Url] = _time.GetUtcNow();
+    }
+
     public void Dispose()
     {
         _slots.Dispose();

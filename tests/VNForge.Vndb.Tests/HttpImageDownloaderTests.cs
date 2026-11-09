@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace VNForge.Vndb.Tests;
 
@@ -32,6 +34,7 @@ public sealed class HttpImageDownloaderTests
 
     [Theory]
     [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Redirect)]
     [InlineData(HttpStatusCode.TooManyRequests)]
     [InlineData(HttpStatusCode.InternalServerError)]
     public async Task Resposta_de_erro_vira_nulo(HttpStatusCode status) =>
@@ -104,5 +107,64 @@ public sealed class HttpImageDownloaderTests
         Assert.Null(await Downloader(handler).DownloadAsync(new Uri("https://evil.example/x.jpg"), Ct));
         Assert.Null(await Downloader(handler).DownloadAsync(new Uri("http://t.vndb.org/x.jpg"), Ct));
         Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>Um servidor só em 127.0.0.1 que responde 302 para o próprio endereço e conta quantos pedidos chegaram.</summary>
+    private sealed class RedirectingServer : IDisposable
+    {
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly CancellationTokenSource _stop = new();
+        private int _requests;
+
+        public RedirectingServer()
+        {
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            _ = Task.Run(Serve);
+        }
+
+        public int Port { get; }
+
+        public int Requests => Volatile.Read(ref _requests);
+
+        public void Dispose()
+        {
+            _stop.Cancel();
+            _listener.Stop();
+            _stop.Dispose();
+        }
+
+        private async Task Serve()
+        {
+            try
+            {
+                while (!_stop.IsCancellationRequested)
+                {
+                    using var client = await _listener.AcceptTcpClientAsync(_stop.Token);
+                    await using var stream = client.GetStream();
+                    var buffer = new byte[4096];
+                    _ = await stream.ReadAsync(buffer, _stop.Token);
+                    Interlocked.Increment(ref _requests);
+                    var reply = string.Join(string.Concat((char)13, (char)10), "HTTP/1.1 302 Found", $"Location: http://127.0.0.1:{Port}/segundo", "Content-Length: 0", "Connection: close", string.Empty, string.Empty);
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(reply), _stop.Token);
+                }
+            }
+            catch (Exception e) when (e is OperationCanceledException or ObjectDisposedException or SocketException or IOException)
+            {
+                // O teste terminou e fechou o servidor.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task O_cliente_do_Create_nao_segue_um_302_para_outro_endereco()
+    {
+        using var server = new RedirectingServer();
+        using var client = HttpImageDownloader.CreateClient();
+
+        using var response = await client.GetAsync(new Uri($"http://127.0.0.1:{server.Port}/primeiro"), Ct);
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        Assert.Equal(1, server.Requests);
     }
 }
