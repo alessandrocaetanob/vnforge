@@ -10,7 +10,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Cli;
 
 /// <summary>
-/// <c>vnf library scan|match|list|link|privacy|play|option|emulator</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
+/// <c>vnf library scan|match|list|link|privacy|status|sync|play|option|emulator</c>: as VNs do usuário num lugar só (<c>library.json</c>, na pasta de configuração do usuário). <c>scan</c> reconhece
 /// os jogos de uma pasta ou unidade, <c>match</c> casa cada um com o VNDB, <c>list</c> mostra a biblioteca respeitando o que a privacidade esconde,
 /// <c>play</c> abre o jogo e conta o tempo (<c>playtime.json</c>, ao lado). Os subcomandos de <c>play</c> ficam em <c>LibraryCommand.Play.cs</c>.
 /// </summary>
@@ -108,6 +108,8 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateList(cli));
         command.Subcommands.Add(CreateLink(cli));
         command.Subcommands.Add(CreatePrivacy(cli));
+        command.Subcommands.Add(LibraryListCommands.CreateStatus(cli));
+        command.Subcommands.Add(LibraryListCommands.CreateSync(cli));
         command.Subcommands.Add(CreatePlay(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
@@ -607,6 +609,7 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine($"  Projeto de tradução: {game.ProjectPath ?? "nenhum"}");
+        LibraryListCommands.WriteLines(output, game);
         output.WriteLine($"  Localidade japonesa: {(game.RequiresJapaneseLocale ? "sim (abre pelo Locale Emulator)" : "não")}");
         output.WriteLine(stats.Sessions == 0
             ? "  Tempo de jogo: nunca jogado"
@@ -757,6 +760,7 @@ internal static partial class LibraryCommand
         searched = game.SearchedAt is not null,
         candidates = game.Candidates.Select(c => new { vndbId = c.VndbId, title = c.Title, original = c.OriginalTitle, released = c.Released, score = c.Score, evidence = c.Evidence }),
         project = game.ProjectPath,
+        list = LibraryListCommands.Data(game),
         requiresJapaneseLocale = game.RequiresJapaneseLocale,
         play = stats is null ? null : PlayData(stats),
         card = LibraryVisibility.Card(game, privacy),

@@ -659,6 +659,33 @@ public class VndbClientTests
         Assert.DoesNotContain("tok-1", error.Message);
     }
 
+    [Fact]
+    public async Task AuthInfo_com_token_recusado_vira_erro_401_sem_repetir_o_token()
+    {
+        var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.Unauthorized, "Invalid token"));
+
+        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).GetAuthInfoAsync("tok-secreto", Ct));
+
+        Assert.Equal(401, error.StatusCode);
+        Assert.DoesNotContain("tok-secreto", error.Message);
+        Assert.Single(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    public async Task Lista_com_erro_do_servidor_vira_aviso_de_servidor_fora_do_ar_e_nao_e_refeita(HttpStatusCode status)
+    {
+        var handler = new StubHandler((_, _) => StubHandler.Text(status, "erro"));
+
+        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).GetListAsync("u2", "tok-secreto", Ct));
+
+        Assert.Equal((int)status, error.StatusCode);
+        Assert.Contains("fora do ar", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("tok-secreto", error.Message);
+        Assert.Single(handler.Requests);
+    }
+
     private sealed class VnComparer : IEqualityComparer<IReadOnlyList<VndbVisualNovel>>
     {
         public bool Equals(IReadOnlyList<VndbVisualNovel>? x, IReadOnlyList<VndbVisualNovel>? y) =>
