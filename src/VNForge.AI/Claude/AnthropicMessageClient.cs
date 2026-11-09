@@ -33,7 +33,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
                 Effort = ToSdk(request.Effort),
                 Format = new BetaJsonOutputFormat { Schema = schemaDict },
             },
-            Messages = [new BetaMessageParam(new BetaUserMessageParam { Content = request.User })],
+            Messages = [new BetaMessageParam(UserMessage(request))],
         };
 
         // Recusa de classificador: o servidor refaz o pedido no modelo de fallback na mesma chamada. Os campos só entram
@@ -57,6 +57,30 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
             response.Usage.CacheReadInputTokens ?? 0,
             response.Usage.CacheCreationInputTokens ?? 0);
         return new ClaudeReply(ToWire(response.StopReason), text, usage);
+    }
+
+    /// <summary>
+    /// A mensagem do usuário: o texto sozinho, ou, com <see cref="ClaudeRequest.Image"/>, o bloco de imagem base64 seguido do texto
+    /// (a API recomenda a imagem antes da pergunta).
+    /// </summary>
+    internal static BetaUserMessageParam UserMessage(ClaudeRequest request)
+    {
+        if (request.Image is not { } image)
+        {
+            return new BetaUserMessageParam { Content = request.User };
+        }
+
+        return new BetaUserMessageParam
+        {
+            Content = new List<BetaContentBlockParam>
+            {
+                new BetaImageBlockParam
+                {
+                    Source = new BetaBase64ImageSource { Data = Convert.ToBase64String(image.Data), MediaType = image.MediaType },
+                },
+                new BetaTextBlockParam { Text = request.User },
+            },
+        };
     }
 
     /// <summary>

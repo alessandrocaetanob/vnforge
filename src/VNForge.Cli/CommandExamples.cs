@@ -54,6 +54,7 @@ public static class CommandExamples
         ["lines keep"] = ["vnf lines keep yst00012:000034", "vnf lines keep yst00012:000034,yst00012:000035"],
         ["lines unkeep"] = ["vnf lines unkeep yst00012:000034"],
         ["lines speaker"] = ["vnf lines speaker yst00012:000034 --nome Inui", "vnf lines speaker yst00012:000034 --narracao", "vnf lines speaker yst00012:000034 --original"],
+        ["images scan"] = ["vnf images scan --dry-run", "vnf images scan --yes"],
         ["config ai"] = ["vnf config ai --model claude-opus-5-5"],
         ["detect"] = [@"vnf detect --game D:\Jogos\MinhaVN"],
         ["ypf info"] = ["vnf ypf info ysbin.ypf"],
