@@ -135,6 +135,11 @@
             </StackPanel>
           </Border>
 
+          <!-- O que mudou desde o último teste (#476): só aparece quando há o que mostrar, então o Painel do quadro (sem teste novo) fica como está. -->
+          <Border Classes="panel" Padding="16" IsVisible="{Binding SinceTest.IsInformative}">
+            <v:ChangedScenesPanel DataContext="{Binding SinceTest}"/>
+          </Border>
+
         </StackPanel>
       </Grid>
 
