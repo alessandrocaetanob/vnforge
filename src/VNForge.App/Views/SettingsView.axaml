@@ -816,7 +816,7 @@
                                     AutomationProperties.Name="Verbo da condição"/>
                           <TextBox Grid.Column="2" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" Text="{Binding Value}" AutomationProperties.Name="Valor da condição"/>
                           <Button Grid.Column="3" Classes="icon subtle" Command="{Binding RemoveCommand}" AutomationProperties.Name="Tirar condição">
-                            <PathIcon Width="10" Height="10" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Dismiss}"/>
+                            <Path Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource Vnf.TextSecondary}" Stroke="{DynamicResource Vnf.TextSecondary}" StrokeThickness="0.3" Data="{StaticResource Icon.Dismiss}"/>
                           </Button>
                         </Grid>
                       </DataTemplate>
