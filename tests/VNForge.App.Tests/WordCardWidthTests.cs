@@ -10,6 +10,7 @@ public sealed class WordCardWidthTests
     [InlineData(428, 370)]
     [InlineData(370, 370)]
     [InlineData(335, 335)]
+    [InlineData(0, 370)]
     public void O_cartao_tem_a_largura_do_quadro_ou_a_do_original_quando_ele_e_mais_estreito(double original, double esperada)
     {
         var width = (double)WordCardWidth.Fit.Convert(original, typeof(double), null, CultureInfo.InvariantCulture)!;

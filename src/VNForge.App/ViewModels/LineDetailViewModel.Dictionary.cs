@@ -302,7 +302,7 @@ public sealed partial class LineDetailViewModel
             parts.Add(hiddenSenses == 1 ? "Mais 1 sentido" : $"Mais {hiddenSenses} sentidos");
         }
 
-        if (parts.Count + (others > 0 ? 1 : 0) > 0 && readings > 1)
+        if ((hiddenSenses > 0 || others > 0) && readings > 1)
         {
             parts.Add($"{readings} leituras");
         }

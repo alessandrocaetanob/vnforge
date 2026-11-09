@@ -76,7 +76,7 @@
           <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="Este dicionário tem mais de 30 dias."/>
           <Button Grid.Column="1" Classes="sm" Content="Atualizar" Command="{Binding InstallDictionaryCommand}" AutomationProperties.Name="Atualizar o dicionário"/>
         </Grid>
-        <Border Classes="word-footer">
+        <Border Classes="word-footer" Margin="0,3,0,0">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Button Classes="word-source" VerticalAlignment="Center" Click="OnLicenseClick" ToolTip.Tip="{Binding WordFootnoteTip}" AutomationProperties.Name="Origem do dicionário">
               <TextBlock Text="{x:Static vm:LineDetailViewModel.WordFootnote}" TextTrimming="CharacterEllipsis"/>
