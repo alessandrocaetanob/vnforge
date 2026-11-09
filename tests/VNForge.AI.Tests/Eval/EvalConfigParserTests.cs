@@ -27,7 +27,7 @@ public sealed class EvalConfigParserTests
     [InlineData("opus:enorme")]
     [InlineData("opus:low:muitas")]
     [InlineData("opus:low:-1")]
-    [InlineData("opus:low:101")]
+    [InlineData("opus:low:31")]
     [InlineData("opus:low:5:talvez")]
     [InlineData("opus:low:5:com-biblia:extra")]
     public void Recusa_configuracao_invalida_em_portugues(string spec)

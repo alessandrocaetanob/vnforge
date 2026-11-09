@@ -1,6 +1,7 @@
 using VNForge.AI.Claude;
 using VNForge.Core;
 using VNForge.Core.Eval;
+using VNForge.Core.Projects;
 
 namespace VNForge.AI.Eval;
 
@@ -16,7 +17,7 @@ public static class EvalConfigParser
 {
     public const int DefaultContextLines = 15;
 
-    public const int MaxContextLines = 100;
+    public const int MaxContextLines = AiConfig.MaxContextLines;
 
     public const int MaxConfigs = 26;
 

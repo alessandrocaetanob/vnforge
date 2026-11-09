@@ -206,9 +206,12 @@ internal static class EvalCommand
 
         round = round.WithChosen(id);
         EvalStore.SaveRound(project, round);
+        var chosen = round.Reports.First(r => r.Config.Id == id).Config;
+        EvalChoice.Apply(project, chosen);
         if (!json)
         {
-            output.WriteLine($"Configuração {id} ({round.Reports.First(r => r.Config.Id == id).Config.Title}) escolhida para o M4.");
+            output.WriteLine($"Configuração {id} ({chosen.Title}) escolhida para o M4.");
+            output.WriteLine($"O vnforge.json passa a usar {chosen.Model}, effort {chosen.Effort} e {chosen.ContextLines} falas de contexto de cada lado.");
             return ErrorHandler.OkExitCode;
         }
 

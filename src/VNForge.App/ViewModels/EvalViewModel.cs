@@ -6,6 +6,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Eval;
 using VNForge.AI.Translation;
+using VNForge.Core;
 using VNForge.Core.Eval;
 using VNForge.Core.Projects;
 
@@ -309,7 +310,16 @@ public sealed partial class EvalViewModel : ObservableObject
 
         round = round.WithChosen(letter);
         Save();
-        Message = $"A configuração {letter} ficou como a escolhida para o M4.";
+        try
+        {
+            EvalChoice.Apply(folder, round.Reports.First(r => r.Config.Id == letter).Config);
+        }
+        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"A escolha ficou na rodada, mas o vnforge.json não pôde ser gravado: {ex.Message}";
+        }
+
+        Message = $"A configuração {letter} ficou como a escolhida para o M4: o projeto passa a usar o modelo, o effort e o contexto dela.";
         foreach (var row in Rows)
         {
             row.IsSelected = false;

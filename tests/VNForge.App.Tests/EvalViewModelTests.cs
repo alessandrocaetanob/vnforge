@@ -281,6 +281,8 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.True(vm.Rows[2].IsChosen);
         Assert.False(vm.Rows[0].IsChosen);
         Assert.Contains("C ficou como a escolhida para o M4", vm.Message);
+        var ai = project.LoadConfig().Ai;
+        Assert.Equal((ClaudeModels.Haiku, "low", 15), (ai.Model, ai.Effort, ai.ContextBefore));
     }
 
     [Fact]

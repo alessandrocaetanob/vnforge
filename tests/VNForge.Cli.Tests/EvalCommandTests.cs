@@ -139,6 +139,9 @@ public sealed class EvalCommandTests : IDisposable
         Assert.Equal(0, chosen.ExitCode);
         Assert.Contains("Configuração B (Haiku 5.5 · effort médio · sem bíblia) escolhida para o M4.", chosen.Output);
         Assert.Equal("B", EvalStore.LoadLatest(_project)!.ChosenConfigId);
+        Assert.Contains("O vnforge.json passa a usar claude-haiku-5-5, effort medium e 15 falas de contexto de cada lado.", chosen.Output);
+        var ai = _project.LoadConfig().Ai;
+        Assert.Equal((ClaudeModels.Haiku, "medium", 15, 15), (ai.Model, ai.Effort, ai.ContextBefore, ai.ContextAfter));
         Assert.Contains("B  Haiku 5.5 · effort médio · 15 falas · sem bíblia · escolhida para o M4", report.Output);
         Assert.DoesNotContain("Sugestão para o M4", report.Output);
     }
