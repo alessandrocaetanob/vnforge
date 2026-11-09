@@ -177,13 +177,14 @@ public sealed partial class MainWindowViewModel
             return Start.LoadAsync();
         }
 
-        if (InGame && !ReferenceEquals(CurrentPage, Conference))
+        // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar; vale também com a Conferência aberta.
+        var header = InGame ? DashboardRefresh = Dashboard.ReloadAsync() : Task.CompletedTask;
+        if (!ReferenceEquals(CurrentPage, Conference))
         {
-            // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar.
-            return DashboardRefresh = Dashboard.ReloadAsync();
+            return header;
         }
 
-        return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
+        return Task.WhenAll(header, ConferenceLoading = Conference.RefreshAfterExternalChangeAsync());
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch
