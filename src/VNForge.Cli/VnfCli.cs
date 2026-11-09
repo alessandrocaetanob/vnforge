@@ -11,11 +11,13 @@ using VNForge.AI.Review;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Images;
+using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Vndb;
+using VNForge.Platform.Windows;
 using VNForge.Vndb;
 
 namespace VNForge.Cli;
@@ -135,13 +137,22 @@ public sealed class VnfCli
     public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>
-    /// Cria o catálogo do VNDB do <c>vnf vndb</c> e do <c>vnf init --vndb</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
+    /// Cria o catálogo do VNDB do <c>vnf vndb</c>, do <c>vnf init --vndb</c> e do <c>vnf library match</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
     /// Padrão (<c>null</c>): o cliente da API do VNDB, com o cache em <c>vndb-cache</c> na pasta das configurações do usuário.
     /// </summary>
     public Func<IVndbCatalog>? VndbCatalogFactory { get; set; }
 
     /// <summary>Quem abre o jogo no <c>vnf run</c>; os testes trocam por um falso.</summary>
     public IGameProcessStarter GameProcessStarter { get; set; } = new ShellGameProcessStarter();
+
+    /// <summary>Quem abre o jogo e acompanha o processo no <c>vnf library play</c>; os testes trocam por um falso.</summary>
+    public IGameLauncher GameLauncher { get; set; } = new ProcessGameLauncher();
+
+    /// <summary>O relógio do tempo de jogo do <c>vnf library play</c>; os testes trocam por um falso.</summary>
+    public TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    /// <summary>De quanto em quanto tempo o <c>vnf library play</c> olha o processo, e o limite do trecho suspenso que ainda conta.</summary>
+    public PlayTrackingOptions PlayTracking { get; set; } = PlayTrackingOptions.Default;
 
     internal IVndbCatalog CreateVndbCatalog() =>
         VndbCatalogFactory?.Invoke() ?? VndbClient.Create(Path.Combine(UserConfigDirectory, "vndb-cache"));
