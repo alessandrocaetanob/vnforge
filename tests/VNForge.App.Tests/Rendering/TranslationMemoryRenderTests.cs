@@ -1,12 +1,15 @@
 using Avalonia.Controls;
+using Avalonia.Automation;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.App.Controls;
 using VNForge.Core.Glossary;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.Tests.Rendering;
 
@@ -32,7 +35,15 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
             new("yst00001:000001", TextUnitKind.Dialogue, "美咲", Frase, "Aizawa, Sakura. Os dois, cinco minutos atrasados.", TranslationStatus.Machine),
             new("yst00001:000002", TextUnitKind.Dialogue, "健太", "「はい」", "Sim.", TranslationStatus.Translated),
         ]);
-        folder.SaveGlossary([new GlossaryTerm("先輩", "senpai"), new GlossaryTerm("遅刻", "atraso"), new GlossaryTerm("傘", "guarda-chuva")]);
+        // O cabeçalho do inspetor do quadro: retrato, nome, papel no jogo (do VNDB) e jeito de falar da Misaki.
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, Tone: "Professora, rígida", VndbId: "c100")]);
+        folder.SaveVndbLink(new VndbLink("v100", "Amaoto no Hakoniwa", null, null, [new VndbLinkedCharacter("c100", "Misaki", "美咲", [], CharacterGender.Female, null, "side")]));
+        // O quadro mostra seis termos do pessoal: três já no projeto (um difere), dois para usar; e três do projeto para guardar.
+        folder.SaveGlossary(
+        [
+            new GlossaryTerm("お兄ちゃん", "mano"), new GlossaryTerm("先輩", "senpai"), new GlossaryTerm("ふふっ", "hehe"),
+            new GlossaryTerm("遅刻", "atraso"), new GlossaryTerm("傘", "guarda-chuva"), new GlossaryTerm("校門", "portão da escola"),
+        ]);
         return root;
     }
 
@@ -78,7 +89,17 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     var buttons = card.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content as string == "Usar").ToList();
                     Assert.Equal(2, buttons.Count);
                     Assert.All(buttons, b => Assert.DoesNotContain("accent", b.Classes));
+                    // O selo de porcentagem é o chip do quadro: 24 px de altura, em Noto Sans (não mono).
+                    var pills = card.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("memory-pill") && b.IsEffectivelyVisible).ToList();
+                    Assert.Equal(2, pills.Count);
+                    Assert.All(pills, b => Assert.Equal(24, b.Bounds.Height));
                     Assert.True(editor.Detail.IsSceneCollapsed);
+                    var header = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "HeaderFragment" && g.IsEffectivelyVisible);
+                    var headerTexts = header.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+                    Assert.Contains("Misaki", headerTexts);
+                    Assert.Contains("Secundária · Professora, rígida", headerTexts);
+                    Assert.Contains("yst00001:000001 · Diálogo", headerTexts);
+                    Assert.Equal(64, Assert.Single(header.GetVisualDescendants().OfType<Portrait>()).Bounds.Width);
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("editor-memoria", theme)));
                 }
                 finally
@@ -107,6 +128,8 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                 personal.Upsert(new PersonalTerm("お兄ちゃん", "mano", "irmão mais velho, tom de carinho", ["a", "b", "c", "d"]));
                 personal.Upsert(new PersonalTerm("先輩", "senpai", "manter em romaji", ["a", "b", "c", "d", "e", "f"]));
                 personal.Upsert(new PersonalTerm("ドキドキ", "tum-tum", "batida do coração, onomatopeia", ["a", "b", "c"]));
+                personal.Upsert(new PersonalTerm("ふふっ", "hehe", "risada baixa", ["a", "b", "c", "d", "e"]));
+                personal.Upsert(new PersonalTerm("すごい", "incrível", "sem gíria", ["a", "b", "c", "d"]));
                 personal.Upsert(new PersonalTerm("遅刻", "chegar tarde", "no projeto o termo é \"atraso\"", ["a", "b"]));
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start);
@@ -124,9 +147,19 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
 
                     var buttons = window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
                     Assert.Equal(2, buttons.Count(b => b.Content as string == "Usar no projeto"));
-                    Assert.Equal(2, buttons.Count(b => b.Content as string == "Guardar"));
+                    // O quadro não desenha botões de ícone nas linhas: editar e tirar vão para o menu da linha.
+                    Assert.DoesNotContain(buttons, b => AutomationProperties.GetName(b) is { } name && (name.StartsWith("Editar ", StringComparison.Ordinal) || name.StartsWith("Tirar ", StringComparison.Ordinal)));
+                    // A página abre direto nas abas: sem o título "Glossário" nem a frase de apresentação.
+                    var page = window.GetVisualDescendants().OfType<GlossaryView>().Single();
+                    Assert.DoesNotContain(page.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && (t.Text == "Glossário" || (t.Text?.StartsWith("Nomes e termos fixos", StringComparison.Ordinal) ?? false)));
+                    Assert.Equal(3, buttons.Count(b => b.Content as string == "Guardar"));
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "No projeto");
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Difere do projeto");
+                    // Os dois cartões vão até o pé da página, e a nota do rodapé fica na base do cartão da tabela.
+                    var scroller = window.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "PageScroll");
+                    var table = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("panel") && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Termos que valem em toda VN"));
+                    var bottom = Avalonia.VisualExtensions.TranslatePoint(table, new Avalonia.Point(0, table.Bounds.Height), scroller)!.Value.Y;
+                    Assert.True(bottom >= scroller.Viewport.Height - 14 - 1, $"O cartão da tabela termina em {bottom} px e a área visível tem {scroller.Viewport.Height} px.");
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("glossario-pessoal", theme)));
                 }
                 finally

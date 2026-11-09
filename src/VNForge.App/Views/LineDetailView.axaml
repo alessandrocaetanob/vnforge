@@ -65,12 +65,16 @@
       <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
 
-          <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
-          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
-            <TextBlock Classes="mono secondary" Text="{Binding FullId}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <c:StatusBadge Grid.Column="1" Status="{Binding Status}" VerticalAlignment="Center" AutomationProperties.Name="Status da linha"/>
-            <TextBlock Grid.Column="2" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding KindLabel}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-            <Button Grid.Column="3" Classes="subtle icon sm" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
+          <!-- Cabeçalho (quadro do #537): retrato de 64 px, o nome do falante na cor dele, o papel e o jeito de falar, e embaixo o id em mono com o tipo da linha; histórico e menu à direita.
+               O selo de status fica na grade, como no quadro. -->
+          <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+            <c:Portrait Size="Lg" Image="{Binding SpeakerImage}" Seed="{Binding SpeakerName}" IsNarrator="{Binding !HasSpeaker}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+              <TextBlock Classes="title-md" Text="{Binding HeaderName}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding SpeakerColor}" AutomationProperties.Name="Quem fala"/>
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="18" Classes="secondary" Text="{Binding HeaderRoleLine}" IsVisible="{Binding HasHeaderRoleLine}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Classes="mono secondary" Text="{Binding HeaderIdLine}" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Linha"/>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Histórico da linha" ToolTip.Tip="Histórico da linha">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.History}"/>
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
@@ -78,7 +82,7 @@
                 </Flyout>
               </Button.Flyout>
             </Button>
-            <Button Grid.Column="4" Classes="subtle icon sm" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
+            <Button Grid.Column="3" Classes="subtle icon sm" VerticalAlignment="Center" AutomationProperties.Name="Mais ações" ToolTip.Tip="Mais ações">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.More}"/>
               <Button.Flyout>
                 <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -159,7 +163,7 @@
                       <StackPanel Spacing="2">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                           <Border Classes="memory-pill" Classes.exact="{Binding IsExact}" VerticalAlignment="Center">
-                            <TextBlock Classes="mono" Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
+                            <TextBlock Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
                           </Border>
                           <TextBlock Grid.Column="1" Classes="body-sm" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Target}" ToolTip.Tip="{Binding Target}"/>
                           <Button Grid.Column="2" Classes="sm" Content="Usar" AutomationProperties.Name="{Binding UseName}"
