@@ -35,13 +35,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
         bool trackFormatting = false)
     {
         var folder = ProjectFolder.Open(projectRoot);
-        var store = new RestorePointStore(folder, clock);
-        RestorePointRecorder? recorder = null;
-        try
-        {
-            recorder = store.Begin(title, scriptKeys, trackFormatting: trackFormatting);
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        if (RestoreScope.TryBegin(folder, title, scriptKeys, null, clock, trackFormatting) is not { } recorder)
         {
             return operation(folder);
         }
@@ -77,7 +71,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
     {
         try
         {
-            return await Task.Run(() => new RestorePointStore(ProjectFolder.Open(projectRoot), clock).Begin(title, scriptKeys, include)).ConfigureAwait(true);
+            return await Task.Run(() => RestoreScope.TryBegin(ProjectFolder.Open(projectRoot), title, scriptKeys, include, clock), CancellationToken.None).ConfigureAwait(true);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -96,7 +90,7 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
 
         try
         {
-            if (await Task.Run(() => recorder.Complete()).ConfigureAwait(true) is { } point)
+            if (await Task.Run(() => RestoreScope.TryComplete(recorder), CancellationToken.None).ConfigureAwait(true) is { } point)
             {
                 task.Restore = new BatchRestore(projectRoot, point.Id, point.LineCount);
             }
@@ -217,17 +211,10 @@ public sealed class BatchHistory(BackgroundTaskService tasks, TimeProvider? cloc
 
     private void TryRegister(string projectRoot, RestorePointRecorder recorder, string title, IEnumerable<(string ScriptKey, string UnitId)>? only)
     {
-        try
+        // O ponto é um extra: a operação já gravou, e um disco ocupado agora só tira o "Desfazer" dela.
+        if (RestoreScope.TryComplete(recorder, only) is { } point)
         {
-            var point = recorder.Complete(only);
-            if (point is not null)
-            {
-                tasks.AddFinished(title, clock.GetLocalNow(), Lines(point), new BatchRestore(projectRoot, point.Id, point.LineCount));
-            }
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            // O ponto é um extra: a operação já gravou, e um disco ocupado agora só tira o "Desfazer" dela.
+            tasks.AddFinished(title, clock.GetLocalNow(), Lines(point), new BatchRestore(projectRoot, point.Id, point.LineCount));
         }
     }
 }

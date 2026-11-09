@@ -387,6 +387,21 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Pos_dicionario_com_condicao_de_cena_troca_so_nos_scripts_da_cena()
+    {
+        SaveProfile("""{ "dictionary": { "post": [ { "pattern": "voce", "with": "tu", "when": [ { "kind": "scene", "value": "a001" } ] } ] } }""");
+        Translate("a001", (0, "oi voce"));
+        Translate("a002", (0, "oi voce"));
+
+        Build();
+
+        var content = BuiltContent();
+        Assert.Contains("dialogue|oi tu\n", content);
+        Assert.Contains("narration|oi voce", content);
+        Assert.Equal("oi voce", _project.LoadAllText()["a001"][0].Translation);
+    }
+
+    [Fact]
     public void Formatacao_nao_altera_o_text_json_em_disco()
     {
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");
@@ -421,6 +436,21 @@ public sealed class ProjectBuilderTests : IDisposable
         var issue = Assert.Single(result.Qa.OtherIssues, i => i.RuleId == BoxLineLimitRule.RuleId);
         Assert.Equal("a001:000000", issue.UnitId);
         Assert.DoesNotContain(result.Warnings, w => w.Contains("caixa 1 com 3 linhas", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Qa_do_build_mede_o_texto_com_o_pos_dicionario_condicionado_ao_falante()
+    {
+        SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" }, "dictionary": { "post": [ { "pattern": "x", "with": "aaa bbb ccc", "when": [ { "kind": "speaker", "value": "犬井" } ] } ] } }""");
+        Translate("a001", (0, "x"));
+        var saved = _project.LoadAllText()["a001"];
+        _project.SaveText("a001", [.. saved.Select((u, i) => i == 0 ? u with { Speaker = "犬井" } : u)]);
+
+        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, allowWarnings: true);
+
+        var issue = Assert.Single(result.Qa.OtherIssues, i => i.RuleId == BoxLineLimitRule.RuleId);
+        Assert.Equal("a001:000000", issue.UnitId);
+        Assert.StartsWith(@"dialogue|aaa\nbbb\nccc", BuiltContent());
     }
 
     [Fact]

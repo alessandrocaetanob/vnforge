@@ -5,6 +5,13 @@ namespace VNForge.AI.Claude;
 /// <summary>Traduz as falhas do provedor Claude (SDK, rede, recusa) em frases em português para o usuário; nada fora de <c>VNForge.AI</c> precisa conhecer o SDK.</summary>
 public static class ClaudeErrorMessages
 {
+    /// <summary>O erro não passa sozinho: chave recusada (401, 403) ou recurso que não existe (404). Repetir o pedido só repete o erro.</summary>
+    public static bool IsPermanent(Exception error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return error is AnthropicUnauthorizedException or AnthropicForbiddenException or AnthropicNotFoundException;
+    }
+
     public static string Describe(Exception error)
     {
         ArgumentNullException.ThrowIfNull(error);

@@ -102,6 +102,12 @@ public sealed class VnfCli
     public Func<string, ClaudeEffort, ITranslationProvider>? TranslationProviderFactory { get; set; }
 
     /// <summary>
+    /// Cria o cliente da Message Batches API do <c>vnf translate --batch</c>; os testes trocam por um cliente falso.
+    /// Padrão (<c>null</c>): o SDK com a chave do ambiente ou do cofre.
+    /// </summary>
+    public Func<VNForge.AI.Batches.IMessageBatchClient>? MessageBatchClientFactory { get; set; }
+
+    /// <summary>
     /// Cria o provedor de revisão do <c>vnf review</c> para o modelo e o esforço escolhidos; os testes trocam por um provedor falso.
     /// Padrão (<c>null</c>): Claude, com a chave do ambiente ou do cofre.
     /// </summary>
@@ -129,7 +135,7 @@ public sealed class VnfCli
     public Func<string, IImageTextReader>? ImageTextReaderFactory { get; set; }
 
     /// <summary>
-    /// Cria o catálogo do VNDB do <c>vnf library match</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
+    /// Cria o catálogo do VNDB do <c>vnf vndb</c>, do <c>vnf init --vndb</c> e do <c>vnf library match</c>; os testes trocam pelo <see cref="FakeVndbCatalog"/>, que não chama a rede.
     /// Padrão (<c>null</c>): o cliente da API do VNDB, com o cache em <c>vndb-cache</c> na pasta das configurações do usuário.
     /// </summary>
     public Func<IVndbCatalog>? VndbCatalogFactory { get; set; }

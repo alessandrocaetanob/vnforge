@@ -86,6 +86,25 @@ public sealed partial class BackgroundTaskItem : ObservableObject
     [ObservableProperty]
     public partial string UndoMessage { get; internal set; } = "";
 
+    /// <summary>A tarefa acompanha um lote noturno: o "Cancelar" vira "Cancelar lote" e o "Desfazer" pede confirmação.</summary>
+    [ObservableProperty]
+    public partial bool IsBatch { get; internal set; }
+
+    /// <summary>A linha de baixo do andamento ("1.951 de 3.147 linhas prontas · verificado há 2 min"); vazia nas demais tarefas.</summary>
+    [ObservableProperty]
+    public partial string Detail { get; internal set; } = "";
+
+    /// <summary>"Verificar agora" do lote noturno: pergunta à API sem esperar o intervalo; <see langword="null"/> nas demais tarefas.</summary>
+    [ObservableProperty]
+    public partial IRelayCommand? CheckNowCommand { get; internal set; }
+
+    /// <summary>"Ver as 3 linhas": abre no Editor a primeira linha que o lote não traduziu; <see langword="null"/> enquanto não há linha com erro.</summary>
+    [ObservableProperty]
+    public partial IRelayCommand? ShowLinesCommand { get; internal set; }
+
+    [ObservableProperty]
+    public partial string ShowLinesLabel { get; internal set; } = "";
+
     /// <summary>Completa quando a tarefa termina, de qualquer jeito; nunca lança.</summary>
     public Task Completion { get; internal set; } = Task.CompletedTask;
 
@@ -250,6 +269,13 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null, TimeP
                 Tasks.Add(item);
             }
         });
+    }
+
+    /// <summary>Roda <paramref name="action"/> na thread da interface (no app, o <c>Dispatcher</c>); o trabalho de uma tarefa o usa para mudar o que a lista mostra. Pode ser chamado de qualquer thread.</summary>
+    public void Post(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        post(action);
     }
 
     /// <summary>Tira da lista as tarefas que já terminaram. Chame da thread da interface.</summary>

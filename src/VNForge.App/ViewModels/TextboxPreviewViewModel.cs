@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Controls;
@@ -32,8 +33,9 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly TextUnit unit;
-    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation, SpeakerBoxMarks marks = default, SpeakerNaming? naming = null)
+    public TextboxPreviewViewModel(TextUnit unit, FormattingProfile profile, string translation, SpeakerBoxMarks marks = default, SpeakerNaming? naming = null, DictionaryContext? dictionary = null)
     {
+        Dictionary = dictionary;
         this.unit = unit ?? throw new ArgumentNullException(nameof(unit));
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
         Marks = marks;
@@ -43,6 +45,9 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
 
     /// <summary>De onde vem o nome da placa: o que o build grava na caixa de nome (#464), não o nome do jogo.</summary>
     public SpeakerNaming Naming { get; }
+
+    /// <summary>Falante e cena para as regras do pós-dicionário com condição; nulo deixa só as regras sem condição.</summary>
+    public DictionaryContext? Dictionary { get; }
 
     /// <summary>O perfil com que a prévia foi montada.</summary>
     public FormattingProfile Profile { get; }
@@ -93,7 +98,7 @@ public sealed partial class TextboxPreviewViewModel : ObservableObject
         LinePreview preview;
         try
         {
-            preview = LinePreviewer.Create(Profile, unit, translation, Marks);
+            preview = LinePreviewer.Create(Profile, unit, translation, Marks, Dictionary);
         }
         catch (VNForgeException e)
         {

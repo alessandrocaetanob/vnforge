@@ -52,12 +52,12 @@ public sealed class FormattingConflictRule : UnitQaRule, IQaFixer
         }
 
         var conflicts = FormattingConflicts.Find(context.Formatting, encoder);
-        if (conflicts.Count == 0 || BuiltText.For(unit, context.Formatting) is not { } current)
+        if (conflicts.Count == 0 || BuiltText.For(unit, context.Formatting, context.Dictionary) is not { } current)
         {
             return [];
         }
 
-        var safe = BuiltText.For(unit, FormattingConflicts.Resolve(context.Formatting, conflicts)) ?? string.Empty;
+        var safe = BuiltText.For(unit, FormattingConflicts.Resolve(context.Formatting, conflicts), context.Dictionary) ?? string.Empty;
         var affecting = new List<(FormattingConflict, IReadOnlyList<Rune>)>();
         foreach (var conflict in conflicts)
         {

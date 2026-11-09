@@ -20,7 +20,7 @@ public sealed class BoxLineLimitRule : UnitQaRule
     protected override IEnumerable<string> CheckUnit(TextUnit unit, QaContext context)
     {
         var profile = context.Formatting;
-        if (profile.Wrap.MaxLines is not { } maxLines || BuiltText.For(unit, profile) is not { } built)
+        if (profile.Wrap.MaxLines is not { } maxLines || BuiltText.For(unit, profile, context.Dictionary) is not { } built)
         {
             return [];
         }

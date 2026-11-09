@@ -39,6 +39,19 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         _cli.RunAsync([.. args, "--project", _projectPath], TestContext.Current.CancellationToken);
 
     [Fact]
+    public async Task Chars_set_mantem_romaji_apelidos_e_descricao_que_vieram_do_vndb()
+    {
+        _project.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Unknown, Romaji: "Misaki Todo", Aliases: ["Todo-sensei"], Description: "A professora.")]);
+
+        var result = await Run(CharsVerb, "set", "美咲", "Misaki Tōdō", GenderOption, Female);
+
+        Assert.Equal(0, result.ExitCode);
+        var saved = Assert.Single(_project.LoadCharacters());
+        Assert.Equal(("Misaki Tōdō", CharacterGender.Female, "Misaki Todo", "A professora."), (saved.Target, saved.Gender, saved.Romaji, saved.Description));
+        Assert.Equal(["Todo-sensei"], saved.Aliases);
+    }
+
+    [Fact]
     public async Task Glossary_add_grava_o_termo_e_json_devolve_a_entrada()
     {
         var result = await Run(GlossaryVerb, "add", "先輩", Veterano, "--notes", "tratamento", JsonOption);

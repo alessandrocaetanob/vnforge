@@ -165,7 +165,7 @@ public sealed record EncodingTechnicalRow(string Id, string Name, string Sample,
 /// da IA, o estilo da tradução (<see cref="Style"/> e o guia), o perfil de formatação com prévia ao vivo e a estratégia de acentuação.
 /// Modelo, esforço, lote, acentuação, estilo, guia e formatação valem para o projeto aberto e são gravados a cada mudança (<see cref="ProjectSaved"/>); chave e paralelismo valem para o usuário.
 /// </summary>
-public sealed partial class SettingsViewModel : ObservableObject
+public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 {
     /// <summary>O texto da barra de status da moldura enquanto os Ajustes estão abertos (artboard de Ajustes).</summary>
     public const string AutosaveNote = "Salvo";
@@ -397,9 +397,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Aparência).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth))]
     public partial int SelectedTab { get; set; }
+
+    /// <summary>Largura máxima da página: 960 nas abas de sempre e 1100 na aba Dicionários (#539), que tem o quadro aprovado nessa largura.</summary>
+    public double PageMaxWidth => SelectedTab == DictionariesTab ? 1100 : 960;
+
+    /// <summary>Índice da aba Dicionários.</summary>
+    public const int DictionariesTab = 4;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }
@@ -679,6 +686,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshGameTitleNotice();
         RefreshSpent();
         StartEstimate(folder);
+        LoadDictionary();
     }
 
     /// <summary>
@@ -1453,7 +1461,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 var pending = opened.LoadAllText().Values.SelectMany(units => units).Where(u => u.Status == TranslationStatus.Untranslated).ToList();
                 return (pending.Count, CostEstimator.EstimateForModels(pending, ids));
-            });
+            }, CancellationToken.None);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
