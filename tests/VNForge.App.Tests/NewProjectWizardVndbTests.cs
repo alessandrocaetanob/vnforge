@@ -116,7 +116,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal("3 do VNDB, 2 casados com os nomes do jogo (ES.CHAR.NAME)", preview.CountText);
         Assert.Equal(["相沢 健太", "佐倉 葵", "名無し 08"], preview.Characters.Select(c => c.Original));
         Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 3", "sem par no VNDB"], preview.Characters.Select(c => c.InGame));
-        Assert.Equal([true, true, false], preview.Characters.Select(c => c.Paired));
         Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
         Assert.Equal("O aviso “3 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", preview.GenderNote);
     }

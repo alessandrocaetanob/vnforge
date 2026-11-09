@@ -4,8 +4,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
-using VNForge.Core.Glossary;
 using VNForge.Core.Engines;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 
@@ -103,9 +103,9 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate, string? e
 
 /// <summary>
 /// Uma linha da tabela "Personagens que chegam". <paramref name="InGame"/> é onde o nome aparece no jogo ("ES.CHAR.NAME 3") ou "sem par no VNDB";
-/// vazio quando o assistente não conseguiu ler os nomes do jogo. <paramref name="Paired"/> é falso para o personagem do jogo que o VNDB não tem.
+/// vazio quando o assistente não conseguiu ler os nomes do jogo.
 /// </summary>
-public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame, bool Paired = true);
+public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame);
 
 /// <summary>O que o jogo confirmado traz ao projeto: personagens e sinopse.</summary>
 public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote, bool IsSynopsisTranslated = false)
@@ -145,7 +145,7 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
     /// <summary>Com os nomes do jogo: os que casam com o VNDB vêm primeiro, com a posição do nome no jogo; os que o VNDB não tem fecham a tabela.</summary>
     private static (List<VndbCharacterRow>, string, string) Paired(VndbLink link, IReadOnlyList<string> gameNames)
     {
-        var matches = VndbProjectLinker.Match(gameNames, link.Characters).ToDictionary(m => m.GameName, m => m.Character, StringComparer.Ordinal);
+        var matches = VndbProjectLinker.Match(gameNames, link.Characters).GroupBy(m => m.GameName, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Character, StringComparer.Ordinal);
         var rows = new List<VndbCharacterRow>();
         var unpaired = new List<VndbCharacterRow>();
         for (var i = 0; i < gameNames.Count; i++)
@@ -157,7 +157,7 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
             }
             else
             {
-                unpaired.Add(new VndbCharacterRow(name, null, name, string.Empty, string.Empty, GenderLabel(CharacterGender.Unknown), false, NoPair, Paired: false));
+                unpaired.Add(new VndbCharacterRow(name, null, name, string.Empty, string.Empty, GenderLabel(CharacterGender.Unknown), false, NoPair));
             }
         }
 
