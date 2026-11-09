@@ -20,6 +20,10 @@ public readonly record struct LineSaveResult(string LastKey, int Skipped);
 /// </remarks>
 public sealed class LineSelection
 {
+    // Quantas falas o lote olha para trás e para a frente antes de o construtor filtrar; a janela configurada
+    // (o dobro dela) a amplia. Isso cobre falas sem tradução ou sem texto espalhadas pelo trecho. Não cobre o lote
+    // anterior ainda em voo: com lotes em paralelo (MaxConcurrency), as falas dele não estão traduzidas quando este
+    // lote é montado, e o contexto anterior sai menor ou vazio.
     public const int PreviousLinesWindow = 30;
 
     public const int NextLinesWindow = 10;
@@ -134,8 +138,8 @@ public sealed class LineSelection
         var last = lines[^1].Id;
         lock (gate)
         {
-            var previous = files[keyById[first]].Take(indexById[first]).TakeLast(PreviousLinesWindow).ToList();
-            var next = files[keyById[last]].Skip(indexById[last] + 1).Take(NextLinesWindow).ToList();
+            var previous = files[keyById[first]].Take(indexById[first]).TakeLast(Math.Max(PreviousLinesWindow, builder.MaxPreviousLines * 2)).ToList();
+            var next = files[keyById[last]].Skip(indexById[last] + 1).Take(Math.Max(NextLinesWindow, builder.MaxNextLines * 2)).ToList();
             return builder.Build(lines, previous, next);
         }
     }

@@ -109,6 +109,26 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Gravar_as_configuracoes_preserva_a_janela_de_contexto_do_vnforge_json()
+    {
+        using var temp = new TempFolder();
+        var summary = OpenProject(temp);
+        var folder = ProjectFolder.Open(summary.Root);
+        var original = folder.LoadConfig();
+        folder.SaveConfig(original with { Ai = original.Ai with { ContextBefore = 15, ContextAfter = 5 } });
+        var vm = Create(temp);
+        await LoadAsync(vm, ProjectSummaryReader.Read(summary.Root));
+
+        vm.BatchSize = 25;
+        vm.SelectedEffort = vm.Efforts.Single(e => e.Id == "low");
+
+        var saved = folder.LoadConfig().Ai;
+        Assert.Equal(25, saved.BatchSize);
+        Assert.Equal(15, saved.ContextBefore);
+        Assert.Equal(5, saved.ContextAfter);
+    }
+
+    [Fact]
     public async Task Gravar_avisa_a_janela_a_cada_mudanca_e_nao_avisa_ao_abrir_o_projeto_nem_sem_projeto()
     {
         using var temp = new TempFolder();
