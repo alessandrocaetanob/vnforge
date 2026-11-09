@@ -40,6 +40,8 @@ public sealed partial class LineDetailViewModel
     /// <summary>O cartão da IA aparece com uma sugestão pronta ou enquanto o pedido roda.</summary>
     public bool ShowSuggestionCard => HasSuggestion || IsSuggesting;
 
+    public bool ShowSuggestButton => !ShowSuggestionCard && OffersSuggestions;
+
     /// <summary>O modelo que respondeu, no cabeçalho do cartão da IA ("Claude Opus 5.5"); vazio sem sugestão.</summary>
     public string SuggestionModel => suggestionResult switch
     {

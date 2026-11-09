@@ -31,6 +31,8 @@ public static class CommandExamples
         ["library sheet approve"] = ["vnf library sheet approve CLANNAD", "vnf library sheet approve CLANNAD c12"],
         ["library sheet edit"] = ["vnf library sheet edit CLANNAD tag:g10 Comédia"],
         ["library sheet apply"] = ["vnf library sheet apply CLANNAD --project minha-vn", "vnf library sheet apply CLANNAD --include-machine"],
+        ["library queue"] = ["vnf library queue", "vnf library queue --all", "vnf library queue --offline"],
+        ["library translate"] = ["vnf library translate CLANNAD", @"vnf library translate CLANNAD D:\Projetos\clannad"],
         ["library state"] = ["vnf library state", "vnf library state CLANNAD"],
         ["library switch"] = ["vnf library switch CLANNAD --traduzido", "vnf library switch CLANNAD --original --yes"],
         ["library link"] = ["vnf library link CLANNAD --project minha-vn", "vnf library link CLANNAD --remove"],
