@@ -428,7 +428,7 @@
                          Text="É o título da barra da janela do jogo. O build o grava no yscfg.ybn com a codificação escolhida na aba Acentos."/>
             </StackPanel>
 
-            <Border Classes="panel" ClipToBounds="True" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+            <Border Classes="panel" ClipToBounds="True">
               <StackPanel>
                 <Grid Height="48" ColumnDefinitions="*,Auto" Margin="16,0">
                   <TextBlock Classes="title-md" VerticalAlignment="Center" Text="Exemplo com estas regras"/>
