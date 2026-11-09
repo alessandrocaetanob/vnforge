@@ -42,9 +42,11 @@
   </Style>
   <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button) /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
   </Style>
   <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button):pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
   </Style>
 
   <Style Selector="Button:not(.accent):not(.subtle):not(.caption-button):disabled /template/ ContentPresenter#PART_ContentPresenter">
