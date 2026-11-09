@@ -24,6 +24,8 @@ public static class CommandExamples
         ["library tag list"] = ["vnf library tag list", "vnf library tag list CLANNAD"],
         ["library tag rename"] = ["vnf library tag rename favorito favoritos", "vnf library tag rename rejogar favorito --merge"],
         ["library tag delete"] = ["vnf library tag delete rejogar"],
+        ["library queue"] = ["vnf library queue", "vnf library queue --all", "vnf library queue --offline"],
+        ["library translate"] = ["vnf library translate CLANNAD", @"vnf library translate CLANNAD D:\Projetos\clannad"],
         ["library state"] = ["vnf library state", "vnf library state CLANNAD"],
         ["library switch"] = ["vnf library switch CLANNAD --traduzido", "vnf library switch CLANNAD --original --yes"],
         ["library link"] = ["vnf library link CLANNAD --project minha-vn", "vnf library link CLANNAD --remove"],
