@@ -41,23 +41,28 @@ public static class BibleCost
     {
         ArgumentNullException.ThrowIfNull(chapters);
         ArgumentOutOfRangeException.ThrowIfLessThan(scenesPerCall, 1);
-        var price = ModelPricing.For(model);
         var total = default(TokenUsage);
+        var dollars = 0m;
         var rereadSum = 0m;
 
+        // O preço depende do tamanho do prompt de cada pedido (o Haiku cobra mais acima de 100 mil tokens), e o prompt de um capítulo é o mesmo em todas as suas chamadas.
         foreach (var chapter in chapters)
         {
-            var usage = Chapter(chapter, scenesPerCall, effort);
+            var (usage, promptTokens) = Chapter(chapter, scenesPerCall, effort);
+            var cost = ModelPricing.For(model, promptTokens).Cost(usage);
             total += usage;
-            rereadSum += price.Cost(usage);
+            dollars += cost;
+            rereadSum += cost;
         }
 
         var scenes = chapters.Sum(c => c.Scenes.Count);
         if (includeOverview && chapters.Count > 0)
         {
-            total += new TokenUsage(
+            var overview = new TokenUsage(
                 InstructionTokens + scenes * (long)PerSceneDigestTokens,
                 OverviewBaseOutputTokens + chapters.Count * (long)OverviewOutputTokensPerChapter + Reasoning(effort));
+            total += overview;
+            dollars += ModelPricing.For(model, overview.Input).Cost(overview);
         }
 
         return new BibleCostEstimate(
@@ -65,20 +70,21 @@ public static class BibleCost
             scenes,
             chapters.Sum(c => c.LineCount),
             total,
-            price.Cost(total),
+            dollars,
             chapters.Count == 0 ? 0m : rereadSum / chapters.Count);
     }
 
-    private static TokenUsage Chapter(BibleChapterInput chapter, int scenesPerCall, ClaudeEffort effort)
+    private static (TokenUsage Usage, long PromptTokens) Chapter(BibleChapterInput chapter, int scenesPerCall, ClaudeEffort effort)
     {
         var text = chapter.Tokens() + chapter.Characters.Sum(c => CostEstimator.Tokens(c.Source) + CostEstimator.Tokens(c.Target) + 4) + InstructionTokens;
         var calls = (int)Math.Ceiling(chapter.Scenes.Count / (double)scenesPerCall);
         var scenes = chapter.Scenes.Count;
-        return new TokenUsage(
+        var usage = new TokenUsage(
             Input: calls * (long)PerCallUserTokens + scenes * (long)PerSceneUserTokens,
             Output: scenes * (long)OutputTokensPerScene + calls * Reasoning(effort),
             CacheRead: Math.Max(0, calls - 1) * text,
             CacheWrite: calls > 0 ? text : 0);
+        return (usage, text + PerCallUserTokens + Math.Min(scenes, scenesPerCall) * (long)PerSceneUserTokens);
     }
 
     private static long Reasoning(ClaudeEffort effort) => effort switch

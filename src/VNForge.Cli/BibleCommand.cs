@@ -5,6 +5,7 @@ using VNForge.AI.Bible;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.Core.Bible;
+using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -141,6 +142,15 @@ internal static class BibleCommand
         var json = parseResult.GetValue(cli.Options.Json);
         var project = Open(cli, parseResult);
         var settings = ReadSettings(cli, project.LoadConfig().Ai, parseResult.GetValue(ModelOption), parseResult.GetValue(EffortOption), null, null);
+
+        try
+        {
+            project.LoadBible();
+        }
+        catch (GlossaryFileException e)
+        {
+            throw new UsageException($"O {ProjectFolder.BibleFileName} está inválido e nada foi enviado à IA: {e.Reason}", "Corrija o arquivo, ou apague-o para gerar do zero. O backup da geração anterior não foi tocado.");
+        }
 
         var all = BibleChapterPlanner.Plan(project);
         if (all.Count == 0)

@@ -2,6 +2,7 @@ using VNForge.AI.Bible;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.Core.Bible;
+using VNForge.Core.Glossary;
 using static VNForge.AI.Tests.Bible.BibleFixtures;
 
 namespace VNForge.AI.Tests.Bible;
@@ -149,6 +150,56 @@ public sealed class BibleRunnerTests : IDisposable
 
         Assert.Equal(1, calls);
         Assert.Equal(1, Assert.Single(result.Failures).Attempts);
+    }
+
+    [Fact]
+    public async Task Resposta_cortada_por_max_tokens_nao_e_repetida_com_o_mesmo_limite()
+    {
+        var project = NewProject(_root);
+        var calls = 0;
+        var provider = new FakeBibleProvider(describe: (_, _) =>
+        {
+            calls++;
+            throw new ClaudeResponseException("Cortada.", detail: ClaudeResponseException.MaxTokensDetail);
+        });
+
+        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, calls);
+        Assert.Equal(1, Assert.Single(result.Failures).Attempts);
+    }
+
+    [Fact]
+    public async Task JSON_fora_do_formato_ainda_e_repetido()
+    {
+        var project = NewProject(_root);
+        var calls = 0;
+        var provider = new FakeBibleProvider(describe: (_, _) =>
+        {
+            calls++;
+            throw new ClaudeResponseException("Incompleta.", detail: "A resposta não é o JSON esperado.");
+        });
+
+        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, calls);
+        Assert.Equal(3, Assert.Single(result.Failures).Attempts);
+    }
+
+    [Fact]
+    public async Task Bible_json_ilegivel_para_antes_de_pagar_e_nao_toca_o_backup()
+    {
+        var project = NewProject(_root);
+        project.SaveBible(GameBible.From([new BibleScene("yst1") { Summary = "Boa" }]));
+        project.KeepPreviousBible();
+        var backup = File.ReadAllText(project.PreviousBiblePath);
+        File.WriteAllText(project.BiblePath, "{ isto não é json");
+        var provider = new FakeBibleProvider();
+
+        await Assert.ThrowsAsync<GlossaryFileException>(() => new BibleRunner(provider, NoWait()).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken));
+
+        Assert.Empty(provider.SceneCalls);
+        Assert.Equal(backup, File.ReadAllText(project.PreviousBiblePath));
     }
 
     [Fact]

@@ -106,7 +106,7 @@ public sealed class ClaudeBibleProvider(IClaudeMessageClient client, ClaudeOptio
         return reply.StopReason switch
         {
             "refusal" => throw new ClaudeRefusalException("A IA não quis ler este capítulo. Tente de novo ou escreva a bíblia à mão.", "stop_reason: refusal"),
-            "max_tokens" => throw new ClaudeResponseException("A IA não terminou a resposta. Tente de novo ou escreva a bíblia à mão.", detail: "stop_reason: max_tokens"),
+            "max_tokens" => throw new ClaudeResponseException("A IA não terminou a resposta. Tente de novo ou escreva a bíblia à mão.", detail: ClaudeResponseException.MaxTokensDetail),
             _ => reply.Text,
         };
     }

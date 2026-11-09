@@ -47,6 +47,7 @@ public sealed partial class BibleViewModel : ObservableObject
     private GameBible bible = GameBible.Empty;
     private bool loadingScene;
     private IReadOnlyList<BibleChapterInput> planned = [];
+    private decimal plannedBrl;
     private CancellationTokenSource? run;
 
     /// <summary>Monta o provedor da IA para (modelo, esforço); nulo quando falta a chave. A cena de exemplo usa o provedor de demonstração.</summary>
@@ -425,14 +426,18 @@ public sealed partial class BibleViewModel : ObservableObject
         {
             var model = ModelOf(current);
             var effort = ClaudeEffortText.ParseOrDefault(current.Effort ?? "medium");
+            planned = [];
             var (chapters, spentDollars) = await Task.Run(() =>
             {
                 var folder = ProjectFolder.Open(current.Root);
+                // O planejamento lê a bíblia sem reclamar de arquivo ilegível; gerar por cima dele pagaria a leitura e perderia o backup bom.
+                folder.LoadBible();
                 return (BibleChapterPlanner.Plan(folder), AiUsageLog.Load(folder).Dollars);
             }).ConfigureAwait(true);
             planned = chapters;
             var estimate = BibleCost.Estimate(chapters, model, effort: effort);
             var rate = Rate();
+            plannedBrl = estimate.Brl(rate);
             ReadText = $"{estimate.Lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} linhas · {estimate.Chapters} {(estimate.Chapters == 1 ? "capítulo" : "capítulos")}";
             EstimateText = $"Custo (aproximado): {VNForge.App.Controls.Money.Brl(estimate.Brl(rate))}";
             CostButtonText = VNForge.App.Controls.Money.Brl(estimate.Brl(rate));
@@ -502,7 +507,13 @@ public sealed partial class BibleViewModel : ObservableObject
             var provider = ProviderFor(current, model, effort);
             var rate = Rate();
             var tracker = new RunCostTracker(folder, model, rate, () => (provider as ClaudeBibleProvider)?.Usage);
-            var guard = tracker.CreateGuard(new BudgetLimits(Limits().Limit, null), _ => 0m, null);
+            var guard = tracker.CreateGuard(new BudgetLimits(LimitsFor(current).Limit, null), _ => plannedBrl, null);
+            if (await RefuseAsync(guard, plannedBrl, LimitsFor(current).Limit, "Gerar a bíblia", run.Token).ConfigureAwait(true) is { } refusal)
+            {
+                ErrorMessage = refusal;
+                return;
+            }
+
             var runner = new BibleRunner(provider, new BibleRunOptions { Model = model, Budget = guard, RunDollars = tracker.RunDollars });
             var progress = new InlineProgress(p => ProgressText = $"Capítulo {Math.Min(p.ChaptersDone + 1, p.ChaptersTotal)} de {p.ChaptersTotal} · {p.Chapter} · {p.ScenesDone} de {p.ScenesTotal} cenas");
             BibleRunResult result;
@@ -512,6 +523,7 @@ public sealed partial class BibleViewModel : ObservableObject
             }
             finally
             {
+                guard.Release(plannedBrl);
                 tracker.Record();
             }
 
@@ -522,9 +534,9 @@ public sealed partial class BibleViewModel : ObservableObject
                 ErrorMessage = string.Join(" ", result.Failures.Select(f => $"'{f.Chapter}' não foi lido: {f.Error.Message}"));
             }
         }
-        catch (Exception e) when (e is VNForgeException or InvalidOperationException or IOException)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
-            ErrorMessage = e.Message;
+            ErrorMessage = Describe(e);
         }
         finally
         {
@@ -556,21 +568,69 @@ public sealed partial class BibleViewModel : ObservableObject
         try
         {
             var folder = ProjectFolder.Open(current.Root);
-            var chapter = await Task.Run(() => BibleChapterPlanner.Plan(folder).FirstOrDefault(c => c.Scenes.Any(s => s.Key == row.Key))).ConfigureAwait(true);
+            var chapter = await Task.Run(() =>
+            {
+                folder.LoadBible();
+                return BibleChapterPlanner.Plan(folder).FirstOrDefault(c => c.Scenes.Any(s => s.Key == row.Key));
+            }).ConfigureAwait(true);
             if (chapter is null)
             {
                 ErrorMessage = "Esta cena não tem texto para a IA ler.";
                 return;
             }
 
-            await new BibleRunner(ProviderFor(current, model, effort), new BibleRunOptions { Model = model }).RewriteFieldAsync(folder, chapter, row.Key, field, CancellationToken.None).ConfigureAwait(true);
+            var provider = ProviderFor(current, model, effort);
+            var rate = Rate();
+            var tracker = new RunCostTracker(folder, model, rate, () => (provider as ClaudeBibleProvider)?.Usage);
+            var limit = LimitsFor(current).Limit;
+            var guard = tracker.CreateGuard(new BudgetLimits(limit, null), _ => 0m, null);
+
+            // O pedido manda o capítulo inteiro, então o custo é o da leitura dele, não o de uma cena.
+            var estimate = BibleCost.Estimate([chapter], model, scenesPerCall: 1, effort: effort, includeOverview: false).Brl(rate);
+            if (await RefuseAsync(guard, estimate, limit, "Reescrever com a IA", CancellationToken.None).ConfigureAwait(true) is { } refusal)
+            {
+                ErrorMessage = refusal;
+                return;
+            }
+
+            try
+            {
+                await new BibleRunner(provider, new BibleRunOptions { Model = model }).RewriteFieldAsync(folder, chapter, row.Key, field, CancellationToken.None).ConfigureAwait(true);
+            }
+            finally
+            {
+                guard.Release(estimate);
+                tracker.Record();
+            }
+
             Reload();
         }
-        catch (Exception e) when (e is VNForgeException or InvalidOperationException or IOException)
+        catch (Exception e)
         {
-            ErrorMessage = e.Message;
+            // O provedor pode lançar de tudo (rede, SDK, recusa); nada disso pode escapar do comando assíncrono.
+            ErrorMessage = Describe(e);
         }
     }
+
+    private BudgetLimits LimitsFor(ProjectSummary summary) => summary.IsSample ? BudgetLimits.None : Limits();
+
+    /// <summary>Por que o pedido nem sai: o gasto já está no limite, ou o preço estimado passaria dele. Nulo quando cabe; quando cabe, deixa o valor reservado até o <see cref="BudgetGuard.Release"/>.</summary>
+    private static async Task<string?> RefuseAsync(BudgetGuard guard, decimal estimateBrl, decimal? limit, string action, CancellationToken ct)
+    {
+        var cap = limit is { } value ? $" de {VNForge.App.Controls.Money.Brl(value)}" : string.Empty;
+        if (await guard.AuthorizeAsync(estimateBrl, ct).ConfigureAwait(true) is not null)
+        {
+            return $"O gasto do projeto já chegou ao limite{cap}; nada foi enviado à IA. Aumente o limite nos Ajustes para continuar.";
+        }
+
+        return guard.TryReserve(estimateBrl)
+            ? null
+            : $"{action} custa cerca de {VNForge.App.Controls.Money.Brl(estimateBrl)} e, com o que o projeto já gastou, passaria do limite{cap}; nada foi enviado à IA. Aumente o limite nos Ajustes para continuar.";
+    }
+
+    /// <summary>A mensagem em português de uma falha: as do projeto e do disco falam por si; as da IA (rede, SDK, recusa, resposta fora do formato) passam por <see cref="ClaudeErrorMessages"/>.</summary>
+    private static string Describe(Exception error) =>
+        error is VNForgeException or InvalidOperationException or IOException ? error.Message : ClaudeErrorMessages.Describe(error);
 
     [RelayCommand]
     private void Undo()

@@ -22,8 +22,11 @@ public sealed record BibleRunOptions
     /// <summary>Espera entre tentativas; os testes trocam por uma que não espera.</summary>
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (time, ct) => Task.Delay(time, ct);
 
-    /// <summary>Uma recusa do modelo repetida dá a mesma recusa, então não se repete; o resto, exceto erro de uso do código, sim.</summary>
-    public Func<Exception, bool> IsRetryable { get; init; } = static ex => ex is not (ArgumentException or NotSupportedException or ClaudeRefusalException);
+    /// <summary>
+    /// Uma recusa do modelo repetida dá a mesma recusa, e uma resposta cortada pelo limite de tokens de saída é cortada no mesmo ponto com o mesmo limite: nenhuma das duas
+    /// se repete. O resto, exceto erro de uso do código, sim.
+    /// </summary>
+    public Func<Exception, bool> IsRetryable { get; init; } = static ex => ex is not (ArgumentException or NotSupportedException or ClaudeRefusalException or ClaudeResponseException { HitMaxTokens: true });
 
     /// <summary>Guarda de gasto: antes de cada capítulo, o gasto no limite encerra a leitura. O aviso do valor do pedido inteiro é do chamador (<see cref="BudgetGuard.AuthorizeAsync"/>).</summary>
     public BudgetGuard? Budget { get; init; }
@@ -78,6 +81,8 @@ public sealed class BibleRunner
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(chapters);
 
+        // Um bible.json ilegível para aqui, antes de gastar e antes de KeepPreviousBible copiá-lo por cima do backup bom.
+        project.LoadBible();
         project.KeepPreviousBible();
         var total = chapters.Sum(c => c.Scenes.Count);
         List<BibleChapterFailure> failures = [];
@@ -149,6 +154,7 @@ public sealed class BibleRunner
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(chapter);
+        project.LoadBible();
         var scenes = await _provider.DescribeScenesAsync(chapter, [sceneKey], ct).ConfigureAwait(false);
         var generated = scenes.Single(s => s.Key == sceneKey);
         return project.UpdateBible(bible => bible.WithScene((bible.Scene(sceneKey) ?? new BibleScene(sceneKey)).WithGeneratedField(generated, field))).Scene(sceneKey)!;

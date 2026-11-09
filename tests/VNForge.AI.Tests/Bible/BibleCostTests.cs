@@ -57,7 +57,8 @@ public sealed class BibleCostTests
     [Fact]
     public void O_preco_segue_o_modelo_e_a_cotacao_converte_para_reais()
     {
-        var chapters = new[] { Big("Manhã", scenes: 24) };
+        // Abaixo de 100 mil tokens de prompt: acima disso o Haiku cobra a faixa longa e a diferença para o Opus encolhe.
+        var chapters = new[] { Big("Manhã", scenes: 6) };
 
         var opus = BibleCost.Estimate(chapters, ClaudeModels.Opus);
         var haiku = BibleCost.Estimate(chapters, ClaudeModels.Haiku);

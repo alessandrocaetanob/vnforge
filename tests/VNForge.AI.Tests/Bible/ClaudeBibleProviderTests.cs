@@ -133,6 +133,19 @@ public sealed class ClaudeBibleProviderTests
         Assert.Contains("não terminou", cut.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("refusal", "")]
+    [InlineData("max_tokens", "{")]
+    [InlineData("end_turn", "não é json")]
+    public async Task Chamada_que_falha_ja_foi_cobrada_e_soma_no_uso(string stopReason, string text)
+    {
+        var provider = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply(stopReason, text, new ClaudeUsage(100, 50, 400, 20))));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
+
+        Assert.Equal(new ClaudeUsage(100, 50, 400, 20), provider.Usage);
+    }
+
     [Fact]
     public async Task Pedir_uma_cena_que_nao_esta_no_capitulo_e_erro_de_uso()
     {

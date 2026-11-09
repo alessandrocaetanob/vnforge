@@ -51,7 +51,7 @@ public sealed class AnthropicMessageClient(AnthropicClient? client = null) : ICl
         var response = await _client.Beta.Messages.Create(parameters, cancellationToken: ct).ConfigureAwait(false);
 
         var text = string.Concat(response.Content.Select(b => b.Value).OfType<BetaTextBlock>().Select(t => t.Text));
-        var usage = new ClaudeUsage(
+        var usage = ClaudeUsage.ForRequest(
             response.Usage.InputTokens,
             response.Usage.OutputTokens,
             response.Usage.CacheReadInputTokens ?? 0,
