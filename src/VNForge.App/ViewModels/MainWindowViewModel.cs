@@ -155,6 +155,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.Detail.Context = Dashboard.Context;
         start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
+        Bible.EditorRequested += (_, key) =>
+        {
+            SelectedNav = editorItem;
+            LineNavigation = ShowScriptAsync(key);
+        };
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.ChaptersRenamed += (_, _) => _ = Editor.RefreshChaptersAsync();

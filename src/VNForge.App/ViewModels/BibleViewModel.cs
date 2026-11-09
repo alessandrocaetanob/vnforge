@@ -32,8 +32,26 @@ public sealed record BibleSceneRow(string Key, int Number, string Name, bool Has
     public bool ShowCheck => HasSummary && !IsEdited;
 }
 
+/// <summary>Onde a cena aberta está na linha do tempo: os marcos de antes já passaram, o do capítulo dela é o atual.</summary>
+public enum BibleTimelineState
+{
+    Upcoming,
+    Current,
+    Passed,
+}
+
 /// <summary>Um marco da linha do tempo do jogo, como a tela o mostra.</summary>
-public sealed record BibleTimelineRow(string Title, string Note);
+public sealed record BibleTimelineRow(string Title, string Note, BibleTimelineState State = BibleTimelineState.Upcoming)
+{
+    public bool IsCurrent => State == BibleTimelineState.Current;
+
+    public bool IsPassed => State == BibleTimelineState.Passed;
+
+    public bool IsUpcoming => State == BibleTimelineState.Upcoming;
+}
+
+/// <summary>Onde uma cena fica no jogo: o capítulo e as linhas dela, contadas desde a primeira do jogo.</summary>
+internal sealed record SceneLocation(string Chapter, int? ChapterNumber, int FirstLine, int LastLine);
 
 /// <summary>
 /// A página Bíblia (#530): o que a IA entendeu de cada cena, para a pessoa ler e corrigir. Cada campo é da IA ou da pessoa; escrever num campo o torna "Sua"
@@ -48,6 +66,7 @@ public sealed partial class BibleViewModel : ObservableObject
     private bool loadingScene;
     private IReadOnlyList<BibleChapterInput> planned = [];
     private decimal plannedBrl;
+    private Dictionary<string, SceneLocation> locations = new(StringComparer.Ordinal);
     private CancellationTokenSource? run;
 
     /// <summary>Monta o provedor da IA para (modelo, esforço); nulo quando falta a chave. A cena de exemplo usa o provedor de demonstração.</summary>
@@ -87,7 +106,47 @@ public sealed partial class BibleViewModel : ObservableObject
     // A cena selecionada.
     public bool HasScene => SelectedRow is not null;
 
-    public string SceneHeader => SelectedRow is { } row ? $"{row.Title} · {row.Key}" : string.Empty;
+    /// <summary>"Capítulo 1 · Manhã de chuva · cena 13 · linhas 0478 a 0512"; até o jogo ser lido, só a cena.</summary>
+    public string SceneHeader
+    {
+        get
+        {
+            if (SelectedRow is not { } row)
+            {
+                return string.Empty;
+            }
+
+            var scene = $"cena {row.Number}";
+            if (!locations.TryGetValue(row.Key, out var place))
+            {
+                return $"{row.Title} · {row.Key}";
+            }
+
+            var chapter = place.ChapterNumber is { } n ? $"Capítulo {n} · {place.Chapter}" : place.Chapter;
+            return $"{chapter} · {scene} · linhas {place.FirstLine:D4} a {place.LastLine:D4}";
+        }
+    }
+
+    /// <summary>O que se digita em "Filtrar cenas": vale para o título, o nome e a chave da cena.</summary>
+    [ObservableProperty]
+    public partial string SceneSearch { get; set; } = string.Empty;
+
+    /// <summary>O número de cenas da lista; com filtro, "3 de 312".</summary>
+    public string ScenesCountText => Rows.Count == allRows.Count
+        ? allRows.Count.ToString(CultureInfo.GetCultureInfo("pt-BR"))
+        : string.Create(CultureInfo.GetCultureInfo("pt-BR"), $"{Rows.Count} de {allRows.Count}");
+
+    /// <summary>A página pede ao Editor que abra o script da cena selecionada.</summary>
+    public event EventHandler<string>? EditorRequested;
+
+    [RelayCommand(CanExecute = nameof(HasScene))]
+    private void OpenInEditor()
+    {
+        if (SelectedRow is { } row)
+        {
+            EditorRequested?.Invoke(this, row.Key);
+        }
+    }
 
     [ObservableProperty]
     public partial string NameText { get; set; } = string.Empty;
@@ -260,15 +319,28 @@ public sealed partial class BibleViewModel : ObservableObject
     private void ApplyFilter()
     {
         Rows.Clear();
+        var search = SceneSearch.Trim();
         foreach (var row in allRows.Where(r => Filter switch
         {
             BibleFilter.Edited => r.IsEdited,
             BibleFilter.NoSummary => !r.HasSummary,
             _ => true,
-        }))
+        }).Where(r => search.Length == 0
+            || r.Title.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+            || r.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+            || r.Key.Contains(search, StringComparison.OrdinalIgnoreCase)))
         {
             Rows.Add(row);
         }
+
+        OnPropertyChanged(nameof(ScenesCountText));
+    }
+
+    partial void OnSceneSearchChanged(string value)
+    {
+        var key = SelectedRow?.Key;
+        ApplyFilter();
+        SelectedRow = Rows.FirstOrDefault(r => r.Key == key) ?? Rows.FirstOrDefault();
     }
 
     partial void OnSelectedRowChanged(BibleSceneRow? value)
@@ -276,6 +348,8 @@ public sealed partial class BibleViewModel : ObservableObject
         LoadScene();
         OnPropertyChanged(nameof(HasScene));
         OnPropertyChanged(nameof(SceneHeader));
+        OpenInEditorCommand.NotifyCanExecuteChanged();
+        RefreshTimeline();
     }
 
     private void LoadScene()
@@ -303,11 +377,43 @@ public sealed partial class BibleViewModel : ObservableObject
         SynopsisText = bible.Synopsis;
         OwnerOfSynopsis = bible.SynopsisEdited ? "Sua" : "IA";
         loadingScene = false;
+        RefreshTimeline();
+    }
+
+    /// <summary>Remonta a linha do tempo marcando o capítulo da cena aberta como o atual e os de antes como passados.</summary>
+    private void RefreshTimeline()
+    {
+        var entries = bible.Timeline;
+        var current = SelectedRow is { } row && locations.TryGetValue(row.Key, out var place)
+            ? entries.ToList().FindIndex(t => string.Equals(t.Title, place.Chapter, StringComparison.Ordinal))
+            : -1;
         Timeline.Clear();
-        foreach (var entry in bible.Timeline)
+        for (var i = 0; i < entries.Count; i++)
         {
-            Timeline.Add(new BibleTimelineRow(entry.Title, entry.Note));
+            var state = current < 0 || i > current ? BibleTimelineState.Upcoming : i == current ? BibleTimelineState.Current : BibleTimelineState.Passed;
+            Timeline.Add(new BibleTimelineRow(entries[i].Title, entries[i].Note, state));
         }
+    }
+
+    private static Dictionary<string, SceneLocation> LocateScenes(IReadOnlyList<BibleChapterInput> chapters)
+    {
+        Dictionary<string, SceneLocation> result = new(StringComparer.Ordinal);
+        var line = 0;
+        foreach (var chapter in chapters)
+        {
+            foreach (var scene in chapter.Scenes)
+            {
+                if (scene.Lines.Count == 0)
+                {
+                    continue;
+                }
+
+                result[scene.Key] = new SceneLocation(chapter.Name, chapter.Number, line + 1, line + scene.Lines.Count);
+                line += scene.Lines.Count;
+            }
+        }
+
+        return result;
     }
 
     private static string Owner(BibleScene? scene, BibleField field) => scene?.IsEdited(field) == true ? "Sua" : "IA";
@@ -435,6 +541,9 @@ public sealed partial class BibleViewModel : ObservableObject
                 return (BibleChapterPlanner.Plan(folder), AiUsageLog.Load(folder).Dollars);
             }).ConfigureAwait(true);
             planned = chapters;
+            locations = LocateScenes(chapters);
+            OnPropertyChanged(nameof(SceneHeader));
+            RefreshTimeline();
             var estimate = BibleCost.Estimate(chapters, model, effort: effort);
             var rate = Rate();
             plannedBrl = estimate.Brl(rate);

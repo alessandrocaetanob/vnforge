@@ -184,6 +184,65 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.Equal("Antigo", vm.SummaryText);
     }
 
+    [Fact]
+    public async Task O_cabecalho_da_cena_traz_capitulo_cena_e_linhas()
+    {
+        var vm = Open();
+        await vm.Loading;
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        Assert.Matches(@"cena 2 · linhas \d{4} a \d{4}$", vm.SceneHeader);
+        Assert.Contains("linhas", vm.SceneHeader, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Filtrar_cenas_reduz_a_lista_e_a_contagem_mostra_x_de_y()
+    {
+        var vm = Open();
+        await vm.Loading;
+        Assert.Equal("3", vm.ScenesCountText);
+
+        vm.SceneSearch = "yst00010";
+
+        Assert.Equal(["yst00010"], vm.Rows.Select(r => r.Key));
+        Assert.Equal("1 de 3", vm.ScenesCountText);
+        Assert.Equal("yst00010", vm.SelectedRow?.Key);
+    }
+
+    [Fact]
+    public void Ir_para_a_cena_no_Editor_pede_o_script_da_cena_selecionada()
+    {
+        var vm = Open();
+        string? requested = null;
+        vm.EditorRequested += (_, key) => requested = key;
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        vm.OpenInEditorCommand.Execute(null);
+
+        Assert.Equal("yst00002", requested);
+    }
+
+    [Fact]
+    public async Task A_linha_do_tempo_marca_o_capitulo_da_cena_aberta_e_os_de_antes()
+    {
+        var vm = Open();
+        await vm.Loading;
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+        var chapter = System.Text.RegularExpressions.Regex.Replace(vm.SceneHeader[..vm.SceneHeader.IndexOf(" · cena", StringComparison.Ordinal)], @"^Capítulo \d+ · ", string.Empty);
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "x" }]) with
+        {
+            Timeline = [new BibleTimelineEntry("antes", "a"), new BibleTimelineEntry(chapter, "b"), new BibleTimelineEntry("depois", "c")],
+        });
+
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.Equal(
+            [BibleTimelineState.Passed, BibleTimelineState.Current, BibleTimelineState.Upcoming],
+            vm.Timeline.Select(row => row.State));
+    }
+
     private sealed class StubClient(Func<ClaudeReply> reply) : IClaudeMessageClient
     {
         public int Calls { get; private set; }

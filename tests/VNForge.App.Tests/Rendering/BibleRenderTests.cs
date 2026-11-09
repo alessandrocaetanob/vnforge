@@ -56,7 +56,7 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
     private static string VisibleText(Control root) =>
         string.Join('\n', root.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
 
-    private async Task WithBiblePage(string themeName, Func<Window, MainWindowViewModel, ThemeVariant, Task> body)
+    private async Task WithBiblePage(string themeName, Func<Window, MainWindowViewModel, ThemeVariant, Task> body, int width = ScreenRenderer.Width)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         await fixture.Session.Dispatch<int>(
@@ -66,7 +66,7 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
                 using var project = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(CreateProject(project)), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start) { BibleProviderFactory = (_, _) => new FakeBibleProvider() };
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                var window = new MainWindow { Width = width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
@@ -136,6 +136,39 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
 
             Snapshot(window, "biblia-v6", theme);
         });
+    }
+
+    [Theory]
+    [InlineData(960)]
+    [InlineData(1040)]
+    [InlineData(1140)]
+    public async Task Em_janela_estreita_as_colunas_encolhem_sem_rolar_de_lado_nem_cortar_texto(int width)
+    {
+        await WithBiblePage("Dark", async (window, vm, _) =>
+        {
+            vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Bible);
+            await vm.Bible.Loading;
+            vm.Bible.SelectedRow = vm.Bible.Rows.First();
+            ScreenRenderer.Settle(window);
+
+            var view = Assert.Single(window.GetVisualDescendants().OfType<BibleView>(), v => v.IsEffectivelyVisible);
+            Assert.True(view.Bounds.Right <= width, $"a página ({view.Bounds.Right:0} px) cabe na janela de {width} px");
+            Assert.DoesNotContain(
+                view.GetVisualDescendants().OfType<ScrollViewer>(),
+                s => s.IsEffectivelyVisible && s.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled && s.Extent.Width > s.Viewport.Width + 1);
+
+            var sceneList = view.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "SceneList");
+            var summary = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "SummaryBox");
+            Assert.True(sceneList.Bounds.Width >= 196, $"lista de cenas com {sceneList.Bounds.Width:0} px");
+            Assert.True(summary.Bounds.Width >= 280, $"campo do resumo com {summary.Bounds.Width:0} px");
+
+            var texts = VisibleText(view);
+            Assert.Contains("Ir para a cena no Editor", texts, StringComparison.Ordinal);
+            Assert.Contains("Filtrar cenas", view.GetVisualDescendants().OfType<TextBox>().Select(t => t.PlaceholderText), StringComparer.Ordinal);
+
+            var clipped = ClippedTextHeadlessTests.FindClipped(view);
+            Assert.True(clipped.Count == 0, string.Join("; ", clipped));
+        }, width);
     }
 
     [Theory]
