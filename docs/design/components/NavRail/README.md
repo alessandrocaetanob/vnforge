@@ -1,10 +1,12 @@
 # NavRail
 
-Navegação principal à esquerda, desde o shell novo (#544): ícone de 22px com rótulo curto de 11px embaixo, largura `navrail-width` (80px), item de 64px. O item atual fica em `accent-soft` com texto `accent-text`, sem barra lateral.
+Navegação principal à esquerda, desde o shell novo (#544): ícone de 22px com rótulo curto de 11px embaixo (600 no item atual), largura `navrail-width` (80px), item de 64px, 16px de espaço acima do primeiro. O item atual fica em `accent-soft` com texto `accent-text`, sem barra lateral.
 
 Dois itens: Biblioteca no alto e Ajustes fixo no rodapé. A Biblioteca continua marcada com um jogo aberto, porque o jogo é um item dela; clicar nela dentro do jogo volta à lista. Ajustes tira a marca da Biblioteca. O item Personagens do quadro entra com a página dele (#558).
 
-O que antes eram itens do trilho (Painel, Editor, Conferir com o contador de erros, Testar, Glossário) vive na segunda linha da aba Tradução do jogo, e o Editor ganhou ao lado a Revisão. O cabeçalho do jogo (volta à Biblioteca, capa, nome, engine, andamento e o próximo passo) e as abas Ficha, Tradução e Jogar ficam acima da página, na área de conteúdo. Em janelas de menos de 940 px de altura o cabeçalho cabe numa linha só, sem a capa.
+O que antes eram itens do trilho (Painel, Editor, Conferir com o contador de erros, Testar, Glossário) vive na segunda linha da aba Tradução do jogo, e o Editor ganhou ao lado a Revisão. O cabeçalho do jogo (volta à Biblioteca, capa, nome, engine, andamento e o próximo passo) e as abas Ficha, Tradução e Jogar ficam acima da página, na área de conteúdo. A capa tem raio `radius-lg` e `shadow-cover`; a pílula de andamento é azul em tradução, verde com 100% e neutra sem nenhuma linha pronta.
+
+O cabeçalho completo (179 px, 229 px com a segunda linha) vale no Painel, na Ficha e em Jogar com a janela de 940 px de altura ou mais. As telas de trabalho (Editor, Conferir, Testar, Glossário) e as janelas baixas usam o compacto: uma linha com a volta, o nome, a engine, o andamento e o próximo passo, e as abas com a segunda linha na mesma linha (80 px). O modo revisão, que ocupa a página inteira e tem o seu "Voltar ao editor", esconde o cabeçalho enquanto está aberto. `ShellRenderTests` prende essas alturas.
 
 ## Avalonia
 

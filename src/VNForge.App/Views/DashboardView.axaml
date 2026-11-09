@@ -17,7 +17,7 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1280" Margin="32,16,32,12" Spacing="12" HorizontalAlignment="Stretch">
+    <StackPanel MaxWidth="1280" Margin="32,10,32,4" Spacing="12" HorizontalAlignment="Stretch">
 
       <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
       <c:EmptyState IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
@@ -106,7 +106,7 @@
           </StackPanel>
         </Border>
 
-        <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
+        <StackPanel x:Name="Side" Grid.Column="1" Spacing="12" VerticalAlignment="Top">
 
           <Border Classes="panel" ClipToBounds="True">
             <StackPanel>

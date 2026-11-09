@@ -65,6 +65,12 @@ public sealed partial class MainWindowViewModel
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
     public bool InGame => HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null;
 
+    /// <summary>
+    /// O modo revisão ocupa a página inteira, com o seu próprio "Voltar ao editor": enquanto ele está aberto o cabeçalho do jogo sai, para o palco e o roteiro
+    /// ficarem com a altura que sempre tiveram.
+    /// </summary>
+    public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
+
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
@@ -222,6 +228,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(SelectedTopNav));
         OnPropertyChanged(nameof(SelectedBottomNav));
         OnPropertyChanged(nameof(InGame));
+        OnPropertyChanged(nameof(ShowGameHeader));
         OnPropertyChanged(nameof(ShowSections));
         OnPropertyChanged(nameof(Breadcrumb));
         OnPropertyChanged(nameof(SelectedGameTab));

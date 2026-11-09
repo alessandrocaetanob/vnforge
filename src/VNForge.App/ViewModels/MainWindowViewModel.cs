@@ -903,6 +903,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         else if (e.PropertyName == nameof(EditorViewModel.IsReviewing))
         {
             OnPropertyChanged(nameof(SelectedSection));
+            OnPropertyChanged(nameof(ShowGameHeader));
         }
     }
 

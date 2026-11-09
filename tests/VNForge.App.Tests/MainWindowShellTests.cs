@@ -189,12 +189,15 @@ public sealed class MainWindowShellTests
         Assert.True(vm.Editor.IsReviewing);
         Assert.Same(vm.Editor, vm.CurrentPage);
         Assert.Same(review, vm.SelectedSection);
+        Assert.True(vm.InGame);
+        Assert.False(vm.ShowGameHeader);
 
         vm.SelectedSection = editor;
 
         Assert.False(vm.Editor.IsReviewing);
         Assert.Same(vm.Editor, vm.CurrentPage);
         Assert.Same(editor, vm.SelectedSection);
+        Assert.True(vm.ShowGameHeader);
     }
 
     [Fact]

@@ -66,10 +66,10 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             var cover = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Width == 56 && b.Height == 75);
             Assert.Equal(new CornerRadius(16), cover.CornerRadius);
-            Assert.NotEmpty(cover.BoxShadow);
+            Assert.True(cover.BoxShadow.Count > 0, "a capa tem sombra");
 
             var pill = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Classes.Contains("game-pill"));
-            Assert.False(pill.Classes.Contains("done"));
+            Assert.DoesNotContain("done", pill.Classes);
             var fill = Assert.Single(header.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && b.Parent is Border { Height: 5 } && b.HorizontalAlignment == Avalonia.Layout.HorizontalAlignment.Left);
             Assert.InRange(vm.GameProgressPercent, 1, 99);
             var expected = GameHeaderView.CoverWidth * vm.GameProgressPercent / 100;
