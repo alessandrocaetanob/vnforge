@@ -391,4 +391,31 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.Equal(1, _client.Creates);
         Assert.Equal(1, _client.Cancels);
     }
+
+    [Fact]
+    public async Task Se_o_estado_nao_puder_ser_guardado_e_o_cancelamento_tambem_falha_a_mensagem_diz_como_cancelar()
+    {
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(Path.Combine(_project.CacheDirectory, "lote-noturno"), "no lugar da pasta");
+        _client.CancelFails = new HttpRequestException("sem rede");
+
+        var error = await Assert.ThrowsAsync<NightBatchException>(() => Service().SubmitAsync(Order(), TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain("nada será cobrado", error.Message, StringComparison.Ordinal);
+        Assert.Contains("pode seguir rodando na API", error.Message, StringComparison.Ordinal);
+        Assert.Contains("vnf translate --cancel-batch msgbatch_fake0001", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Cancelar_um_lote_que_a_API_ja_terminou_nao_chama_o_cancelamento_e_deixa_o_estado_aberto()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+
+        var after = await Service().CancelAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, _client.Cancels);
+        Assert.Equal(NightBatchPhase.Processing, after.Phase);
+        Assert.True(after.IsOpen);
+    }
 }

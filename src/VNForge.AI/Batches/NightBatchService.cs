@@ -107,22 +107,26 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Sem o id guardado ninguém retomaria o lote, e ele seria cobrado sem resultado: cancela na API.
-            await TryCancelAsync(info.Id).ConfigureAwait(false);
-            throw new NightBatchException($"Não foi possível guardar o lote em .cache/lote-noturno/ ({e.Message}). O lote foi cancelado na API, então nada será cobrado.", e);
+            var canceled = await TryCancelAsync(info.Id).ConfigureAwait(false);
+            var outcome = canceled
+                ? "O lote foi cancelado na API, então nada será cobrado."
+                : $"Não consegui cancelar o lote na API: ele pode seguir rodando na API e ser cobrado. Para cancelar, rode `vnf translate --cancel-batch {info.Id}` ou cancele no console da Anthropic.";
+            throw new NightBatchException($"Não foi possível guardar o lote em .cache/lote-noturno/ ({e.Message}). {outcome}", e);
         }
 
         return state;
     }
 
-    private async Task TryCancelAsync(string batchId)
+    private async Task<bool> TryCancelAsync(string batchId)
     {
         try
         {
             await client.CancelAsync(batchId, CancellationToken.None).ConfigureAwait(false);
+            return true;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            // O cancelamento também não chegou: o erro que sobe é o do disco, e o lote fica visível no console da Anthropic.
+            return false;
         }
     }
 
@@ -167,11 +171,17 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
         return new NightBatchCheck(applied, info, true);
     }
 
-    /// <summary>Pede à API o cancelamento. O que o lote já tinha pronto ainda chega e é gravado quando ele encerra.</summary>
+    /// <summary>Pede à API o cancelamento. O que o lote já tinha pronto ainda chega e é gravado quando ele encerra. Se a API já o terminou, não cancela e devolve o estado como estava.</summary>
     public async Task<NightBatchState> CancelAsync(string batchId, CancellationToken ct)
     {
         var state = store.Find(batchId) ?? throw new NightBatchException($"O lote {batchId} não está neste projeto.");
         if (!state.IsOpen)
+        {
+            return state;
+        }
+
+        // Um lote que a API já terminou não se cancela: o estado fica aberto e a próxima verificação grava o que ele devolveu.
+        if ((await client.GetAsync(batchId, ct).ConfigureAwait(false)).Status == MessageBatchStatus.Ended)
         {
             return state;
         }

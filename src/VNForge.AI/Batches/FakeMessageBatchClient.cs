@@ -25,6 +25,9 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     /// <summary>Faz toda consulta ao lote falhar com esta exceção, como uma rede fora do ar.</summary>
     public Exception? GetFails { get; set; }
 
+    /// <summary>Faz todo cancelamento falhar com esta exceção.</summary>
+    public Exception? CancelFails { get; set; }
+
     /// <summary>Roda depois de cada consulta que deu certo; o teste o usa para saber que o app já perguntou.</summary>
     public Action? AfterGet { get; set; }
 
@@ -73,6 +76,11 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     {
         ct.ThrowIfCancellationRequested();
         Cancels++;
+        if (CancelFails is { } failure)
+        {
+            throw failure;
+        }
+
         var batch = Find(batchId);
         batch.CancelRequested = true;
         return Task.FromResult(batch.Info());

@@ -165,6 +165,43 @@ public sealed class MainWindowNightBatchTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelar_durante_a_gravacao_de_um_lote_que_a_API_ja_terminou_nao_cancela_na_API_nem_diz_que_segue_rodando()
+    {
+        var (vm, root) = await OpenAsync();
+        BackgroundTaskItem? task = null;
+        var polls = 0;
+        var firstPoll = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.AfterGet = () =>
+        {
+            // Consulta 1: a API termina o lote. Consulta 2 (já terminado): o usuário clica em Cancelar lote, com a gravação prestes a começar.
+            if (++polls == 1)
+            {
+                client.Finish("msgbatch_fake0001");
+                firstPoll.TrySetResult();
+            }
+            else if (polls == 2)
+            {
+                task!.CancelCommand.Execute(null);
+            }
+        };
+        await SendOvernightAsync(vm);
+        task = vm.TaskService.Tasks.Single();
+        await firstPoll.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var watching = vm.NightBatchWatching;
+
+        task.CheckNowCommand!.Execute(null);
+        await watching;
+
+        Assert.Equal(0, client.Cancels);
+        Assert.Equal(BackgroundTaskState.Cancelled, task.State);
+        Assert.Contains("já tinha terminado", task.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(vm.Toasts.Toasts, t => t.Message.Contains("segue rodando", StringComparison.Ordinal) || t.Message.Contains("Não foi possível cancelar", StringComparison.Ordinal));
+        var resumed = vm.TaskService.Tasks[1];
+        await resumed.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
     public async Task Sem_a_chave_ao_retomar_a_tarefa_do_lote_aparece_com_o_motivo_e_o_lote_segue_na_API()
     {
         var (vm, root) = await OpenAsync(

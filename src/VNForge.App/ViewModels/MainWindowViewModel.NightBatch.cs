@@ -114,6 +114,7 @@ public sealed partial class MainWindowViewModel
         NightBatchCheck? last = null;
         var canceled = false;
         string? cancelError = null;
+        var alreadyEnded = false;
         BackgroundTaskItem task;
         try
         {
@@ -165,7 +166,7 @@ public sealed partial class MainWindowViewModel
                 {
                     // "Cancelar lote" em qualquer ponto do laço, na verificação ou na espera, cancela o lote na API: sem isso ele seguiria rodando e sendo cobrado.
                     canceled = true;
-                    cancelError = await TryCancelBatchAsync(service, initial.Id).ConfigureAwait(false);
+                    (alreadyEnded, cancelError) = await TryCancelBatchAsync(service, initial.Id).ConfigureAwait(false);
                     throw;
                 }
             }, usesAi: true);
@@ -211,11 +212,17 @@ public sealed partial class MainWindowViewModel
         if (canceled)
         {
             const string CancelText = "Cancelamento pedido. O que já tinha voltado é gravado quando a API encerrar o lote.";
-            TaskService.Post(() => Finish(task, cancelError is null ? CancelText : $"Não foi possível cancelar na API: {cancelError}"));
-            Toasts.Show(
-                cancelError is null ? "Cancelamento do lote pedido. O que já tinha voltado é gravado quando a API encerrar o lote." : $"Não foi possível cancelar o lote na API: {cancelError} Ele segue rodando; tente de novo.",
-                cancelError is null ? ToastKind.Warning : ToastKind.Error,
-                key: ToastKey);
+            const string EndedText = "O lote já tinha terminado na API, então não há o que cancelar. O resultado é gravado em seguida.";
+            TaskService.Post(() => Finish(task, cancelError is not null ? $"Não foi possível cancelar na API: {cancelError}" : alreadyEnded ? EndedText : CancelText));
+            if (cancelError is not null)
+            {
+                Toasts.Show($"Não foi possível cancelar o lote na API: {cancelError} Ele segue rodando; tente de novo.", ToastKind.Error, key: ToastKey);
+            }
+            else
+            {
+                Toasts.Show(alreadyEnded ? EndedText : CancelText, alreadyEnded ? ToastKind.Info : ToastKind.Warning, key: ToastKey);
+            }
+
             if (new NightBatchStore(ProjectFolder.Open(projectRoot)).Find(initial.Id) is { IsOpen: true } open)
             {
                 WatchNightBatch(projectRoot, open);
@@ -309,17 +316,17 @@ public sealed partial class MainWindowViewModel
 
     private async Task WaitAsync(SemaphoreSlim wake, CancellationToken ct) => await wake.WaitAsync(NightBatchPollInterval, ct).ConfigureAwait(false);
 
-    /// <summary>Pede à API o cancelamento do lote; devolve o motivo em português quando ela não o aceitou, ou <see langword="null"/>.</summary>
-    private static async Task<string?> TryCancelBatchAsync(NightBatchService service, string batchId)
+    /// <summary>Pede à API o cancelamento do lote. Devolve se ela já o tinha terminado (nada a cancelar) e o motivo em português quando não aceitou o pedido.</summary>
+    private static async Task<(bool AlreadyEnded, string? Error)> TryCancelBatchAsync(NightBatchService service, string batchId)
     {
         try
         {
-            await service.CancelAsync(batchId, CancellationToken.None).ConfigureAwait(false);
-            return null;
+            var state = await service.CancelAsync(batchId, CancellationToken.None).ConfigureAwait(false);
+            return (state.Phase != NightBatchPhase.Canceling, null);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            return e is VNForgeException or IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
+            return (false, e is VNForgeException or IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e));
         }
     }
 
