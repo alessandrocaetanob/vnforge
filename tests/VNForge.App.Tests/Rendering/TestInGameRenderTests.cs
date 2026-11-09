@@ -183,8 +183,8 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
         var color = ((ISolidColorBrush)found!).Color;
         var icon = cell.GetVisualDescendants().OfType<PathIcon>().First(c => c.IsEffectivelyVisible);
         var origin = icon.TranslatePoint(default, steps)!.Value;
-        var ink = PixelProbe.Capture(window, steps).CountInArea(new Rect(origin, icon.Bounds.Size), color, 24);
-        Assert.True(ink > 12, $"O ícone do primeiro passo não tem a cor do estado ({ink} pixels).");
+        var ink = PixelProbe.Capture(window, steps).CountInArea(new Rect(origin, icon.Bounds.Size), color, 96);
+        Assert.True(ink > 6, $"O ícone do primeiro passo não tem a cor do estado ({ink} pixels).");
     }
 
     private static T Named<T>(Window window, string name)

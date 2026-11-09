@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VNForge.Core.Projects;
+using VNForge.Core.Publishing;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
@@ -96,6 +97,36 @@ public sealed class ReleaseCommandTests : IDisposable
         Assert.Contains(names, n => n!.EndsWith("-PT-BR-1.0.0.exe", StringComparison.Ordinal));
         Assert.Contains("Tradução: Equipe Chuva Mansa", await File.ReadAllTextAsync(Path.Combine(Out("1.0.0"), "CREDITOS.txt"), Token));
         Assert.Contains("idênticos ao build", result.Output);
+
+        // Os seis passos saem uma vez cada, na ordem do quadro: o patch é gravado antes do instalador, e a verificação vem por último.
+        var announced = result.Output.Split('\n').Where(l => l.StartsWith('[')).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(
+            [
+                "[1/6] Conferir a tradução",
+                "[2/6] Reconstruir o build",
+                "[3/6] Calcular as diferenças",
+                "[4/6] Gravar o patch",
+                "[5/6] Montar o instalador e escrever leia-me, créditos e mudanças",
+                "[6/6] Aplicar numa cópia limpa e conferir byte a byte",
+            ],
+            announced);
+    }
+
+    [Fact]
+    public async Task Guarda_os_arquivos_do_jogo_e_o_texto_da_versao_para_a_estimativa_da_proxima()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        Assert.Equal(0, (await Release("1.0.0")).ExitCode);
+
+        var record = ReleaseService.LoadRecords(ProjectFolder.Open(ProjectPath)).Single();
+        Assert.NotNull(record.GameFiles);
+        Assert.Equal([YsbinYpf], record.GameFiles.Select(f => f.Path));
+        Assert.All(record.GameFiles, f => Assert.True(f.PatchSize > 0));
+        var texts = ReleaseTexts.Load(ProjectFolder.Open(ProjectPath), "1.0.0");
+        Assert.NotNull(texts);
+        Assert.Contains(texts![Yst1].Values, t => t.StartsWith("Traduzido", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -125,6 +156,67 @@ public sealed class ReleaseCommandTests : IDisposable
         PatchInstaller.Uninstall(copy, null, Token);
 
         Assert.Equal(_originalYpf, await File.ReadAllBytesAsync(Path.Combine(copy, YsbinYpf), Token));
+    }
+
+    private PatchManifest ManifestOf(string version)
+    {
+        using var bundle = InstallerBundle.TryOpen(Directory.GetFiles(Out(version), "*.exe").Single());
+        return bundle!.Manifest;
+    }
+
+    [Fact]
+    public async Task Capa_e_versao_do_jogo_entram_no_manifesto_do_patch()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var cover = Path.Combine(_cli.Root, "capa.png");
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+        await File.WriteAllBytesAsync(cover, png, Token);
+
+        var result = await Release("1.0.0", "--capa", cover, "--versao-do-jogo", " 1.00 ");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        var manifest = ManifestOf("1.0.0");
+        Assert.Equal(png, manifest.Cover);
+        Assert.Equal("1.00", manifest.GameVersion);
+    }
+
+    [Fact]
+    public async Task Sem_capa_e_sem_versao_o_patch_nao_leva_nenhuma_das_duas()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        var result = await Release("1.0.0");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        var manifest = ManifestOf("1.0.0");
+        Assert.Null(manifest.Cover);
+        Assert.Null(manifest.GameVersion);
+    }
+
+    [Theory]
+    [InlineData("texto", "não é PNG, JPEG nem WebP")]
+    [InlineData("grande", "aceita até")]
+    [InlineData("falta", "Não achei a capa")]
+    public async Task Capa_invalida_e_recusada_antes_do_build(string kind, string message)
+    {
+        await InitAndExtract();
+        var cover = Path.Combine(_cli.Root, "capa.bin");
+        if (kind == "texto")
+        {
+            await File.WriteAllTextAsync(cover, "não sou imagem", Token);
+        }
+        else if (kind == "grande")
+        {
+            await File.WriteAllBytesAsync(cover, [0x89, 0x50, 0x4E, 0x47, .. new byte[PatchPackage.MaxCoverBytes]], Token);
+        }
+
+        var result = await Release("1.0.0", "--capa", cover);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains(message, result.Error);
+        Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
     }
 
     [Fact]

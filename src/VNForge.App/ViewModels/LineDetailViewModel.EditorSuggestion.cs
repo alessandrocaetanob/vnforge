@@ -212,6 +212,7 @@ public sealed partial class LineDetailViewModel
     {
         OnPropertyChanged(nameof(HasEditorSuggestion));
         OnPropertyChanged(nameof(IsCompactInspector));
+        OnPropertyChanged(nameof(UsesSceneToggle));
         OnPropertyChanged(nameof(IsSceneCollapsed));
         OnPropertyChanged(nameof(TranslationMinHeight));
         OnPropertyChanged(nameof(EditorSuggestionReviewTitle));

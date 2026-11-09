@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Engines;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
@@ -41,7 +43,7 @@ public enum VndbStage
 }
 
 /// <summary>Um resultado da busca no VNDB, como cartão de escolha única.</summary>
-public sealed partial class VndbCandidateItem(VndbCandidate candidate) : ObservableObject
+public sealed partial class VndbCandidateItem(VndbCandidate candidate, string? engine = null) : ObservableObject
 {
     public VndbCandidate Candidate { get; } = candidate;
 
@@ -52,8 +54,8 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
 
     public bool HasOriginalTitle => Candidate.VisualNovel.AltTitle is not null;
 
-    /// <summary>Ano, tamanho e duração, como "2019 · Média · 18 h".</summary>
-    public string Details => Describe(Candidate.VisualNovel);
+    /// <summary>Ano, tamanho, duração, motor do jogo e nota, como "2019 · Média · 18 h · YU-RIS · nota 7,9". O motor é o que o assistente detectou na pasta.</summary>
+    public string Details => Describe(Candidate.VisualNovel, engine);
 
     public bool MatchesFolder => Candidate.Evidence == VndbEvidence.FolderAndExe;
 
@@ -67,7 +69,7 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
 
     private static readonly string[] LengthLabels = ["Muito curta", "Curta", "Média", "Longa", "Muito longa"];
 
-    private static string Describe(VndbVisualNovel vn)
+    private static string Describe(VndbVisualNovel vn, string? engine)
     {
         var parts = new List<string>();
         if (vn.Released is { Length: >= 4 } released)
@@ -85,6 +87,11 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
             parts.Add($"{(minutes / 60.0).ToString("0.#", CultureInfo.GetCultureInfo("pt-BR"))} h");
         }
 
+        if (!string.IsNullOrWhiteSpace(engine))
+        {
+            parts.Add(engine);
+        }
+
         if (VndbRating.Label(vn.Rating) is { } rating)
         {
             parts.Add(rating);
@@ -94,33 +101,112 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
     }
 }
 
-/// <summary>Uma linha da tabela "Personagens que chegam".</summary>
-public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string Role);
+/// <summary>
+/// Uma linha da tabela "Personagens que chegam". <paramref name="InGame"/> é onde o nome aparece no jogo ("ES.CHAR.NAME 3") ou "sem par no VNDB";
+/// vazio quando o assistente não conseguiu ler os nomes do jogo. <paramref name="Display"/> é o nome em destaque (latino, na ordem ocidental);
+/// <paramref name="Original"/> vai pequeno abaixo dele, quando <paramref name="HasOriginal"/>.
+/// </summary>
+public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string InGame, string Display, bool HasOriginal);
 
 /// <summary>O que o jogo confirmado traz ao projeto: personagens e sinopse.</summary>
-public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote)
+public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote, bool IsSynopsisTranslated = false)
 {
-    public static VndbPreview From(VndbLink link)
+    /// <summary>Nome do personagem do jogo que o VNDB não tem, no lugar do nome original.</summary>
+    private const string NoPair = "sem par no VNDB";
+
+    /// <param name="link">O jogo do VNDB confirmado, com os personagens.</param>
+    /// <param name="gameNames">Os nomes de personagem do jogo (<c>ES.CHAR.NAME</c>), na ordem em que o jogo os traz; nulo quando não foi possível lê-los.</param>
+    /// <param name="translatedSynopsis">A sinopse que a IA já traduziu, quando há; a tela a mostra com o selo "Traduzida pela IA, você revisa depois". Nulo: fica o texto no idioma do VNDB.</param>
+    public static VndbPreview From(VndbLink link, IReadOnlyList<string>? gameNames = null, string? translatedSynopsis = null)
     {
-        var rows = link.Characters.Select(c => new VndbCharacterRow(
-            c.Name,
-            c.Image,
-            c.Original ?? "Sem escrita original",
-            c.Name,
-            c.Aliases.Count == 0 ? string.Empty : string.Join(", ", c.Aliases),
-            GenderLabel(c.Gender),
-            c.Gender != CharacterGender.Unknown,
-            RoleLabel(c.Role))).ToList();
-        var withGender = link.Characters.Count(c => c.Gender != CharacterGender.Unknown);
+        var translated = string.IsNullOrWhiteSpace(translatedSynopsis) ? null : translatedSynopsis.Trim();
+        var (rows, countText, genderNote) = gameNames is null ? Unpaired(link) : Paired(link, gameNames);
         return new VndbPreview(
             $"{link.Title}, {link.VisualNovelId}",
-            $"{link.Characters.Count} do VNDB. Os que casam com os nomes do jogo (ES.CHAR.NAME) entram em characters.json quando você extrai o texto.",
+            countText,
             rows,
-            link.Synopsis ?? "O VNDB não tem sinopse deste jogo.",
-            link.Synopsis is not null,
+            translated ?? link.Synopsis ?? "O VNDB não tem sinopse deste jogo.",
+            translated is not null || link.Synopsis is not null,
             "Fica guardada no projeto, no idioma do VNDB.",
+            genderNote,
+            translated is not null);
+    }
+
+    /// <summary>Sem os nomes do jogo: lista os personagens do VNDB e diz que o casamento vem na extração.</summary>
+    private static (List<VndbCharacterRow>, string, string) Unpaired(VndbLink link)
+    {
+        var rows = link.Characters.Select(c => Row(c, string.Empty)).ToList();
+        var withGender = link.Characters.Count(c => c.Gender != CharacterGender.Unknown);
+        return (
+            rows,
+            $"{link.Characters.Count} do VNDB. Os que casam com os nomes do jogo (ES.CHAR.NAME) entram em characters.json quando você extrai o texto.",
             $"{withGender} dos {link.Characters.Count} personagens do VNDB vêm com gênero. Para esses, o aviso “personagem sem gênero” não aparece quando casarem com o jogo; os outros seguem com o aviso.");
     }
+
+    /// <summary>Com os nomes do jogo: os que casam com o VNDB vêm primeiro, com a posição do nome no jogo; os que o VNDB não tem fecham a tabela.</summary>
+    private static (List<VndbCharacterRow>, string, string) Paired(VndbLink link, IReadOnlyList<string> gameNames)
+    {
+        var matches = VndbProjectLinker.Match(gameNames, link.Characters).GroupBy(m => m.GameName, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Character, StringComparer.Ordinal);
+        var rows = new List<VndbCharacterRow>();
+        var unpaired = new List<VndbCharacterRow>();
+        for (var i = 0; i < gameNames.Count; i++)
+        {
+            var name = gameNames[i];
+            if (matches.TryGetValue(name, out var character))
+            {
+                rows.Add(Row(character, $"ES.CHAR.NAME {i + 1}"));
+            }
+            else
+            {
+                unpaired.Add(new VndbCharacterRow(name, null, name, string.Empty, string.Empty, GenderLabel(CharacterGender.Unknown), false, NoPair, name, false));
+            }
+        }
+
+        var noGender = unpaired.Count + rows.Count(r => !r.HasGender);
+        rows.AddRange(unpaired);
+        return (
+            rows,
+            $"{link.Characters.Count} do VNDB, {matches.Count} casados com os nomes do jogo (ES.CHAR.NAME)",
+            GenderNoteFor(gameNames.Count, noGender, unpaired.Count));
+    }
+
+    private static string GenderNoteFor(int total, int remaining, int unpaired)
+    {
+        if (total == 0)
+        {
+            return "O jogo não traz nomes de personagem para casar com o VNDB.";
+        }
+
+        var warning = $"O aviso “{(total == 1 ? "1 personagem sem gênero" : $"{ProjectLabels.Number(total)} personagens sem gênero")}”";
+        return remaining switch
+        {
+            0 => $"{warning} some: o VNDB traz o gênero de todos.",
+            1 when unpaired == 1 => $"{warning} cai para 1, o da personagem que o VNDB não tem.",
+            _ when unpaired == remaining => $"{warning} cai para {ProjectLabels.Number(remaining)}, os dos personagens que o VNDB não tem.",
+            _ => $"{warning} cai para {ProjectLabels.Number(remaining)}: os que o VNDB não tem e os que ele traz sem gênero.",
+        };
+    }
+
+    private static VndbCharacterRow Row(VndbLinkedCharacter c, string inGame) => new(
+        c.Name,
+        c.Image,
+        c.Original ?? string.Empty,
+        c.Name,
+        c.Aliases.Count == 0 ? string.Empty : string.Join(", ", c.Aliases),
+        GenderLabel(c.Gender),
+        c.Gender != CharacterGender.Unknown,
+        inGame,
+        WesternOrder(c.Name, c.Original),
+        c.Original is not null);
+
+    /// <summary>O VNDB escreve o romaji de nome japonês com a família primeiro ("Aizawa Kenta"); a coluna em destaque o traz na ordem ocidental ("Kenta Aizawa"). Só troca nome de duas palavras com kanji no original: nome estrangeiro, em katakana, já vem na ordem ocidental.</summary>
+    private static string WesternOrder(string name, string? original)
+    {
+        var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length == 2 && original is not null && original.Any(IsKanji) ? $"{words[1]} {words[0]}" : name;
+    }
+
+    private static bool IsKanji(char c) => c is >= '\u3400' and <= '\u9FFF';
 
     private static string GenderLabel(CharacterGender gender) => gender switch
     {
@@ -129,20 +215,14 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
         CharacterGender.Other => "Outro",
         _ => "Sem gênero",
     };
-
-    private static string RoleLabel(string role) => role switch
-    {
-        "main" => "Protagonista",
-        "primary" => "Principal",
-        "side" => "Secundário",
-        _ => "Aparece",
-    };
 }
 
 /// <summary>O passo "Ficha do VNDB": busca o jogo pelo título lido do jogo, pede a confirmação e mostra o que chega ao projeto.</summary>
 public sealed partial class NewProjectWizardViewModel
 {
     private readonly IVndbCatalog? vndb;
+    private readonly Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?> gameCharacterNames;
+    private readonly Func<VndbLink, string?> translatedSynopsis;
     private VndbLink? confirmedLink;
     private string? vndbSearchedFolder;
     private CancellationTokenSource? vndbCts;
@@ -174,9 +254,6 @@ public sealed partial class NewProjectWizardViewModel
 
     [ObservableProperty]
     public partial VndbPreview? Preview { get; private set; }
-
-    /// <summary>O crédito da licença dos dados do VNDB, que a tela mostra sempre que há dado dele.</summary>
-    public static string VndbCreditText => VndbCredit.ShortText;
 
     public bool IsVndbChoosing => Stage == VndbStage.Choosing;
 
@@ -308,7 +385,7 @@ public sealed partial class NewProjectWizardViewModel
 
             foreach (var candidate in found)
             {
-                var item = new VndbCandidateItem(candidate);
+                var item = new VndbCandidateItem(candidate, EngineName);
                 item.PropertyChanged += OnCandidateChanged;
                 Candidates.Add(item);
             }
@@ -393,8 +470,14 @@ public sealed partial class NewProjectWizardViewModel
                 return;
             }
 
+            var gameNames = await ReadGameNamesAsync(cts.Token);
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
             confirmedLink = VndbProjectLinker.From(chosen.Candidate.VisualNovel, characters);
-            Preview = VndbPreview.From(confirmedLink);
+            Preview = VndbPreview.From(confirmedLink, gameNames, translatedSynopsis(confirmedLink));
             Stage = VndbStage.Preview;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -410,6 +493,27 @@ public sealed partial class NewProjectWizardViewModel
         finally
         {
             FinishVndbRequest(cts);
+        }
+    }
+
+    /// <summary>
+    /// Os nomes de personagem que o jogo traz, para a ficha dizer quais casam com o VNDB. Lê os scripts numa pasta temporária; se não der (engine sem extração,
+    /// script ilegível), devolve nulo e a ficha lista os personagens do VNDB, com o casamento para quando o texto for extraído.
+    /// </summary>
+    private async Task<IReadOnlyList<string>?> ReadGameNamesAsync(CancellationToken cancellationToken)
+    {
+        if (inspection is not { } found || GameFolder is not { } folder)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await Task.Run(() => gameCharacterNames(found, folder, cancellationToken), cancellationToken);
+        }
+        catch (Exception e) when (IsExpected(e) && !cancellationToken.IsCancellationRequested)
+        {
+            return null;
         }
     }
 

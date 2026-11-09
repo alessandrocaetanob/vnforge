@@ -1,8 +1,11 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.Core;
 using VNForge.Core.Eval;
 using VNForge.Core.Formatting;
+using VNForge.Core.Glossary;
+using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
@@ -127,9 +130,9 @@ public sealed partial class EvalViewModel
         var first = current.Reports.First(r => r.Config.Id == next.First).Lines.FirstOrDefault(l => l.LineId == next.LineId);
         var second = current.Reports.First(r => r.Config.Id == next.Second).Lines.FirstOrDefault(l => l.LineId == next.LineId);
         PairTitle = $"Par {next.Index} de {current.Pairs.Count}";
-        PairFraction = current.Pairs.Count == 0 ? 0 : (double)(next.Index - 1) / current.Pairs.Count;
+        PairFraction = current.Pairs.Count == 0 ? 0 : (double)next.Index / current.Pairs.Count;
         OriginalMeta = sample is null ? string.Empty : MetaFor(sample);
-        OriginalSpeaker = sample?.Speaker ?? string.Empty;
+        OriginalSpeaker = sample is null ? string.Empty : SpeakerFor(sample);
         OriginalText = sample?.Source ?? string.Empty;
         OriginalContext = sample is null ? string.Empty : ContextFor(sample);
         TextA = first?.Translation ?? string.Empty;
@@ -139,14 +142,73 @@ public sealed partial class EvalViewModel
         FitB = Fit(wrap, TextB);
     }
 
+    /// <summary><c>Original · Cena 13, linha 0495</c> (o OverlineText desenha em caixa alta): o nome da cena, ou "Cena N" (a posição dela no projeto) quando ela não tem nome; nunca a chave do script.</summary>
     private string MetaFor(EvalSample sample)
     {
-        var name = folder?.LoadScriptNames().DisplayName(sample.ScriptKey) ?? sample.ScriptKey;
+        var name = folder?.LoadScriptNames().DisplayName(sample.ScriptKey) ?? SceneLabel(sample.ScriptKey);
         var number = sample.LineId.Contains(':', StringComparison.Ordinal) && int.TryParse(sample.LineId[(sample.LineId.LastIndexOf(':') + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n)
-            ? $", LINHA {n.ToString("0000", CultureInfo.InvariantCulture)}"
+            ? $", linha {n.ToString("0000", CultureInfo.InvariantCulture)}"
             : string.Empty;
-        return $"ORIGINAL · {name.ToUpperInvariant()}{number}";
+        return $"Original · {name}{number}";
     }
+
+    private string SceneLabel(string key)
+    {
+        if (folder is null || !Directory.Exists(folder.TextDirectory))
+        {
+            return key;
+        }
+
+        var keys = ScriptGrouping.InStoryOrder(Directory.EnumerateFiles(folder.TextDirectory, "*.json").Select(path => Path.GetFileNameWithoutExtension(path).ToLowerInvariant()));
+        var position = keys.ToList().IndexOf(key);
+        return position < 0 ? key : $"Cena {position + 1}";
+    }
+
+    /// <summary>
+    /// Quem fala e para quem, como o quadro desenha ("Misaki → Aizawa e Sakura"). O projeto não guarda o destinatário de cada fala: vale o elenco da cena na bíblia
+    /// sem o falante. Sem elenco, só o falante; o nome vem do <c>characters.json</c> quando o personagem está cadastrado.
+    /// </summary>
+    private string SpeakerFor(EvalSample sample)
+    {
+        if (string.IsNullOrWhiteSpace(sample.Speaker) || folder is null)
+        {
+            return sample.Speaker ?? string.Empty;
+        }
+
+        var characters = SafeCharacters(folder);
+        var speaker = characters.FirstOrDefault(c => IsSame(c, sample.Speaker));
+        if (speaker is null)
+        {
+            // Sem o cadastro não dá para saber quem, do elenco da cena, é o falante: mostrar só o nome dele evita listá-lo como destinatário.
+            return sample.Speaker;
+        }
+
+        var shown = speaker.Target;
+        var others = folder.LoadBibleOrEmpty(out _).Scene(sample.ScriptKey)?.Characters
+            .Where(name => !string.Equals(name, shown, StringComparison.OrdinalIgnoreCase) && !IsSame(speaker, name))
+            .ToList() ?? [];
+        return others.Count == 0 ? shown : $"{shown} → {JoinNames(others)}";
+    }
+
+    private static IReadOnlyList<CharacterEntry> SafeCharacters(ProjectFolder project)
+    {
+        try
+        {
+            return project.LoadCharacters();
+        }
+        catch (VNForgeException)
+        {
+            return [];
+        }
+    }
+
+    private static bool IsSame(CharacterEntry entry, string name) =>
+        CharacterBook.NameComparer.Equals(entry.Source, name)
+        || string.Equals(entry.Target, name, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(entry.Romaji, name, StringComparison.OrdinalIgnoreCase);
+
+    private static string JoinNames(IReadOnlyList<string> names) =>
+        names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
 
     private static string ContextFor(EvalSample sample) => (sample.Before.Length > 0, sample.After.Length > 0) switch
     {

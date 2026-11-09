@@ -64,7 +64,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                     Assert.True(colunas.IsEffectivelyVisible);
                     Assert.False(roteiro.IsEffectivelyVisible);
                     Assert.DoesNotContain("script", linhas.Classes);
-                    Assert.Equal(["Linha", "Situação", "Quem fala", "Original", "Tradução"], Titles(colunas));
+                    Assert.Equal(["Situação", "Quem fala", "Original", "Tradução"], Titles(colunas));
 
                     botao.IsChecked = true;
                     ScreenRenderer.Settle(window);
@@ -74,7 +74,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
                     Assert.False(colunas.IsEffectivelyVisible);
                     Assert.True(roteiro.IsEffectivelyVisible);
                     Assert.Contains("script", linhas.Classes);
-                    Assert.Equal(["Linha", "Situação", "Quem fala · original · tradução"], Titles(roteiro));
+                    Assert.Equal(["Situação", "Quem fala · original · tradução"], Titles(roteiro));
                     Assert.True(botao.IsEffectivelyVisible);
 
                     AssertScriptRows(window, linhas, roteiro, larguraColunas, alturaColunas);
@@ -149,8 +149,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
             Assert.True(original.Bounds.Height <= 2 * TextLine + Tolerance && traducao.Bounds.Height <= 2 * TextLine + Tolerance, "até duas linhas cada");
             Assert.True(Math.Abs(Left(nome, window) - Left(original, window)) <= Tolerance && Math.Abs(Left(original, window) - Left(traducao, window)) <= Tolerance, "os três alinham à esquerda");
             Assert.Equal(original.Bounds.Width, traducao.Bounds.Width, Tolerance);
-            Assert.True(Math.Abs(Left(Number(linha), window) - Left(titulos[0], window)) <= Tolerance, "o número alinha com o título Linha");
-            Assert.True(Math.Abs(Left(nome, window) - Left(titulos[2], window)) <= Tolerance, "o texto alinha com o título do cabeçalho");
+            Assert.True(Math.Abs(Left(nome, window) - Left(titulos[1], window)) <= Tolerance, "o texto alinha com o título do cabeçalho");
 
             var area = new Rect(linha.TranslatePoint(default, window)!.Value, linha.Bounds.Size).Inflate(Tolerance);
             foreach (var parte in new[] { nome, original, traducao })
@@ -215,7 +214,6 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
 
     private static string[] Titles(Border header) => header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("overline")).Select(t => t.Text!).ToArray();
 
-    private static TextBlock Number(LineRow row) => row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Number");
 
     private static TextBlock Speaker(LineRow row) => row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Speaker");
 

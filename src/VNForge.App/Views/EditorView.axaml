@@ -14,7 +14,7 @@
 
   <UserControl.Resources>
     <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
-    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14ZM0 0L0 0M20 20L20 20</StreamGeometry>
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -82,7 +82,7 @@
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
-      <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
+      <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
           <Button x:Name="ScenesTrigger" Classes="scenes-trigger tool" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas (Ctrl+B)">
@@ -113,7 +113,7 @@
           </ItemsControl>
         </StackPanel>
       </ScrollViewer>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <!-- Densidade da grade (#460): marcado, cada linha vira roteiro (nome, original e tradução empilhados); a escolha fica em editor-layout.json. -->
         <ToggleButton x:Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding IsScriptDensity}" ToolTip.Tip="{Binding DensityTip}" AutomationProperties.Name="Linhas como roteiro">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -206,19 +206,17 @@
         <Grid RowDefinitions="32,*,Auto">
           <!-- Dois cabeçalhos, um por densidade (#460): as colunas de sempre e o do Roteiro, onde quem fala, o original e a tradução dividem uma coluna só. -->
           <Border x:Name="ColumnsHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding !IsScriptDensity}">
-            <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="3" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Grid ColumnDefinitions="92,148,*,1.2*,32" ColumnSpacing="8">
+              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="2" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="3" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
           <Border x:Name="ScriptHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding IsScriptDensity}">
-            <Grid ColumnDefinitions="56,92,*" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Grid ColumnDefinitions="92,*" ColumnSpacing="8">
+              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
 
@@ -239,7 +237,7 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerColor="{Binding SpeakerColor}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
+                <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerColor="{Binding SpeakerColor}" SpeakerImage="{Binding SpeakerImage}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
                            SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}" HasDoubt="{Binding HasDoubt}" DoubtTip="{Binding DoubtTip}" HasEditorSuggestion="{Binding HasEditorSuggestion}" EditorSuggestionTip="{Binding EditorSuggestionTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>

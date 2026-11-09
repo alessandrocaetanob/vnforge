@@ -212,9 +212,13 @@ public sealed partial class EvalViewModel : ObservableObject
         SampleText = EvalText.CountLines(round?.Sample.Count ?? Math.Min(DefaultSample, GoldLines));
         if (round is { } current)
         {
-            foreach (var report in current.Reports)
+            var rows = current.Reports.Select(report => new EvalRowViewModel(report, current, rate)).ToList();
+            var shares = EvalChrfBar.Shares([.. rows.Select(row => row.Chrf)]);
+            for (var i = 0; i < rows.Count; i++)
             {
-                Rows.Add(new EvalRowViewModel(report, current, rate));
+                rows[i].ChrfShare = shares[i];
+                rows[i].IsLast = i == rows.Count - 1;
+                Rows.Add(rows[i]);
             }
 
             foreach (var row in Rows)

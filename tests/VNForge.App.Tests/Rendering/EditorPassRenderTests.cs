@@ -262,6 +262,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
             var price = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == vm.Translate.EditorPassPriceText);
             Assert.True(price.IsEffectivelyVisible);
             Assert.Empty(ClippedTextHeadlessTests.FindClipped(card));
+            DialogProbe.AssertCentered(window, 780, showsClose: true);
             Save(window, "traduzir-passada", theme, width);
         });
     }
