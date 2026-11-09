@@ -26,6 +26,22 @@ public sealed class BibleCostTests
     }
 
     [Fact]
+    public void Reescrever_um_campo_e_uma_chamada_de_uma_cena_com_a_escrita_do_cache_do_capitulo()
+    {
+        var chapter = Big("Manhã", scenes: 30);
+
+        var rewrite = BibleCost.EstimateRewrite(chapter, ClaudeModels.Opus);
+        var reading = BibleCost.Estimate([chapter], ClaudeModels.Opus, scenesPerCall: 12, includeOverview: false);
+
+        Assert.Equal(chapter.Tokens() + 458, rewrite.Usage.CacheWrite);
+        Assert.Equal(0, rewrite.Usage.CacheRead);
+        Assert.Equal(330 + 1200, rewrite.Usage.Output);
+        Assert.Equal(1, rewrite.Scenes);
+        Assert.True(rewrite.Dollars < reading.Dollars);
+        Assert.Equal(ModelPricing.For(ClaudeModels.Opus).Cost(rewrite.Usage), rewrite.Dollars);
+    }
+
+    [Fact]
     public void Ler_de_novo_custa_menos_que_a_primeira_vez_por_causa_do_cache()
     {
         var chapter = Big("Manhã", scenes: 60);

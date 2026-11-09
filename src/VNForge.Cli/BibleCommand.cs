@@ -184,6 +184,12 @@ internal static class BibleCommand
             return WriteBudgetStop(output, json, refusal, budget.Limits.Limit);
         }
 
+        // O que o projeto já gastou mais esta estimativa não pode passar do limite: o AuthorizeAsync só recusa quando o limite já foi atingido.
+        if (!guard.TryReserve(brl))
+        {
+            return WriteDoesNotFit(output, json, brl, budget.Limits.Limit);
+        }
+
         var runner = new BibleRunner(provider, new BibleRunOptions { Model = settings.Model, Budget = guard, RunDollars = tracker.RunDollars });
         BibleRunResult result;
         try
@@ -192,6 +198,7 @@ internal static class BibleCommand
         }
         finally
         {
+            guard.Release(brl);
             tracker.Record();
         }
 
@@ -243,6 +250,20 @@ internal static class BibleCommand
             output.WriteLine(stop == BudgetStop.LimitReached
                 ? $"O gasto do projeto já chegou ao limite{(limit is { } cap ? $" de {Brl(cap)}" : string.Empty)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app para continuar."
                 : "O pedido não foi confirmado: nenhuma cena foi enviada à IA.");
+        }
+
+        return ErrorHandler.ErrorExitCode;
+    }
+
+    private static int WriteDoesNotFit(TextWriter output, bool json, decimal estimateBrl, decimal? limit)
+    {
+        if (json)
+        {
+            output.WriteLine(JsonEnvelope.Result(new { budgetStop = "exceedsLimit" }, ErrorHandler.ErrorExitCode));
+        }
+        else
+        {
+            output.WriteLine($"Gerar a bíblia custa cerca de {Brl(estimateBrl)} e, com o que o projeto já gastou, passaria do limite{(limit is { } cap ? $" de {Brl(cap)}" : string.Empty)}; nenhuma cena foi enviada à IA. Aumente o limite nos Ajustes do app ou gere só um capítulo com --chapter.");
         }
 
         return ErrorHandler.ErrorExitCode;

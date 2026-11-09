@@ -74,9 +74,25 @@ public static class BibleCost
             chapters.Count == 0 ? 0m : rereadSum / chapters.Count);
     }
 
+    /// <summary>"Reescrever com a IA" num campo: uma única chamada para uma cena, que escreve o capítulo inteiro no cache e devolve só aquela cena.</summary>
+    public static BibleCostEstimate EstimateRewrite(BibleChapterInput chapter, string model, ClaudeEffort effort = ClaudeEffort.Medium)
+    {
+        ArgumentNullException.ThrowIfNull(chapter);
+        var text = ChapterPromptTokens(chapter);
+        var usage = new TokenUsage(
+            Input: PerCallUserTokens + PerSceneUserTokens,
+            Output: OutputTokensPerScene + Reasoning(effort),
+            CacheWrite: text);
+        var dollars = ModelPricing.For(model, text + PerCallUserTokens + PerSceneUserTokens).Cost(usage);
+        return new BibleCostEstimate(1, 1, chapter.LineCount, usage, dollars, dollars);
+    }
+
+    private static long ChapterPromptTokens(BibleChapterInput chapter) =>
+        chapter.Tokens() + chapter.Characters.Sum(c => CostEstimator.Tokens(c.Source) + CostEstimator.Tokens(c.Target) + 4) + InstructionTokens;
+
     private static (TokenUsage Usage, long PromptTokens) Chapter(BibleChapterInput chapter, int scenesPerCall, ClaudeEffort effort)
     {
-        var text = chapter.Tokens() + chapter.Characters.Sum(c => CostEstimator.Tokens(c.Source) + CostEstimator.Tokens(c.Target) + 4) + InstructionTokens;
+        var text = ChapterPromptTokens(chapter);
         var calls = (int)Math.Ceiling(chapter.Scenes.Count / (double)scenesPerCall);
         var scenes = chapter.Scenes.Count;
         var usage = new TokenUsage(

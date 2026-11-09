@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VNForge.AI.Bible;
+using VNForge.AI.Settings;
 using VNForge.AI.Translation;
 using VNForge.Core.Bible;
 using VNForge.Core.Projects;
@@ -116,6 +117,34 @@ public sealed class BibleCommandTests : IDisposable
         Assert.Contains("inválido", result.Error + result.Output, StringComparison.Ordinal);
         Assert.Empty(_provider.SceneCalls);
         Assert.Equal(backup, File.ReadAllText(_project.PreviousBiblePath));
+    }
+
+    [Fact]
+    public async Task Estimativa_maior_que_o_restante_do_limite_recusa_antes_de_gastar()
+    {
+        Directory.CreateDirectory(_cli.UserConfigDirectory);
+        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 0.01 }""");
+        _cli.SetInput("s\n");
+
+        var result = await Run("generate");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("passaria do limite", result.Output, StringComparison.Ordinal);
+        Assert.Empty(_provider.SceneCalls);
+        Assert.False(File.Exists(_project.BiblePath));
+    }
+
+    [Fact]
+    public async Task Estimativa_que_cabe_no_restante_do_limite_gera_normalmente()
+    {
+        Directory.CreateDirectory(_cli.UserConfigDirectory);
+        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 500 }""");
+        _cli.SetInput("s\n");
+
+        var result = await Run("generate");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotEmpty(_provider.SceneCalls);
     }
 
     [Fact]

@@ -694,8 +694,8 @@ public sealed partial class BibleViewModel : ObservableObject
             var limit = LimitsFor(current).Limit;
             var guard = tracker.CreateGuard(new BudgetLimits(limit, null), _ => 0m, null);
 
-            // O pedido manda o capítulo inteiro, então o custo é o da leitura dele, não o de uma cena.
-            var estimate = BibleCost.Estimate([chapter], model, scenesPerCall: 1, effort: effort, includeOverview: false).Brl(rate);
+            // Uma chamada para uma cena: escreve o capítulo inteiro no cache e devolve só aquela cena.
+            var estimate = BibleCost.EstimateRewrite(chapter, model, effort).Brl(rate);
             if (await RefuseAsync(guard, estimate, limit, "Reescrever com a IA", CancellationToken.None).ConfigureAwait(true) is { } refusal)
             {
                 ErrorMessage = refusal;
