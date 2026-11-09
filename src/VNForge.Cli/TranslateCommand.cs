@@ -6,6 +6,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.AI.Translation;
+using VNForge.Core.Dictionaries;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Logging;
@@ -58,7 +59,8 @@ internal static class TranslateCommand
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: project.LoadAddressTerms());
+            addressTerms: project.LoadAddressTerms(),
+            preDictionary: PreDictionary.For(project));
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);
 

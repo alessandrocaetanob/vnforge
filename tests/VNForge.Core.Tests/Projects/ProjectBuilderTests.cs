@@ -387,6 +387,21 @@ public sealed class ProjectBuilderTests : IDisposable
     }
 
     [Fact]
+    public void Pos_dicionario_com_condicao_de_cena_troca_so_nos_scripts_da_cena()
+    {
+        SaveProfile("""{ "dictionary": { "post": [ { "pattern": "voce", "with": "tu", "when": [ { "kind": "scene", "value": "a001" } ] } ] } }""");
+        Translate("a001", (0, "oi voce"));
+        Translate("a002", (0, "oi voce"));
+
+        Build();
+
+        var content = BuiltContent();
+        Assert.Contains("dialogue|oi tu\n", content);
+        Assert.Contains("narration|oi voce", content);
+        Assert.Equal("oi voce", _project.LoadAllText()["a001"][0].Translation);
+    }
+
+    [Fact]
     public void Formatacao_nao_altera_o_text_json_em_disco()
     {
         SaveProfile("""{ "wrap": { "enabled": true, "maxWidth": 5, "charWidth": "uniform" } }""");

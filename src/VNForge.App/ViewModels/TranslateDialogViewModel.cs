@@ -6,6 +6,7 @@ using VNForge.AI.Cost;
 using VNForge.AI.Translation;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core.Dictionaries;
 using VNForge.Core;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -357,7 +358,8 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             style: config.Style,
             maxPreviousLines: config.Ai.ContextBefore,
             maxNextLines: config.Ai.ContextAfter,
-            addressTerms: folder.LoadAddressTerms());
+            addressTerms: folder.LoadAddressTerms(),
+            preDictionary: PreDictionary.For(folder));
         var batchSize = Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var effort = ClaudeEffortText.ParseOrDefault(config.Ai.Effort);
         var scopes = shown.ToDictionary(

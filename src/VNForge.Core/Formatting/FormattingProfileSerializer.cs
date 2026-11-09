@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Formatting;
@@ -99,6 +100,14 @@ public static class FormattingProfileSerializer
                 writer.WriteEndObject();
             }
 
+            if (!profile.Dictionary.IsEmpty)
+            {
+                writer.WriteStartObject("dictionary");
+                WriteDictionary(writer, "pre", profile.Dictionary.Pre);
+                WriteDictionary(writer, "post", profile.Dictionary.Post);
+                writer.WriteEndObject();
+            }
+
             writer.WriteStartObject("typography");
             writer.WriteString("quotes", EnumName(profile.Typography.Quotes));
             writer.WriteString("ellipsis", EnumName(profile.Typography.Ellipsis));
@@ -147,6 +156,62 @@ public static class FormattingProfileSerializer
         writer.WriteEndArray();
     }
 
+    private static void WriteDictionary(Utf8JsonWriter writer, string name, IReadOnlyList<DictionaryRule> rules)
+    {
+        writer.WriteStartArray(name);
+        foreach (var rule in rules)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("pattern", rule.Pattern);
+            writer.WriteString("with", rule.With);
+            if (rule.Regex)
+            {
+                writer.WriteBoolean("regex", true);
+            }
+
+            if (!rule.Enabled)
+            {
+                writer.WriteBoolean("enabled", false);
+            }
+
+            if (rule.Conditions.Count > 0)
+            {
+                writer.WriteStartArray("when");
+                foreach (var condition in rule.Conditions)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("kind", ConditionKindName(condition.Kind));
+                    writer.WriteString("value", condition.Value);
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }
+
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static string ConditionKindName(DictionaryConditionKind kind) => kind switch
+    {
+        DictionaryConditionKind.Speaker => "speaker",
+        DictionaryConditionKind.Scene => "scene",
+        _ => "sourceContains",
+    };
+
+    private static void ValidateDictionary(string name, IReadOnlyList<DictionaryRule> rules)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (DictionaryStage.Validate(rules[i]) is { } error)
+            {
+                throw new FormattingProfileException($"$.dictionary.{name}[{i}]", error);
+            }
+        }
+    }
+
     private static void ValidateReplacements(string name, IReadOnlyList<Replacement> replacements)
     {
         for (var i = 0; i < replacements.Count; i++)
@@ -180,6 +245,8 @@ public static class FormattingProfileSerializer
     {
         ValidateReplacements("before", profile.Replacements.Before);
         ValidateReplacements("after", profile.Replacements.After);
+        ValidateDictionary("pre", profile.Dictionary.Pre);
+        ValidateDictionary("post", profile.Dictionary.Post);
 
         if (profile.Kinds.Count == 0)
         {
@@ -230,6 +297,8 @@ public static class FormattingProfileSerializer
 
         var replacements = ReadReplacements(reader, defaults.Replacements);
 
+        var dictionary = ReadDictionary(reader, defaults.Dictionary);
+
         var typography = ReadTypography(reader, defaults.Typography);
 
         var width = ReadWidth(reader, defaults.Width);
@@ -237,7 +306,7 @@ public static class FormattingProfileSerializer
         var byteLimits = reader.OptionalObject("byteLimits") is { } limitsReader ? limitsReader.ByteLimits() : defaults.ByteLimits;
 
         reader.EnsureNoUnknownProperties();
-        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Typography = typography, Width = width, ByteLimits = byteLimits };
+        return new FormattingProfile(kinds, wrap) { Normalization = normalization, Spacing = spacing, Replacements = replacements, Dictionary = dictionary, Typography = typography, Width = width, ByteLimits = byteLimits };
     }
 
     private static WrapRule ReadWrap(ObjectReader reader, WrapRule current)
@@ -308,6 +377,20 @@ public static class FormattingProfileSerializer
         }
 
         return replacements;
+    }
+
+    private static DictionaryRules ReadDictionary(ObjectReader reader, DictionaryRules current)
+    {
+        var dictionary = current;
+        if (reader.OptionalObject("dictionary") is { } dictionaryReader)
+        {
+            dictionary = new DictionaryRules(
+                dictionaryReader.OptionalDictionaryRules("pre") ?? [],
+                dictionaryReader.OptionalDictionaryRules("post") ?? []);
+            dictionaryReader.EnsureNoUnknownProperties();
+        }
+
+        return dictionary;
     }
 
     private static TypographyRule ReadTypography(ObjectReader reader, TypographyRule current)
@@ -546,6 +629,72 @@ public static class FormattingProfileSerializer
             }
 
             return replacements;
+        }
+
+        public List<DictionaryRule>? OptionalDictionaryRules(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormattingProfileException(PathOf(name), "deve ser uma lista de regras.");
+            }
+
+            var rules = new List<DictionaryRule>();
+            foreach (var item in value.EnumerateArray())
+            {
+                var itemReader = new ObjectReader(item, $"{PathOf(name)}[{rules.Count}]");
+                var rule = new DictionaryRule(
+                    itemReader.RequiredString("pattern"),
+                    itemReader.RequiredString("with"),
+                    itemReader.OptionalBool("regex") ?? false)
+                {
+                    Enabled = itemReader.OptionalBool("enabled") ?? true,
+                    Conditions = itemReader.OptionalConditions("when") ?? [],
+                };
+                itemReader.EnsureNoUnknownProperties();
+                if (DictionaryStage.Validate(rule) is { } error)
+                {
+                    throw new FormattingProfileException(itemReader.PathOf(rule.Conditions.Any(c => string.IsNullOrWhiteSpace(c.Value)) ? "when" : "pattern"), error);
+                }
+
+                rules.Add(rule);
+            }
+
+            return rules;
+        }
+
+        private List<DictionaryCondition>? OptionalConditions(string name)
+        {
+            if (!TryGet(name, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormattingProfileException(PathOf(name), "deve ser uma lista de condições.");
+            }
+
+            var conditions = new List<DictionaryCondition>();
+            foreach (var item in value.EnumerateArray())
+            {
+                var itemReader = new ObjectReader(item, $"{PathOf(name)}[{conditions.Count}]");
+                var kind = itemReader.RequiredString("kind") switch
+                {
+                    "speaker" => DictionaryConditionKind.Speaker,
+                    "scene" => DictionaryConditionKind.Scene,
+                    "sourceContains" => DictionaryConditionKind.SourceContains,
+                    _ => throw new FormattingProfileException(itemReader.PathOf("kind"), "use \"speaker\", \"scene\" ou \"sourceContains\"."),
+                };
+                conditions.Add(new DictionaryCondition(kind, itemReader.RequiredString("value")));
+                itemReader.EnsureNoUnknownProperties();
+            }
+
+            return conditions;
         }
 
         public ObjectReader? OptionalObject(string name) =>

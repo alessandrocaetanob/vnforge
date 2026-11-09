@@ -1,4 +1,5 @@
 using System.Text;
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
@@ -131,7 +132,7 @@ public static class ProjectBuilder
         var fingerprint = BuildState.FingerprintTexts(loaded, BuildState.EncoderKey(encoder), project.FormattingPath, GameTitleText.Normalize(config.Game.Title?.Translation));
         var gameKeys = game.Scripts.Select(sc => new ScriptFile(sc.Name, Array.Empty<byte>()).Key).ToHashSet(StringComparer.Ordinal);
         var warnings = new List<string>(game.Warnings);
-        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings);
+        var texts = ApplyFormatting(profile, loaded, gameKeys, warnings, DictionaryContext.For(project, profile));
         var report = EncodingReporter.Create(texts.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), encoder);
         if (report.HasBlocking)
         {
@@ -252,7 +253,8 @@ public static class ProjectBuilder
 
         var config = project.LoadConfig();
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(encodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
-        return EncodingReporter.Create(ApplyFormatting(project.LoadFormatting(), project.LoadAllText(), null, []), encoder);
+        var profile = project.LoadFormatting();
+        return EncodingReporter.Create(ApplyFormatting(profile, project.LoadAllText(), null, [], DictionaryContext.For(project, profile)), encoder);
     }
 
     /// <summary>
@@ -265,7 +267,8 @@ public static class ProjectBuilder
         FormattingProfile profile,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         HashSet<string>? keys,
-        List<string> warnings)
+        List<string> warnings,
+        DictionaryContext dictionary)
     {
         var pipeline = FormattingPipeline.Create(profile);
         if (pipeline.Stages.Count == 0)
@@ -278,7 +281,7 @@ public static class ProjectBuilder
         {
             formatted[key] = keys is not null && !keys.Contains(key)
                 ? units
-                : [.. units.Select(unit => FormatUnit(pipeline, profile, unit, warnings))];
+                : [.. units.Select(unit => FormatUnit(pipeline, profile, unit, warnings, dictionary))];
         }
 
         return formatted;
@@ -339,7 +342,7 @@ public static class ProjectBuilder
         return unit.ChosenSpeaker is not null ? unit with { ChosenSpeaker = written } : unit with { Speaker = written };
     }
 
-    private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings)
+    private static TextUnit FormatUnit(FormattingPipeline pipeline, FormattingProfile profile, TextUnit unit, List<string> warnings, DictionaryContext dictionary)
     {
         if (!unit.NeedsRewrite || !profile.Kinds.Contains(unit.Kind))
         {
@@ -348,7 +351,7 @@ public static class ProjectBuilder
 
         try
         {
-            var result = pipeline.Format(unit.Translation ?? string.Empty);
+            var result = pipeline.Format(unit.Translation ?? string.Empty, dictionary.Line(unit));
             warnings.AddRange(result.Warnings.Select(w => $"{unit.Id}: {w}"));
             return unit with { Translation = result.Text };
         }

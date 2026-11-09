@@ -1,3 +1,4 @@
+using VNForge.Core.Dictionaries;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -16,7 +17,8 @@ public sealed class TranslationBatchBuilder(
     int maxPreviousLines = TranslationBatchBuilder.DefaultContextLines,
     StyleConfig? style = null,
     int maxNextLines = TranslationBatchBuilder.DefaultContextLines,
-    IReadOnlyList<AddressTerm>? addressTerms = null)
+    IReadOnlyList<AddressTerm>? addressTerms = null,
+    PreDictionary? preDictionary = null)
 {
     /// <summary>Quantas falas antes e depois do lote entram como contexto.</summary>
     public const int DefaultContextLines = AiConfig.DefaultContextLines;
@@ -32,15 +34,25 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
+    private readonly PreDictionary _preDictionary = preDictionary ?? PreDictionary.None;
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
     /// só as que já têm tradução, no máximo as últimas <c>maxPreviousLines</c>. <paramref name="next"/> são as linhas que vêm depois do lote;
     /// entram as primeiras <c>maxNextLines</c> com texto, no original, porque ainda não foram traduzidas.
     /// </summary>
+    /// <remarks>
+    /// O pré-dicionário normaliza o <see cref="TextUnit.Source"/> de todas as linhas do lote, das de contexto também, antes do resto: é esse texto que a IA lê,
+    /// que casa com o glossário e que entra na chave do cache (<see cref="Cost.TranslationCache.KeyFor"/>). Mudar uma regra do pré só pede nova tradução das linhas
+    /// que ela muda; as demais mantêm a chave.
+    /// </remarks>
     public TranslationBatch Build(IReadOnlyList<TextUnit> lines, IReadOnlyList<TextUnit>? previous = null, IReadOnlyList<TextUnit>? next = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
+
+        lines = _preDictionary.Apply(lines);
+        previous = previous is null ? null : _preDictionary.Apply(previous);
+        next = next is null ? null : _preDictionary.Apply(next);
 
         var matchedGlossary = _glossary
             .Where(t => t.Source.Trim().Length > 0 && lines.Any(l => l.Source.Contains(t.Source.Trim(), StringComparison.Ordinal)))
