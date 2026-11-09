@@ -538,9 +538,9 @@ public sealed class LibraryCommandTests : IDisposable
         var after = await Run("library", "list", "--saved", "--json");
 
         Assert.Equal(0, saved.ExitCode);
-        Assert.Contains("Filtro por tag: com todas de favorito; sem vndb:cena explícita. Salvo.", saved.Output);
+        Assert.Contains("Filtro por tag: com todas de favorito; sem (tag escondida). Salvo.", saved.Output);
         Assert.Equal(["CLANNAD", "Eroge"], Titles(used));
-        Assert.Contains("Filtro salvo: com todas de favorito; sem vndb:cena explícita.", shown.Output);
+        Assert.Contains("Filtro salvo: com todas de favorito; sem (tag escondida).", shown.Output);
         Assert.Equal(1, clash.ExitCode);
         Assert.Contains("--saved", clash.Error);
         Assert.Contains("Filtro por tag salvo apagado.", cleared.Output);
@@ -573,6 +573,73 @@ public sealed class LibraryCommandTests : IDisposable
 
         await Run("library", "tag", "delete", "b", "--yes");
         Assert.Empty(SavedTags().SavedFilter.Exclude);
+    }
+
+    [Fact]
+    public async Task Apagar_a_tag_que_era_o_unico_termo_do_filtro_salvo_apaga_o_filtro_e_avisa()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "a");
+        await Run("library", "list", "--tag", "minha:a", "--save");
+
+        var result = await Run("library", "tag", "delete", "a", "--yes");
+        var json = await Run("library", "list", "--saved", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso: O filtro salvo foi apagado", result.Output);
+        Assert.True(SavedTags().SavedFilter.IsEmpty);
+        Assert.Equal(4, Titles(json).Length);
+    }
+
+    [Fact]
+    public async Task Mesclar_com_o_alvo_em_not_avisa_do_conflito_no_filtro_salvo()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "a");
+        await Run("library", "tag", "add", "Eroge", "b");
+        await Run("library", "list", "--tag", "a", "--tag", "x", "--not", "b", "--save");
+
+        var result = await Run("library", "tag", "rename", "a", "b", "--merge");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso: No filtro salvo, 'b' estava em --tag e em --not", result.Output);
+        Assert.Equal(["x"], SavedTags().SavedFilter.Include);
+        Assert.Equal(["b"], SavedTags().SavedFilter.Exclude);
+    }
+
+    [Fact]
+    public async Task Filtro_salvo_com_tag_do_vndb_escondida_aparece_mascarado_sem_a_opcao()
+    {
+        await Prepare();
+        await Run("library", "list", "--tag", "vndb:o final", "--not", "vndb:cena explícita", "--show-spoilers", "--show-adult", "--save");
+
+        var hiddenList = await Run("library", "list", "--saved");
+        var hiddenJson = Data(await Run("library", "list", "--saved", "--json")).GetProperty("filter");
+        var hiddenTagList = await Run("library", "tag", "list");
+        var hiddenTagJson = Data(await Run("library", "tag", "list", "--json")).GetProperty("filter");
+        var shown = await Run("library", "list", "--saved", "--show-spoilers", "--show-adult");
+
+        Assert.Contains("(tag escondida)", hiddenList.Output);
+        Assert.DoesNotContain("o final", hiddenList.Output);
+        Assert.DoesNotContain("explícita", hiddenList.Output);
+        Assert.Equal(["(tag escondida)"], hiddenJson.GetProperty("include").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["(tag escondida)"], hiddenJson.GetProperty("exclude").EnumerateArray().Select(e => e.GetString()));
+        Assert.Contains("(tag escondida)", hiddenTagList.Output);
+        Assert.DoesNotContain("o final", hiddenTagList.Output);
+        Assert.Equal(["(tag escondida)"], hiddenTagJson.GetProperty("include").EnumerateArray().Select(e => e.GetString()));
+        Assert.Contains("vndb:o final", shown.Output);
+    }
+
+    [Fact]
+    public async Task Tag_com_largura_total_e_a_mesma_do_filtro_normal()
+    {
+        await Prepare();
+        await Run("library", "tag", "add", "CLANNAD", "ｆａｖｏｒｉｔｏ");
+
+        var result = await Run("library", "list", "--tag", "FAVORITO", "--json");
+
+        Assert.Equal(["CLANNAD"], Titles(result));
+        Assert.Equal(["favorito"], SavedTags().Tags.Select(t => t.Name));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Projects;
 
 namespace VNForge.Core.Library;
 
@@ -43,7 +44,57 @@ public sealed class UserTagsFile(string directory)
         }
     }
 
+    /// <summary>
+    /// Lê as tags, aplica <paramref name="change"/> e grava, com o arquivo travado (<c>.lock</c> ao lado): quem mudou o arquivo no meio (outro <c>vnf</c>, o app)
+    /// não perde o que gravou. Se <paramref name="change"/> lançar, nada é gravado.
+    /// </summary>
+    /// <exception cref="LibraryException">O arquivo está ilegível, não pôde ser gravado, ou outro processo o segurou por mais de <see cref="LibraryFile.LockTimeout"/>.</exception>
+    public T Update<T>(Func<UserTags, T> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        using var gate = Acquire();
+        var tags = Load();
+        var result = change(tags);
+        Save(tags);
+        return result;
+    }
+
+    /// <inheritdoc cref="Update{T}(Func{UserTags, T})"/>
+    public void Update(Action<UserTags> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        Update(tags =>
+        {
+            change(tags);
+            return 0;
+        });
+    }
+
+    private FileStream Acquire()
+    {
+        var lockPath = Path + ".lock";
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                if (System.Diagnostics.Stopwatch.GetElapsedTime(started) > LibraryFile.LockTimeout)
+                {
+                    throw new LibraryException($"As tags ('{Path}') estão em uso por outro processo. Tente de novo em instantes.", e);
+                }
+
+                Thread.Sleep(20);
+            }
+        }
+    }
+
     /// <summary>Grava as tags sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
+    /// <exception cref="LibraryException">O temporário não pôde ser escrito ou não pôde substituir o arquivo; a mensagem cita o arquivo e a causa.</exception>
     public void Save(UserTags tags)
     {
         ArgumentNullException.ThrowIfNull(tags);
@@ -52,11 +103,27 @@ public sealed class UserTagsFile(string directory)
         try
         {
             File.WriteAllText(temporary, Serialize(tags));
-            File.Move(temporary, Path, overwrite: true);
+            ProjectFileIo.Move(temporary, Path, overwrite: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"As tags não puderam ser gravadas em '{Path}': {e.Message}", e);
         }
         finally
         {
-            File.Delete(temporary);
+            DeleteQuietly(temporary);
+        }
+    }
+
+    /// <summary>Apaga o temporário sem deixar uma falha da limpeza esconder a falha que já está subindo.</summary>
+    private static void DeleteQuietly(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
         }
     }
 

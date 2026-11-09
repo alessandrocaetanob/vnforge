@@ -76,10 +76,16 @@ public static partial class LibraryVisibility
         return game.Info is { } info ? VisibleTags(info, privacy) : [];
     }
 
+    /// <summary>A privacidade esconde a tag: ela tem spoiler e <see cref="LibraryPrivacy.ShowSpoilers"/> é falso, ou é erótica e <see cref="LibraryPrivacy.ShowAdult"/> é falso.</summary>
+    public static bool IsHidden(LibraryTag tag, LibraryPrivacy privacy)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+        ArgumentNullException.ThrowIfNull(privacy);
+        return (!privacy.ShowSpoilers && tag.Spoiler != 0) || (!privacy.ShowAdult && tag.Category == EroticCategory);
+    }
+
     private static List<LibraryTag> VisibleTags(LibraryVndbInfo info, LibraryPrivacy privacy) =>
-        [.. info.Tags
-            .Where(t => privacy.ShowSpoilers || t.Spoiler == 0)
-            .Where(t => privacy.ShowAdult || t.Category != EroticCategory)];
+        [.. info.Tags.Where(t => !IsHidden(t, privacy))];
 
     /// <summary>A sinopse do VNDB em texto simples. Sem <paramref name="showSpoilers"/>, cada trecho <c>[spoiler]...[/spoiler]</c> vira <see cref="SpoilerPlaceholder"/>.</summary>
     public static string PlainSynopsis(string description, bool showSpoilers, out bool hadSpoilers)

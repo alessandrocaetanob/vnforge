@@ -16,7 +16,7 @@ public static class CommandExamples
         ["library scan"] = [@"vnf library scan D:\Jogos", @"vnf library scan E:\ --depth 4 --unknown"],
         ["library match"] = ["vnf library match", "vnf library match --auto", "vnf library match --confirm CLANNAD v4"],
         ["library list"] = ["vnf library list --state pending", "vnf library list CLANNAD --show-spoilers", "vnf library list --tag favorito --tag vndb:drama --not rejogar", "vnf library list --tag favorito --tag rejogar --any --save"],
-        ["library tag add"] = ["vnf library tag add CLANNAD favorito", "vnf library tag add CLANNAD rejogar --color #ff8800"],
+        ["library tag add"] = ["vnf library tag add CLANNAD favorito", "vnf library tag add CLANNAD rejogar --color ff8800"],
         ["library tag remove"] = ["vnf library tag remove CLANNAD rejogar"],
         ["library tag list"] = ["vnf library tag list", "vnf library tag list CLANNAD"],
         ["library tag rename"] = ["vnf library tag rename favorito favoritos", "vnf library tag rename rejogar favorito --merge"],

@@ -1,6 +1,10 @@
 using System.Globalization;
+using System.Text;
 
 namespace VNForge.Core.Library;
+
+/// <summary>O que renomear, mesclar ou apagar fez: quantos jogos tinham a tag e os avisos sobre o filtro salvo que a pessoa precisa ver (termo que saiu, filtro apagado, conflito resolvido).</summary>
+public sealed record UserTagEdit(int Games, IReadOnlyList<string> Notices);
 
 /// <summary>Uma tag da pessoa. <paramref name="Name"/> já vem normalizada (<see cref="UserTagName.Normalize"/>) e é a chave; <paramref name="Color"/> é <c>#rrggbb</c> ou nulo.</summary>
 public sealed record UserTag(string Name, string? Color);
@@ -41,9 +45,12 @@ public static class UserTagName
         return text;
     }
 
-    /// <summary>A mesma limpeza de <see cref="Normalize"/> sem as regras de nome: serve para comparar com o nome de uma tag do VNDB.</summary>
+    /// <summary>
+    /// A mesma limpeza de <see cref="Normalize"/> sem as regras de nome: serve para comparar com o nome de uma tag do VNDB. Passa por NFKC antes de tudo,
+    /// então <c>ｆａｖｏｒｉｔｏ</c> (largura total) vale <c>favorito</c> e <c>cafe</c> mais acento combinante vale <c>café</c>.
+    /// </summary>
     public static string Collapse(string? name) =>
-        string.Join(' ', (name ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+        string.Join(' ', (name ?? string.Empty).Normalize(NormalizationForm.FormKC).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
     /// <summary>A cor como <c>#rrggbb</c> em minúsculas; nulo quando não há cor. Aceita com ou sem <c>#</c>.</summary>
     /// <exception cref="LibraryException">A cor não tem seis dígitos hexadecimais.</exception>
@@ -144,17 +151,18 @@ public sealed class UserTags
 
     /// <summary>
     /// Troca o nome da tag em todos os jogos e no filtro salvo. Se <paramref name="to"/> já existe, só mescla com <paramref name="merge"/>: os jogos das duas ficam
-    /// com a de destino, que mantém a cor (ou ganha a da origem se não tinha). Devolve quantos jogos tinham a tag de origem.
+    /// com a de destino, que mantém a cor (ou ganha a da origem se não tinha). Devolve quantos jogos tinham a tag de origem e os avisos sobre o filtro salvo
+    /// (numa mescla com o destino já em <c>--not</c>, o termo sai de <c>--tag</c> e fica só na exclusão).
     /// </summary>
     /// <exception cref="LibraryException">A origem não existe, ou o destino existe e <paramref name="merge"/> é falso.</exception>
-    public int Rename(string from, string to, bool merge = false)
+    public UserTagEdit Rename(string from, string to, bool merge = false)
     {
         var source = Get(from);
         var target = UserTagName.Normalize(to);
         var games = GamesWith(source.Name);
         if (target == source.Name)
         {
-            return games.Count;
+            return new UserTagEdit(games.Count, []);
         }
 
         var existing = _tags.TryGetValue(target, out var destination);
@@ -172,13 +180,18 @@ public sealed class UserTags
             names.Add(target);
         }
 
-        SavedFilter = SavedFilter.Renamed(source.Name, target);
-        return games.Count;
+        var notices = new List<string>();
+        SavedFilter = SavedFilter.Renamed(source.Name, target, notices);
+        return new UserTagEdit(games.Count, notices);
     }
 
-    /// <summary>Apaga a tag do registro, de todos os jogos e do filtro salvo. Devolve quantos jogos a tinham.</summary>
+    /// <summary>
+    /// Apaga a tag do registro, de todos os jogos e do filtro salvo. Devolve quantos jogos a tinham e os avisos sobre o filtro salvo: termo que saiu, ou o filtro
+    /// inteiro apagado quando a tag era o que ele exigia. Um termo sem prefixo que ainda bate com uma tag do VNDB de <paramref name="libraryGames"/> não sai:
+    /// passa a valer só para o VNDB (<c>vndb:nome</c>).
+    /// </summary>
     /// <exception cref="LibraryException">A tag não existe.</exception>
-    public int Delete(string name)
+    public UserTagEdit Delete(string name, IEnumerable<LibraryGame>? libraryGames = null)
     {
         var key = Get(name).Name;
         var games = GamesWith(key);
@@ -188,8 +201,11 @@ public sealed class UserTags
         }
 
         _tags.Remove(key);
-        SavedFilter = SavedFilter.Without(key);
-        return games.Count;
+        var vndbGames = libraryGames?.ToList() ?? [];
+        var term = new LibraryTagTerm(LibraryTagScope.Vndb, key);
+        var notices = new List<string>();
+        SavedFilter = SavedFilter.Without(key, vndbGames.Any(g => g.Info is { } info && info.Tags.Any(term.Matches)), notices);
+        return new UserTagEdit(games.Count, notices);
     }
 
     private void Assign(string gameId, string key)

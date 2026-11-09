@@ -97,15 +97,15 @@ Seção "Biblioteca" da ajuda: `library`. A biblioteca (d2, #548) guarda as VNs 
 
 ### Tags suas
 
-Você põe tags próprias nos jogos (d12, #559), como `favorito`, `rejogar` ou `pra traduzir`, além das tags do VNDB. As tags ficam em `library-tags.json`, ao lado do `library.json`, só neste computador: não sobem para o VNDB e valem só para jogos. O nome é normalizado (espaços das pontas saem, espaços repetidos viram um e tudo vai para minúsculas, então `Pra  Traduzir` e `pra traduzir` são a mesma tag), tem até 40 caracteres e não leva dois-pontos. A cor é opcional (`#rrggbb`). Um arquivo ilegível é recusado, como o da biblioteca, e nunca é sobrescrito. Como o arquivo é separado, varrer ou casar a biblioteca não toca nas tags, e as tags de um jogo que saiu da lista voltam se ele for achado de novo.
+Você põe tags próprias nos jogos (d12, #559), como `favorito`, `rejogar` ou `pra traduzir`, além das tags do VNDB. As tags ficam em `library-tags.json`, ao lado do `library.json`, só neste computador: não sobem para o VNDB e valem só para jogos. O nome é normalizado (NFKC, então `ｆａｖｏｒｉｔｏ` de largura total vale `favorito` e `café` com acento combinante vale `café`; espaços das pontas saem, espaços repetidos viram um e tudo vai para minúsculas, então `Pra  Traduzir` e `pra traduzir` são a mesma tag), tem até 40 caracteres e não leva dois-pontos. A cor é opcional (`rrggbb`, como `ff8800`; o `#` é aceito, mas no shell ele abre um comentário, então use aspas: `--color "#ff8800"`). Um arquivo ilegível é recusado, como o da biblioteca, e nunca é sobrescrito. Todo comando que grava relê o arquivo sob uma trava (`library-tags.json.lock`) antes de gravar, então dois `vnf` (ou o `vnf` e o app) ao mesmo tempo não perdem as tags um do outro; a troca do arquivo que falha cita o caminho na mensagem. Como o arquivo é separado, varrer ou casar a biblioteca não toca nas tags, e as tags de um jogo que saiu da lista voltam se ele for achado de novo.
 
 | Comando | O que faz |
 |---|---|
-| `vnf library tag add <jogo> <tag>... [--color #rrggbb]` | Põe as tags no jogo e cria as que ainda não existem. `--color` define a cor das tags citadas; sem ele, a cor que elas já têm fica |
+| `vnf library tag add <jogo> <tag>... [--color rrggbb]` | Põe as tags no jogo e cria as que ainda não existem. `--color` define a cor das tags citadas; sem ele, a cor que elas já têm fica |
 | `vnf library tag remove <jogo> <tag>...` | Tira as tags do jogo. As tags continuam na lista, mesmo sem nenhum jogo |
 | `vnf library tag list [jogo]` | Sem `<jogo>`, lista as tags com a cor e quantos jogos da biblioteca usam, e mostra o filtro salvo. Com `<jogo>`, mostra só as tags dele |
 | `vnf library tag rename <de> <para> [--merge]` | Renomeia a tag em todos os jogos que a usam e no filtro salvo. Se `<para>` já existe, recusa; com `--merge`, junta os jogos das duas nela (a cor do destino fica; se ele não tem, herda a da origem) |
-| `vnf library tag delete <tag>` | Apaga a tag, de todos os jogos e do filtro salvo. Pergunta antes quando algum jogo a usa; `--yes` pula a pergunta e, com `--json`, ela é obrigatória. Recusar sai com código 3 |
+| `vnf library tag delete <tag>` | Apaga a tag, de todos os jogos e do filtro salvo (veja as regras do filtro salvo abaixo). Pergunta antes quando algum jogo a usa; `--yes` pula a pergunta e, com `--json`, ela é obrigatória. Recusar sai com código 3 |
 
 O filtro de `library list` junta as tags suas e as do VNDB:
 
@@ -114,7 +114,8 @@ O filtro de `library list` junta as tags suas e as do VNDB:
 - Um termo sem prefixo vale para tag sua e para tag do VNDB com esse nome (ou id, como `g1`). `minha:nome` limita à sua e `vndb:nome-ou-id` à do VNDB.
 - Caixa e espaços repetidos não contam, como nos nomes.
 - Só entram as tags do VNDB que a privacidade da biblioteca mostra. Sem `--show-spoilers`, uma tag de spoiler não acha nem exclui jogo nenhum; sem `--show-adult`, o mesmo vale para toda tag erótica, de jogo adulto ou não. Assim o filtro não revela o que a ficha esconde. As suas tags não dependem da privacidade.
-- `--save` guarda a combinação como o filtro salvo (sem nenhuma tag, apaga o filtro salvo) e `--saved` aplica o filtro salvo. `--saved` não combina com `--tag`, `--any`, `--not` nem `--save`. Renomear ou apagar uma tag acerta o filtro salvo. Ao renomear, um termo sem prefixo que também poderia ser tag do VNDB passa a apontar para o novo nome.
+- `--save` guarda a combinação como o filtro salvo (sem nenhuma tag, apaga o filtro salvo) e `--saved` aplica o filtro salvo. `--saved` não combina com `--tag`, `--any`, `--not` nem `--save`. Renomear ou apagar uma tag acerta o filtro salvo e o comando avisa do que mudou nele (`Aviso:` no texto, `notices` no `--json`). Ao renomear, um termo sem prefixo passa a apontar para o novo nome. Ao apagar, o termo sai do filtro; um termo sem prefixo que ainda bate com uma tag do VNDB de mesmo nome fica como `vndb:nome`; se a tag era tudo o que o filtro exigia (ele ficaria sem `--tag`), o filtro salvo inteiro é apagado. Numa mescla em que o destino já estava em `--not`, o termo sai de `--tag` e fica só em `--not`.
+- O filtro salvo nunca mostra o que a privacidade esconde: um termo que só casa com tag de spoiler ou erótica escondida aparece como `(tag escondida)` em `list` e em `tag list` (texto e `--json`), a menos que a chamada use `--show-spoilers` ou `--show-adult`. O filtro em si segue valendo com o termo verdadeiro.
 - Com `<jogo>` (a ficha), as opções de filtro são recusadas.
 
 O `--json` de `library list` traz também `filter` (`include`, `any`, `exclude`) e `filterSaved`; o de `library tag list`, `tags` (`name`, `color`, `games`) e `filter`.

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace VNForge.Core.Library;
@@ -24,7 +25,7 @@ public sealed record LibraryTagTerm(LibraryTagScope Scope, string Name)
     /// <exception cref="LibraryException">O termo está vazio.</exception>
     public static LibraryTagTerm Parse(string? text)
     {
-        var value = (text ?? string.Empty).TrimStart();
+        var value = (text ?? string.Empty).Normalize(NormalizationForm.FormKC).TrimStart();
         var scope = LibraryTagScope.Any;
         if (value.StartsWith(OwnPrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -63,6 +64,9 @@ public sealed record LibraryTagTerm(LibraryTagScope Scope, string Name)
 /// </summary>
 public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, IReadOnlyList<string> Exclude)
 {
+    /// <summary>No lugar de um termo que a privacidade esconde, quando o filtro é mostrado (<see cref="Masked"/>).</summary>
+    public const string HiddenTerm = "(tag escondida)";
+
     public static LibraryTagFilter Empty { get; } = new([], false, []);
 
     [JsonIgnore]
@@ -111,30 +115,120 @@ public sealed record LibraryTagFilter(IReadOnlyList<string> Include, bool Any, I
         return [.. games.Where(g => Matches(g, tags, privacy))];
     }
 
-    /// <summary>O filtro com a tag própria <paramref name="from"/> trocada por <paramref name="to"/>. Termos do VNDB ficam como estão.</summary>
-    internal LibraryTagFilter Renamed(string from, string to) =>
-        new(Rewrite(Include, from, to), Any, Rewrite(Exclude, from, to));
+    /// <summary>
+    /// O filtro com a tag própria <paramref name="from"/> trocada por <paramref name="to"/>. Termos do VNDB ficam como estão. Se depois da troca <paramref name="to"/>
+    /// está em <see cref="Include"/> e em <see cref="Exclude"/> (mesclar com uma tag que já era exclusão), o termo sai de <see cref="Include"/> e um aviso vai para <paramref name="notices"/>.
+    /// </summary>
+    internal LibraryTagFilter Renamed(string from, string to, List<string> notices)
+    {
+        var include = Rewrite(Include, from, term => term with { Name = to });
+        var exclude = Rewrite(Exclude, from, term => term with { Name = to });
+        var conflicts = include.Where(t => OwnNamed(t, to)).ToList();
+        if (conflicts.Count > 0 && exclude.Any(t => OwnNamed(t, to)))
+        {
+            include = [.. include.Except(conflicts)];
+            notices.Add($"No filtro salvo, '{to}' estava em --tag e em --not depois da mescla. Ficou só em --not.");
+        }
 
-    /// <summary>O filtro sem os termos que apontam para a tag própria <paramref name="name"/>.</summary>
-    internal LibraryTagFilter Without(string name) =>
-        new(Rewrite(Include, name, null), Any, Rewrite(Exclude, name, null));
+        return new(include, Any, exclude);
+    }
+
+    /// <summary>
+    /// O filtro sem os termos que apontam para a tag própria <paramref name="name"/>. O termo sem prefixo vira <c>vndb:nome</c> em vez de sair quando
+    /// <paramref name="vndbStillMatches"/> (ainda há tag do VNDB com esse nome). Se a tag era tudo o que o filtro exigia, ele inteiro é apagado. Os avisos vão para <paramref name="notices"/>.
+    /// </summary>
+    internal LibraryTagFilter Without(string name, bool vndbStillMatches, List<string> notices)
+    {
+        var converted = false;
+        LibraryTagTerm? Keep(LibraryTagTerm term)
+        {
+            if (term.Scope != LibraryTagScope.Any || !vndbStillMatches)
+            {
+                return null;
+            }
+
+            converted = true;
+            return term with { Scope = LibraryTagScope.Vndb };
+        }
+
+        var include = Rewrite(Include, name, Keep);
+        var exclude = Rewrite(Exclude, name, Keep);
+        if ((Include.Count > 0 && include.Count == 0) || (!IsEmpty && include.Count + exclude.Count == 0))
+        {
+            notices.Add($"O filtro salvo foi apagado: ele dependia da tag '{name}'.");
+            return Empty;
+        }
+
+        var lost = Include.Count + Exclude.Count - include.Count - exclude.Count;
+        if (lost > 0)
+        {
+            notices.Add($"O filtro salvo perdeu {(lost == 1 ? "um termo" : $"{lost} termos")} que apontava para a tag '{name}'.");
+        }
+
+        if (converted)
+        {
+            notices.Add($"No filtro salvo, '{name}' agora vale só para a tag do VNDB com esse nome.");
+        }
+
+        return new(include, Any, exclude);
+    }
+
+    /// <summary>
+    /// O filtro com os termos que a privacidade esconde trocados por <see cref="HiddenTerm"/>, para mostrar sem revelar. Um termo que não é só de tag própria
+    /// esconde quando casa com alguma tag do VNDB escondida em <paramref name="games"/> e com nenhuma que a privacidade mostre; o nome de uma tag sua nunca esconde.
+    /// </summary>
+    public LibraryTagFilter Masked(IReadOnlyCollection<LibraryGame> games, UserTags tags, LibraryPrivacy privacy, out int hidden)
+    {
+        ArgumentNullException.ThrowIfNull(games);
+        ArgumentNullException.ThrowIfNull(tags);
+        ArgumentNullException.ThrowIfNull(privacy);
+        var count = 0;
+        string Mask(string text)
+        {
+            var term = LibraryTagTerm.Parse(text);
+            if (term.Scope == LibraryTagScope.Own || (term.Scope == LibraryTagScope.Any && tags.TryGet(term.Name, out _)))
+            {
+                return text;
+            }
+
+            var tagsOfGames = games.SelectMany(g => g.Info?.Tags ?? []).Where(term.Matches).ToList();
+            if (tagsOfGames.Any(t => LibraryVisibility.IsHidden(t, privacy)) && !tagsOfGames.Any(t => !LibraryVisibility.IsHidden(t, privacy)))
+            {
+                count++;
+                return HiddenTerm;
+            }
+
+            return text;
+        }
+
+        var masked = new LibraryTagFilter([.. Include.Select(Mask)], Any, [.. Exclude.Select(Mask)]);
+        hidden = count;
+        return masked;
+    }
+
+    private static bool OwnNamed(string text, string name)
+    {
+        var term = LibraryTagTerm.Parse(text);
+        return term.Scope != LibraryTagScope.Vndb && term.Name == name;
+    }
 
     private static List<string> Terms(IEnumerable<string>? texts) =>
         [.. (texts ?? []).Select(t => LibraryTagTerm.Parse(t).ToString()).Distinct(StringComparer.Ordinal)];
 
-    private static List<string> Rewrite(IReadOnlyList<string> terms, string from, string? to)
+    /// <summary>Aplica <paramref name="map"/> aos termos de tag própria chamados <paramref name="name"/> (nulo tira o termo); os demais ficam como estão.</summary>
+    private static List<string> Rewrite(IReadOnlyList<string> terms, string name, Func<LibraryTagTerm, LibraryTagTerm?> map)
     {
         var result = new List<string>();
         foreach (var text in terms)
         {
             var term = LibraryTagTerm.Parse(text);
-            if (term.Scope == LibraryTagScope.Vndb || term.Name != from)
+            if (term.Scope == LibraryTagScope.Vndb || term.Name != name)
             {
                 result.Add(text);
             }
-            else if (to is not null)
+            else if (map(term) is { } mapped)
             {
-                result.Add((term with { Name = to }).ToString());
+                result.Add(mapped.ToString());
             }
         }
 

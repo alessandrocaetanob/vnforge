@@ -130,6 +130,50 @@ public sealed class LibraryTagFilterTests
     }
 
     [Fact]
+    public void Tag_erotica_de_jogo_nao_marcado_como_adulto_tambem_some_sem_show_adult()
+    {
+        var plain = TagTestGames.WithVndb("Comum", false, Drama, Explicit);
+        var tags = new UserTags();
+        var filter = LibraryTagFilter.Create(["vndb:cena explícita"], any: false, null);
+
+        Assert.Equal([Drama], LibraryVisibility.VisibleTags(plain, Hidden));
+        Assert.Empty(filter.Apply([plain], tags, Hidden));
+        Assert.Single(filter.Apply([plain], tags, new LibraryPrivacy(ShowAdult: true)));
+        Assert.Equal(LibraryVisibility.Card(plain, Hidden)!.Tags, LibraryVisibility.VisibleTags(plain, Hidden));
+    }
+
+    [Fact]
+    public void Termo_do_vndb_ignora_largura_e_forma_de_composicao_do_unicode()
+    {
+        var cafe = new LibraryTag("g7", "Café", "cont", 2.0, 0);
+        var game = TagTestGames.WithVndb("Jogo", false, cafe);
+        var tags = new UserTags();
+        tags.Add(game.Id, "Ｆａｖｏｒｉｔｏ");
+
+        Assert.Single(LibraryTagFilter.Create(["vndb:café"], any: false, null).Apply([game], tags, Hidden));
+        Assert.Single(LibraryTagFilter.Create(["ｖｎｄｂ：Ｃａｆé"], any: false, null).Apply([game], tags, Hidden));
+        Assert.Single(LibraryTagFilter.Create(["favorito"], any: false, null).Apply([game], tags, Hidden));
+        Assert.Equal(["vndb:café"], LibraryTagFilter.Create(["vndb:café"], any: false, null).Include);
+    }
+
+    [Fact]
+    public void Mascarar_troca_so_os_termos_do_vndb_que_a_privacidade_esconde()
+    {
+        var (tags, games) = Setup();
+        var filter = LibraryTagFilter.Create(["vndb:plot twist", "drama", "favorito", "cena explícita"], any: false, ["vndb:g3", "vndb:xyz"]);
+
+        var masked = filter.Masked(games, tags, Hidden, out var count);
+        var revealed = filter.Masked(games, tags, new LibraryPrivacy(ShowSpoilers: true, ShowAdult: true), out var none);
+
+        Assert.Equal(3, count);
+        Assert.Equal([LibraryTagFilter.HiddenTerm, "drama", "favorito", LibraryTagFilter.HiddenTerm], masked.Include);
+        Assert.Equal([LibraryTagFilter.HiddenTerm, "vndb:xyz"], masked.Exclude);
+        Assert.Equal(0, none);
+        Assert.Equal(filter.Include, revealed.Include);
+        Assert.Equal(filter.Exclude, revealed.Exclude);
+    }
+
+    [Fact]
     public void Termos_repetidos_viram_um()
     {
         var filter = LibraryTagFilter.Create(["Drama", "drama ", "minha:drama"], any: false, null);

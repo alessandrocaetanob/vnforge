@@ -19,6 +19,31 @@ public sealed class UserTagsTests
     public void Nome_invalido_e_recusado(string? input) =>
         Assert.Throws<LibraryException>(() => UserTagName.Normalize(input));
 
+    [Theory]
+    [InlineData("ｆａｖｏｒｉｔｏ", "favorito")]
+    [InlineData("Ｐｒａ　ｔｒａｄｕｚｉｒ", "pra traduzir")]
+    [InlineData("café", "café")]
+    [InlineData("CAFÉ", "café")]
+    public void Nome_ignora_largura_e_forma_de_composicao_do_unicode(string input, string expected) =>
+        Assert.Equal(expected, UserTagName.Normalize(input));
+
+    [Fact]
+    public void Nome_em_nfd_e_nfc_e_a_mesma_tag()
+    {
+        var tags = new UserTags();
+        tags.Add("g1", "café");
+        tags.Add("g1", "café");
+        tags.Add("g1", "ｃａｆé");
+
+        Assert.Equal(["café"], tags.TagsOf("g1"));
+        Assert.True(tags.Has("g1", "ＣＡＦÉ"));
+        Assert.Single(tags.Tags);
+    }
+
+    [Fact]
+    public void Dois_pontos_de_largura_total_tambem_sao_recusados() =>
+        Assert.Throws<LibraryException>(() => UserTagName.Normalize("vndb：drama"));
+
     [Fact]
     public void Nome_longo_demais_e_recusado() =>
         Assert.Throws<LibraryException>(() => UserTagName.Normalize(new string('a', UserTagName.MaxLength + 1)));
@@ -90,7 +115,7 @@ public sealed class UserTagsTests
 
         var changed = tags.Rename("rejogar", "Rejogar Depois");
 
-        Assert.Equal(2, changed);
+        Assert.Equal(2, changed.Games);
         Assert.False(tags.TryGet("rejogar", out _));
         Assert.Equal(new UserTag("rejogar depois", "#00ff00"), tags.Get("rejogar depois"));
         Assert.Equal(["rejogar depois"], tags.TagsOf("g1"));
@@ -122,7 +147,7 @@ public sealed class UserTagsTests
 
         var changed = tags.Rename("a", "b", merge: true);
 
-        Assert.Equal(2, changed);
+        Assert.Equal(2, changed.Games);
         Assert.Equal(new UserTag("b", "#bbbbbb"), Assert.Single(tags.Tags));
         Assert.Equal(["b"], tags.TagsOf("g1"));
         Assert.Equal(["b"], tags.TagsOf("g2"));
@@ -147,7 +172,7 @@ public sealed class UserTagsTests
         var tags = new UserTags();
         tags.Add("g1", "a");
 
-        Assert.Equal(1, tags.Rename("a", "A"));
+        Assert.Equal(1, tags.Rename("a", "A").Games);
 
         Assert.Equal(["a"], tags.TagsOf("g1"));
     }
@@ -162,12 +187,84 @@ public sealed class UserTagsTests
 
         var changed = tags.Delete("Velha");
 
-        Assert.Equal(2, changed);
+        Assert.Equal(2, changed.Games);
         Assert.False(tags.TryGet("velha", out _));
         Assert.Empty(tags.TagsOf("g1"));
         Assert.Equal(["nova"], tags.TagsOf("g2"));
         Assert.Equal(["g2"], tags.GameIds);
         Assert.Throws<LibraryException>(() => tags.Delete("velha"));
+    }
+
+    [Fact]
+    public void Apagar_o_unico_termo_do_filtro_salvo_apaga_o_filtro_e_avisa()
+    {
+        var tags = new UserTags();
+        tags.Add("g1", "a");
+        tags.SavedFilter = LibraryTagFilter.Create(["minha:a"], any: false, null);
+
+        var edit = tags.Delete("a");
+
+        Assert.True(tags.SavedFilter.IsEmpty);
+        var notice = Assert.Single(edit.Notices);
+        Assert.Contains("filtro salvo foi apagado", notice);
+    }
+
+    [Fact]
+    public void Apagar_a_unica_tag_exigida_nao_deixa_so_a_exclusao_valendo()
+    {
+        var tags = new UserTags();
+        tags.Add("g1", "a");
+        tags.Add("g1", "b");
+        tags.SavedFilter = LibraryTagFilter.Create(["a"], any: false, ["b"]);
+
+        var edit = tags.Delete("a");
+
+        Assert.True(tags.SavedFilter.IsEmpty);
+        Assert.Contains("filtro salvo foi apagado", Assert.Single(edit.Notices));
+    }
+
+    [Fact]
+    public void Apagar_um_de_varios_termos_tira_so_ele_e_avisa()
+    {
+        var tags = new UserTags();
+        tags.Add("g1", "a");
+        tags.SavedFilter = LibraryTagFilter.Create(["a", "vndb:g1"], any: false, null);
+
+        var edit = tags.Delete("a");
+
+        Assert.Equal(["vndb:g1"], tags.SavedFilter.Include);
+        Assert.Contains("perdeu", Assert.Single(edit.Notices));
+    }
+
+    [Fact]
+    public void Apagar_nao_tira_do_filtro_o_termo_sem_prefixo_que_ainda_bate_com_tag_do_vndb()
+    {
+        var game = TagTestGames.WithVndb("Jogo", false, new LibraryTag("g1", "Drama", "cont", 2.9, 0));
+        var tags = new UserTags();
+        tags.Add(game.Id, "drama");
+        tags.Add(game.Id, "outra");
+        tags.SavedFilter = LibraryTagFilter.Create(["drama", "outra"], any: false, ["drama"]);
+
+        var edit = tags.Delete("drama", [game]);
+
+        Assert.Equal(["vndb:drama", "outra"], tags.SavedFilter.Include);
+        Assert.Equal(["vndb:drama"], tags.SavedFilter.Exclude);
+        Assert.Contains("só para a tag do VNDB", string.Join(' ', edit.Notices));
+    }
+
+    [Fact]
+    public void Mesclar_com_o_alvo_em_exclusao_tira_o_termo_de_inclusao_e_avisa()
+    {
+        var tags = new UserTags();
+        tags.Add("g1", "a");
+        tags.Add("g2", "b");
+        tags.SavedFilter = LibraryTagFilter.Create(["a", "x"], any: false, ["b"]);
+
+        var edit = tags.Rename("a", "b", merge: true);
+
+        Assert.Equal(["x"], tags.SavedFilter.Include);
+        Assert.Equal(["b"], tags.SavedFilter.Exclude);
+        Assert.Contains("--not", Assert.Single(edit.Notices));
     }
 
     [Fact]
