@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:jm="using:VNForge.Core.Jmdict"
+             x:Class="VNForge.App.Views.WordCardView"
+             x:DataType="vm:LineDetailViewModel">
+
+  <!-- O cartão do dicionário offline (#538), o .pop do quadro: a palavra, a leitura e a classe; os sentidos numerados; "Mais N sentidos"; e o rodapé com a origem do
+       dicionário e o glossário. O aviso de download, o andamento e o erro usam o mesmo cartão. -->
+  <Border Classes="word-card" AutomationProperties.Name="Dicionário offline">
+    <Panel>
+      <StackPanel Spacing="6" IsVisible="{Binding IsEntryCard}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+          <TextBlock Text="{Binding WordText}" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="24" LineHeight="32" FontWeight="Medium" VerticalAlignment="Bottom"
+                     AutomationProperties.Name="Palavra"/>
+          <TextBlock Grid.Column="1" Text="{Binding WordReading}" IsVisible="{Binding HasWordReading}" FontFamily="{DynamicResource Vnf.FontJp}"
+                     FontSize="{DynamicResource Vnf.FontSize.BodySm}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Classes="secondary" TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Bottom" Margin="0,0,0,4" AutomationProperties.Name="Leitura"/>
+          <Border Grid.Column="2" Classes="word-tag" IsVisible="{Binding HasWordTag}" VerticalAlignment="Bottom" Margin="0,0,0,4">
+            <TextBlock Text="{Binding WordTag}" ToolTip.Tip="{Binding WordTag}" AutomationProperties.Name="Classe gramatical"/>
+          </Border>
+        </Grid>
+        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding WordNote}" IsVisible="{Binding HasWordNote}" AutomationProperties.Name="Conjugação"/>
+        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="4">
+            <ItemsControl ItemsSource="{Binding WordSenses}" AutomationProperties.Name="Sentidos">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="4"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:WordSenseRow">
+                  <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
+                    <TextBlock Classes="mono secondary" FontWeight="Bold" Text="{Binding Number}" VerticalAlignment="Top"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Text}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Classes="word-more" Command="{Binding ExpandWordCommand}" IsVisible="{Binding HasWordMore}" AutomationProperties.Name="Ver o resto da entrada">
+              <TextBlock Text="{Binding WordMore}"/>
+            </Button>
+            <ItemsControl ItemsSource="{Binding WordOthers}" IsVisible="{Binding HasWordOthers}" AutomationProperties.Name="Outras entradas">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:WordOtherEntryRow">
+                  <StackPanel Spacing="4" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                      <TextBlock Classes="body-strong" FontFamily="{DynamicResource Vnf.FontJp}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                      <Border Grid.Column="1" Classes="word-tag">
+                        <TextBlock Text="{Binding Tag}" ToolTip.Tip="{Binding Tag}"/>
+                      </Border>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Senses}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Spacing="4"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:WordSenseRow">
+                          <Grid ColumnDefinitions="14,*" ColumnSpacing="8">
+                            <TextBlock Classes="mono secondary" FontWeight="Bold" Text="{Binding Number}" VerticalAlignment="Top"/>
+                            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Text}"/>
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding WordNeedsUpdate}">
+          <TextBlock Classes="caption secondary" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="Este dicionário tem mais de 30 dias."/>
+          <Button Grid.Column="1" Classes="sm" Content="Atualizar" Command="{Binding InstallDictionaryCommand}" AutomationProperties.Name="Atualizar o dicionário"/>
+        </Grid>
+        <Border Classes="word-footer">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Classes="word-source" VerticalAlignment="Center" Click="OnLicenseClick" ToolTip.Tip="{Binding WordFootnoteTip}" AutomationProperties.Name="Origem do dicionário">
+              <TextBlock Text="{x:Static vm:LineDetailViewModel.WordFootnote}" TextTrimming="CharacterEllipsis"/>
+            </Button>
+            <Border Grid.Column="1" Classes="word-tag ok" IsVisible="{Binding InGlossary}" AutomationProperties.Name="Termo do glossário">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+                <TextBlock Text="{Binding GlossaryChipText}"/>
+              </StackPanel>
+            </Border>
+            <Button Grid.Column="1" Classes="sm" Content="Adicionar ao glossário" Command="{Binding AddWordToGlossaryCommand}" IsVisible="{Binding CanAddWordToGlossary}"
+                    AutomationProperties.Name="Adicionar ao glossário"/>
+          </Grid>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Spacing="8" IsVisible="{Binding IsOfferCard}">
+        <TextBlock Classes="title-sm" Text="Dicionário offline"/>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:LineDetailViewModel.OfferText}"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="accent sm" Content="Baixar o dicionário" Command="{Binding InstallDictionaryCommand}" AutomationProperties.Name="Baixar o dicionário"/>
+          <Button Classes="sm" Content="Agora não" Command="{Binding DismissDictionaryOfferCommand}" AutomationProperties.Name="Agora não"/>
+        </StackPanel>
+        <Border Classes="word-footer">
+          <Button Classes="word-source" Click="OnLicenseClick" ToolTip.Tip="{x:Static jm:JmdictSource.LicenseUrl}" AutomationProperties.Name="Licença do JMdict">
+            <TextBlock Text="JMdict · EDRDG · licença CC BY-SA"/>
+          </Button>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Spacing="8" IsVisible="{Binding IsInstallingCard}">
+        <TextBlock Classes="title-sm" Text="Dicionário offline"/>
+        <TextBlock Classes="body-sm" Text="{Binding InstallStatusText}"/>
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding InstallProgress, Mode=OneWay}" IsIndeterminate="{Binding InstallIsIndeterminate}" AutomationProperties.Name="Andamento do download"/>
+        <Button Classes="sm" HorizontalAlignment="Left" Content="Cancelar" Command="{Binding CancelDictionaryInstallCommand}" AutomationProperties.Name="Cancelar o download"/>
+      </StackPanel>
+
+      <StackPanel Spacing="8" IsVisible="{Binding IsFailedCard}">
+        <TextBlock Classes="title-sm" Text="Dicionário offline"/>
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding InstallProblem}" AutomationProperties.Name="Erro do dicionário"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="accent sm" Content="Baixar de novo" Command="{Binding InstallDictionaryCommand}"/>
+          <Button Classes="sm" Content="Fechar" Command="{Binding CloseWordCardCommand}"/>
+        </StackPanel>
+      </StackPanel>
+    </Panel>
+  </Border>
+</UserControl>

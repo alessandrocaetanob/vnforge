@@ -15,7 +15,7 @@ public static class VnfCommands
     public static IReadOnlyList<HelpSection> Sections { get; } =
     [
         new("Pipeline", ["init", "extract", "translate", "review", "check", "build", "inject", "run", "restore", "test", "release"]),
-        new("Projeto", ["status", "preview", "export", "import", "glossary", "memory", "chars", "title", "scripts", "lines", "images", "config", "detect"]),
+        new("Projeto", ["status", "preview", "export", "import", "glossary", "memory", "jmdict", "chars", "title", "scripts", "lines", "images", "config", "detect"]),
         new("Baixo nível", ["ypf", "ybn", "patch-exe"]),
     ];
 
@@ -39,6 +39,7 @@ public static class VnfCommands
         cli.Root.Subcommands.Add(ImportCommand.Create(cli));
         cli.Root.Subcommands.Add(GlossaryCommand.Create(cli));
         cli.Root.Subcommands.Add(MemoryCommand.Create(cli));
+        cli.Root.Subcommands.Add(JmdictCommand.Create(cli));
         cli.Root.Subcommands.Add(CharsCommand.Create(cli));
         cli.Root.Subcommands.Add(TitleCommand.Create(cli));
         cli.Root.Subcommands.Add(ScriptsCommand.Create(cli));
