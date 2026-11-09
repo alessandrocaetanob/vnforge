@@ -20,6 +20,14 @@ public static class ClaudeProviderFactory
         return new ClaudeTranslationProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
     }
 
+    /// <summary>Monta o provedor Claude da bíblia do jogo (<c>vnf bible generate</c>); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Bible.ClaudeBibleProvider CreateBible(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Bible.ClaudeBibleProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
+    }
+
     /// <summary>Monta o leitor de imagens do <c>vnf images scan</c>; mesmas regras de <see cref="Create"/>.</summary>
     public static VNForge.AI.Images.ClaudeImageTextReader CreateImageReader(string apiKey, ClaudeOptions options)
     {

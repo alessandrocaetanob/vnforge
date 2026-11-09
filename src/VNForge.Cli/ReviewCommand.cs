@@ -74,6 +74,7 @@ internal static class ReviewCommand
             addressTerms: project.LoadAddressTerms())
         {
             Pre = PreDictionary.For(project),
+            Bible = TranslateCommand.ReadBible(project, error),
         };
 
         if (parseResult.GetValue(Common.DryRun))

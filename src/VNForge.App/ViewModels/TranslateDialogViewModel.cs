@@ -361,6 +361,7 @@ public sealed partial class TranslateDialogViewModel : ObservableObject
             addressTerms: folder.LoadAddressTerms())
         {
             Pre = PreDictionary.For(folder),
+            Bible = folder.LoadBibleOrEmpty(out _),
         };
         var batchSize = Math.Clamp(config.Ai.BatchSize, TranslationRunOptions.MinBatchSize, TranslationRunOptions.MaxBatchSize);
         var effort = ClaudeEffortText.ParseOrDefault(config.Ai.Effort);

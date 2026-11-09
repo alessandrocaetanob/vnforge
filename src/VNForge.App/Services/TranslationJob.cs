@@ -77,6 +77,7 @@ public sealed class TranslationJob(
             addressTerms: project.LoadAddressTerms())
         {
             Pre = PreDictionary.For(project),
+            Bible = project.LoadBibleOrEmpty(out _),
         };
         var cachePath = Path.Combine(project.CacheDirectory, CacheFileName);
         var cache = TranslationCache.Load(cachePath);

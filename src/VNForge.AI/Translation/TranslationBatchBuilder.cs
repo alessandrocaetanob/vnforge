@@ -1,4 +1,5 @@
 using VNForge.Core.Dictionaries;
+using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
@@ -36,6 +37,8 @@ public sealed class TranslationBatchBuilder(
     private readonly string _styleGuide = styleGuide?.Trim() ?? string.Empty;
     private readonly StyleConfig _style = style ?? StyleConfig.Default;
     private readonly AddressBook _addressing = new(addressTerms ?? []);
+    /// <summary>A bíblia do jogo (#530): o resumo da cena de cada linha e a sinopse entram no pedido. Sem ela (ou nula) o lote é o de antes.</summary>
+    public GameBible Bible { get; init => field = value ?? GameBible.Empty; } = GameBible.Empty;
 
     /// <summary>
     /// Monta o lote de <paramref name="lines"/>. <paramref name="previous"/> são as linhas anteriores do script; entram como contexto
@@ -92,8 +95,19 @@ public sealed class TranslationBatchBuilder(
             .Take(MaxNextLines)
             .ToList();
 
+        // A chave do script é a parte do id antes dos dois-pontos ("yst00012:000478"). Cena sem nada escrito na bíblia não leva seção.
+        var scenes = lines
+            .Select(l => ScriptKeyOf(l.Id))
+            .Distinct(StringComparer.Ordinal)
+            .Select(Bible.Scene)
+            .OfType<BibleScene>()
+            .Where(s => s.Summary.Length > 0 || s.Tone.Count > 0 || s.Jokes.Count > 0 || s.Relations.Count > 0)
+            .ToList();
+
         return new TranslationBatch(lines)
         {
+            Scenes = scenes,
+            Synopsis = Bible.Synopsis,
             Glossary = matchedGlossary,
             Characters = matchedCharacters,
             Addressing = addressing,
@@ -104,6 +118,8 @@ public sealed class TranslationBatchBuilder(
             Style = _style,
         };
     }
+
+    private static string ScriptKeyOf(string unitId) => unitId.Contains(':', StringComparison.Ordinal) ? unitId[..unitId.IndexOf(':', StringComparison.Ordinal)] : unitId;
 
     private string NameInTranslation(string name) =>
         _characters.Find(name) is { Target: { } target } && !string.IsNullOrWhiteSpace(target) ? target.Trim() : name.Trim();
