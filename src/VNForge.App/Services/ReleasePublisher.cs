@@ -84,7 +84,7 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
             {
                 var texts = project.LoadAllText();
                 changes = TranslationChanges.Since(new GameLastTest(previous.CreatedAt, GameTestKind.Translation, [], previous.Snapshot), texts);
-                examples = ReleaseTexts.Examples(ReleaseTexts.Load(project, previous.Version), texts, changes, ExampleCount);
+                examples = ReleaseTexts.Examples(ReleaseTexts.Load(project, previous.Version), texts, changes, ExampleCount, SceneNames(project));
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
@@ -109,6 +109,19 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
             CountFiles(gameFolder),
             examples,
             changedFiles);
+    }
+
+    private static ScriptNames SceneNames(ProjectFolder project)
+    {
+        try
+        {
+            return project.LoadScriptNames();
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            // Sem scripts.json legível a fala sai como "Cena N".
+            return ScriptNames.Empty;
+        }
     }
 
     private static int? CountFiles(string folder)

@@ -93,6 +93,24 @@ public sealed class ReleaseTextsTests : IDisposable
     }
 
     [Fact]
+    public void Exemplos_levam_o_nome_da_cena_quando_o_projeto_tem_e_ficam_sem_quando_nao()
+    {
+        var before = new Dictionary<string, IReadOnlyDictionary<string, string>>
+        {
+            ["yst00001"] = new Dictionary<string, string> { ["a"] = "Antes." },
+            ["yst00002"] = new Dictionary<string, string> { ["a"] = "Antes." },
+        };
+        var texts = Texts(("yst00001", [Unit("a", "Depois.")]), ("yst00002", [Unit("a", "Depois.")]));
+        var changes = Changed(new ChangedScene("yst00001", 1, 1, ["a"]), new ChangedScene("yst00002", 2, 1, ["a"]));
+        var names = ScriptNames.From([new ScriptNameEntry("yst00002", "manha", "Manhã de chuva")]);
+
+        var examples = ReleaseTexts.Examples(before, texts, changes, max: 3, names);
+
+        Assert.Equal([null, "Manhã de chuva"], examples.Select(e => e.SceneName));
+        Assert.All(ReleaseTexts.Examples(before, texts, changes, max: 3), e => Assert.Null(e.SceneName));
+    }
+
+    [Fact]
     public void Fala_nova_vem_sem_o_antes()
     {
         var before = new Dictionary<string, IReadOnlyDictionary<string, string>>();

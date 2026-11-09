@@ -82,13 +82,14 @@ public static class ReleaseTexts
 
     /// <summary>
     /// Uma fala por cena mudada, nas primeiras <paramref name="max"/> cenas, com o texto de <paramref name="before"/> e o de agora. Sem o texto da versão anterior
-    /// (<paramref name="before"/> nulo) não há o que mostrar e a lista sai vazia.
+    /// (<paramref name="before"/> nulo) não há o que mostrar e a lista sai vazia. Com <paramref name="names"/>, cada exemplo leva o nome da cena (o mesmo do Editor).
     /// </summary>
     public static IReadOnlyList<ChangeExample> Examples(
         IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? before,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         ChangesSinceTest changes,
-        int max)
+        int max,
+        ScriptNames? names = null)
     {
         ArgumentNullException.ThrowIfNull(texts);
         ArgumentNullException.ThrowIfNull(changes);
@@ -121,7 +122,7 @@ public static class ReleaseTexts
 
                 string? previous = null;
                 saved?.TryGetValue(units[i].Id, out previous);
-                examples.Add(new ChangeExample(scene.Number, i + 1, previous, Line(units[i])));
+                examples.Add(new ChangeExample(scene.Number, i + 1, previous, Line(units[i]), names?.DisplayName(scene.Key)));
                 break;
             }
         }
