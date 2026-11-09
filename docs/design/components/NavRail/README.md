@@ -6,7 +6,7 @@ Dois itens: Biblioteca no alto e Ajustes fixo no rodapé. A Biblioteca continua 
 
 O que antes eram itens do trilho (Painel, Editor, Conferir com o contador de erros, Testar, Glossário) vive na segunda linha da aba Tradução do jogo, e o Editor ganhou ao lado a Revisão. O cabeçalho do jogo (volta à Biblioteca, capa, nome, engine, andamento e o próximo passo) e as abas Ficha, Tradução e Jogar ficam acima da página, na área de conteúdo. A capa tem raio `radius-lg` e `shadow-cover`; a pílula de andamento é azul em tradução, verde com 100% e neutra sem nenhuma linha pronta.
 
-O cabeçalho completo (179 px, 229 px com a segunda linha) vale em todas as páginas do jogo, em qualquer altura de janela, menos nas telas de trabalho (Editor, Conferir, Testar e Glossário), que usam o compacto: uma linha com a volta, o nome, a engine, o andamento e o próximo passo, e as abas com a segunda linha na mesma linha (80 px). O modo revisão, que ocupa a página inteira e tem o seu "Voltar ao editor", esconde o cabeçalho enquanto está aberto. `ShellRenderTests` prende essas alturas.
+O cabeçalho completo (179 px, 229 px com a segunda linha) vale em todas as páginas do jogo, em qualquer altura de janela, menos nas telas de trabalho (Editor, Conferir, Testar e Glossário), que usam o compacto: uma linha com a volta, o nome, a engine e o andamento (sem botão), e as abas com a segunda linha na mesma linha (80 px) quando ela cabe ao lado da última aba; sem largura para as duas, a segunda linha desce para a própria linha e o compacto passa a cerca de 120 px. O modo revisão, que ocupa a página inteira e tem o seu "Voltar ao editor", esconde o cabeçalho enquanto está aberto. `ShellRenderTests` prende essas alturas.
 
 ## Avalonia
 
