@@ -59,8 +59,8 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
 
     public string EvidenceLabel => MatchesFolder ? "Combina com a pasta e o exe" : "Só o título";
 
-    /// <summary>A primeira letra do título, no lugar da capa: o app ainda não baixa as imagens do VNDB.</summary>
-    public string CoverInitial => Title.Length == 0 ? "?" : Title[..1].ToUpperInvariant();
+    /// <summary>A capa do jogo no VNDB (a miniatura, com as marcas de conteúdo); nula quando o VNDB não tem. A tela a mostra no <c>Cover</c>, que baixa do cache e respeita a privacidade.</summary>
+    public VndbImageRef? Cover => VndbImageRef.Cover(Candidate.VisualNovel.Image);
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -85,12 +85,17 @@ public sealed partial class VndbCandidateItem(VndbCandidate candidate) : Observa
             parts.Add($"{(minutes / 60.0).ToString("0.#", CultureInfo.GetCultureInfo("pt-BR"))} h");
         }
 
+        if (VndbRating.Label(vn.Rating) is { } rating)
+        {
+            parts.Add(rating);
+        }
+
         return string.Join(" · ", parts);
     }
 }
 
 /// <summary>Uma linha da tabela "Personagens que chegam".</summary>
-public sealed record VndbCharacterRow(string Initial, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string Role);
+public sealed record VndbCharacterRow(string Seed, VndbImageRef? Image, string Original, string Romaji, string Aliases, string Gender, bool HasGender, string Role);
 
 /// <summary>O que o jogo confirmado traz ao projeto: personagens e sinopse.</summary>
 public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<VndbCharacterRow> Characters, string Synopsis, bool HasSynopsis, string SynopsisNote, string GenderNote)
@@ -98,7 +103,8 @@ public sealed record VndbPreview(string Label, string CountText, IReadOnlyList<V
     public static VndbPreview From(VndbLink link)
     {
         var rows = link.Characters.Select(c => new VndbCharacterRow(
-            (c.Original ?? c.Name) is { Length: > 0 } shown ? shown[..1] : "?",
+            c.Name,
+            c.Image,
             c.Original ?? "Sem escrita original",
             c.Name,
             c.Aliases.Count == 0 ? string.Empty : string.Join(", ", c.Aliases),

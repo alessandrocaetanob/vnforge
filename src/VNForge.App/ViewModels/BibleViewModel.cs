@@ -8,7 +8,9 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.Core;
 using VNForge.Core.Bible;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -59,6 +61,9 @@ public sealed record BibleTimelineRow(string Title, string Note, BibleTimelineSt
     public bool IsUpcoming => State == BibleTimelineState.Upcoming;
 }
 
+/// <summary>Um personagem que aparece na cena, como o chip de "Quem aparece" o mostra: o nome da bíblia e a imagem do VNDB, quando <c>characters.json</c> a tem.</summary>
+public sealed record BibleCharacterChip(string Name, VndbImageRef? Image);
+
 /// <summary>Onde uma cena fica no jogo: o capítulo e as linhas dela, contadas desde a primeira do jogo.</summary>
 internal sealed record SceneLocation(string Chapter, int? ChapterNumber, int FirstLine, int LastLine);
 
@@ -75,6 +80,7 @@ public sealed partial class BibleViewModel : ObservableObject
     private bool loadingScene;
     private IReadOnlyList<BibleChapterInput> planned = [];
     private decimal plannedBrl;
+    private IReadOnlyList<CharacterEntry> projectCharacters = [];
     private Dictionary<string, SceneLocation> locations = new(StringComparer.Ordinal);
     private CancellationTokenSource? run;
 
@@ -88,6 +94,11 @@ public sealed partial class BibleViewModel : ObservableObject
     public ObservableCollection<BibleSceneRow> Rows { get; } = [];
 
     public ObservableCollection<BibleTimelineRow> Timeline { get; } = [];
+
+    /// <summary>Os personagens da cena como chips com retrato; acompanha o campo "Quem aparece".</summary>
+    public ObservableCollection<BibleCharacterChip> SceneCharacters { get; } = [];
+
+    public bool HasSceneCharacters => SceneCharacters.Count > 0;
 
     public bool HasProject => project is not null;
 
@@ -278,6 +289,7 @@ public sealed partial class BibleViewModel : ObservableObject
             ErrorMessage = problem;
         }
 
+        projectCharacters = SafeCharacters(folder);
         var names = SafeNames(folder);
         var keys = ScriptGrouping.InStoryOrder(Directory.Exists(folder.TextDirectory)
             ? Directory.EnumerateFiles(folder.TextDirectory, "*.json").Select(p => Path.GetFileNameWithoutExtension(p).ToLowerInvariant())
@@ -303,6 +315,39 @@ public sealed partial class BibleViewModel : ObservableObject
         var name = scene is { } s && !string.IsNullOrWhiteSpace(s.Name) ? s.Name : names.DisplayName(key) ?? string.Empty;
         return new BibleSceneRow(key, number, name, scene is { Summary.Length: > 0 }, scene is { Edited.Count: > 0 });
     }
+
+    private static IReadOnlyList<CharacterEntry> SafeCharacters(ProjectFolder folder)
+    {
+        try
+        {
+            return folder.LoadCharacters();
+        }
+        catch (VNForgeException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Refaz os chips a partir dos nomes do campo. O nome da bíblia casa com o <c>characters.json</c> pelo original, pela tradução ou pelo romaji, sem distinguir
+    /// maiúsculas; sem par o chip fica sem imagem e mostra o marcador.
+    /// </summary>
+    private void RefreshSceneCharacters(IEnumerable<string> names)
+    {
+        SceneCharacters.Clear();
+        foreach (var name in names)
+        {
+            var entry = projectCharacters.FirstOrDefault(c => IsSameName(c, name));
+            SceneCharacters.Add(new BibleCharacterChip(name, entry?.Image));
+        }
+
+        OnPropertyChanged(nameof(HasSceneCharacters));
+    }
+
+    private static bool IsSameName(CharacterEntry entry, string name) =>
+        CharacterBook.NameComparer.Equals(entry.Source, name)
+        || string.Equals(entry.Target, name, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(entry.Romaji, name, StringComparison.OrdinalIgnoreCase);
 
     private static ScriptNames SafeNames(ProjectFolder folder)
     {
@@ -366,6 +411,7 @@ public sealed partial class BibleViewModel : ObservableObject
         NameText = scene?.Name ?? string.Empty;
         SummaryText = scene?.Summary ?? string.Empty;
         CharactersText = string.Join("; ", scene?.Characters ?? []);
+        RefreshSceneCharacters(scene?.Characters ?? []);
         ToneText = string.Join("; ", scene?.Tone ?? []);
         JokesText = string.Join("; ", scene?.Jokes ?? []);
         RelationsText = string.Join('\n', (scene?.Relations ?? []).Select(r => $"{r.Between}: {r.Note}"));
@@ -438,7 +484,15 @@ public sealed partial class BibleViewModel : ObservableObject
 
     partial void OnSummaryTextChanged(string value) => Edit(BibleField.Summary, s => s.EditSummary(value));
 
-    partial void OnCharactersTextChanged(string value) => Edit(BibleField.Characters, s => s.EditCharacters(SplitList(value)));
+    partial void OnCharactersTextChanged(string value)
+    {
+        if (!loadingScene)
+        {
+            RefreshSceneCharacters(SplitList(value));
+        }
+
+        Edit(BibleField.Characters, s => s.EditCharacters(SplitList(value)));
+    }
 
     partial void OnToneTextChanged(string value) => Edit(BibleField.Tone, s => s.EditTone(SplitList(value)));
 

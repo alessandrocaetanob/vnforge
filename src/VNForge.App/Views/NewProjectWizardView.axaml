@@ -140,9 +140,7 @@
                 <DataTemplate x:DataType="vm:VndbCandidateItem">
                   <RadioButton Classes="option" GroupName="VndbCandidates" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
                     <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="14">
-                      <Border Width="72" Height="96" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.AccentSoft}" VerticalAlignment="Top">
-                        <TextBlock Classes="title-md" Foreground="{DynamicResource Vnf.AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding CoverInitial}"/>
-                      </Border>
+                      <c:Cover Width="72" Image="{Binding Cover}" Seed="{Binding Title}" VerticalAlignment="Top"/>
                       <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Top" MinWidth="0">
                         <TextBlock Classes="title-md" TextWrapping="Wrap" Text="{Binding Title}"/>
                         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
@@ -206,9 +204,7 @@
                     <DataTemplate x:DataType="vm:VndbCharacterRow">
                       <Border Classes="divider-top" Padding="16,6">
                         <Grid ColumnDefinitions="40,1.4*,1.2*,1.2*,100,1.1*" ColumnSpacing="12">
-                          <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource Vnf.AccentSoft}">
-                            <TextBlock Classes="body-strong" Foreground="{DynamicResource Vnf.AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Initial}"/>
-                          </Border>
+                          <c:Portrait Size="Sm" Image="{Binding Image}" Seed="{Binding Seed}" VerticalAlignment="Center"/>
                           <TextBlock Grid.Column="1" Classes="body-strong" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Original}"/>
                           <TextBlock Grid.Column="2" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Romaji}"/>
                           <TextBlock Grid.Column="3" Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Aliases}"/>

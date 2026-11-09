@@ -1,0 +1,172 @@
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.VisualTree;
+using VNForge.App.Services;
+using VNForge.Core.Vndb;
+
+namespace VNForge.App.Controls;
+
+/// <summary>
+/// A base de <see cref="Portrait"/> e <see cref="Cover"/>: mostra uma imagem do VNDB do <see cref="VndbImages.Source"/> ou, enquanto ela não chega, quando não há imagem
+/// e quando a privacidade da Biblioteca a esconde, o marcador que o quadro desenha. A imagem vem do cache fora da thread de UI; a tela nunca espera por ela.
+/// </summary>
+public abstract class VndbImageControl : Control
+{
+    public static readonly StyledProperty<VndbImageRef?> ImageProperty = AvaloniaProperty.Register<VndbImageControl, VndbImageRef?>(nameof(Image));
+    public static readonly StyledProperty<string?> SeedProperty = AvaloniaProperty.Register<VndbImageControl, string?>(nameof(Seed));
+
+    private Bitmap? bitmap;
+    private CancellationTokenSource? loading;
+
+    static VndbImageControl()
+    {
+        AffectsRender<VndbImageControl>(SeedProperty);
+        // O controle tem tamanho próprio: esticar na célula do pai o deformaria.
+        HorizontalAlignmentProperty.OverrideDefaultValue<VndbImageControl>(Avalonia.Layout.HorizontalAlignment.Left);
+        VerticalAlignmentProperty.OverrideDefaultValue<VndbImageControl>(Avalonia.Layout.VerticalAlignment.Top);
+        ImageProperty.Changed.AddClassHandler<VndbImageControl>((control, _) => control.Reload());
+    }
+
+    protected VndbImageControl()
+    {
+        RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
+    }
+
+    /// <summary>A imagem do VNDB a mostrar; nula mostra o marcador.</summary>
+    public VndbImageRef? Image
+    {
+        get => GetValue(ImageProperty);
+        set => SetValue(ImageProperty, value);
+    }
+
+    /// <summary>O nome (do personagem ou do jogo) que escolhe a cor do marcador, para que o mesmo nome tenha sempre a mesma cor.</summary>
+    public string? Seed
+    {
+        get => GetValue(SeedProperty);
+        set => SetValue(SeedProperty, value);
+    }
+
+    /// <summary>A imagem do VNDB está na tela; falso quando o controle mostra o marcador.</summary>
+    public bool HasImage => bitmap is not null;
+
+    /// <summary>O bitmap já carregado; nulo mostra o marcador.</summary>
+    protected Bitmap? LoadedBitmap => bitmap;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Reload();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        CancelLoading();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new ImagePeer(this);
+
+    /// <summary>O nome que o leitor de tela diz quando a tela não deu um (<c>AutomationProperties.Name</c>).</summary>
+    protected abstract string DefaultAutomationName { get; }
+
+    private void Reload()
+    {
+        CancelLoading();
+        var hadBitmap = bitmap is not null;
+        bitmap = null;
+        if (Image is { } image && VndbImages.Source is { } source && VisualRoot is not null)
+        {
+            if (source.TryGet(image) is { } ready)
+            {
+                bitmap = ready;
+            }
+            else
+            {
+                var cts = loading = new CancellationTokenSource();
+                _ = LoadAsync(source, image, cts);
+            }
+        }
+
+        if (hadBitmap || bitmap is not null)
+        {
+            InvalidateVisual();
+        }
+    }
+
+    private async Task LoadAsync(IVndbImageSource source, VndbImageRef image, CancellationTokenSource owner)
+    {
+        try
+        {
+            var loaded = await source.LoadAsync(image, owner.Token);
+            if (!owner.IsCancellationRequested && loaded is not null)
+            {
+                bitmap = loaded;
+                InvalidateVisual();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // A imagem mudou ou o controle saiu da tela: quem cancelou já cuidou do estado.
+        }
+        finally
+        {
+            if (ReferenceEquals(loading, owner))
+            {
+                loading = null;
+            }
+
+            owner.Dispose();
+        }
+    }
+
+    private void CancelLoading()
+    {
+        loading?.Cancel();
+        loading = null;
+    }
+
+    /// <summary>Quanto desenhar a imagem em <paramref name="target"/> sem deformá-la: ocupa tudo e corta o que sobra; <paramref name="topBias"/> de 0 (alto) a 1 (pé) escolhe de onde cortar.</summary>
+    protected static Rect SourceRectFor(PixelSize image, Size target, double topBias)
+    {
+        var scale = Math.Max(target.Width / image.Width, target.Height / image.Height);
+        var width = target.Width / scale;
+        var height = target.Height / scale;
+        return new Rect((image.Width - width) / 2, (image.Height - height) * topBias, width, height);
+    }
+
+    protected IBrush Brush(string key, IBrush fallback) =>
+        this.TryFindResource(key, ActualThemeVariant, out var found) && found is IBrush brush ? brush : fallback;
+
+    protected double Token(string key, double fallback) =>
+        this.TryFindResource(key, ActualThemeVariant, out var found) && found is double value ? value : fallback;
+
+    protected CornerRadius Radius(string key, double fallback) =>
+        this.TryFindResource(key, ActualThemeVariant, out var found) && found is CornerRadius value ? value : new CornerRadius(fallback);
+
+    /// <summary>A matiz (0 a 359) do marcador do <paramref name="seed"/>: um hash fixo (FNV-1a), que não muda de uma execução para outra.</summary>
+    internal static double HueOf(string? seed)
+    {
+        var hash = 2166136261u;
+        foreach (var b in System.Text.Encoding.UTF8.GetBytes(seed ?? string.Empty))
+        {
+            hash = (hash ^ b) * 16777619u;
+        }
+
+        return hash % 360;
+    }
+
+    internal static Color Hsl(double hue, double saturation, double lightness) => new HslColor(1, hue, saturation, lightness).ToRgb();
+
+    private sealed class ImagePeer(VndbImageControl owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image;
+
+        protected override string? GetNameCore() =>
+            AutomationProperties.GetName(owner) is { Length: > 0 } name ? name : owner.DefaultAutomationName;
+    }
+}
