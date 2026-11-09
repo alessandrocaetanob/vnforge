@@ -14,12 +14,22 @@
     <Style Selector="v|EditorSuggestionCardView:not(:review) TextBlock.review-only">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <!-- Quadro: no inspetor o cartão fica em fundo rebaixado (card in) e no Modo revisão em fundo de cartão; a palavra proposta vai em negrito. -->
+    <Style Selector="v|EditorSuggestionCardView Border#Card">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    </Style>
+    <Style Selector="v|EditorSuggestionCardView:not(:review) Border#Card">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    </Style>
+    <Style Selector="v|EditorSuggestionCardView TextBlock Run.ins">
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
     <!-- O quadro do Modo revisão desenha só "Aceitar" e "Ignorar": "Outra" fica no inspetor. -->
     <Style Selector="v|EditorSuggestionCardView:review Button#OtherButton">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
   </UserControl.Styles>
-  <Border x:Name="Card" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StatusAiFg}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12"
+  <Border x:Name="Card" BorderBrush="{DynamicResource Vnf.StatusAiFg}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12"
           IsVisible="{Binding HasEditorSuggestion, FallbackValue=False}" AutomationProperties.Name="Passada de editor">
     <StackPanel Spacing="8">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

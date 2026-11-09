@@ -476,7 +476,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     public async Task A_1366_a_fala_seguinte_volta_quando_a_linha_seguinte_deixa_o_roteiro_caber()
     {
         using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
+        var root = CreateProject(temp.SubFolder("projeto"), tallSecond: true);
 
         await Abrir(root, ThemeVariant.Dark, (window, vm) =>
         {
@@ -737,7 +737,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false, bool withDoubt = false)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false, bool withDoubt = false, bool tallSecond = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -769,7 +769,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             :
             [
                 Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p") with { Doubt = withDoubt ? new TranslationDoubt(DoubtKind.Tone, "Ela fala sério ou em tom de brincadeira?") : null },
-                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", (tallSecond ? LongText + " " + LongText : LongText) + @"\p"),
                 Line("yst00001", 3, "美咲", @"「うん」\p", @"Aham.\p"),
             ]);
         folder.SaveText("yst00002", [Line("yst00002", 1, "美咲", @"「そう」\p", @"Isso.\p")]);

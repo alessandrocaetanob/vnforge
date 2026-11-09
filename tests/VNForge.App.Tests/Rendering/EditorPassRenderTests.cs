@@ -53,7 +53,7 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Amaoto no Hakoniwa", TranslationStatus.Translated);
         var folder = ProjectFolder.Open(root);
         folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform) });
-        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta"), new CharacterEntry("健太", "Kenta", CharacterGender.Male, "calmo")]);
+        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada, provoca o Kenta"), new CharacterEntry("健太", "Kenta", CharacterGender.Male)]);
         TextUnit Line(int n, string speaker, string source, string? translation, TranslationStatus status) => new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, source, translation, status);
         switch (scenario)
         {
