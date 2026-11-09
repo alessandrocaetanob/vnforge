@@ -78,7 +78,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             var dashboard = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
             Assert.Empty(dashboard.GetVisualDescendants().OfType<PageHeader>());
             var scroll = Assert.Single(dashboard.GetVisualDescendants().OfType<ScrollViewer>());
-            // A faixa Visão geral | Provas do banco de provas (#529) tomou 42 px da página (medidos em 1440x1000); o Painel rola só esse tanto.
+            // O Painel não tem mais a faixa Visão geral | Provas (as Provas são um item do "Mais"); a folga de 42 px ficou da medida antiga e o Painel não rola mais que isso em 1440x1000.
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 42.5, $"o Painel rola mais que os 42 px da faixa de abas em 1440x1000: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             Assert.True(header.Bounds.Height < 260, $"o cabeçalho e a segunda linha ocupam {header.Bounds.Height:0} px");
 
@@ -227,7 +227,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
                 Assert.False(header.MoreMenu?.IsOpen ?? false, $"o menu do Mais abriu sozinho em {name}");
                 if (key is not (NavKey.Sheet or NavKey.Play))
                 {
-                    // Uma margem esquerda só: o conteúdo de cada página começa onde o cabeçalho do jogo começa (x=113 a 1440 px, os 112 do quadro mais a borda de 1 px).
+                    // Uma margem esquerda só: o conteúdo de cada página começa onde o cabeçalho do jogo começa (x=112 a 1440 px, como no quadro: o contorno de 1 px do conteúdo fica por cima, sem empurrar nada).
                     var pageArea = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "PageArea");
                     var pageLeft = pageArea.TranslatePoint(default, window)!.Value.X;
                     var left = ContentLeft(window, pageArea, vm.CurrentPage);
@@ -309,7 +309,8 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             var menu = Assert.IsType<Avalonia.Controls.MenuFlyout>(header.MoreMenu);
             Assert.True(menu.IsOpen);
             Assert.Equal(vm.MoreSections.Count(s => s.IsVisible), menu.Items.Count);
-            Assert.Equal(new[] { "Lançar", "Bíblia", "Imagens" }.Take(menu.Items.Count), menu.Items.OfType<MenuItem>().Select(i => (string)i.Header!));
+            Assert.Equal(vm.MoreSections.Where(s => s.IsVisible).Select(s => s.Label), menu.Items.OfType<MenuItem>().Select(i => (string)i.Header!));
+            Assert.Equal("Provas", menu.Items.OfType<MenuItem>().Last().Header);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-menu-mais", theme)));
 
             foreach (var (label, page) in new (string, Func<object>)[] { ("Lançar", () => vm.Release), ("Bíblia", () => vm.Bible) })

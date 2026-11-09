@@ -54,7 +54,7 @@
   </UserControl.Styles>
 
   <Panel>
-    <Grid RowDefinitions="Auto,Auto,*" Margin="32,16,32,16" RowSpacing="12">
+    <Grid RowDefinitions="Auto,Auto,*" Margin="32,20,32,16" RowSpacing="12">
 
       <c:PageHeader Classes="actions">
         <StackPanel Orientation="Horizontal" Spacing="8">

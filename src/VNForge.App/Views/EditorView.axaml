@@ -66,7 +66,7 @@
   </UserControl.Styles>
 
   <!-- Sem RowSpacing: as linhas do aviso de erro e da busca ficam vazias na maior parte do tempo e o espaço entre linhas vazias comeria a altura do inspetor; cada uma leva o seu espaço de cima. -->
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="32,6,32,8">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="32,6,32,8">
 
     <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
     <c:PageHeader Classes="inline" Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">

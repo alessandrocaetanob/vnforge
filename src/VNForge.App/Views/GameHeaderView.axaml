@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:v="using:VNForge.App.Views"
+             xmlns:c="using:VNForge.App.Controls"
              x:Class="VNForge.App.Views.GameHeaderView"
              x:DataType="vm:MainWindowViewModel">
 
@@ -9,11 +10,6 @@
     <DataTemplate x:Key="SectionItem" x:DataType="vm:NavItemViewModel">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
-        <Border IsVisible="{Binding HasBadge}" MinWidth="16" Height="16" Padding="4,0" CornerRadius="8" VerticalAlignment="Center"
-                Background="{DynamicResource Vnf.SignalErrorBg}">
-          <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"
-                     Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
-        </Border>
         <PathIcon IsVisible="{Binding HasMenu}" Width="10" Height="10" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}"/>
         <Ellipse Name="NoticeDot" IsVisible="{Binding ShowNotice}" Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Center"
                  ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
@@ -51,7 +47,7 @@
 
         <!-- Compacto (Editor, Conferir, Testar e Glossário): a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
         <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
-          <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
+          <Button Classes="subtle sm" Padding="12,0" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
                   AutomationProperties.Name="Voltar para a Biblioteca">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
@@ -62,9 +58,7 @@
             <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                     Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
               <Panel ClipToBounds="True">
-                <Viewbox Width="30" Height="30" Margin="0,0,0,6" Opacity="0.35">
-                  <Path Data="{StaticResource Brand.Seal}" Fill="{DynamicResource Vnf.TextPrimary}"/>
-                </Viewbox>
+                <c:Cover Width="56" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
                 <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}">
                   <Border HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}"
                           Width="{Binding GameProgressPercent, Converter={x:Static v:GameHeaderView.CoverBarWidth}}"/>
@@ -88,14 +82,14 @@
             <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
               <Panel IsVisible="{Binding !ShowPlayButton}">
-                <Button Classes="accent" Padding="20,0" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
+                <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
                     <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
                   </StackPanel>
                 </Button>
               </Panel>
-              <Button Name="PlayButton" Classes="accent" Padding="20,0" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
+              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
                       ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>

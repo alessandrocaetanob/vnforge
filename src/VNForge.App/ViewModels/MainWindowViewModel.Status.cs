@@ -49,16 +49,24 @@ public sealed partial class MainWindowViewModel
 
     public bool HasGameOriginalTitle => GameOriginalTitle.Length > 0;
 
-    private static string ReadOriginalTitle(string root)
+    /// <summary>A capa do jogo no VNDB, do <c>vndb.json</c> do projeto; nula sem o vínculo ou sem imagem. O cabeçalho a mostra no <c>Cover</c>.</summary>
+    [ObservableProperty]
+    public partial VndbImageRef? GameCover { get; private set; }
+
+    private void ReadVndbLink(string root)
     {
+        VndbLink? link = null;
         try
         {
-            return ProjectFolder.Open(root).LoadVndbLink()?.OriginalTitle ?? string.Empty;
+            link = ProjectFolder.Open(root).LoadVndbLink();
         }
         catch (Exception ex) when (ex is VndbLinkException or IOException or UnauthorizedAccessException)
         {
-            return string.Empty;
+            // Sem o vínculo legível o cabeçalho segue com a capa neutra e sem o título em japonês.
         }
+
+        GameOriginalTitle = link?.OriginalTitle ?? string.Empty;
+        GameCover = link?.Cover;
     }
 
     private void OnWizardVndbChanged(object? sender, PropertyChangedEventArgs e)

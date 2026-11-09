@@ -58,7 +58,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>A segunda linha da aba Tradução, como no quadro: Painel, Editor, Revisão, Conferir, Testar, Glossário e "Mais", que abre o menu de <see cref="MoreSections"/>.</summary>
     public IReadOnlyList<NavItemViewModel> Sections { get; }
 
-    /// <summary>O menu do "Mais": Lançar, Bíblia e Imagens (Imagens não aparece no projeto de exemplo).</summary>
+    /// <summary>O menu do "Mais": Lançar, Bíblia, Imagens (que não aparece no projeto de exemplo) e Provas, o banco de provas do Painel.</summary>
     public IReadOnlyList<NavItemViewModel> MoreSections { get; }
 
     /// <summary>O item "Mais" da segunda linha; a tela abre o menu em vez de trocar de página quando ele é escolhido.</summary>
@@ -132,7 +132,7 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// A seção marcada da segunda linha. O Editor e a Revisão são a mesma página: a Revisão é a marcada enquanto o modo revisão está aberto
-    /// e escolher o Editor o fecha. Lançar, Bíblia e Imagens marcam o "Mais".
+    /// e escolher o Editor o fecha. Lançar, Bíblia, Imagens e as Provas do Painel marcam o "Mais".
     /// </summary>
     public NavItemViewModel? SelectedSection
     {
@@ -143,7 +143,7 @@ public sealed partial class MainWindowViewModel
                 return null;
             }
 
-            if (item.Key is NavKey.Release or NavKey.Bible or NavKey.Images)
+            if (item.Key is NavKey.Release or NavKey.Bible or NavKey.Images || (item.Key == NavKey.Dashboard && Dashboard.SelectedTab == 1))
             {
                 return moreItem;
             }
@@ -239,7 +239,15 @@ public sealed partial class MainWindowViewModel
             Editor.StopReview();
         }
 
+        // O banco de provas é a segunda aba do Painel: "Provas" abre o Painel nela e "Painel" volta para a visão geral.
+        if (ReferenceEquals(section, proofsItem) || ReferenceEquals(section, dashboardItem))
+        {
+            Dashboard.SelectedTab = ReferenceEquals(section, proofsItem) ? 1 : 0;
+            section = dashboardItem;
+        }
+
         SelectedNav = section;
+        OnPropertyChanged(nameof(SelectedSection));
     }
 
     private static GameTab? GameTabOf(NavKey key) => key switch

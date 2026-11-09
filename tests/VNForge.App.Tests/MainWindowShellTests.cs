@@ -219,7 +219,7 @@ public sealed class MainWindowShellTests
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
-        Assert.Equal(["Lançar", "Bíblia", "Imagens"], vm.MoreSections.Select(s => s.Label));
+        Assert.Equal(["Lançar", "Bíblia", "Imagens", "Provas"], vm.MoreSections.Select(s => s.Label));
         Assert.Same(vm.Sections[^1], vm.MoreSection);
         Assert.Equal("Mais", vm.MoreSection.Label);
         Assert.True(vm.MoreSection.HasMenu);
@@ -242,6 +242,15 @@ public sealed class MainWindowShellTests
         vm.SelectedSection = vm.MoreSection;
         Assert.Same(vm.Images, vm.CurrentPage);
         Assert.Same(vm.MoreSection, vm.SelectedSection);
+
+        // "Provas" abre o Painel na aba do banco de provas e marca o "Mais"; "Painel" volta à visão geral.
+        vm.OpenSectionCommand.Execute(vm.MoreSections.Single(s => s.Key == NavKey.Proofs));
+        Assert.Same(vm.Dashboard, vm.CurrentPage);
+        Assert.Equal(1, vm.Dashboard.SelectedTab);
+        Assert.Same(vm.MoreSection, vm.SelectedSection);
+        vm.OpenSectionCommand.Execute(vm.Sections.Single(s => s.Key == NavKey.Dashboard));
+        Assert.Equal(0, vm.Dashboard.SelectedTab);
+        Assert.Equal(NavKey.Dashboard, vm.SelectedSection?.Key);
     }
 
     [Fact]

@@ -54,6 +54,9 @@ public sealed partial class EditorView : UserControl
         }
 
         windowSize = windowWidth;
+        // A margem é a do shell (32 px, x=112 do quadro); em janela estreita a barra do Editor não cabe com ela, e 8 px de cada lado voltam para ela.
+        var side = windowWidth < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+        Root.Margin = new Thickness(side, Root.Margin.Top, side, Root.Margin.Bottom);
         var tabs = EditorBreakpoints.UsesInspectorTabs(windowWidth);
         ApplyScenesColumn();
         LineDetailView.SetUseTabs(this, tabs);

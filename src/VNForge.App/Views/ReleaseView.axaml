@@ -6,9 +6,9 @@
              x:DataType="vm:ReleaseViewModel">
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="32,16,32,24" Spacing="16">
+    <StackPanel Margin="32,20,32,24" Spacing="16">
 
-      <c:PageHeader Classes="actions">
+      <c:PageHeader Classes="actions" IsVisible="{Binding LastVersionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="caption secondary" Text="{Binding LastVersionText}" VerticalAlignment="Bottom"
                    AutomationProperties.Name="Última versão lançada"/>
       </c:PageHeader>

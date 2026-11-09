@@ -75,6 +75,17 @@ public sealed class VndbProjectLinkerTests
     }
 
     [Fact]
+    public void From_guarda_a_miniatura_da_capa_para_o_cabecalho_do_jogo()
+    {
+        var vn = VndbSamples.Game() with { Image = new VndbImage("https://t.vndb.org/cv/12/345.jpg", "https://t.vndb.org/cv.t/12/345.jpg", 600, 800, 0.1, 0) };
+
+        var link = VndbProjectLinker.From(vn, new VndbResults<VndbCharacter>([], false));
+
+        Assert.Equal(new VndbImageRef("https://t.vndb.org/cv.t/12/345.jpg", 0.1, 0), link.Cover);
+        Assert.Null(VndbProjectLinker.From(VndbSamples.Game(), new VndbResults<VndbCharacter>([], false)).Cover);
+    }
+
+    [Fact]
     public async Task Build_de_jogo_que_o_vndb_nao_tem_recusa_em_portugues()
     {
         var ex = await Assert.ThrowsAsync<VndbLinkException>(() => VndbProjectLinker.BuildAsync(Catalog(), "v1", TestContext.Current.CancellationToken));

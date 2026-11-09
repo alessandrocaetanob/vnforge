@@ -36,6 +36,9 @@ public enum NavKey
 
     /// <summary>"Mais" da segunda linha da Tradução: não é página, abre o menu com Lançar, Bíblia e Imagens.</summary>
     More,
+
+    /// <summary>"Provas" do menu "Mais": não é página, abre o Painel na aba do banco de provas.</summary>
+    Proofs,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -91,6 +94,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
     private readonly NavItemViewModel reviewItem = new(NavKey.Review, "Revisão", "Icon.Check", isEnabled: false);
     private readonly NavItemViewModel moreItem = new(NavKey.More, "Mais", "Icon.ChevronDown", isEnabled: false);
+    private readonly NavItemViewModel proofsItem = new(NavKey.Proofs, "Provas", "Icon.Check", isEnabled: false);
     private NavItemViewModel lastTranslationItem;
     private NavItemViewModel? lastGameItem;
     private CancellationTokenSource? progressRefresh;
@@ -144,7 +148,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         TopNav = [startItem];
         BottomNav = [settingsItem];
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
-        MoreSections = [releaseItem, bibleItem, imagesItem];
+        MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
         Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
@@ -541,6 +545,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             ShareHideEmptyScenes(Dashboard.HideEmptyScenes);
         }
+        else if (e.PropertyName == nameof(DashboardViewModel.SelectedTab))
+        {
+            OnPropertyChanged(nameof(SelectedSection));
+        }
         else if (e.PropertyName is nameof(DashboardViewModel.ReadyLines) or nameof(DashboardViewModel.TotalLines))
         {
             RaiseProgressChanged();
@@ -875,7 +883,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
-        GameOriginalTitle = ReadOriginalTitle(summary.Root);
+        ReadVndbLink(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)
@@ -902,6 +910,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         playItem.IsEnabled = true;
         reviewItem.IsEnabled = true;
         moreItem.IsEnabled = true;
+        proofsItem.IsEnabled = true;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
         conferenceItem.IsEnabled = true;

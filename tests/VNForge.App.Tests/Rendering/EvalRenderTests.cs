@@ -107,7 +107,6 @@ public sealed class EvalRenderTests(HeadlessFixture fixture) : IClassFixture<Hea
                     {
                         Assert.True(new FileInfo(path).Length > 10_000);
                         var texts = Texts(window).ToList();
-                        Assert.Equal(["Visão geral", "Provas"], window.GetVisualDescendants().OfType<TabItem>().Select(t => t.Header));
                         Assert.Equal(5, window.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("evalrow")));
                         Assert.Single(window.GetVisualDescendants().OfType<EvalChart>());
                         Assert.Contains("R$ 156,70", texts);
