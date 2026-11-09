@@ -160,6 +160,20 @@
             </StackPanel>
           </Border>
 
+          <!-- Resumo da cena (#530): o que a bíblia do jogo diz da cena e vai junto de cada pedido de tradução. -->
+          <Border x:Name="SceneSummaryCard" Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="12" IsVisible="{Binding HasSceneSummary}">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="overline" Text="Resumo da cena"/>
+                <Border Grid.Column="1" Height="20" Padding="8,0" CornerRadius="10" Background="{DynamicResource Vnf.StatusAiBg}">
+                  <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="Bíblia"/>
+                </Border>
+              </Grid>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding SceneSummary}"/>
+              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SceneTone}" IsVisible="{Binding SceneTone, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+          </Border>
+
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
           <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
             <TextBlock Classes="overline" Text="Na cena" IsVisible="{Binding !HasMemory}"/>

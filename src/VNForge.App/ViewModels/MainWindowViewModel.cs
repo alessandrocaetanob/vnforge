@@ -21,6 +21,7 @@ public enum NavKey
     Settings,
     Glossary,
     Build,
+    Bible,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -64,6 +65,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel editorItem = new(NavKey.Editor, "Editor", "Icon.Edit", isEnabled: false);
     private readonly NavItemViewModel conferenceItem = new(NavKey.Conference, "Conferir", "Icon.Shield", isEnabled: false);
     private readonly NavItemViewModel glossaryItem = new(NavKey.Glossary, "Glossário", "Icon.Book", isEnabled: false) { IsVisible = false };
+    private readonly NavItemViewModel bibleItem = new(NavKey.Bible, "Bíblia", "Icon.Bookmark", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly Action<string> openFolder;
@@ -91,6 +93,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Settings.RateChanged += (_, rate) => TaskService.Rate = rate;
         Glossary.Rate = () => Settings.Rate;
+        Bible.Rate = () => Settings.Rate;
+        Bible.Limits = () => Settings.Budget;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         History = new BatchHistory(TaskService);
         History.Undone += (_, undone) => OnBatchUndone(undone);
@@ -108,8 +112,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
-        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, settingsItem];
-        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem];
+        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, bibleItem, settingsItem];
+        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, glossaryItem, bibleItem];
         BottomNav = [settingsItem];
         selectedNav = startItem;
         CurrentPage = start;
@@ -217,6 +221,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     public GlossaryViewModel Glossary { get; } = new();
+
+    /// <summary>A página Bíblia (#530).</summary>
+    public BibleViewModel Bible { get; } = new();
 
     public BuildViewModel Build { get; }
 
@@ -368,6 +375,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Conference => Conference,
                     NavKey.Settings => Settings,
                     NavKey.Glossary => Glossary,
+                    NavKey.Bible => Bible,
                     NavKey.Build => Build,
                     _ => Start,
                 };
@@ -767,6 +775,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Build.Project = summary;
         Conference.Project = summary;
+        Bible.Open(summary);
         History.LoadPersisted(summary.Root);
         editorStale = false;
         dashboardItem.IsEnabled = true;
@@ -775,6 +784,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         glossaryItem.IsEnabled = true;
         buildItem.IsEnabled = true;
         glossaryItem.IsVisible = true;
+        bibleItem.IsEnabled = true;
+        bibleItem.IsVisible = true;
         UpdateProblemBadge();
         OnPropertyChanged(nameof(SavedAtText));
         ProjectLoading = Task.WhenAll(Editor.Loading, Glossary.Loading, Settings.EstimateLoading);

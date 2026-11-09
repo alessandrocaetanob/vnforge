@@ -1,0 +1,299 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:bible="using:VNForge.Core.Bible"
+             x:Class="VNForge.App.Views.BibleView"
+             x:DataType="vm:BibleViewModel">
+
+  <UserControl.Styles>
+    <!-- Selo de quem escreveu o campo: IA em status-ai, Sua em status-translated (as mesmas cores da coluna Situação do Editor). -->
+    <Style Selector="Border.owner">
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.owner > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.owner.mine">
+      <Setter Property="Background" Value="{DynamicResource Vnf.StatusTranslatedBg}"/>
+    </Style>
+    <Style Selector="Border.owner.mine > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusTranslatedFg}"/>
+    </Style>
+    <Style Selector="Border.fieldcard">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <Setter Property="Padding" Value="14,10,14,12"/>
+    </Style>
+    <Style Selector="TextBox.bible">
+      <Setter Property="AcceptsReturn" Value="True"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="MinHeight" Value="36"/>
+    </Style>
+    <Style Selector="ListBox.scenes > ListBoxItem">
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="MinHeight" Value="0"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <Grid RowDefinitions="Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+
+      <c:PageHeader Title="Bíblia">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Undo}"/>
+              <TextBlock Text="Voltar à última geração"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:PageHeader>
+
+      <StackPanel Grid.Row="1" Spacing="8">
+        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="O que a IA entendeu de cada cena. Um campo que você escreve passa a ser seu e a geração seguinte não o troca."/>
+        <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+          </Grid>
+        </Border>
+        <Border Classes="infobar success" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Checkmark}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Notice}"/>
+          </Grid>
+        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <c:FilterChip Name="AllChip" Label="Todas as cenas" Count="{Binding AllCount}" IsChecked="{Binding Filter, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:BibleFilter.All}, Mode=OneWay}" Command="{Binding SetFilterCommand}" CommandParameter="{x:Static vm:BibleFilter.All}"/>
+          <c:FilterChip Name="EditedChip" Label="Editadas por você" Count="{Binding EditedCount}" IsChecked="{Binding Filter, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:BibleFilter.Edited}, Mode=OneWay}" Command="{Binding SetFilterCommand}" CommandParameter="{x:Static vm:BibleFilter.Edited}"/>
+          <c:FilterChip Name="NoSummaryChip" Label="Sem resumo" Count="{Binding NoSummaryCount}" IsChecked="{Binding Filter, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:BibleFilter.NoSummary}, Mode=OneWay}" Command="{Binding SetFilterCommand}" CommandParameter="{x:Static vm:BibleFilter.NoSummary}"/>
+          <c:FilterChip Label="Nome vindo da bíblia" Count="{Binding NamedCount}" IsHitTestVisible="False" Focusable="False"/>
+        </StackPanel>
+      </StackPanel>
+
+      <Grid Grid.Row="2" ColumnDefinitions="260,*,384" ColumnSpacing="12">
+
+        <!-- Cenas: o número, o nome (o da bíblia, senão o do jogo) e a marca de quem escreveu. -->
+        <Border Classes="panel">
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Classes="overline secondary" Margin="14,12,14,8" Text="CENAS"/>
+            <ListBox Name="SceneList" Grid.Row="1" Classes="scenes" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutomationProperties.Name="Cenas">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:BibleSceneRow">
+                  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                    <TextBlock Classes="body-strong" Text="{Binding Title}"/>
+                    <TextBlock Grid.Row="1" Classes="caption secondary" MaxWidth="190" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}"/>
+                    <Panel Grid.Column="1" Grid.RowSpan="2" VerticalAlignment="Center">
+                      <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding ShowCheck}"/>
+                      <TextBlock Classes="caption secondary" Text="{Binding Mark}" IsVisible="{Binding !ShowCheck}"/>
+                    </Panel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+
+        <!-- A cena selecionada: um cartão por campo, cada um da IA ou seu. -->
+        <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="12" Margin="0,0,8,0" IsVisible="{Binding HasScene}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="caption secondary" Text="{Binding SceneHeader}"/>
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox Name="NameBox" Classes="title-md" Text="{Binding NameText}" PlaceholderText="Nome da cena" AutomationProperties.Name="Nome da cena"/>
+                <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfName, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}">
+                  <TextBlock Text="{Binding OwnerOfName}"/>
+                </Border>
+              </Grid>
+            </StackPanel>
+
+            <Border Classes="fieldcard">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <TextBlock Classes="overline secondary" Text="RESUMO" VerticalAlignment="Center"/>
+                  <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfSummary, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfSummary}"/></Border>
+                  <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Summary}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever o resumo com a IA">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                  </Button>
+                </Grid>
+                <TextBox Name="SummaryBox" Classes="bible" MinHeight="72" Text="{Binding SummaryText}" AutomationProperties.Name="Resumo"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A IA não sobrescreve um campo marcado como seu quando a bíblia é gerada de novo."/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="fieldcard">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <TextBlock Classes="overline secondary" Text="QUEM APARECE" VerticalAlignment="Center"/>
+                  <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfCharacters, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfCharacters}"/></Border>
+                  <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Characters}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever quem aparece com a IA">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                  </Button>
+                </Grid>
+                <TextBox Classes="bible" Text="{Binding CharactersText}" PlaceholderText="Nomes separados por ponto e vírgula" AutomationProperties.Name="Quem aparece"/>
+              </StackPanel>
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+              <Border Classes="fieldcard">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <TextBlock Classes="overline secondary" Text="TOM" VerticalAlignment="Center"/>
+                    <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfTone}"/></Border>
+                    <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Tone}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever o tom com a IA">
+                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                    </Button>
+                  </Grid>
+                  <TextBox Classes="bible" Text="{Binding ToneText}" PlaceholderText="cômico leve; tenso no fim" AutomationProperties.Name="Tom"/>
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="1" Classes="fieldcard">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <TextBlock Classes="overline secondary" Text="PIADAS QUE VOLTAM" VerticalAlignment="Center"/>
+                    <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfJokes, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfJokes}"/></Border>
+                    <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Jokes}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever as piadas com a IA">
+                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                    </Button>
+                  </Grid>
+                  <TextBox Classes="bible" Text="{Binding JokesText}" PlaceholderText="Separadas por ponto e vírgula" AutomationProperties.Name="Piadas que voltam"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Classes="fieldcard">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <TextBlock Classes="overline secondary" Text="RELAÇÕES" VerticalAlignment="Center"/>
+                  <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfRelations, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfRelations}"/></Border>
+                  <Button Grid.Column="2" Classes="icon sm subtle" Command="{Binding RewriteFieldCommand}" CommandParameter="{x:Static bible:BibleField.Relations}" ToolTip.Tip="Reescrever com a IA" AutomationProperties.Name="Reescrever as relações com a IA">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                  </Button>
+                </Grid>
+                <TextBox Classes="bible" Text="{Binding RelationsText}" PlaceholderText="Kenta e Ren: amigos de infância (uma por linha)" AutomationProperties.Name="Relações"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- O jogo: sinopse, linha do tempo e o custo da bíblia. -->
+        <Border Grid.Column="2" Classes="panel">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14" Margin="16">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="overline secondary" Text="SINOPSE DO JOGO" VerticalAlignment="Center"/>
+                  <Border Grid.Column="1" Classes="owner" Classes.mine="{Binding OwnerOfSynopsis, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Sua}"><TextBlock Text="{Binding OwnerOfSynopsis}"/></Border>
+                </Grid>
+                <TextBox Name="SynopsisBox" Classes="bible" MinHeight="90" Text="{Binding SynopsisText}" PlaceholderText="Ainda sem sinopse" AutomationProperties.Name="Sinopse do jogo"/>
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <TextBlock Classes="overline secondary" Text="LINHA DO TEMPO"/>
+                <ItemsControl ItemsSource="{Binding Timeline}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BibleTimelineRow">
+                      <StackPanel Margin="0,0,0,8">
+                        <TextBlock Classes="body-strong" Text="{Binding Title}"/>
+                        <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="12">
+                <StackPanel Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Money}"/>
+                    <TextBlock Classes="body-strong" Text="Custo da bíblia"/>
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="2">
+                    <TextBlock Classes="body-sm secondary" Text="Gerada em"/>
+                    <TextBlock Grid.Column="1" Classes="body-sm mono" Text="{Binding GeneratedAtText}"/>
+                    <TextBlock Grid.Row="1" Classes="body-sm secondary" Text="Cenas lidas"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="body-sm mono" Text="{Binding ScenesReadText}"/>
+                    <TextBlock Grid.Row="2" Classes="body-sm secondary" Text="Custo"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="body-sm mono" Text="{Binding CostText}"/>
+                    <TextBlock Grid.Row="3" Classes="body-sm secondary" Text="Reler um capítulo"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="body-sm mono" Text="{Binding RereadText}"/>
+                  </Grid>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding CacheNote}"/>
+                </StackPanel>
+              </Border>
+
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Name="GenerateButton" Classes="accent" Command="{Binding OpenGenerateCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                    <TextBlock Text="{Binding GenerateLabel}"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="ExportButton" Command="{Binding ExportCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
+                    <TextBlock Text="Exportar"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- Gerar a bíblia do jogo: o preço aparece antes de rodar, e os campos que você editou ficam preservados. -->
+    <c:ScreenDialog Title="Gerar a bíblia do jogo" IsOpen="{Binding IsGenerateOpen, Mode=TwoWay}">
+      <StackPanel Spacing="12" Width="600">
+        <TextBlock Classes="body" TextWrapping="Wrap" Text="A IA lê o roteiro um capítulo por vez e escreve, por cena, o resumo, quem aparece, as relações, o tom e as piadas que voltam. Para o jogo, escreve a sinopse e a linha do tempo."/>
+        <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="14">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="overline secondary" Text="O QUE A IA VAI LER"/>
+              <TextBlock Grid.Column="1" Classes="caption mono secondary" Text="{Binding ReadText}"/>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="body-sm" Text="Capítulos já lidos e não editados"/>
+              <TextBlock Grid.Column="1" Classes="body-sm mono" Text="sobrescreve"/>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="body-sm" Text="{Binding EditedKeptText}"/>
+              <TextBlock Grid.Column="1" Classes="body-sm mono" Text="preservados"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+        <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="14">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock Classes="body-strong" Text="{Binding EstimateText}"/>
+              <TextBlock Grid.Column="1" Classes="caption mono secondary" HorizontalAlignment="Right" Text="{Binding SpentText}"/>
+            </Grid>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Cada capítulo cabe inteiro no contexto de 1M. Depois da primeira leitura, o cache de prompt cobra 5% da entrada nas leituras seguintes do mesmo capítulo."/>
+          </StackPanel>
+        </Border>
+        <TextBlock Classes="body-sm accent-text" Text="{Binding ProgressText}" IsVisible="{Binding IsRunning}"/>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Name="CancelGenerateButton" Command="{Binding CancelGenerateCommand}" Content="Cancelar"/>
+          <Button Name="ConfirmGenerateButton" Classes="accent lg" Command="{Binding ConfirmGenerateCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+              <TextBlock Text="Gerar a bíblia"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+  </Panel>
+</UserControl>
