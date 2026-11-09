@@ -435,8 +435,8 @@
                   <ItemsControl Grid.Row="4" ItemsSource="{Binding Rows}" VerticalAlignment="Top" AutomationProperties.Name="Termos do glossário pessoal">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:PersonalTermRow">
-                        <!-- Editar e tirar o termo ficam no menu da linha (botão direito, tecla Menu ou duplo clique para editar): o quadro não desenha botões de ícone nas linhas. -->
-                        <Border Classes="prow" Background="Transparent" DoubleTapped="OnPersonalRowDoubleTapped">
+                        <!-- Editar e tirar o termo ficam no menu da linha (botão direito, tecla Menu, Enter ou duplo clique para editar): o quadro não desenha botões de ícone nas linhas. -->
+                        <Border Classes="prow" Background="Transparent" Focusable="True" DoubleTapped="OnPersonalRowDoubleTapped" KeyDown="OnPersonalRowKeyDown">
                           <Border.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Editar o termo" Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).Personal.EditCommand}" CommandParameter="{Binding}"/>
