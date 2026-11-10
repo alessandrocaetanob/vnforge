@@ -116,6 +116,10 @@ public sealed record LibraryGame(
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool RequiresJapaneseLocale { get; init; }
 
+    /// <summary>O exe do jogo só abre depois de um lançador (outro programa que o inicia): o tempo de jogo segue o processo do jogo, não o do lançador.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OpensLauncher { get; init; }
+
     [JsonIgnore]
     public bool IsConfirmed => VndbId is not null;
 
