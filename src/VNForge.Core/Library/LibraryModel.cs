@@ -42,7 +42,19 @@ public sealed record LibraryEngine(string Id, string Name, LibraryEngineSource S
 }
 
 /// <summary>Um jogo do VNDB que pode ser o da pasta. <paramref name="Score"/> vai de 0 a 1; <paramref name="Evidence"/> diz de onde veio o casamento (<c>janela</c>, <c>pasta</c>, <c>exe</c>).</summary>
-public sealed record LibraryCandidate(string VndbId, string Title, string? OriginalTitle, string? Released, double Score, IReadOnlyList<string> Evidence);
+public sealed record LibraryCandidate(string VndbId, string Title, string? OriginalTitle, string? Released, double Score, IReadOnlyList<string> Evidence)
+{
+    /// <summary>A capa do candidato, com a marca de conteúdo adulto do VNDB; nula quando o VNDB não tem imagem ou o casamento foi gravado antes de a Biblioteca guardá-la.</summary>
+    public VndbImageRef? Image { get; init; }
+
+    /// <summary>A faixa de duração do VNDB (1 a 5) e os minutos votados; nulos sem votos.</summary>
+    public int? Length { get; init; }
+
+    public int? LengthMinutes { get; init; }
+
+    /// <summary>A nota do VNDB (de 10 a 100); nula quando ninguém votou.</summary>
+    public double? Rating { get; init; }
+}
 
 /// <summary>Uma tag do VNDB no jogo. <paramref name="Spoiler"/> é 0 (nenhum), 1 (pequeno) ou 2 (grande).</summary>
 public sealed record LibraryTag(string Id, string Name, string Category, double Rating, int Spoiler);

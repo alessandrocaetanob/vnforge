@@ -66,6 +66,10 @@ jobs:
               "/d:sonar.token=$SONAR_TOKEN"
               '/d:sonar.host.url=https://sonarcloud.io'
               '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
+              # Contagem de testes do Sonar: o run-tests.sh grava um TRX por processo (xUnit v3, opção -result-trx do runner nativo;
+              # https://xunit.net/docs/getting-started/v3/cmdline). O Sonar lê TRX como relatório VSTest:
+              # https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/test-execution-parameters/
+              '/d:sonar.cs.vstest.reportsPaths=test-results/trx/*.trx'
               # docs/design é referência copiada do design system (telas .dc.html e READMEs) e licenses/ traz textos de licença copiados, não código do produto.
               '/d:sonar.exclusions=docs/design/**,licenses/**'
               # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.

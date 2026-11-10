@@ -24,6 +24,10 @@
     <ProjectReference Include="..\VNForge.Vndb\VNForge.Vndb.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="VNForge.App.Tests" />
+  </ItemGroup>
+
   <!-- A galeria de componentes (Gallery/) só existe no build Debug. -->
   <ItemGroup Condition="'$(Configuration)' != 'Debug'">
     <Compile Remove="Gallery/**" />

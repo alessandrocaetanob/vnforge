@@ -7,6 +7,12 @@ namespace VNForge.Core.Library;
 /// <summary>Erro esperado da biblioteca (arquivo ilegível, jogo que não existe, referência ambígua). A mensagem é em português e vai direto ao usuário.</summary>
 public sealed class LibraryException(string message, Exception? innerException = null) : VNForgeException(message, innerException);
 
+/// <summary>
+/// Uma pasta ou unidade que a pessoa apontou para a Biblioteca, com o que ela escolheu na primeira varredura. <paramref name="Path"/> é o caminho completo já normalizado;
+/// <paramref name="ScannedAt"/> é a última varredura que a leu até o fim (ou até a pausa), nula enquanto nenhuma rodou.
+/// </summary>
+public sealed record LibraryRoot(string Path, bool IncludeSubfolders = true, bool MatchVndb = true, bool RescanOnOpen = false, DateTimeOffset? ScannedAt = null);
+
 /// <summary>O que uma varredura mudou na biblioteca: jogos novos, jogos que já estavam (com engine, exe ou título atualizados) e jogos da pasta varrida que não foram achados dessa vez.</summary>
 public sealed record LibraryMergeResult(IReadOnlyList<LibraryGame> Added, IReadOnlyList<LibraryGame> Updated, IReadOnlyList<LibraryGame> Missing);
 
@@ -17,10 +23,12 @@ public sealed record LibraryMergeResult(IReadOnlyList<LibraryGame> Added, IReadO
 public sealed class GameLibrary
 {
     private readonly List<LibraryGame> _games;
+    private readonly List<LibraryRoot> _roots;
 
-    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null, string? localeEmulatorPath = null)
+    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null, string? localeEmulatorPath = null, IEnumerable<LibraryRoot>? roots = null)
     {
         _games = [.. games ?? []];
+        _roots = [.. (roots ?? []).Where(r => !string.IsNullOrWhiteSpace(r.Path)).Select(r => r with { Path = NormalizeFolder(r.Path) })];
         Privacy = privacy ?? new LibraryPrivacy();
         LocaleEmulatorPath = string.IsNullOrWhiteSpace(localeEmulatorPath) ? null : localeEmulatorPath;
     }
@@ -34,6 +42,37 @@ public sealed class GameLibrary
     public string? LocaleEmulatorPath { get; set; }
 
     public IReadOnlyList<LibraryGame> Games => _games;
+
+    /// <summary>As pastas que a pessoa apontou, na ordem em que entraram. O "N pastas" e o "varredura há..." do título da Biblioteca saem daqui.</summary>
+    public IReadOnlyList<LibraryRoot> Roots => _roots;
+
+    /// <summary>A varredura mais recente de qualquer pasta, ou nulo enquanto nenhuma rodou.</summary>
+    public DateTimeOffset? LastScanAt => _roots.Where(r => r.ScannedAt is not null).Select(r => r.ScannedAt).Max();
+
+    /// <summary>Guarda a pasta (troca a que tem o mesmo caminho, sem diferenciar maiúsculas no Windows, ou entra no fim) e devolve a que ficou.</summary>
+    public LibraryRoot SetRoot(LibraryRoot root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentException.ThrowIfNullOrWhiteSpace(root.Path);
+        var normalized = root with { Path = NormalizeFolder(root.Path) };
+        var index = _roots.FindIndex(r => SamePath(r.Path, normalized.Path));
+        if (index < 0)
+        {
+            _roots.Add(normalized);
+        }
+        else
+        {
+            _roots[index] = normalized;
+        }
+
+        return normalized;
+    }
+
+    /// <summary>Tira a pasta da lista. Os jogos dela ficam na Biblioteca. Devolve se havia a pasta.</summary>
+    public bool RemoveRoot(string path) => !string.IsNullOrWhiteSpace(path) && _roots.RemoveAll(r => SamePath(r.Path, NormalizeFolder(path))) > 0;
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     /// <summary>O id estável de um jogo: vem só da pasta (sem diferenciar maiúsculas), então varrer de novo dá o mesmo id.</summary>
     public static string IdFor(string folder)

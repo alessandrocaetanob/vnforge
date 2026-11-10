@@ -250,6 +250,8 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
 
             // O selo "virar a página" fica na mesma fileira de "Entender o japonês", sob o original.
             var chip = Assert.Single(review.GetVisualDescendants().OfType<MarkerChip>(), c => c.IsEffectivelyVisible);
+            var chevron = Assert.Single(chip.GetVisualDescendants().OfType<PathIcon>(), i => i.Name == "PART_Triangle");
+            Assert.True(chevron.IsEffectivelyVisible && chevron.Width == 12, "o selo do modo revisão mostra o chevron do tema");
             var explain = Assert.Single(review.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.Review.Detail!.ToggleExplainCommand);
             var chipMid = (chip.TranslatePoint(default, window) ?? default).Y + (chip.Bounds.Height / 2);
             var explainMid = (explain.TranslatePoint(default, window) ?? default).Y + (explain.Bounds.Height / 2);

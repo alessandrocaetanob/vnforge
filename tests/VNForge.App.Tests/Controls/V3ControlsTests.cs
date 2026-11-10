@@ -129,7 +129,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
                 Assert.Equal("virar a página", selo.Label);
                 Assert.Contains("virar a página", textos);
                 Assert.DoesNotContain(textos, t => t?.Contains('\\') == true);
-                Assert.Equal(20, selo.GetVisualDescendants().OfType<Border>().First().Bounds.Height);
+                Assert.Equal(22, selo.GetVisualDescendants().OfType<Border>().First().Bounds.Height);
             }
             finally
             {

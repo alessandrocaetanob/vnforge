@@ -25,7 +25,7 @@
                   Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
                   CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowFlyout}" Padding="24">
             <Grid RowDefinitions="Auto,*,Auto">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Classes="title-md" Text="{TemplateBinding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                 <Button Name="PART_Close" Grid.Column="1" Classes="icon sm subtle" IsVisible="{TemplateBinding ShowClose}" AutomationProperties.Name="Fechar">
                   <PathIcon Width="16" Height="16" Data="{DynamicResource Icon.Dismiss}"/>

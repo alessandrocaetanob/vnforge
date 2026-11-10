@@ -170,9 +170,9 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
             },
             CancellationToken.None);
 
-        // O painel mantém a largura do artboard; a lista de problemas fica com o resto.
+        // O painel mantém a largura do quadro v3 (384); a lista de problemas fica com o resto.
         Assert.Equal(2, widths.Count);
-        Assert.Equal(420, widths[1], 1);
+        Assert.Equal(384, widths[1], 1);
         Assert.True(widths[0] > 1500);
     }
 }
