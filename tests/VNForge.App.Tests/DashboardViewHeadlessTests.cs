@@ -34,12 +34,13 @@ public class DashboardViewHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
                     var steps = window.GetVisualDescendants().OfType<PipelineStepItem>().ToList();
                     Assert.Equal(["Ler o texto", "Traduzir com a IA", "Revisar", "Conferir", "Testar no jogo"], steps.Select(s => s.Title));
-                    Assert.Single(window.GetVisualDescendants().OfType<ProgressRing>());
+                    // Quadro da #544: a porcentagem é um número grande, sem anel.
+                    Assert.DoesNotContain(window.GetVisualDescendants(), v => v is ProgressRing);
                     Assert.Single(window.GetVisualDescendants().OfType<ChapterRow>());
                     Assert.NotEmpty(window.GetVisualDescendants().OfType<TodoItem>());
                     Assert.Single(window.GetVisualDescendants().OfType<BudgetBar>());
-                    Assert.Single(window.GetVisualDescendants().OfType<GameStateBanner>());
-                    Assert.Equal("Minha VN", window.GetVisualDescendants().OfType<PageHeader>().Single().Title);
+                    Assert.DoesNotContain(window.GetVisualDescendants(), v => v is GameStateBanner);
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<DashboardView>().Single().GetVisualDescendants(), v => v is PageHeader);
                 }
                 finally
                 {

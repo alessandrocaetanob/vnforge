@@ -70,7 +70,8 @@ public static class VndbProjectLinker
             vn.AltTitle,
             VndbText.Clean(vn.Description),
             [.. characters.Items.Select(c => Linked(c, vn.Id))],
-            characters.Truncated);
+            characters.Truncated,
+            VndbImageRef.Cover(vn.Image));
     }
 
     /// <summary>Liga o jogo ao projeto (<c>vndb.json</c>) e, se o texto já foi extraído, leva os personagens para <c>characters.json</c>.</summary>

@@ -54,6 +54,9 @@ public sealed partial class EditorView : UserControl
         }
 
         windowSize = windowWidth;
+        // A margem é a do shell (32 px, x=112 do quadro); em janela estreita a barra do Editor não cabe com ela, e 8 px de cada lado voltam para ela.
+        var side = windowWidth < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+        Root.Margin = new Thickness(side, Root.Margin.Top, side, Root.Margin.Bottom);
         var tabs = EditorBreakpoints.UsesInspectorTabs(windowWidth);
         ApplyScenesColumn();
         LineDetailView.SetUseTabs(this, tabs);
@@ -62,6 +65,8 @@ public sealed partial class EditorView : UserControl
         InspectorColumn.MaxWidth = tabs ? EditorBreakpoints.InspectorTabsWidth : EditorBreakpoints.InspectorMaxWidth;
         InspectorColumn.Width = tabs ? new GridLength(EditorBreakpoints.InspectorTabsWidth) : new GridLength(EditorBreakpoints.InspectorStars, GridUnitType.Star);
     }
+
+    private const double ColumnsTop = 8;
 
     /// <summary>
     /// A lista de cenas na grade: a coluna inteira, a faixa do estado recolhido (#393) ou, abaixo de 1400 px, nenhuma (o flyout do cabeçalho a substitui).
@@ -96,7 +101,8 @@ public sealed partial class EditorView : UserControl
             _ => new GridLength(1, GridUnitType.Star),
         };
         // Sem a coluna das cenas sobra o espaço entre colunas ao lado dela.
-        Columns.Margin = new Thickness(flyout ? -Columns.ColumnSpacing : 0, 0, 0, 0);
+        // O topo de 8 px é o espaço entre a barra de ferramentas e a grade (o EditorView.axaml não usa RowSpacing); só o lado esquerdo muda.
+        Columns.Margin = new Thickness(flyout ? -Columns.ColumnSpacing : 0, ColumnsTop, 0, 0);
     }
 
     /// <summary>Ctrl+B: recolhe ou abre a coluna das cenas; abaixo de 1400 px, onde a lista é um flyout, abre ou fecha o flyout.</summary>

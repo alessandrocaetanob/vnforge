@@ -24,6 +24,21 @@ public enum NavKey
     Build,
     Release,
     Bible,
+
+    /// <summary>A aba Ficha do jogo.</summary>
+    Sheet,
+
+    /// <summary>A aba Jogar do jogo.</summary>
+    Play,
+
+    /// <summary>"Revisão" da segunda linha da Tradução: não é página, é o modo revisão dentro da página do Editor.</summary>
+    Review,
+
+    /// <summary>"Mais" da segunda linha da Tradução: não é página, abre o menu com Lançar, Bíblia e Imagens.</summary>
+    More,
+
+    /// <summary>"Provas" do menu "Mais": não é página, abre o Painel na aba do banco de provas.</summary>
+    Proofs,
 }
 
 /// <summary>Item do trilho de navegação. <see cref="IconKey"/> é a chave de um <c>StreamGeometry</c> em <c>Assets/Icons.axaml</c>.</summary>
@@ -54,6 +69,9 @@ public sealed partial class NavItemViewModel(NavKey key, string label, string ic
 
     public bool HasBadge => Badge is > 0;
 
+    /// <summary>O item abre um menu em vez de uma página ("Mais", na segunda linha da Tradução).</summary>
+    public bool HasMenu => Key == NavKey.More;
+
     /// <summary>O ponto neutro: há aviso aberto e nenhum erro.</summary>
     public bool ShowNotice => HasNotice && !HasBadge;
 
@@ -72,6 +90,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel releaseItem = new(NavKey.Release, "Lançar", "Icon.Open", isEnabled: false);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
+    private readonly NavItemViewModel sheetItem = new(NavKey.Sheet, "Ficha", "Icon.Book", isEnabled: false);
+    private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
+    private readonly NavItemViewModel reviewItem = new(NavKey.Review, "Revisão", "Icon.Check", isEnabled: false);
+    private readonly NavItemViewModel moreItem = new(NavKey.More, "Mais", "Icon.ChevronDown", isEnabled: false);
+    private readonly NavItemViewModel proofsItem = new(NavKey.Proofs, "Provas", "Icon.Check", isEnabled: false);
+    private NavItemViewModel lastTranslationItem;
+    private NavItemViewModel? lastGameItem;
+    private CancellationTokenSource? progressRefresh;
     private readonly Action<string> openFolder;
     private readonly FormattingProfileCache profiles = new();
     private bool editorCountIsNewer;
@@ -84,6 +110,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        start.Recents.CollectionChanged += (_, _) => OnPropertyChanged(nameof(LibraryCountText));
         Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
@@ -116,10 +143,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         };
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
-        var startItem = new NavItemViewModel(NavKey.Start, "Início", "Icon.Home", isEnabled: true);
-        Nav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, settingsItem];
-        TopNav = [startItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem];
+        var startItem = new NavItemViewModel(NavKey.Start, "Biblioteca", "Icon.Library", isEnabled: true);
+        Nav = [startItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
+        TopNav = [startItem];
         BottomNav = [settingsItem];
+        Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
+        MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
+        lastTranslationItem = dashboardItem;
+        Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
+        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
         selectedNav = startItem;
         CurrentPage = start;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -147,6 +179,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Conference.TextsChanged += (_, _) => editorStale = true;
         Conference.LinesSaved += (_, saved) =>
         {
+            ScheduleProgressRefresh();
             Toasts.Show(SavedText(saved), ToastKind.Success, key: "line-save", undo: () => _ = UndoConferenceSaveAsync(saved));
             OfferCorrections(saved);
         };
@@ -280,7 +313,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public ReadOnlyCollection<NavItemViewModel> Nav { get; }
 
-    /// <summary>Os itens do alto do trilho; o Glossário fica escondido até um projeto abrir.</summary>
+    /// <summary>Os itens do alto do trilho: a Biblioteca, que fica marcada também dentro de um jogo.</summary>
     public ReadOnlyCollection<NavItemViewModel> TopNav { get; }
 
     /// <summary>Os itens do pé do trilho (Ajustes).</summary>
@@ -302,7 +335,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStartPage))]
+    [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
     public partial object CurrentPage { get; private set; }
 
     /// <summary>A página é o Início: a barra de status mostra só a versão e o estado da chave.</summary>
@@ -316,6 +349,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
+    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(CanReturnToGame), nameof(Breadcrumb))]
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
@@ -323,6 +357,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public partial string ApiKeyStatus { get; private set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowKeyOk))]
     public partial bool ApiKeyConfigured { get; private set; }
 
     public string ProjectTitle => CurrentProject?.Name ?? "Nenhum projeto aberto";
@@ -367,7 +402,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public NavItemViewModel? SelectedTopNav
     {
-        get => selectedNav is { } item && TopNav.Contains(item) ? item : null;
+        // Dentro de um jogo a Biblioteca continua marcada: o jogo é um item dela.
+        get => selectedNav is { } item && (TopNav.Contains(item) || InGame) ? TopNav[0] : null;
         set => SelectFromRail(value);
     }
 
@@ -407,13 +443,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
+            var wasInGame = InGame;
+            var leavingDashboard = selectedNav?.Key == NavKey.Dashboard && value.Key != NavKey.Dashboard;
             if (SetProperty(ref selectedNav, value))
             {
-                OnPropertyChanged(nameof(SelectedTopNav));
-                OnPropertyChanged(nameof(SelectedBottomNav));
+                // O Painel sempre reabre na visão geral; só "Provas" do menu "Mais" o abre no banco de provas.
+                if (leavingDashboard)
+                {
+                    Dashboard.SelectedTab = 0;
+                }
+
+                if (GameTabOf(value.Key) == GameTab.Translation)
+                {
+                    lastTranslationItem = value;
+                }
+
+                if (GameTabOf(value.Key) is not null)
+                {
+                    lastGameItem = value;
+                }
+
+                RaiseShellChanged();
                 PrepareLeavingAndEntering(value.Key);
                 CurrentPage = value.Key switch
                 {
+                    NavKey.Sheet => Sheet,
+                    NavKey.Play => Play,
                     NavKey.Dashboard => Dashboard,
                     NavKey.Editor => Editor,
                     NavKey.Conference => Conference,
@@ -427,9 +482,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 };
                 if (value.Key == NavKey.Dashboard)
                 {
-                    _ = Dashboard.ReloadAsync();
+                    DashboardRefresh = Dashboard.ReloadAsync();
                 }
-                else if (value.Key == NavKey.Start)
+                else if (!wasInGame && GameTabOf(value.Key) is not null)
+                {
+                    // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
+                    DashboardRefresh = Dashboard.ReloadAsync();
+                }
+
+                if (value.Key == NavKey.Start)
                 {
                     // O anel, a porcentagem e o próximo passo do Início vêm da pasta, que o Editor e a Conferência mudam; a cotação e o limite também.
                     _ = Start.LoadAsync();
@@ -491,6 +552,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             ShareHideEmptyScenes(Dashboard.HideEmptyScenes);
         }
+        else if (e.PropertyName == nameof(DashboardViewModel.SelectedTab))
+        {
+            OnPropertyChanged(nameof(SelectedSection));
+        }
+        else if (e.PropertyName is nameof(DashboardViewModel.ReadyLines) or nameof(DashboardViewModel.TotalLines))
+        {
+            RaiseProgressChanged();
+        }
     }
 
     private void OnEditorHideEmptyChanged(object? sender, PropertyChangedEventArgs e)
@@ -513,6 +582,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void OnLineSaved(object? sender, LineSavedEventArgs saved)
     {
+        ScheduleProgressRefresh();
         ShowLineSaved(saved);
         OfferCorrections(saved);
     }
@@ -734,6 +804,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         var wizard = create();
+        wizard.PropertyChanged += OnWizardVndbChanged;
         if (gameFolder is not null)
         {
             WizardPreparing = wizard.SetGameFolderAsync(gameFolder);
@@ -759,7 +830,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             // Os erros esperados já viram mensagem em Start.OpenAsync; o resto é defeito: sem esta rede a Task falha ficaria sem observador.
             Debug.WriteLine(e);
-            Start.ErrorMessage = "O projeto foi criado, mas ocorreu um erro inesperado ao abri-lo. Abra a pasta pelo Início.";
+            Start.ErrorMessage = "O projeto foi criado, mas ocorreu um erro inesperado ao abri-lo. Abra a pasta pela Biblioteca.";
         }
     }
 
@@ -809,10 +880,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Toasts.Clear();
         }
 
+        if (CurrentProject?.Root != summary.Root)
+        {
+            lastGameItem = null;
+            lastTranslationItem = dashboardItem;
+        }
+
         CurrentProject = summary;
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);
+        ReadVndbLink(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)
@@ -835,6 +913,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         History.LoadPersisted(summary.Root);
         ResumeNightBatches(summary.Root);
         editorStale = false;
+        sheetItem.IsEnabled = true;
+        playItem.IsEnabled = true;
+        reviewItem.IsEnabled = true;
+        moreItem.IsEnabled = true;
+        proofsItem.IsEnabled = true;
         dashboardItem.IsEnabled = true;
         editorItem.IsEnabled = true;
         conferenceItem.IsEnabled = true;
@@ -1005,6 +1088,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         else if (e.PropertyName == nameof(EditorViewModel.LastSavedAt))
         {
             OnPropertyChanged(nameof(SavedAtText));
+        }
+        else if (e.PropertyName == nameof(EditorViewModel.IsReviewing))
+        {
+            OnPropertyChanged(nameof(SelectedSection));
+            OnPropertyChanged(nameof(ShowGameHeader));
         }
     }
 

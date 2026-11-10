@@ -55,7 +55,7 @@ public class GalleryRenderTests(HeadlessFixture fixture) : IClassFixture<Headles
         Assert.Equal(8, All<MarkerChip>().Length);
         Assert.Equal(5, All<GameTextbox>().Length);
         Assert.Equal(5, All<ProgressRing>().Length);
-        Assert.Equal(7, All<Seg3Bar>().Length);
+        Assert.Equal(3, All<Seg3Bar>().Length);
         Assert.Equal(4, All<ChapterRow>().Length);
         Assert.Contains(All<ProgressRing>(), r => r.PercentText == "0,7%");
         Assert.Contains(All<ChapterRow>(), r => r.PercentText == "200 a revisar");

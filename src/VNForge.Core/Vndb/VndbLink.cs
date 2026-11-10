@@ -31,13 +31,15 @@ public sealed record VndbLinkedCharacter(
 /// <param name="Synopsis">Sinopse sem a marcação do VNDB e sem spoilers, ou nula. Fica no idioma do VNDB (em geral inglês).</param>
 /// <param name="Characters">Os personagens do jogo no VNDB.</param>
 /// <param name="CharactersTruncated">O VNDB tinha mais personagens do que o cliente trouxe.</param>
+/// <param name="Cover">A capa do jogo no VNDB (a referência, não os bytes), que o cabeçalho do jogo mostra; nula nos projetos ligados antes dela ser guardada ou quando o VNDB não tem.</param>
 public sealed record VndbLink(
     string VisualNovelId,
     string Title,
     string? OriginalTitle,
     string? Synopsis,
     IReadOnlyList<VndbLinkedCharacter> Characters,
-    bool CharactersTruncated = false);
+    bool CharactersTruncated = false,
+    VndbImageRef? Cover = null);
 
 /// <summary>O jogo do VNDB e a evidência de que é o jogo da pasta: <see cref="Evidence"/> separa o "só o título" do "combina com a pasta e o exe".</summary>
 public sealed record VndbCandidate(VndbVisualNovel VisualNovel, VndbEvidence Evidence);

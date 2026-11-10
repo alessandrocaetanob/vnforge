@@ -11,9 +11,7 @@
   </UserControl.KeyBindings>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1280" Margin="24,16,24,24" Spacing="16">
-
-      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Testar no jogo"/>
+    <StackPanel Margin="32,16,32,24" Spacing="16">
 
       <!-- O cartão principal: o estado do jogo, o botão que faz o teste inteiro e os cinco passos com o tempo de cada um.
            "Voltar ao jogo original" fica sempre à vista e neutro: não apaga a tradução, que continua no projeto. Uma tela, um botão de destaque. -->

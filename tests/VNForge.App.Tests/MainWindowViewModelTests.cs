@@ -12,12 +12,12 @@ public class MainWindowViewModelTests
         new(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(pickerAnswer), new FixedClock(Now)));
 
     [Fact]
-    public void Abre_no_Inicio_com_o_Editor_desabilitado_e_sem_projeto()
+    public void Abre_na_Biblioteca_com_o_Editor_desabilitado_e_sem_projeto()
     {
         using var temp = new TempFolder();
         var vm = Create(temp);
 
-        Assert.Equal("Início", vm.SelectedNav?.Label);
+        Assert.Equal("Biblioteca", vm.SelectedNav?.Label);
         Assert.IsType<StartViewModel>(vm.CurrentPage);
         Assert.False(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
         Assert.Null(vm.CurrentProject);
