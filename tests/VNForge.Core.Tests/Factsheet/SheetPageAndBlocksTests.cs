@@ -169,6 +169,17 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         Assert.Equal(expected, SheetLabels.StatusBadge(status, feminine));
 
     [Theory]
+    [InlineData("main", "masculino", "Protagonista")]
+    [InlineData("primary", "feminino", "Principal")]
+    [InlineData("side", "feminino", "Secundária")]
+    [InlineData("side", "masculino", "Secundário")]
+    [InlineData("side", null, "Secundário")]
+    [InlineData("appears", "feminino", "Aparece")]
+    [InlineData("outro", null, "outro")]
+    public void O_papel_do_selo_concorda_com_o_genero_do_personagem(string role, string? gender, string expected) =>
+        Assert.Equal(expected, SheetLabels.RoleBadge(role, gender));
+
+    [Theory]
     [InlineData(1500, 3, 47, "Média · 25 h (47 votos)")]
     [InlineData(1080, 3, 1, "Média · 18 h (1 voto)")]
     [InlineData(45, 1, 0, "Muito curta · 45 min")]

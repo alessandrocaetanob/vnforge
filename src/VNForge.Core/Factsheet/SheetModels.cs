@@ -81,6 +81,16 @@ public static class SheetLabels
         _ => "sem tradução",
     };
 
+    /// <summary>O papel como o selo do cartão o escreve: "Protagonista", "Principal", "Secundário" (ou "Secundária" para uma personagem feminina) e "Aparece".</summary>
+    public static string RoleBadge(string role, string? genderLabel) => role switch
+    {
+        "main" => "Protagonista",
+        "primary" => "Principal",
+        "side" => string.Equals(genderLabel, "feminino", StringComparison.Ordinal) ? "Secundária" : "Secundário",
+        "appears" => "Aparece",
+        _ => role,
+    };
+
     /// <summary>O selo da etapa como os cartões e os botões o escrevem: "Traduzido pela IA", "Traduzido", "Revisado", "Aprovado" e "Sem tradução"; <paramref name="feminine"/> concorda com um substantivo feminino (a sinopse).</summary>
     public static string StatusBadge(Text.TranslationStatus status, bool feminine = false) => status switch
     {
