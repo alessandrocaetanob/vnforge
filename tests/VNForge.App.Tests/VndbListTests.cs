@@ -1,6 +1,7 @@
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Library;
+using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -24,7 +25,7 @@ public sealed class VndbListTests
     {
         private readonly TempFolder folder = new();
 
-        public Setup(IEnumerable<LibraryGame> games, IEnumerable<VndbListEntry> remote, bool withToken = true, bool persistChoices = false)
+        public Setup(IEnumerable<LibraryGame> games, IEnumerable<VndbListEntry> remote, bool withToken = true, bool persistChoices = false, Func<FakeVndbCatalog, IVndbUserList>? wrap = null)
         {
             Config = folder.Path;
             File = LibrarySamples.Save(Config, new GameLibrary(games));
@@ -35,7 +36,7 @@ public sealed class VndbListTests
                 Store.Save(FakeVndbCatalog.ValidToken);
             }
 
-            Service = new VndbListService(Store, Fake, File, new FixedClock(Later), _ => null, persistChoices ? new VndbSyncSettingsFile(Config) : null);
+            Service = new VndbListService(Store, wrap?.Invoke(Fake) ?? Fake, File, new FixedClock(Later), _ => null, persistChoices ? new VndbSyncSettingsFile(Config) : null);
         }
 
         public string Config { get; }
@@ -131,8 +132,45 @@ public sealed class VndbListTests
         Assert.Equal(new DateOnly(2026, 11, 6), local.Finished);
         var remote = await setup.Remote("v4");
         Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
-        Assert.DoesNotContain(remote.Labels, l => l.Id == LibraryListLabels.Playing);
-        Assert.Equal(new DateOnly(2026, 11, 6), remote.Finished);
+    }
+
+    [Fact]
+    public async Task Terminar_aqui_envia_so_o_rotulo_mesmo_com_rotulos_fora_da_sincronizacao()
+    {
+        var site = Entry("v4", Later, 70, "Do site", LibraryListLabels.Playing);
+        using var setup = new Setup([Game("g1", "v4")], [site]);
+        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true, Labels = false };
+        setup.Service.Edit("g1", new VndbListUpdate { Vote = 90, Notes = "Daqui" });
+
+        var note = await setup.Service.EditAsync("g1", new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished] }, Ct);
+
+        Assert.Null(note);
+        var remote = await setup.Remote("v4");
+        Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
+        Assert.Equal(70, remote.Vote);
+        Assert.Equal("Do site", remote.Notes);
+    }
+
+    [Fact]
+    public async Task Sem_rede_terminar_aqui_fica_so_aqui_e_nao_derruba()
+    {
+        using var setup = new Setup([Game("g1", "v4")], [], wrap: fake => new OfflineList(fake));
+        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true };
+
+        var note = await setup.Service.MarkFinishedAsync("g1", Ct);
+
+        Assert.StartsWith("Gravado só aqui", note);
+        Assert.True(setup.Local("g1").HasLabel(LibraryListLabels.Finished));
+    }
+
+    private sealed class OfflineList(FakeVndbCatalog inner) : IVndbUserList
+    {
+        public Task<VndbAuthInfo> GetAuthInfoAsync(string token, CancellationToken ct = default) => inner.GetAuthInfoAsync(token, ct);
+
+        public Task<VndbResults<VndbListEntry>> GetListAsync(string userId, string? token = null, CancellationToken ct = default) => inner.GetListAsync(userId, token, ct);
+
+        public Task UpdateEntryAsync(string token, string visualNovelId, VndbListUpdate update, CancellationToken ct = default) =>
+            throw new HttpRequestException("Sem conexão.");
     }
 
     [Fact]
@@ -328,5 +366,64 @@ public sealed class VndbListTests
         Assert.True(setup.Local("g2").HasLabel(LibraryListLabels.Playing));
         Assert.Null(setup.File.Load().Find("g1").CurrentList);
         Assert.Null(library.ListCardForProject(null, null));
+    }
+
+    [Fact]
+    public async Task Interruptor_com_a_pasta_travada_mostra_o_erro_e_nao_derruba()
+    {
+        using var setup = new Setup([Game("g1", "v4")], []);
+        var blocked = Path.Combine(setup.Config, "ocupado");
+        await File.WriteAllTextAsync(blocked, "x", Ct);
+        var service = new VndbListService(setup.Store, setup.Fake, setup.File, new FixedClock(Later), _ => null, new VndbSyncSettingsFile(blocked));
+        var connection = new VndbConnectionViewModel(service, new FixedClock(Later));
+
+        connection.SyncVote = false;
+
+        Assert.Contains("não foi guardada", connection.Message);
+        Assert.False(connection.SyncVote);
+    }
+
+    [Fact]
+    public async Task Library_json_ilegivel_nao_derruba_a_aba_VNDB()
+    {
+        using var setup = new Setup([Game("g1", "v4")], []);
+        await File.WriteAllTextAsync(setup.File.Path, "isto não é json", Ct);
+
+        var connection = new VndbConnectionViewModel(setup.Service, new FixedClock(Later));
+
+        Assert.NotEmpty(connection.Message ?? string.Empty);
+        Assert.Equal(string.Empty, connection.LastSyncText);
+    }
+
+    [Fact]
+    public async Task Notas_com_espaco_no_fim_nao_contam_como_mudanca()
+    {
+        var state = new LibraryListState("v4", new LibraryListFields { Notes = "Voltar na rota da Aoi.\n " }, T0) { Base = new LibraryListFields { Notes = "Voltar na rota da Aoi.\n " }, SyncedAt = T0, OnVndb = true };
+        using var setup = new Setup([Game("g1", "v4") with { List = state }], []);
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        await library.LoadAsync();
+        var card = library.ListCardForProject(null, "v4")!;
+
+        await card.CommitCommand.ExecuteAsync(null);
+
+        Assert.True(LibraryListState.SameAs(state, setup.File.Load().Find("g1").CurrentList));
+        Assert.StartsWith("Sincronizada", card.SyncText);
+    }
+
+    [Fact]
+    public async Task A_Ficha_aberta_antes_de_a_Biblioteca_carregar_ganha_o_cartao_quando_ela_carrega()
+    {
+        using var setup = new Setup([Game("g1", "v31201")], []);
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN");
+        ProjectFolder.Open(root).SaveVndbLink(new VndbLink("v31201", "Minha VN", null, null, []));
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Later)), library: library);
+
+        await main.Start.OpenFolderCommand.ExecuteAsync(null);
+        Assert.Null(main.Sheet.ListCard);
+        await library.LoadAsync();
+
+        Assert.NotNull(main.Sheet.ListCard);
     }
 }

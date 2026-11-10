@@ -331,6 +331,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         Redraw();
+        GamesLoaded?.Invoke(this, EventArgs.Empty);
     }
 
     private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, Dictionary<string, LibraryTranslationState> Versions, PlayLog Played, string? PlayWarning) Read(IReadOnlyList<string> recent)

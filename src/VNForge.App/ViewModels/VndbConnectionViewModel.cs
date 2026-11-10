@@ -141,7 +141,16 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
 
     private void Choose(VndbSyncChoices choices, string property)
     {
-        service.Choices = choices;
+        try
+        {
+            service.Choices = choices;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // A escolha vale até o app fechar; o erro diz por que não foi para o disco.
+            Message = "A escolha não foi guardada no disco: " + e.Message;
+        }
+
         OnPropertyChanged(property);
     }
 
@@ -162,7 +171,7 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
         {
             ShowAccount(await service.CheckAsync(token));
         }
-        catch (Exception e) when (e is VndbException or HttpRequestException)
+        catch (Exception e) when (e is VndbException or HttpRequestException or TaskCanceledException)
         {
             ConnectionOk = false;
             AccountText = e.Message;
@@ -204,7 +213,7 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
             ShowToken();
             ShowAccount(account);
         }
-        catch (Exception e) when (e is VndbException or HttpRequestException)
+        catch (Exception e) when (e is VndbException or HttpRequestException or TaskCanceledException)
         {
             // O token nunca entra na mensagem: só o que o VNDB respondeu.
             Message = e.Message;
@@ -251,7 +260,7 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
                 : $"{titles.Count} jogos foram alterados aqui e no site do VNDB desde a última sincronização. Escolha o que vale para cada campo.";
             IsConflictsOpen = true;
         }
-        catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException)
+        catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException or TaskCanceledException)
         {
             Message = e.Message;
         }
@@ -279,7 +288,7 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
             var plan = await service.PlanAsync(token, LibrarySyncDirection.Both, resolutions: chosen);
             await ApplyAsync(plan, token);
         }
-        catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException)
+        catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException or TaskCanceledException)
         {
             Message = e.Message;
         }
@@ -338,7 +347,19 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
 
     private void ShowLastSync()
     {
-        var (games, last) = service.Summary();
+        int games;
+        DateTimeOffset? last;
+        try
+        {
+            (games, last) = service.Summary();
+        }
+        catch (LibraryException e)
+        {
+            LastSyncText = string.Empty;
+            Message = e.Message;
+            return;
+        }
+
         var parts = new List<string>();
         if (last is { } at)
         {

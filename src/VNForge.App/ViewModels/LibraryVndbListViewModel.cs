@@ -172,7 +172,7 @@ public sealed partial class LibraryVndbListViewModel : ObservableObject
     private VndbChange<string> NotesChange(string? current)
     {
         var text = NotesText.Trim();
-        return text == (current ?? string.Empty) ? default : text.Length == 0 ? VndbChange<string>.Clear : text;
+        return text == (current?.Trim() ?? string.Empty) ? default : text.Length == 0 ? VndbChange<string>.Clear : text;
     }
 
     private Task EditAsync(VndbListUpdate update) => RunAsync(() => service.EditAsync(game.Id, update));

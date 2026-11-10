@@ -87,8 +87,8 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
     public LibraryGame Game(string gameId) => file.Load().Find(gameId);
 
     /// <summary>
-    /// Grava a mudança só aqui e, se ela põe o rótulo Terminado e a pessoa ligou "marcar como terminado no VNDB", envia o jogo ao VNDB na hora. Sem token, ou sem a permissão
-    /// de gravar, a marca fica só aqui. Devolve o que dizer à pessoa quando o envio não foi feito, ou nulo.
+    /// Grava a mudança só aqui e, se ela põe o rótulo Terminado e a pessoa ligou "marcar como terminado no VNDB", envia só esse rótulo ao VNDB na hora. Sem token, sem a permissão
+    /// de gravar ou sem rede, a marca fica só aqui. Devolve o que dizer à pessoa quando o envio não foi feito, ou nulo.
     /// </summary>
     public async Task<string?> EditAsync(string gameId, VndbListUpdate update, CancellationToken ct = default)
     {
@@ -106,16 +106,11 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
 
         try
         {
-            var plan = await PlanAsync(token, LibrarySyncDirection.Push, gameId, ct: ct);
-            if (plan.Items.Any(i => i.RemovedOnSite))
-            {
-                return "A entrada foi apagada na sua lista do VNDB; a marca ficou só aqui, para não recriar o que você apagou no site.";
-            }
-
-            var report = await ApplyAsync(plan, token, ct);
-            return report.AbortReason ?? report.Items.FirstOrDefault(i => i.Error is not null)?.Error;
+            // Só o rótulo: voto, datas e notas mudados no site não são sobrescritos, e o resto segue para a próxima sincronização.
+            await vndb.UpdateEntryAsync(token, Game(gameId).VndbId!, new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished] }, ct);
+            return null;
         }
-        catch (Exception e) when (e is VndbException or LibraryException)
+        catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException || (e is OperationCanceledException && !ct.IsCancellationRequested))
         {
             return "Gravado só aqui. " + e.Message;
         }
