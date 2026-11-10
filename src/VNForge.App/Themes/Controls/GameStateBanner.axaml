@@ -29,6 +29,30 @@
       </ControlTemplate>
     </Setter>
   </Style>
+  <!-- Variante "stage" de "Testar no jogo" (quadro e4c): o cartão de 20px de margem com título de 17 e a divisória dos passos de ponta a ponta. -->
+  <Style Selector="c|GameStateBanner.stage">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
+                BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+          <StackPanel>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="20,17">
+              <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Classes="title-md" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
+                <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+                           IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              </StackPanel>
+              <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+            </Grid>
+            <Border Classes="divider-top" Padding="20,13,20,12" IsVisible="{TemplateBinding Footer, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <ContentPresenter Content="{TemplateBinding Footer}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
   <Style Selector="c|GameStateBanner:translated /template/ Ellipse#PART_Dot">
     <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>
   </Style>

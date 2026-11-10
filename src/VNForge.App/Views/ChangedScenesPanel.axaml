@@ -5,7 +5,7 @@
              x:DataType="vm:ChangedScenesViewModel">
 
   <!-- As cenas cuja tradução mudou desde o último teste no jogo; o mesmo painel na página Testar e no Painel. Cada linha abre o Editor só com as falas que mudaram. -->
-  <StackPanel Spacing="6" AutomationProperties.Name="Mudou desde o último teste">
+  <StackPanel x:Name="Root" Spacing="6" AutomationProperties.Name="Mudou desde o último teste">
     <TextBlock Classes="body-strong" Text="Mudou desde o último teste"/>
     <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Message}" AutomationProperties.Name="Resumo do que mudou"/>
     <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}" AutomationProperties.Name="Cenas que mudaram">

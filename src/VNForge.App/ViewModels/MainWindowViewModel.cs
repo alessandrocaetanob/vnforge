@@ -107,7 +107,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, BuildViewModel? build = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
@@ -162,7 +162,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         batchRequests = NewBatchRequestService();
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
-        Build = new BuildViewModel(TaskService);
+        Build = build ?? new BuildViewModel(TaskService);
         Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {

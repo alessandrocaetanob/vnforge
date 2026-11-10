@@ -28,6 +28,13 @@ public sealed partial class BuildView : UserControl
         set => Technical.IsExpanded = value;
     }
 
+    /// <summary>"Abrir detalhes técnicos" da faixa de erro: o registro com o motivo está lá dentro.</summary>
+    private void OpenTechnical_Click(object? sender, RoutedEventArgs e)
+    {
+        Technical.IsExpanded = true;
+        Technical.BringIntoView();
+    }
+
     /// <summary>Copia o log inteiro, com data e hora, para a área de transferência; é o que o usuário cola ao relatar um problema.</summary>
     private async void CopyLog_Click(object? sender, RoutedEventArgs e)
     {

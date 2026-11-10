@@ -550,7 +550,7 @@ public sealed partial class BuildViewModel
             var blocked = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro trava", "erros travam")}";
             SetSteps(
                 StepRows(step => step == GameTestStep.Check ? (TestStepState.Blocked, blocked) : (TestStepState.Pending, string.Empty)),
-                "Corrija os erros na Conferência para testar de novo.");
+                "Corrija os erros em Conferir para testar de novo.");
         }
         else if (last is null)
         {

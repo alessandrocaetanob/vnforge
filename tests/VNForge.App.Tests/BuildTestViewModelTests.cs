@@ -109,7 +109,7 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.True(vm.LastTestSteps[0].IsBlocked);
         Assert.Equal("2 erros travam", vm.LastTestSteps[0].TimeText);
         Assert.All(vm.LastTestSteps.Skip(1), r => Assert.True(r.IsPending));
-        Assert.Equal("Corrija os erros na Conferência para testar de novo.", vm.TestStepsCaption);
+        Assert.Equal("Corrija os erros em Conferir para testar de novo.", vm.TestStepsCaption);
     }
 
     private static TestStepState[] States(BuildViewModel vm) => [.. vm.LastTestSteps.Select(r => r.State)];
