@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.LogicalTree;
@@ -35,7 +34,6 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
     public void Inspetor_vira_abas_na_janela_pequena(double windowWidth, bool tabs) =>
         Assert.Equal(tabs, EditorBreakpoints.UsesInspectorTabs(windowWidth));
 
-    private static readonly int[] HeaderWidths = [1366, 1440];
     private static readonly string[] TabbedNames = ["TranslationEditor", "ExplainCard", "SceneLines", "ContextFragment", "SuggestionCard", "GameBox", "ApproveButton", "UseSuggestionButton"];
     private static readonly double[] ResizeSteps = [1440.0, 1366.0, 1440.0];
     private static readonly double[] CrossingSteps = [1399.0, 1440.0];
@@ -129,48 +127,6 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         Assert.True(panelShown);
         Assert.False(triggerShown);
         Assert.False(tabsShown);
-    }
-
-    [Fact]
-    public async Task Os_botoes_secundarios_do_cabecalho_viram_icones_com_nome_e_dica()
-    {
-        var (vm, temp) = await Abrir();
-        using var _ = temp;
-        var compact = new List<(string? Name, object? Tip, bool LabelShown)>();
-        var wide = new List<bool>();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                foreach (var width in HeaderWidths)
-                {
-                    var window = Show(new EditorView { DataContext = vm }, width);
-                    foreach (var button in window.GetVisualDescendants().OfType<Button>().Where(b => b.Command == vm.ToggleSearchCommand || b.Command == vm.CheckFileCommand))
-                    {
-                        var label = button.GetVisualDescendants().OfType<TextBlock>().Single();
-                        if (width == 1366)
-                        {
-                            compact.Add((AutomationProperties.GetName(button), ToolTip.GetTip(button), label.IsEffectivelyVisible));
-                        }
-                        else
-                        {
-                            wide.Add(label.IsEffectivelyVisible);
-                        }
-                    }
-
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-
-        Assert.Equal(2, compact.Count);
-        Assert.All(compact, b =>
-        {
-            Assert.False(string.IsNullOrWhiteSpace(b.Name));
-            Assert.NotNull(b.Tip);
-            Assert.False(b.LabelShown);
-        });
-        Assert.Equal([true, true], wide);
     }
 
     [Fact]

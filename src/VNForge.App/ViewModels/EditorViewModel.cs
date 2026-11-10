@@ -182,7 +182,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     public partial string? RunningScriptKey { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CheckFileCommand), nameof(TranslatePendingCommand), nameof(StartReadingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TranslatePendingCommand), nameof(StartReadingCommand))]
     public partial ScriptItemViewModel? SelectedScript { get; set; }
 
     public IReadOnlyList<FilterChipViewModel> Filters => filters;
@@ -478,17 +478,11 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         RefreshChapterList();
     }
 
-    /// <summary>Disparado por "Conferir arquivo": a janela abre Conferir a tradução. Leva a chave do script aberto.</summary>
-    public event EventHandler<string>? CheckRequested;
-
     /// <summary>Disparado por "Traduzir com IA": a janela com as três perguntas abre. Leva as cenas marcadas na lista (Ctrl ou Shift) ou, sem marcação múltipla, a chave do script aberto.</summary>
     public event EventHandler<IReadOnlyList<string>>? TranslateRequested;
 
     /// <summary>Os scripts marcados na lista de cenas; a lista os mantém por <c>SelectedItems</c>.</summary>
     public ObservableCollection<ScriptItemViewModel> ChosenScripts { get; } = [];
-
-    [RelayCommand(CanExecute = nameof(HasScript))]
-    private void CheckFile() => CheckRequested?.Invoke(this, SelectedScript!.Key);
 
     [RelayCommand(CanExecute = nameof(CanTranslatePending))]
     private void TranslatePending()

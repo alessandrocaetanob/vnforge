@@ -54,6 +54,7 @@
           <StackPanel Grid.Row="1" Margin="0,8,0,0">
             <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
             <TextBlock Classes="lib-cs" Text="{Binding Subtitle}"/>
+            <Border Classes="lib-pill" Tag="{Binding VersionTone}" Margin="0,8,0,0" IsVisible="{Binding HasVersionTag}"><TextBlock Text="{Binding VersionTag}"/></Border>
           </StackPanel>
         </Grid>
       </Button>
@@ -202,6 +203,24 @@
                 </StackPanel>
               </Grid>
 
+              <!-- "Versão do jogo": original ou traduzido pela injeção e pelo backup do Core. O controle some do jogo sem projeto e fica desligado enquanto troca ou quando o estado é desconhecido. -->
+              <Border Name="VersionCard" Classes="lib-card" IsVisible="{Binding HasVersion}">
+                <StackPanel Spacing="12" IsEnabled="{Binding !Library.IsSwitching}">
+                  <c:OverlineText Classes="overline" Text="Versão do jogo"/>
+                  <ListBox Name="VersionSwitch" Classes="libseg" HorizontalAlignment="Stretch" IsEnabled="{Binding IsVersionKnown}" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}"
+                           AutomationProperties.Name="Versão do jogo">
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" Columns="2"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LibraryVersionItem"><TextBlock HorizontalAlignment="Center" Text="{Binding Label}"/></DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <Border Name="VersionPill" Classes="lib-pill" Tag="{Binding VersionTone}"><TextBlock Text="{Binding VersionPill}"/></Border>
+                  <TextBlock Name="VersionDetail" Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="{Binding VersionDetail}"/>
+                  <TextBlock Name="VersionNote" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding VersionNote}" IsVisible="{Binding HasVersionNote}"/>
+                  <TextBlock Name="VersionStatus" Classes="lib-dim" FontSize="13" LineHeight="20" Text="{Binding Library.SwitchStatus}" IsVisible="{Binding Library.IsSwitching}"/>
+                </StackPanel>
+              </Border>
+
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Name="OpenGameButton" Classes="accent" Command="{Binding Library.OpenGameCommand}" CommandParameter="{Binding Card}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
@@ -212,7 +231,7 @@
                 <Button Name="PlayButton" Command="{Binding Library.PlayCommand}" CommandParameter="{Binding Card}" IsVisible="{Binding !Card.IsPlaying}" AutomationProperties.Name="Jogar">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                    <TextBlock Text="Jogar"/>
+                    <TextBlock Text="{Binding PlayText}"/>
                   </StackPanel>
                 </Button>
                 <Button Name="PlayingButton" IsEnabled="False" IsVisible="{Binding Card.IsPlaying}" AutomationProperties.Name="Jogando">
@@ -235,6 +254,13 @@
               </StackPanel>
               <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
                       Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
+
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6" IsVisible="{Binding HasLastSwitch}">
+                <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Arquivos alterados" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Name="FilesChanged" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding FilesText}" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Última troca"/>
+                <TextBlock Name="LastSwitch" Grid.Row="1" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding LastSwitchText}"/>
+              </Grid>
 
               <Border Classes="lib-hr"/>
 
@@ -418,6 +444,34 @@
       </Panel>
       <TextBlock Classes="lib-dim" FontSize="13" HorizontalAlignment="Center" Text="O VNForge só lê. Antes de mexer num jogo, ele sempre faz uma cópia de segurança."/>
     </StackPanel>
+
+    <!-- O diálogo da troca recusada (".v3-dialog" de 560): o aviso, o que o injetor achou e Fechar. -->
+    <c:ScreenDialog DialogWidth="560" IsOpen="{Binding HasSwitchProblem, Mode=TwoWay}">
+      <StackPanel Spacing="16" Margin="0,-16,0,0" DataContext="{Binding SwitchProblem}" x:DataType="vm:LibrarySwitchProblem" AutomationProperties.Name="{Binding Title}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <Border Classes="lib-icobox" Background="{DynamicResource Vnf.SignalWarningBg}"><PathIcon Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}"/></Border>
+          <StackPanel Grid.Column="1">
+            <TextBlock Name="SwitchProblemTitle" Classes="lib-h2" TextWrapping="Wrap" Text="{Binding Title}"/>
+            <TextBlock Name="SwitchProblemMessage" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding Message}"/>
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" IsVisible="{Binding HasDiffering}">
+          <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Arquivos diferentes"/>
+          <TextBlock Name="SwitchProblemDiffering" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding Differing}"/>
+        </Grid>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Name="SwitchProblemClose" Content="Fechar" Command="{Binding CloseSwitchProblemCommand}"/>
+          <Button Name="ExtractAgainButton" Classes="accent" Command="{Binding ExtractAgainCommand}" IsVisible="{Binding SwitchProblem.CanExtract}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+              <TextBlock Text="Extrair de novo"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
 
     <!-- O diálogo do casamento com o VNDB (".v3-dialog" de 720). O título é o do conteúdo, em 20/28, como no quadro. -->
     <c:ScreenDialog DialogWidth="720" DataContext="{Binding Match}" x:DataType="vm:LibraryMatchViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}">
