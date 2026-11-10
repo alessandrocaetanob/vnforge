@@ -264,7 +264,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
         var boxes = tabs.GetVisualDescendants().OfType<GameTextbox>().Where(b => b.IsEffectivelyVisible).ToList();
         Assert.Equal(3, boxes.Count);
         Assert.All(boxes, b => Assert.True(b.Bounds.Width > 100 && b.Bounds.Height > 30, $"{b.Bounds}"));
-        Assert.All(boxes, b => Assert.Equal(90, Assert.IsType<Border>(b.Parent).Bounds.Height, 1));
+        Assert.All(boxes, b => Assert.Equal(90, b.Bounds.Height, 1));
         Assert.Single(cards.Select(c => c.Bounds.Height).Distinct());
         Assert.All(cards, c => Assert.Equal(new CornerRadius(16), c.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "Card").CornerRadius));
         Assert.All(cards, c => Assert.Single(c.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("radio-mark")));
