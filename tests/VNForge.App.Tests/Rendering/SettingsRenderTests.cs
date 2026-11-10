@@ -24,7 +24,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
 
     public static TheoryData<string> Themes => ["Dark", "Light"];
 
-    private static readonly (int Tab, string Name)[] Tabs = [(0, "ajustes-ia"), (1, "ajustes-estilo"), (2, "ajustes-formatacao"), (3, "ajustes-acentos")];
+    private static readonly (int Tab, string Name)[] Tabs = [(0, "ajustes-v6-ia"), (1, "ajustes-v6-estilo"), (2, "ajustes-v6-formatacao"), (3, "ajustes-v6-acentos")];
 
     [Theory]
     [MemberData(nameof(Themes))]
@@ -57,13 +57,13 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     foreach (var (tab, name) in Tabs)
                     {
                         vm.Settings.SelectedTab = tab;
-                        if (tab == 3)
+                        if (tab >= 2)
                         {
                             vm.Settings.EncodingStrategy = "cp1252";
                         }
 
                         ScreenRenderer.Settle(window);
-                        if (name == "ajustes-estilo")
+                        if (name == "ajustes-v6-estilo")
                         {
                             ConferirEstilo(window);
                         }
@@ -110,9 +110,8 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demo.Root), new FixedClock(Now));
                 var vault = new MemoryApiKeyStore();
-                vault.Save("sk-ant-chave-da-demonstracao");
                 var settings = new SettingsViewModel(vault, new AppSettingsFile(config.SubFolder("ajustes")), _ => null, _ => throw new InvalidOperationException("a renderização não chama a API"));
-                var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-ant-chave-da-demonstracao", ApiKeySource.Vault), settings: settings);
+                var vm = new MainWindowViewModel(start, new ResolvedApiKey(null, ApiKeySource.None), settings: settings);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
@@ -123,7 +122,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     await vm.Settings.EstimateLoading;
                     vm.Settings.SelectedTab = 0;
                     ScreenRenderer.Settle(window);
-                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-ia-sem-limite", theme)));
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-v6-ia-sem-chave", theme)));
 
                     Assert.False(vm.Settings.HasLimit);
                     Assert.DoesNotContain(window.GetVisualDescendants().OfType<BudgetBar>(), b => b.IsEffectivelyVisible);
