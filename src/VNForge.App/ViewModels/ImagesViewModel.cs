@@ -621,14 +621,9 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         var (left, top, right, bottom) = (RegionX, RegionY, RegionX + RegionWidth, RegionY + RegionHeight);
         var reach = HandleSize;
         (double X, double Y, double AnchorX, double AnchorY)[] corners = [(left, top, right, bottom), (right, top, left, bottom), (left, bottom, right, top), (right, bottom, left, top)];
-        foreach (var corner in corners.Where(c => Math.Abs(x - c.X) <= reach && Math.Abs(y - c.Y) <= reach))
-        {
-            anchor = (corner.AnchorX, corner.AnchorY);
-            return true;
-        }
-
-        anchor = default;
-        return false;
+        var hit = corners.Where(c => Math.Abs(x - c.X) <= reach && Math.Abs(y - c.Y) <= reach).Select(c => ((double X, double Y)?)(c.AnchorX, c.AnchorY)).FirstOrDefault();
+        anchor = hit ?? default;
+        return hit is not null;
     }
 
     /// <summary>Escolhe o filtro da faixa e refaz a lista.</summary>
