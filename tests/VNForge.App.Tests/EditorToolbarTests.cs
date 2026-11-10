@@ -112,7 +112,6 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     Dispatcher.UIThread.RunJobs();
                 }
 
-                var header = window.GetVisualDescendants().OfType<PageHeader>().Single();
                 var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
                 var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
                 var translate = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.TranslatePendingCommand);
@@ -120,9 +119,9 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                 Rect Box(Control c) => new(c.TranslatePoint(default, window)!.Value, c.Bounds.Size);
                 var all = chips.Cast<Control>().Concat(tools).Append(translate).ToList();
 
-                if (tools.Count != 3)
+                if (tools.Count != 2)
                 {
-                    failures.Add($"esperava 3 botões secundários, achei {tools.Count}");
+                    failures.Add($"esperava 2 botões secundários (Ler como jogador e Buscar), achei {tools.Count}");
                 }
 
                 if (chips.Count != 5 || chips.Any(c => !c.IsEffectivelyVisible))
@@ -178,11 +177,10 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     }
                 }
 
-                // Sem o vazio de antes: a barra começa logo abaixo do título (a migalha e o título ocupam cerca de 56 px).
-                var barTop = Box(chips[0]).Y;
-                if (barTop - Box(header).Bottom > 16)
+                // O quadro do #546 não tem a linha de título: a barra é a primeira coisa da tela e não há PageHeader.
+                if (window.GetVisualDescendants().OfType<PageHeader>().Any())
                 {
-                    failures.Add($"espaço vazio entre o título e a barra: {barTop - Box(header).Bottom:0} px");
+                    failures.Add("o Editor não tem mais a linha de título");
                 }
 
                 window.Close();

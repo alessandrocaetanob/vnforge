@@ -53,7 +53,7 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
                 var window = new Window { Width = 1440, Height = 900, Content = new EditorView { DataContext = vm } };
                 window.Show();
                 Settle(window);
-                var header = window.GetVisualDescendants().OfType<PageHeader>().Single();
+                var header = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "Toolbar");
                 var columns = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "Columns");
                 Assert.True(header.IsEffectivelyVisible && columns.IsEffectivelyVisible);
 

@@ -80,21 +80,9 @@
   <!-- Sem RowSpacing: as linhas do aviso de erro e da busca ficam vazias na maior parte do tempo e o espaço entre linhas vazias comeria a altura do inspetor; cada uma leva o seu espaço de cima. -->
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="32,6,32,8">
 
-    <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
-    <c:PageHeader Classes="inline" Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
-      <!-- Ler como jogador (#475): fica no cabeçalho, junto do nome da cena que ele abre, e não na barra, que já enche a 960 px. -->
-      <Button Classes="sm" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
-              ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Play}"/>
-          <TextBlock Text="Ler como jogador" TextWrapping="NoWrap"/>
-        </StackPanel>
-      </Button>
-    </c:PageHeader>
-
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Quadro do #546: Conferir arquivo e Modo revisão saem da barra e viram os passos Conferir e Revisão do cabeçalho do jogo; Buscar e Dúvidas largam o texto abaixo de 1400 px e ficam como ícones com dica. -->
-    <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+    <Grid x:Name="Toolbar" Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
@@ -134,6 +122,14 @@
             <TextBlock Classes="btn-label" Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
           </StackPanel>
         </ToggleButton>
+        <!-- Ler como jogador (#475): sem a linha de título do quadro do #546, fica na barra, junto das ações da cena. -->
+        <Button Classes="tool" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
+                ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+            <TextBlock Classes="btn-label" Text="Ler como jogador" TextWrapping="NoWrap"/>
+          </StackPanel>
+        </Button>
         <Button Classes="tool" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
                 ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -273,7 +269,7 @@
     </Grid>
 
     <!-- Modo revisão: ocupa o lugar do cabeçalho e da grade enquanto houver uma revisão aberta. -->
-    <v:ReviewModeView Grid.RowSpan="5" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
+    <v:ReviewModeView Grid.RowSpan="5" Margin="0,18,0,8" DataContext="{Binding Review}" IsVisible="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsReviewing}"
                       Background="{DynamicResource Vnf.BgLayer}"/>
 
     <!-- Leitor de cena (#475): a cena em tela cheia, uma fala por vez, sem nada para aprovar. -->
