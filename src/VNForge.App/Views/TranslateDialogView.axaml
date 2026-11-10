@@ -95,8 +95,8 @@
 
         <StackPanel Spacing="8">
           <c:OverlineText Classes="overline" Text="Quanto custa"/>
-          <!-- ".card.in" do quadro: fundo bg-inset, raio de 12, respiro de 12 por 14; a trilha da barra tem a cor do cartão, então só os trechos coloridos aparecem. -->
-          <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
+          <!-- ".card.in" do quadro: fundo bg-inset, borda de 1 em stroke-subtle, raio de 12, respiro de 12 por 14; a trilha da barra tem a cor do cartão, então só os trechos coloridos aparecem. -->
+          <Border Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock FontSize="16" LineHeight="24" FontWeight="SemiBold" Text="{Binding RequestText}" VerticalAlignment="Center"/>
@@ -176,7 +176,7 @@
         </Border>
 
         <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="Não há linhas sem tradução neste escopo." IsVisible="{Binding NothingToTranslate}"/>
-        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding ContextText}"/>
+        <TextBlock Classes="body-sm secondary" LineHeight="20" TextWrapping="Wrap" Text="{Binding ContextText}"/>
       </StackPanel>
     </ScrollViewer>
 

@@ -112,8 +112,8 @@
     <Button x:Name="TasksButton" Classes="subtle sm" VerticalAlignment="Center" AutomationProperties.Name="Lista de tarefas">
       <Panel>
         <TextBlock Text="{Binding TasksLabel}" IsVisible="{Binding !ShowsNightBatch}" VerticalAlignment="Center"/>
-        <!-- O chip do quadro não tem a caixa do botão: o ícone fica 2px depois do respiro da barra, então o respiro do botão (8) volta. -->
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="-6,0" VerticalAlignment="Center" IsVisible="{Binding ShowsNightBatch}"
+        <!-- O chip do quadro não tem a caixa do botão: o ícone começa 18px depois da borda da janela; o respiro do botão (8) e mais 5px de folga do shell voltam. -->
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="-11,0,-6,0" VerticalAlignment="Center" IsVisible="{Binding ShowsNightBatch}"
                     TextElement.Foreground="{DynamicResource Vnf.StatusAiFg}">
           <Viewbox Width="14" Height="14" AutomationProperties.AccessibilityView="Raw"><Path Width="20" Height="20" Data="{StaticResource Icon.Moon}" Stroke="{DynamicResource Vnf.StatusAiFg}" StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round"/></Viewbox>
           <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" Text="{Binding NightBatchText}" VerticalAlignment="Center"/>

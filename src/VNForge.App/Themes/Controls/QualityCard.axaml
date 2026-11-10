@@ -21,7 +21,8 @@
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <StackPanel IsVisible="{TemplateBinding ShowPrice}">
               <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontSize="17" LineHeight="24" FontWeight="Bold"/>
-              <TextBlock Name="PART_Duration" Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
+              <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro tem 12 com entrelinha de 1,6 (19,2, arredondada para 19 no render), que dá os 158 de altura do cartão. -->
+              <TextBlock Name="PART_Duration" FontSize="12" LineHeight="19" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
                          IsVisible="{TemplateBinding Duration, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <TextBlock Name="PART_RateMark" Classes="caption secondary" Text="(cotação de exemplo)" IsVisible="{TemplateBinding ExampleRate}"/>
