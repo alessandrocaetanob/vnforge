@@ -163,7 +163,11 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
             return fresh;
         }
 
-        return plan.PreviousTranslations.TryGetValue(hash, out var previous) && string.Equals(plan.Previous[hash], text, StringComparison.Ordinal) ? previous : null;
+        return plan.PreviousTranslations.TryGetValue(hash, out var previous)
+            && plan.Previous.TryGetValue(hash, out var old)
+            && string.Equals(old, text, StringComparison.Ordinal)
+            ? previous
+            : null;
     }
 
     /// <returns>Falso quando a execução foi cancelada e o resto dos pacotes não deve ser lido.</returns>
