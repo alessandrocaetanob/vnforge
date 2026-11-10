@@ -24,7 +24,7 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static void SetAdult(string directory, bool showAdult) =>
-        new LibraryFile(directory).Update(library => library.Privacy = new LibraryPrivacy(ShowAdult: showAdult));
+        new LibraryFile(directory).Update(library => library.Privacy = new LibraryPrivacy(Adult: showAdult ? AdultMode.Show : AdultMode.Blur));
 
     private static byte[] Png(int width = 16, int height = 16)
     {

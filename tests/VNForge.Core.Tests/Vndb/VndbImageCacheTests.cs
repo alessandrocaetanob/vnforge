@@ -97,10 +97,10 @@ public sealed class VndbImageCacheTests : IDisposable
     [InlineData(1.0, 0.0)]
     [InlineData(0.0, 1.0)]
     [InlineData(2.0, 2.0)]
-    public async Task Imagem_que_a_privacidade_esconde_nao_e_baixada_nem_devolvida(double sexual, double violence)
+    public async Task No_modo_esconder_a_imagem_adulta_nao_e_baixada_nem_devolvida(double sexual, double violence)
     {
         var downloader = new FakeDownloader(_ => Jpeg);
-        using var cache = Cache(downloader, () => new LibraryPrivacy());
+        using var cache = Cache(downloader, () => new LibraryPrivacy(Adult: AdultMode.Hide));
 
         var path = await cache.GetAsync(new VndbImageRef(Portrait, sexual, violence), Ct);
 
@@ -112,7 +112,7 @@ public sealed class VndbImageCacheTests : IDisposable
     [Fact]
     public async Task A_privacidade_vale_na_hora_da_leitura_e_nao_so_na_do_download()
     {
-        var privacy = new LibraryPrivacy(ShowAdult: true);
+        var privacy = new LibraryPrivacy(Adult: AdultMode.Show);
         var downloader = new FakeDownloader(_ => Jpeg);
         using var cache = Cache(downloader, () => privacy);
         var image = new VndbImageRef(Portrait, 2, 0);
@@ -120,25 +120,25 @@ public sealed class VndbImageCacheTests : IDisposable
         Assert.NotNull(await cache.GetAsync(image, Ct));
         Assert.NotNull(cache.Find(image));
 
-        privacy = new LibraryPrivacy();
+        privacy = new LibraryPrivacy(Adult: AdultMode.Hide);
 
         Assert.Null(cache.Find(image));
         Assert.Null(await cache.GetAsync(image, Ct));
         Assert.Equal(1, downloader.Calls);
 
-        privacy = new LibraryPrivacy(ShowAdult: true);
+        privacy = new LibraryPrivacy(Adult: AdultMode.Show);
 
         Assert.NotNull(cache.Find(image));
     }
 
     [Fact]
-    public async Task Sem_privacidade_informada_vale_o_padrao_que_esconde()
+    public async Task Sem_privacidade_informada_vale_o_padrao_que_baixa_a_imagem_adulta_para_a_tela_borrar()
     {
         var downloader = new FakeDownloader(_ => Jpeg);
         using var cache = Cache(downloader);
 
-        Assert.Null(await cache.GetAsync(new VndbImageRef(Portrait, 2, 0), Ct));
-        Assert.Equal(0, downloader.Calls);
+        Assert.NotNull(await cache.GetAsync(new VndbImageRef(Portrait, 2, 0), Ct));
+        Assert.Equal(1, downloader.Calls);
     }
 
     [Fact]

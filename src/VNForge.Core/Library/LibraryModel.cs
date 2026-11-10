@@ -128,8 +128,45 @@ public sealed record LibraryGame(
     public LibraryPortuguese? CurrentPortuguese => Portuguese is { } found && found.VisualNovelId == VndbId ? found : null;
 }
 
+/// <summary>O que a Biblioteca faz com jogo de conteúdo adulto (capa ou tags marcadas no VNDB). Vale para a tela e para a CLI.</summary>
+public enum AdultMode
+{
+    /// <summary>Capa, tags, traços e imagens aparecem como vêm do VNDB.</summary>
+    Show,
+
+    /// <summary>
+    /// O jogo segue na Biblioteca, mas a capa e as imagens ficam borradas e as tags eróticas e os traços sexuais ficam escondidos, até a pessoa pedir. A CLI não desenha, então
+    /// no lugar do borrão ela esconde a capa e as imagens, como sempre fez.
+    /// </summary>
+    Blur,
+
+    /// <summary>O jogo adulto sai da grade, da lista, da busca, de "Continuar jogando", da fila de tradução, dos personagens e do catálogo.</summary>
+    Hide,
+}
+
 /// <summary>
 /// O que a Biblioteca esconde por padrão. Vale para a tela e para a CLI: ficam nos dados para que as duas respeitem a mesma escolha.
-/// Spoiler: tags com spoiler e trechos <c>[spoiler]</c> da sinopse. Adulto: a capa de jogo marcado como adulto e toda tag erótica (categoria <c>ero</c>), de qualquer jogo.
+/// Spoiler: tags com spoiler e trechos <c>[spoiler]</c> da sinopse. Adulto: <see cref="AdultMode"/>; quem nunca escolheu fica no <see cref="AdultMode.Blur"/>.
+/// O <c>library.json</c> antigo guardava só <c>showAdult</c> (verdadeiro vira <see cref="AdultMode.Show"/>, o resto <see cref="AdultMode.Blur"/>); a leitura e a gravação estão em <see cref="LibraryPrivacyConverter"/>.
 /// </summary>
-public sealed record LibraryPrivacy(bool ShowSpoilers = false, bool ShowAdult = false);
+[JsonConverter(typeof(LibraryPrivacyConverter))]
+public sealed record LibraryPrivacy(bool ShowSpoilers = false, AdultMode Adult = AdultMode.Blur)
+{
+    /// <summary>Capa, tags, traços e imagens adultos aparecem sem esconder nem borrar: só no <see cref="AdultMode.Show"/>.</summary>
+    [JsonIgnore]
+    public bool ShowAdult => Adult == AdultMode.Show;
+
+    /// <summary>O modo <see cref="AdultMode.Hide"/> tira este jogo de toda lista: ele é adulto e o jogo do VNDB confirmado diz isso.</summary>
+    public bool Hides(LibraryGame game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        return Adult == AdultMode.Hide && game.Info is { Adult: true };
+    }
+
+    /// <summary>Os jogos que a privacidade deixa nas listas, na ordem de <paramref name="games"/>.</summary>
+    public IReadOnlyList<LibraryGame> Listed(IEnumerable<LibraryGame> games)
+    {
+        ArgumentNullException.ThrowIfNull(games);
+        return [.. games.Where(g => !Hides(g))];
+    }
+}

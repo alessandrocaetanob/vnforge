@@ -147,7 +147,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
     /// <summary>O que o botão da revisão diz sobre o nível: "Mostrando nível 2", ou "Spoiler escondido".</summary>
     public string SpoilerLevelText => SpoilerLevel == 0 ? "Spoiler escondido" : $"Mostrando nível {SpoilerLevel.ToString(CultureInfo.InvariantCulture)}";
 
-    internal SheetVisibility Visibility => new(SpoilerLevel, data?.Privacy.ShowAdult ?? false);
+    internal SheetVisibility Visibility => new(SpoilerLevel, data?.Privacy.Adult ?? AdultMode.Blur);
 
     partial void OnSpoilerLevelChanged(int value)
     {

@@ -20,7 +20,7 @@ public sealed record SheetHiddenCharacter(string Id, int Spoiler);
 
 /// <summary>
 /// Um personagem como a ficha o mostra. <paramref name="Gender"/> é o que aparece sem spoiler; <paramref name="RealGender"/> só vem quando os spoilers estão no máximo e o VNDB
-/// marca outro gênero como o real. <paramref name="ImageHidden"/> diz que há retrato e ele foi escondido por ser de conteúdo adulto; <paramref name="Image"/> vem nulo nesse caso.
+/// marca outro gênero como o real. <paramref name="ImageHidden"/> diz que há retrato e ele foi escondido por ser de conteúdo adulto; <paramref name="Image"/> vem nulo nesse caso, exceto no <see cref="AdultMode.Blur"/>: a tela baixa o retrato para mostrá-lo borrado (a CLI olha <paramref name="ImageHidden"/> antes).
 /// <paramref name="Status"/> é a etapa mais atrasada entre a descrição e os nomes dos traços que aparecem; nulo quando o personagem não tem nenhum desses textos.
 /// </summary>
 public sealed record SheetCharacterCard(
@@ -252,7 +252,7 @@ public static class SheetViewer
             SheetLabels.Role(appearance?.Role ?? "appears"),
             appearance?.Role ?? "appears",
             appearance?.WorstSpoiler ?? 0,
-            imageHidden ? null : character.Image,
+            imageHidden && visibility.Adult != AdultMode.Blur ? null : character.Image,
             imageHidden,
             character.Description is { } text ? Shown(text, visibility) : null,
             SheetLabels.Gender(visible),

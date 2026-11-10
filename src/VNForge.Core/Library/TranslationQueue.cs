@@ -37,13 +37,14 @@ public static class TranslationQueue
     /// </summary>
     private static readonly int[] CategoryMinutes = [60, 360, 1200, 2400, 3600];
 
-    /// <summary>Todos os jogos da biblioteca, já na ordem da fila.</summary>
-    public static IReadOnlyList<TranslationQueueEntry> Build(IEnumerable<LibraryGame> games)
+    /// <summary>Todos os jogos da biblioteca, já na ordem da fila. Com <paramref name="privacy"/>, o jogo que o <see cref="AdultMode.Hide"/> tira da Biblioteca fica de fora.</summary>
+    public static IReadOnlyList<TranslationQueueEntry> Build(IEnumerable<LibraryGame> games, LibraryPrivacy? privacy = null)
     {
         ArgumentNullException.ThrowIfNull(games);
         return
         [
             .. games
+                .Where(g => privacy is null || !privacy.Hides(g))
                 .Select(Describe)
                 .OrderBy(e => e.State)
                 .ThenBy(e => e.State == TranslationQueueState.Queued ? Rank(e.Portuguese) : 0)
@@ -54,8 +55,8 @@ public static class TranslationQueue
     }
 
     /// <summary>Só o que falta traduzir (<see cref="TranslationQueueState.Queued"/>), na ordem da fila.</summary>
-    public static IReadOnlyList<TranslationQueueEntry> Pending(IEnumerable<LibraryGame> games) =>
-        [.. Build(games).Where(e => e.State == TranslationQueueState.Queued)];
+    public static IReadOnlyList<TranslationQueueEntry> Pending(IEnumerable<LibraryGame> games, LibraryPrivacy? privacy = null) =>
+        [.. Build(games, privacy).Where(e => e.State == TranslationQueueState.Queued)];
 
     /// <summary>O lugar de um jogo na fila: o estado dele e o que se sabe do português e do tamanho do texto.</summary>
     public static TranslationQueueEntry Describe(LibraryGame game)

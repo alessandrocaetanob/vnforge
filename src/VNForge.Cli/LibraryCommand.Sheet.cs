@@ -246,7 +246,7 @@ internal static partial class LibraryCommand
         var sheet = store.LoadGame(vndbId) ?? throw new LibraryException($"{game.Title} ainda não tem ficha. Busque-a com vnf library sheet fetch {reference}.");
         var privacy = new LibraryPrivacy(
             library.Privacy.ShowSpoilers || parseResult.GetValue(SheetSpoilersOption),
-            library.Privacy.ShowAdult || parseResult.GetValue(SheetAdultOption));
+            parseResult.GetValue(SheetAdultOption) ? AdultMode.Show : library.Privacy.Adult);
         var card = SheetViewer.Card(sheet, store.LoadCharacters(sheet.CharacterIds), store.LoadTerms(), privacy);
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))

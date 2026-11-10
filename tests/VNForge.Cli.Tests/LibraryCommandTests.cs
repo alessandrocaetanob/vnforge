@@ -705,7 +705,7 @@ public sealed class LibraryCommandTests : IDisposable
             {
                 file.Update(l =>
                 {
-                    l.Privacy = new LibraryPrivacy(ShowAdult: true);
+                    l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show);
                     l.Merge([intruder], _cli.Root);
                 });
             }

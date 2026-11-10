@@ -100,7 +100,7 @@ internal static partial class LibraryCommand
         var library = FileOf(cli).Load();
         var privacy = new LibraryPrivacy(
             library.Privacy.ShowSpoilers || parseResult.GetValue(CharactersSpoilersOption),
-            library.Privacy.ShowAdult || parseResult.GetValue(CharactersAdultOption));
+            parseResult.GetValue(CharactersAdultOption) ? AdultMode.Show : library.Privacy.Adult);
         return (library, privacy, SheetStoreOf(cli), new GameEditionsFile(cli.UserConfigDirectory).Load());
     }
 

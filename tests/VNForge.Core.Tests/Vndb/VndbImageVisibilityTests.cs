@@ -7,7 +7,7 @@ namespace VNForge.Core.Tests.Vndb;
 public sealed class VndbImageVisibilityTests
 {
     private static readonly LibraryPrivacy Hiding = new();
-    private static readonly LibraryPrivacy Showing = new(ShowAdult: true);
+    private static readonly LibraryPrivacy Showing = new(Adult: AdultMode.Show);
 
     [Theory]
     [InlineData(0, 0)]

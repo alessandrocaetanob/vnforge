@@ -11,15 +11,18 @@ public sealed record SheetVisibility
 {
     public const int MaxSpoilerLevel = 2;
 
-    public SheetVisibility(int spoilerLevel = 0, bool showAdult = false)
+    public SheetVisibility(int spoilerLevel = 0, AdultMode adult = AdultMode.Blur)
     {
         SpoilerLevel = Math.Clamp(spoilerLevel, 0, MaxSpoilerLevel);
-        ShowAdult = showAdult;
+        Adult = adult;
     }
 
     public int SpoilerLevel { get; }
 
-    public bool ShowAdult { get; }
+    /// <summary>O modo adulto da privacidade: a ficha só mostra tag erótica, traço sexual e retrato adulto no <see cref="AdultMode.Show"/>.</summary>
+    public AdultMode Adult { get; }
+
+    public bool ShowAdult => Adult == AdultMode.Show;
 
     /// <summary>O nível mais alto: os trechos de spoiler dos textos, as mentiras e o gênero real aparecem.</summary>
     public bool ShowsSpoilers => SpoilerLevel >= MaxSpoilerLevel;
@@ -28,11 +31,11 @@ public sealed record SheetVisibility
     public static SheetVisibility From(LibraryPrivacy privacy)
     {
         ArgumentNullException.ThrowIfNull(privacy);
-        return new SheetVisibility(privacy.ShowSpoilers ? MaxSpoilerLevel : 0, privacy.ShowAdult);
+        return new SheetVisibility(privacy.ShowSpoilers ? MaxSpoilerLevel : 0, privacy.Adult);
     }
 
     /// <summary>A privacidade equivalente, para as regras da Biblioteca que só conhecem o tudo ou nada (imagens, tags eróticas).</summary>
-    public LibraryPrivacy ToPrivacy() => new(ShowsSpoilers, ShowAdult);
+    public LibraryPrivacy ToPrivacy() => new(ShowsSpoilers, Adult);
 
     /// <summary>O nome do nível na tela: Escondido, Leve ou Tudo.</summary>
     public static string LevelName(int level) => level switch

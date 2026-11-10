@@ -128,6 +128,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         ];
         Match = new LibraryMatchViewModel(this);
         Tags = new LibraryTagsViewModel(this);
+        Reveal.Changed += (_, _) => Refilter();
         Scan.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(LibraryScanViewModel.StatusText))
@@ -247,6 +248,9 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     internal IReadOnlyList<LibraryGame> Games => games;
 
+    /// <summary>Os jogos que a privacidade deixa nas listas (sem o jogo adulto no Esconder): o que o popover de tags e a contagem de jogos enxergam.</summary>
+    internal IReadOnlyList<LibraryGame> ListedGames => Listed;
+
     internal UserTags UserTags => userTags;
 
     public LibraryFilter SelectedFilter => Filters.First(f => f.IsSelected).Filter;
@@ -254,7 +258,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     /// <summary>A barra de status: "12 jogos na Biblioteca", "Nenhum jogo ainda" ou "Varrendo D:\Jogos\VN".</summary>
     public string StatusText => Scan.IsRunning && !string.IsNullOrEmpty(Scan.StatusText)
         ? Scan.StatusText
-        : games.Count switch
+        : Listed.Count switch
         {
             0 => "Nenhum jogo ainda",
             1 => "1 jogo na Biblioteca",
@@ -482,7 +486,8 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private void Redraw()
     {
-        var counts = LibraryListing.Count(games, PercentOf);
+        SyncAdultMode();
+        var counts = LibraryListing.Count(games, PercentOf, library.Privacy);
         foreach (var chip in Filters)
         {
             chip.Count = counts.Of(chip.Filter);
@@ -506,7 +511,7 @@ public sealed partial class LibraryViewModel : ObservableObject
                 break;
             }
 
-            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id)) { IsPlaying = game.Id == PlayingId };
+            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, PrivacyOf(game), translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), revealed: Reveal.IsRevealed(game.VndbId)) { IsPlaying = game.Id == PlayingId };
             Continue.Add(new LibraryContinueViewModel(card, $"{PlayTime.LastPlayed(last, now)} · {PlayTime.Format(stats.Total)}"));
         }
 
@@ -525,12 +530,12 @@ public sealed partial class LibraryViewModel : ObservableObject
         Cards.Clear();
         foreach (var game in shown)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, PrivacyOf(game), translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game), Reveal.IsRevealed(game.VndbId)) { IsPlaying = game.Id == PlayingId });
         }
 
         Subtitle = SubtitleText();
         RedrawContinue(shown);
-        HasNoResults = games.Count > 0 && Cards.Count == 0;
+        HasNoResults = Listed.Count > 0 && Cards.Count == 0;
         OnPropertyChanged(nameof(HasFilter));
         Select(Cards.FirstOrDefault(c => c.Id == selectedId));
     }
@@ -541,11 +546,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             var names = Tags.Active.Select(t => t.Text).ToList();
             var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
-            return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {games.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
+            return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {Listed.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
         }
 
         var folders = library.Roots.Count;
-        var total = games.Count;
+        var total = Listed.Count;
         var left = total == 1 ? "1 jogo" : $"{total.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos";
         if (folders > 0)
         {
@@ -601,7 +606,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         var game = card.Game;
         Drawer = new LibraryDrawerViewModel(
             card,
-            LibraryDrawers.Describe(game, library.Privacy, userTags, sheets?.SheetOf(game), translations.GetValueOrDefault(game.Id)),
+            LibraryDrawers.Describe(game, PrivacyOf(game), userTags, sheets?.SheetOf(game), translations.GetValueOrDefault(game.Id)),
             this,
             PlayTime.Summary(played.StatsOf(game.Id), clock.GetUtcNow()));
     }
