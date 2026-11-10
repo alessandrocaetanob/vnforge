@@ -181,6 +181,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (Sheet.ListCard is null && CurrentProject is { } project)
+            {
+                Sheet.ListCard = Library.ListCardForProject(project.Root, Sheet.VisualNovelId);
+            }
+        };
         Sheet.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))

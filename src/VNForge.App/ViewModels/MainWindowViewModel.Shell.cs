@@ -211,6 +211,8 @@ public sealed partial class MainWindowViewModel
                     Sheet.Open(vndbId, title);
                 }
 
+                Sheet.ListCard ??= Library.ListCardForProject(path, vndbId ?? Sheet.VisualNovelId);
+
                 SelectedNav = sheetItem;
             }
             else if (Start.ErrorMessage is { Length: > 0 } problem)

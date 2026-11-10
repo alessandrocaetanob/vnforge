@@ -58,6 +58,10 @@ public sealed class App : Application
             // Um só cliente: o limite de requisições por segundo do VNDB vale para a Biblioteca e para o assistente de novo projeto juntos.
             var vndb = VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"));
             var library = CreateLibrary(configDirectory, picker, [new YuRisEngine()], a => Avalonia.Threading.Dispatcher.UIThread.Post(a), vndb);
+            // O token do VNDB vai para o cofre do Windows, como a chave da Anthropic; a lista mora no mesmo library.json.
+            var vndbList = new VndbListService(new VNForge.Vndb.DpapiVndbTokenStore(configDirectory), vndb, new LibraryFile(configDirectory), settings: new VndbSyncSettingsFile(configDirectory));
+            library.ListService = vndbList;
+            settings.Vndb = new VndbConnectionViewModel(vndbList);
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: vndb) { PersonalGlossary = new PersonalGlossary(configDirectory) },
                 library: library)
@@ -112,6 +116,11 @@ public sealed class App : Application
                     new ClaudeOptions { Model = model, Effort = effort }),
             };
             main.Conference.Shortener = suggester;
+            settings.Vndb.ListChanged += (_, _) =>
+            {
+                _ = library.ReloadListAsync();
+                main.Sheet.ListCard?.Refresh();
+            };
             window.DataContext = main;
             desktop.MainWindow = window;
             // Os recentes primeiro: a Biblioteca liga cada projeto de tradução ao jogo dele por essa lista.
