@@ -41,20 +41,20 @@
                  PlaceholderText="Nada anotado" AutomationProperties.Name="Notas da lista do VNDB"/>
       </StackPanel>
 
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Name="MarkFinishedButton" Classes="sm" Command="{Binding MarkFinishedCommand}" IsVisible="{Binding CanMarkFinished}">
+      <WrapPanel>
+        <Button Name="MarkFinishedButton" Classes="sm" Margin="0,0,8,6" Command="{Binding MarkFinishedCommand}" IsVisible="{Binding CanMarkFinished}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
             <TextBlock Text="Marcar como terminado"/>
           </StackPanel>
         </Button>
-        <Button Name="OpenInVndbButton" Classes="subtle sm" Command="{Binding OpenInVndbCommand}">
+        <Button Name="OpenInVndbButton" Classes="subtle sm" Margin="0,0,0,6" Command="{Binding OpenInVndbCommand}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
             <TextBlock Text="Abrir no VNDB"/>
           </StackPanel>
         </Button>
-      </StackPanel>
+      </WrapPanel>
 
       <TextBlock Name="ListMessage" Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="{Binding Library.ListMessage}"
                  IsVisible="{Binding Library.ListMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>

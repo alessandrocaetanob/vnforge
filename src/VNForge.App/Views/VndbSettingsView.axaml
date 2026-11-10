@@ -7,10 +7,7 @@
 
   <!-- A aba VNDB de Ajustes (quadro do #550): o token no cofre do Windows, o que ele permite e o Sincronizar agora. -->
   <StackPanel Margin="0,16,0,0" Spacing="20" MaxWidth="860" HorizontalAlignment="Left">
-    <StackPanel>
-      <TextBlock Classes="lib-h1" Text="VNDB"/>
-      <TextBlock Classes="lib-sub" Text="A sua lista no VNDB e a lista da Biblioteca andam juntas."/>
-    </StackPanel>
+    <TextBlock Classes="lib-sub" Text="A sua lista no VNDB e a lista da Biblioteca andam juntas."/>
 
     <Border Name="TokenCard" Classes="lib-card" Padding="24">
       <StackPanel Spacing="16">
@@ -78,8 +75,8 @@
           <StackPanel>
             <Grid ColumnDefinitions="180,*,*" Height="40" Margin="16,0">
               <TextBlock Classes="column-header lib-dim" VerticalAlignment="Center" Text="Campo"/>
-              <TextBlock Grid.Column="1" Classes="column-header lib-dim" VerticalAlignment="Center" Text="No VNForge"/>
-              <TextBlock Grid.Column="2" Classes="column-header lib-dim" VerticalAlignment="Center" Text="No VNDB"/>
+              <TextBlock Grid.Column="1" Classes="column-header lib-dim" VerticalAlignment="Center" Margin="13,0,0,0" Text="No VNForge"/>
+              <TextBlock Grid.Column="2" Classes="column-header lib-dim" VerticalAlignment="Center" Margin="13,0,0,0" Text="No VNDB"/>
             </Grid>
             <Border Classes="lib-hr"/>
             <ItemsControl Name="ConflictRows" ItemsSource="{Binding Conflicts}">
