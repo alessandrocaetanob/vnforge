@@ -67,7 +67,7 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.Equal(LibraryMode.Games, vm.Mode);
         Assert.True(vm.HasGames);
         Assert.Equal(12, vm.Cards.Count);
-        Assert.Equal("Akatsuki no Kōro", vm.Cards[0].Title);
+        Assert.Equal("Tsukiyo no Hanabi", vm.Cards[0].Title);
         Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte", "Engine suportada"], vm.Filters.Select(f => f.Label));
         Assert.Equal([12, 2, 9, 5, 6], vm.Filters.Select(f => f.Count));
         Assert.Equal("12 jogos em 2 pastas · varredura há 2 horas", vm.Subtitle);

@@ -279,7 +279,11 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => Refilter();
 
-    partial void OnLayoutChanged(LibraryLayout value) => OnPropertyChanged(nameof(SelectedLayout));
+    partial void OnLayoutChanged(LibraryLayout value)
+    {
+        OnPropertyChanged(nameof(SelectedLayout));
+        RebuildRows();
+    }
 
     /// <summary>Escolhe o chip de filtro; os outros desmarcam.</summary>
     public void SelectFilter(LibraryFilter filter)

@@ -318,9 +318,9 @@ public sealed partial class NewProjectWizardViewModel
         vndbSearchedFolder = GameFolder;
         if (knownVndbId is { } known)
         {
-            // O jogo veio da Biblioteca com o casamento já confirmado: traz a ficha direto, sem buscar de novo. Se o VNDB não responde, cai na busca de sempre.
+            // O jogo veio da Biblioteca com o casamento já confirmado: traz a ficha direto, sem buscar de novo. Só um erro do VNDB cai na busca de sempre; quem cancelou já cuidou do estado.
             knownVndbId = null;
-            if (vndb is not null && await ConfirmAsync(string.Empty, token => VndbProjectLinker.BuildAsync(vndb, known, token)))
+            if (vndb is not null && await ConfirmAsync(string.Empty, token => VndbProjectLinker.BuildAsync(vndb, known, token)) is not false)
             {
                 return;
             }
@@ -473,8 +473,8 @@ public sealed partial class NewProjectWizardViewModel
         await ConfirmAsync(chosen.Title, async token => VndbProjectLinker.From(chosen.Candidate.VisualNovel, await vndb.GetCharactersAsync(chosen.Candidate.VisualNovel.Id, token)));
     }
 
-    /// <summary>Traz a ficha (<paramref name="load"/>) e mostra o que chega ao projeto. Devolve se chegou à confirmação; no erro volta à lista de resultados.</summary>
-    private async Task<bool> ConfirmAsync(string title, Func<CancellationToken, Task<VndbLink>> load)
+    /// <summary>Traz a ficha (<paramref name="load"/>) e mostra o que chega ao projeto. Devolve se chegou à confirmação, nulo se o pedido foi cancelado; no erro volta à lista de resultados.</summary>
+    private async Task<bool?> ConfirmAsync(string title, Func<CancellationToken, Task<VndbLink>> load)
     {
         Stage = VndbStage.Confirming;
         VndbHeadline = "Trazendo os personagens";
@@ -486,13 +486,13 @@ public sealed partial class NewProjectWizardViewModel
             var link = await load(cts.Token);
             if (cts.IsCancellationRequested)
             {
-                return false;
+                return null;
             }
 
             var gameNames = await ReadGameNamesAsync(cts.Token);
             if (cts.IsCancellationRequested)
             {
-                return false;
+                return null;
             }
 
             confirmedLink = link;
@@ -503,7 +503,7 @@ public sealed partial class NewProjectWizardViewModel
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
             // Quem cancelou já cuidou do estado.
-            return false;
+            return null;
         }
         catch (VNForgeException e) when (!cts.IsCancellationRequested)
         {

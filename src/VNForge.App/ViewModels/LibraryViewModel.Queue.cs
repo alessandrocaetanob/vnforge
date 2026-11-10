@@ -52,7 +52,8 @@ public sealed partial class LibraryViewModel
     /// <summary>A conferência do português em curso, para os testes esperarem.</summary>
     public Task PortugueseChecking { get; private set; } = Task.CompletedTask;
 
-    private LibrarySort sort = LibrarySort.Title;
+    private LibrarySort sort = LibrarySort.Queue;
+    private List<TranslationQueueEntry> arranged = [];
 
     /// <summary>Os jogos já filtrados, escritos na ordem escolhida.</summary>
     private List<TranslationQueueEntry> Arrange(IReadOnlyList<LibraryGame> shown) =>
@@ -63,14 +64,26 @@ public sealed partial class LibraryViewModel
             _ => [.. shown.Select(TranslationQueue.Describe)],
         };
 
-    private void RebuildRows(IReadOnlyList<TranslationQueueEntry> entries)
+    /// <summary>As linhas só existem na lista: na grade a tabela não é desenhada e não há por que montar uma linha com capa por jogo a cada tecla da busca.</summary>
+    private void RebuildRows(List<TranslationQueueEntry> entries)
+    {
+        arranged = entries;
+        RebuildRows();
+    }
+
+    private void RebuildRows()
     {
         Rows.Clear();
-        var place = 0;
-        for (var i = 0; i < entries.Count; i++)
+        if (!IsList)
         {
-            var queued = Sort == LibrarySort.Queue && entries[i].State == TranslationQueueState.Queued;
-            Rows.Add(new LibraryQueueRowViewModel(Cards[i], entries[i], queued ? ++place : null));
+            return;
+        }
+
+        var place = 0;
+        for (var i = 0; i < arranged.Count; i++)
+        {
+            var queued = Sort == LibrarySort.Queue && arranged[i].State == TranslationQueueState.Queued;
+            Rows.Add(new LibraryQueueRowViewModel(Cards[i], arranged[i], queued ? ++place : null));
         }
     }
 
@@ -85,13 +98,14 @@ public sealed partial class LibraryViewModel
             return;
         }
 
-        PortugueseChecking = CheckPortugueseAsync(file, portugueseChecker());
+        PortugueseChecking = CheckPortugueseAsync(file, portugueseChecker);
     }
 
-    private async Task CheckPortugueseAsync(LibraryFile source, PortugueseTranslationChecker checker)
+    private async Task CheckPortugueseAsync(LibraryFile source, Func<PortugueseTranslationChecker> createChecker)
     {
         try
         {
+            var checker = createChecker();
             var snapshot = await Task.Run(source.Load);
             if (!snapshot.Games.Any(g => PortugueseTranslationChecker.NeedsCheck(g)))
             {
@@ -107,6 +121,11 @@ public sealed partial class LibraryViewModel
         catch (LibraryException)
         {
             // Um library.json ilegível já vira o aviso da leitura; a conferência só espera por um arquivo bom.
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // O library.json travado por outro programa: sem este aviso a fila ficaria em "Não conferido" sem explicação.
+            post(() => ErrorMessage = $"Não deu para conferir o português no VNDB: {e.Message}");
         }
     }
 

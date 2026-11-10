@@ -14,10 +14,11 @@
   </UserControl.Styles>
 
   <!-- A lista (d5, #551): uma tabela dentro de um cartão sem folga, uma linha por jogo, e o aviso de que "Traduzir este jogo" já cria o projeto preenchido. -->
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <Border Padding="8,8,8,24" IsVisible="{Binding !HasNoResults}">
-      <StackPanel Spacing="16">
-        <Border Classes="lib-card" Padding="0" ClipToBounds="True">
+  <!-- O cartão fica no alto e a lista rola dentro dele, com as linhas virtualizadas: com centenas de jogos só as que aparecem têm capa. O aviso fica no pé. -->
+  <Border Padding="8,8,8,24" IsVisible="{Binding !HasNoResults}">
+    <Grid RowDefinitions="*,Auto" RowSpacing="16">
+      <Border Classes="lib-card" Padding="0" ClipToBounds="True" VerticalAlignment="Top">
+        <Grid RowDefinitions="Auto,*">
           <StackPanel>
             <Grid Name="QueueHeader" Height="38" Margin="16,0" ColumnSpacing="12">
               <Grid.ColumnDefinitions>
@@ -35,7 +36,10 @@
               <TextBlock Grid.Column="4" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Texto"/>
               <TextBlock Grid.Column="5" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Duração"/>
             </Grid>
+          </StackPanel>
+          <ScrollViewer Grid.Row="1" Name="QueueScroll" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl Name="QueueRows" ItemsSource="{Binding Rows}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:LibraryQueueRowViewModel">
                   <Border Classes="qrow" Classes.sel="{Binding Card.IsSelected}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
@@ -56,7 +60,11 @@
                           <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="58" Background="{DynamicResource Vnf.BgInset}">
                             <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
                           </Border>
-                          <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" Text="{Binding Card.Title}"/>
+                          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Classes="lib-ct" Text="{Binding Card.Title}" ToolTip.Tip="{Binding Card.Title}"/>
+                            <TextBlock Classes="jp-row secondary" Text="{Binding Card.OriginalTitle}" IsVisible="{Binding Card.HasOriginalTitle}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="lib-cs" Text="{Binding Card.Subtitle}"/>
+                          </StackPanel>
                         </Grid>
                         <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding PortugueseTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding PortugueseText}"/></Border>
                         <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding EngineTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding EngineText}"/></Border>
@@ -70,10 +78,11 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </StackPanel>
-        </Border>
+          </ScrollViewer>
+        </Grid>
+      </Border>
 
-        <Border Name="QueueNote" Classes="lib-card" Padding="16,12" MaxWidth="760" HorizontalAlignment="Left">
+      <Border Grid.Row="1" Name="QueueNote" Classes="lib-card" Padding="16,12" MaxWidth="760" HorizontalAlignment="Left">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
             <Ellipse Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.Accent}"/>
             <StackPanel Grid.Column="1">
@@ -81,8 +90,7 @@
               <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="Personagens, gêneros e sinopse vêm do VNDB. Você só confirma o jogo e escolhe os idiomas."/>
             </StackPanel>
           </Grid>
-        </Border>
-      </StackPanel>
-    </Border>
-  </ScrollViewer>
+      </Border>
+    </Grid>
+  </Border>
 </UserControl>

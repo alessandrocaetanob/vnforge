@@ -28,6 +28,7 @@ public sealed class LibraryQueueTests : IDisposable
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
         var vm = Create();
+        vm.SelectedLayout = vm.Layouts[1];
         await vm.LoadAsync();
         return vm;
     }
@@ -39,8 +40,11 @@ public sealed class LibraryQueueTests : IDisposable
     {
         var vm = await Loaded();
 
-        Assert.Equal(LibrarySort.Title, vm.Sort);
+        Assert.Equal(LibrarySort.Queue, vm.Sort);
         Assert.Equal(vm.Cards.Select(c => c.Title), vm.Rows.Select(r => r.Card.Title));
+
+        vm.SelectedSort = vm.Sorts[1];
+        Assert.Equal("Akatsuki no Kōro", vm.Rows[0].Card.Title);
 
         vm.SelectedSort = vm.Sorts[0];
 
@@ -49,6 +53,47 @@ public sealed class LibraryQueueTests : IDisposable
         Assert.Equal(vm.Rows.Select(r => r.Card.Title), vm.Cards.Select(c => c.Title));
         Assert.Equal("Hoshikuzu Diary", vm.Rows[3].Card.Title);
         Assert.Equal("Tōge no Kaji", vm.Rows[^1].Card.Title);
+    }
+
+    [Fact]
+    public async Task As_linhas_so_sao_montadas_na_lista_e_somem_na_grade()
+    {
+        var vm = await Loaded();
+        Assert.Equal(12, vm.Rows.Count);
+
+        vm.SelectedLayout = vm.Layouts[0];
+        Assert.Empty(vm.Rows);
+
+        vm.SearchText = "Nanairo";
+        Assert.Empty(vm.Rows);
+        Assert.Single(vm.Cards);
+
+        vm.SelectedLayout = vm.Layouts[1];
+        Assert.Equal(["Nanairo Ressha"], vm.Rows.Select(r => r.Card.Title));
+    }
+
+    [Fact]
+    public async Task A_linha_traz_o_titulo_original_e_o_subtitulo_do_jogo()
+    {
+        var vm = await Loaded();
+
+        var row = Row(vm, "Amaoto no Hakoniwa");
+
+        Assert.Equal("雨音の箱庭", row.Card.OriginalTitle);
+        Assert.True(row.Card.HasOriginalTitle);
+        Assert.Equal("Média · 18 h · 38% traduzida", row.Card.Subtitle);
+    }
+
+    [Fact]
+    public async Task Arquivo_travado_na_conferencia_do_portugues_vira_aviso_da_biblioteca()
+    {
+        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
+        var vm = Create(() => throw new IOException("O arquivo está em uso por outro processo."));
+
+        await vm.OpenAsync(() => Task.CompletedTask);
+        await vm.PortugueseChecking;
+
+        Assert.Contains("Não deu para conferir o português no VNDB: O arquivo está em uso por outro processo.", vm.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,6 +160,7 @@ public sealed class LibraryQueueTests : IDisposable
         LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
         var vndb = new FakeVndbCatalog(releases: [PortugueseRelease("v31201")]);
         var vm = Create(() => new PortugueseTranslationChecker(vndb, new FixedClock(LibrarySamples.Now)));
+        vm.SelectedLayout = vm.Layouts[1];
 
         await vm.OpenAsync(() => Task.CompletedTask);
         await vm.PortugueseChecking;
