@@ -79,7 +79,7 @@
             </StackPanel>
             <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
-              <Panel IsVisible="{Binding !ShowPlayButton}">
+              <Panel IsVisible="{Binding ShowNextStepButton}">
                 <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>

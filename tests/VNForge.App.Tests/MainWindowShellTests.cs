@@ -331,7 +331,7 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public async Task Ficha_oferece_o_caminho_para_o_Painel_e_Jogar_para_o_Editor()
+    public async Task Jogar_oferece_o_caminho_para_o_Editor()
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
@@ -342,11 +342,6 @@ public sealed class MainWindowShellTests
 
         Assert.Same(vm.Editor, vm.CurrentPage);
         Assert.Equal(GameTab.Translation, vm.SelectedGameTab?.Tab);
-
-        vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
-        vm.Sheet.ActionCommand.Execute(null);
-
-        Assert.Same(vm.Dashboard, vm.CurrentPage);
     }
 
     [Fact]
@@ -540,6 +535,23 @@ public sealed class MainWindowShellTests
         Assert.Same(vm.Sheet, vm.CurrentPage);
     }
 
+    [Fact]
+    public async Task Abrir_o_jogo_da_biblioteca_sem_vndb_json_no_projeto_mostra_a_ficha_do_casamento_da_biblioteca()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", [TranslationStatus.Machine]);
+        var game = LibrarySamples.Games().First(g => g.ProjectPath is null && g.Engine.Translatable && g.VndbId is not null) with { ProjectPath = root };
+        var file = LibrarySamples.Save(temp.SubFolder("biblioteca"), LibrarySamples.Library([game]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+        await library.LoadAsync();
+
+        library.OpenGameCommand.Execute(library.Cards[0]);
+        await vm.ProjectOpening;
+
+        Assert.Same(vm.Sheet, vm.CurrentPage);
+        Assert.Equal(game.VndbId, vm.Sheet.VisualNovelId);
+    }
     [Fact]
     public async Task O_mesmo_erro_ao_abrir_o_projeto_do_jogo_aparece_de_novo_na_segunda_vez()
     {
