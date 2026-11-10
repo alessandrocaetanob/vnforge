@@ -120,6 +120,7 @@ public sealed class App : Application
             scan,
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
-            openFolder: MainWindowViewModel.OpenInFileManager);
+            openFolder: MainWindowViewModel.OpenInFileManager,
+            tagsFile: new UserTagsFile(configDirectory));
     }
 }

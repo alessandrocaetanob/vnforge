@@ -5,7 +5,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Um jogo da grade ou da lista. Tudo o que a tela escreve vem pronto do <see cref="LibraryCard"/> do Core; aqui só moram a seleção e a escolha de ícone.</summary>
-public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card) : ObservableObject
+public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card, IReadOnlyList<LibraryDrawerChip>? tags = null) : ObservableObject
 {
     public LibraryGame Game { get; } = game;
 
@@ -51,6 +51,11 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
     public double Progress => (Card.ProgressPercent ?? 0) / 100.0;
 
     public bool HasProgress => Card.ProgressPercent is > 0;
+
+    /// <summary>As tags que o filtro por tag procura neste jogo; vazio sem filtro.</summary>
+    public IReadOnlyList<LibraryDrawerChip> Tags { get; } = tags ?? [];
+
+    public bool HasTags => Tags.Count > 0;
 
     public string AutomationName => $"{Title}. {Chip}. {Subtitle}";
 
