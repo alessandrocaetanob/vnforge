@@ -197,6 +197,26 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Conferencia_aberta_durante_a_traducao_atualiza_a_pilula_e_o_proximo_passo_do_cabecalho()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        await vm.DashboardRefresh;
+        Assert.Equal("25% traduzido", vm.Dashboard.Steps[1].Subtitle);
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        await vm.DashboardRefresh;
+
+        // O cabeçalho do jogo lê o Painel: com a Conferência aberta ele também tem de ter relido.
+        Assert.Equal("75% traduzido", vm.Dashboard.Steps[1].Subtitle);
+        Assert.Equal(GameProgress.Describe(vm.Dashboard.ReadyLines, vm.Dashboard.TotalLines), vm.GameProgressLabel);
+    }
+
+    [Fact]
     public async Task Pedido_acima_do_limite_nao_deixa_traduzir_e_nada_e_gravado()
     {
         var (vm, root) = await OpenAsync(spendLimit: "0,01");

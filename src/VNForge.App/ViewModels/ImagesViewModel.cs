@@ -558,7 +558,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         sourceHash = SHA256.HashData(bytes);
         if (!string.Equals(Convert.ToHexStringLower(sourceHash), item.Entry.Hash, StringComparison.OrdinalIgnoreCase))
         {
-            ErrorMessage = $"{item.Name} mudou no jogo depois do inventário. Rode vnf images scan de novo para atualizar o texto lido.";
+            ErrorMessage = $"{item.Name} mudou no jogo depois que a lista foi feita. O texto lido nela está desatualizado e precisa ser lido de novo.";
         }
 
         PixelWidth = source.Width;

@@ -27,6 +27,13 @@ public static class EditorBreakpoints
 
     public const double InspectorTabsWidth = 360;
 
+    /// <summary>Abaixo desta largura de janela a margem lateral do Editor cai de <see cref="WideMargin"/> para <see cref="NarrowMargin"/>, para a barra de filtros e ações caber.</summary>
+    public const double NarrowMarginBelow = 1100;
+
+    public const double WideMargin = 32;
+
+    public const double NarrowMargin = 24;
+
     /// <summary>
     /// O inspetor inteiro (sem abas) cresce até 600 px para a caixa do jogo mostrar as 73 colunas do perfil sem encolher (#392): 73 colunas de 7 px mais as bordas da caixa
     /// e o recuo do painel. Abaixo disso a caixa encolhe em proporção, nunca rola. A 1440 px o inspetor tem cerca de 474 px.

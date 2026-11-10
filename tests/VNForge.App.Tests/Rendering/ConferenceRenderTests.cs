@@ -145,6 +145,56 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
             TestContext.Current.CancellationToken);
     }
 
+    /// <summary>O cabeçalho do Conferir não tem título nem o resumo da última conferência (o quadro não os tem): só os botões, e na largura mínima do app um não passa por cima do outro.</summary>
+    [Theory]
+    [InlineData("Dark", 960, 700)]
+    [InlineData("Light", 960, 700)]
+    [InlineData("Dark", 1366, 768)]
+    [InlineData("Light", 1366, 768)]
+    public async Task O_cabecalho_do_Conferir_nao_repete_o_titulo_e_nao_passa_por_cima_dos_botoes_na_largura_minima(string themeName, int width, int height)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var root = ArtboardProject.Create(temp.SubFolder("projeto"));
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    Assert.True(vm.Conference.HasFixable);
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Rect Box(Control control) => new(control.TranslatePoint(default, window)!.Value, control.Bounds.Size);
+                    
+                    Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Conferir a tradução");
+                    var fixAll = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.FixAllCommand && b.IsEffectivelyVisible));
+                    var refresh = Box(view.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.Conference.RefreshCommand && b.IsEffectivelyVisible));
+
+                    Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == vm.Conference.CheckedSummary);
+                    Assert.True(fixAll.Right <= refresh.Left, $"os botões se sobrepõem: {fixAll} e {refresh}");
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"conferir-cabecalho-{width}", theme)));
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private static Border PanelOf(ConferenceView view) =>
         view.GetVisualDescendants().OfType<Border>().Single(b => AutomationProperties.GetName(b) == "Problema selecionado");
 
@@ -203,7 +253,19 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Contains(texts, t => t.StartsWith("Manhã de chuva · linha", StringComparison.Ordinal));
         Assert.DoesNotContain(texts, t => t.Contains("yst000", StringComparison.Ordinal));
         Assert.DoesNotContain(texts, t => t.Contains("(virar a página)", StringComparison.Ordinal));
-        var chips = list.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+        List<MarkerChip> Chips() => list.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+
+        // A lista é virtualizada e a consistência ocupa o alto dela: as linhas com marcador podem estar abaixo do que já foi montado. Rola até o fim só para montá-las e volta ao topo.
+        var chips = Chips();
+        if (chips.Count == 0 && list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll && TopLevel.GetTopLevel(view) is Window window)
+        {
+            scroll.ScrollToEnd();
+            ScreenRenderer.Settle(window);
+            chips = Chips();
+            scroll.ScrollToHome();
+            ScreenRenderer.Settle(window);
+        }
+
         Assert.True(chips.Count >= 1, "os marcadores da lista são selos");
         Assert.All(chips, chip => Assert.True(chip.Bounds.Height >= 18));
     }

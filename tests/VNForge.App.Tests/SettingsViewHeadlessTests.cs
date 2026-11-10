@@ -308,7 +308,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                     var cards = window.GetVisualDescendants().OfType<RadioButton>().Where(r => r.Classes.Contains("option")).ToList();
 
                     Assert.All(cards, c => Assert.False(c.IsEffectivelyEnabled));
-                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.StartsWith("Abra um projeto no Início") == true);
+                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.StartsWith("Abra um projeto na Biblioteca") == true);
                     Assert.False(Botao(window, "Testar conexão").IsEffectivelyEnabled);
                 }
                 finally

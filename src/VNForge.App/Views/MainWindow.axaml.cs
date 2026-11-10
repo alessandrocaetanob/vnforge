@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using VNForge.App.Controls;
 
 namespace VNForge.App.Views;
@@ -18,10 +19,44 @@ public sealed partial class MainWindow : Window
             }
         };
         UpdateMicaFallback();
+        UpdateCompactHeader();
+        TopRail.Tapped += OnTopRailTapped;
         Motion.Follow(this);
         AddHandler(KeyDownEvent, OnShortcutKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        DataContextChanged += (_, _) => FollowTextAppearance();
+        DataContextChanged += (_, _) =>
+        {
+            FollowTextAppearance();
+            UpdateCompactHeader();
+        };
         Closing += OnClosing;
+    }
+
+    /// <summary>Dentro de um jogo a Biblioteca já está marcada no trilho, então clicar nela não muda a seleção: este toque é que leva de volta à Biblioteca.</summary>
+    private void OnTopRailTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is ViewModels.MainWindowViewModel { InGame: true } vm && e.Source is Control source && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is not null)
+        {
+            vm.OpenLibraryCommand.Execute(null);
+        }
+    }
+
+    /// <summary>
+    /// A opção C do #544: o cabeçalho completo (com a capa) na entrada do jogo (Painel, Ficha, Jogar e as outras páginas) e o compacto, de uma linha de 80 px,
+    /// só no Editor, no Conferir, no Testar e no Glossário, onde a página precisa da altura. A altura da janela não entra na conta.
+    /// </summary>
+    private void UpdateCompactHeader() =>
+        GameHeader.IsCompact = HeaderCompactOverride ?? (DataContext is ViewModels.MainWindowViewModel { CurrentPage: ViewModels.EditorViewModel or ViewModels.ConferenceViewModel or ViewModels.BuildViewModel or ViewModels.GlossaryViewModel });
+    private bool? headerCompactOverride;
+
+    /// <summary>Só para os testes de imagem: força o cabeçalho completo (false) ou o compacto (true) em qualquer tela, para comparar os dois lado a lado. Nulo segue a regra acima.</summary>
+    public bool? HeaderCompactOverride
+    {
+        get => headerCompactOverride;
+        set
+        {
+            headerCompactOverride = value;
+            UpdateCompactHeader();
+        }
     }
 
     /// <summary>Quanto o resumo da sessão fica na tela antes de a janela fechar sozinha; fechar de novo antes disso fecha na hora.</summary>
@@ -133,6 +168,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(ViewModels.MainWindowViewModel.CurrentPage))
         {
+            UpdateCompactHeader();
             ApplyTextAppearance();
         }
     }

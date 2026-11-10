@@ -202,7 +202,7 @@
   </UserControl.Styles>
 
   <Panel>
-    <Grid RowDefinitions="Auto,*" Margin="24,16,24,16" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*" Margin="32,20,32,16" RowSpacing="12">
 
       <StackPanel Spacing="8">
         <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

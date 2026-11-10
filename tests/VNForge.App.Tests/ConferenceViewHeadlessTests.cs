@@ -200,7 +200,6 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                     window.UpdateLayout();
 
                     var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                    Assert.Contains("Conferir a tradução", texts);
                     Assert.Contains("Travam o teste", texts);
                     Assert.Contains("Espaço duplo", texts);
                     Assert.Contains("Cena 1 · linha 1", texts);

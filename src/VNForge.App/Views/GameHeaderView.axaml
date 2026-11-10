@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:v="using:VNForge.App.Views"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.GameHeaderView"
+             x:DataType="vm:MainWindowViewModel">
+
+  <UserControl.Resources>
+    <DataTemplate x:Key="SectionItem" x:DataType="vm:NavItemViewModel">
+      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+        <PathIcon IsVisible="{Binding HasMenu}" Width="10" Height="10" VerticalAlignment="Center" Data="{StaticResource Icon.ChevronDown}"/>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="ListBox.sections > ListBoxItem" x:DataType="vm:NavItemViewModel">
+      <Setter Property="IsEnabled" Value="{Binding IsEnabled}"/>
+      <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+    </Style>
+    <Style Selector="ListBox#Sections">
+      <Setter Property="Grid.Row" Value="1"/>
+      <Setter Property="Margin" Value="32,16,32,0"/>
+    </Style>
+    <!-- Cabeçalho compacto: a segunda linha da Tradução sobe para a linha das abas, à direita. -->
+    <Style Selector="v|GameHeaderView.compact:not(.sections-below) ListBox#Sections">
+      <Setter Property="Grid.Row" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+      <Setter Property="Margin" Value="0,0,32,4"/>
+    </Style>
+    <!-- Compacto sem largura para as abas e as seções lado a lado: a segunda linha desce para a própria linha, sob as abas. -->
+    <Style Selector="v|GameHeaderView.compact.sections-below ListBox#Sections">
+      <Setter Property="Margin" Value="32,8,32,0"/>
+    </Style>
+
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto">
+    <!-- O cabeçalho do jogo: a volta para a Biblioteca, a capa (ainda um selo sobre o andamento), o nome, a engine, o andamento e o próximo passo; abaixo, as abas. -->
+    <Border Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
+      <StackPanel Margin="32,8,32,0">
+
+        <!-- Compacto (Editor, Conferir, Testar e Glossário): a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
+        <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+          <Button Classes="subtle sm" Padding="12,0" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
+                  AutomationProperties.Name="Voltar para a Biblioteca">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
+              <TextBlock Text="Biblioteca"/>
+            </StackPanel>
+          </Button>
+          <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+            <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                    Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
+              <Panel ClipToBounds="True">
+                <c:Cover Width="56" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+                <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}">
+                  <Border HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}"
+                          Width="{Binding GameProgressPercent, Converter={x:Static v:GameHeaderView.CoverBarWidth}}"/>
+                </Border>
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Classes="title-lg" Text="{Binding ProjectTitle}" TextTrimming="CharacterEllipsis"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <!-- O título em japonês, do vndb.json do projeto; sem o vínculo com o VNDB a linha começa na engine. -->
+                <TextBlock Name="OriginalTitle" Classes="jp-row secondary" Text="{Binding GameOriginalTitle}" IsVisible="{Binding HasGameOriginalTitle}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                <Border Classes="game-tag">
+                  <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
+                </Border>
+                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
+                  <TextBlock Name="Progress" Text="{Binding GameProgressLabel}"/>
+                </Border>
+              </StackPanel>
+            </StackPanel>
+            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
+            <Panel Grid.Column="2" VerticalAlignment="Center">
+              <Panel IsVisible="{Binding !ShowPlayButton}">
+                <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+                    <TextBlock Text="{Binding Dashboard.NextStepLabel}"/>
+                  </StackPanel>
+                </Button>
+              </Panel>
+              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
+                      ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                  <TextBlock Text="Jogar"/>
+                </StackPanel>
+              </Button>
+            </Panel>
+          </Grid>
+        </Grid>
+
+        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+          <Button Classes="subtle sm icon" Command="{Binding OpenLibraryCommand}" VerticalAlignment="Center"
+                  AutomationProperties.Name="Voltar para a Biblioteca" ToolTip.Tip="Voltar para a Biblioteca">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
+          </Button>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <TextBlock Classes="title-md" Text="{Binding ProjectTitle}" MaxWidth="420" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Border Classes="game-tag">
+              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
+            </Border>
+            <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
+              <TextBlock Text="{Binding GameProgressLabel}"/>
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <Grid ColumnDefinitions="Auto,*">
+          <ListBox Name="GameTabs" Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameTabItem">
+                <TextBlock Text="{Binding Label}"/>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- A segunda linha da Tradução. O Editor e a Revisão são a mesma página; Conferir leva o contador de erros. -->
+    <ListBox Name="Sections" Classes="sections" IsVisible="{Binding ShowSections}" ItemsSource="{Binding Sections}"
+             ItemTemplate="{StaticResource SectionItem}" SelectedItem="{Binding SelectedSection}" AutomationProperties.Name="Seções da tradução"/>
+  </Grid>
+</UserControl>

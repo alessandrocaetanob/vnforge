@@ -32,6 +32,19 @@ public sealed class VndbLinkSerializerTests
         Assert.Equal((Link.VisualNovelId, Link.Synopsis, Link.CharactersTruncated), (back.VisualNovelId, back.Synopsis, back.CharactersTruncated));
     }
 
+    [Fact]
+    public void A_capa_do_jogo_volta_do_arquivo_e_um_arquivo_sem_capa_continua_valido()
+    {
+        var withCover = Link with { Cover = new VndbImageRef("https://t.vndb.org/cv/12/345.jpg", 0.2, 0.1) };
+
+        var json = VndbLinkSerializer.Serialize(withCover);
+
+        Assert.Equal(withCover.Cover, VndbLinkSerializer.Parse(json, "vndb.json").Cover);
+        var without = VndbLinkSerializer.Serialize(Link);
+        Assert.DoesNotContain("cover", without, StringComparison.Ordinal);
+        Assert.Null(VndbLinkSerializer.Parse(without, "vndb.json").Cover);
+    }
+
     [Theory]
     [InlineData("{ nao e json")]
     [InlineData("{\"version\":1}")]

@@ -39,13 +39,8 @@
 
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
 
-    <!-- Cabeçalho: última conferência e título à esquerda; à direita, na base do título, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="24,16,24,12">
-      <StackPanel Spacing="2" VerticalAlignment="Bottom" MinWidth="0">
-        <TextBlock Classes="caption secondary" Text="{Binding CheckedSummary}" TextTrimming="CharacterEllipsis"/>
-        <TextBlock Classes="title-lg" Text="Conferir a tradução"/>
-        <TextBlock Classes="body-sm secondary" Text="O que impede de testar no jogo."/>
-      </StackPanel>
+    <!-- Cabeçalho sem título nem resumo (o quadro não os tem; o cabeçalho do jogo já diz a aba): só, à direita, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="32,8,32,8">
       <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
               AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">
         <TextBlock Text="{Binding FixAllLabel}"/>
@@ -56,7 +51,7 @@
     </Grid>
 
     <!-- Faixa do topo: os erros travam o teste no jogo, os avisos não travam nada; depois a falha da última ação e o resultado dela. -->
-    <StackPanel Grid.Row="1" Spacing="8" Margin="24,0,24,12">
+    <StackPanel Grid.Row="1" Spacing="8" Margin="32,0,32,8">
       <!-- Neutra: fundo de cartão, ícone de erro e só o número em vermelho; a barra à esquerda guarda o sinal sem gritar. -->
       <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasBlockingErrors}" AutomationProperties.Name="{Binding BlockingMessage}">
         <Grid ColumnDefinitions="3,*">
@@ -96,7 +91,7 @@
     </StackPanel>
 
     <!-- Filtros em linguagem comum; os números são do projeto inteiro. -->
-    <ItemsControl Grid.Row="2" ItemsSource="{Binding Filters}" Margin="24,0,24,12" AutomationProperties.Name="Filtros">
+    <ItemsControl Grid.Row="2" ItemsSource="{Binding Filters}" Margin="32,0,32,8" AutomationProperties.Name="Filtros">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <WrapPanel ItemSpacing="6" LineSpacing="6"/>
@@ -111,7 +106,7 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,420" ColumnSpacing="12" Margin="24,0,24,16">
+    <Grid Grid.Row="3" ColumnDefinitions="*,420" ColumnSpacing="12" Margin="32,0,32,12">
 
       <!-- Problemas: o que é, a cena e a linha; "não traduzida" resumida por cena. -->
       <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
@@ -211,7 +206,7 @@
           <Panel IsVisible="{Binding HasSelection}">
             <Grid RowDefinitions="*,Auto" DataContext="{Binding SelectedRow}" x:DataType="vm:ConferenceIssueRowViewModel">
               <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="14" Margin="0,0,8,0">
+                <StackPanel Spacing="8" Margin="0,0,8,0">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <c:SeverityTag Level="{Binding Level}"/>
                     <TextBlock Classes="body-sm secondary" Text="{Binding Where}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -271,7 +266,7 @@
                 </StackPanel>
               </ScrollViewer>
               <!-- Barra fixa no pé do painel: a ação principal em destaque (Enter), as outras duas ao lado uma da outra. Sem correção automática, "Abrir no editor" é a principal. -->
-              <Border Grid.Row="1" Classes="divider-top" Margin="0,12,0,0" Padding="0,12,0,0">
+              <Border Grid.Row="1" Classes="divider-top" Margin="0,8,0,0" Padding="0,8,0,0">
                 <StackPanel Spacing="8">
                   <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                           IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"

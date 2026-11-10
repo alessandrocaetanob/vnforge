@@ -177,7 +177,14 @@ public sealed partial class MainWindowViewModel
             return Start.LoadAsync();
         }
 
-        return ReferenceEquals(CurrentPage, Conference) ? ConferenceLoading = Conference.RefreshAfterExternalChangeAsync() : Task.CompletedTask;
+        // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar; vale também com a Conferência aberta.
+        var header = InGame ? DashboardRefresh = Dashboard.ReloadAsync() : Task.CompletedTask;
+        if (!ReferenceEquals(CurrentPage, Conference))
+        {
+            return header;
+        }
+
+        return Task.WhenAll(header, ConferenceLoading = Conference.RefreshAfterExternalChangeAsync());
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch

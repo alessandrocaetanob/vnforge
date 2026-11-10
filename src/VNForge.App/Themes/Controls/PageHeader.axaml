@@ -18,4 +18,29 @@
       </ControlTemplate>
     </Setter>
   </Style>
+
+  <!-- Numa linha só (Editor dentro do jogo, que já tem o cabeçalho do jogo acima): o título em title-md, a migalha ao lado e as ações à direita. -->
+  <Style Selector="c|PageHeader.inline">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <TextBlock Name="PART_Title" Classes="title-md" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+          <TextBlock Name="PART_Breadcrumb" Grid.Column="1" Classes="caption secondary" Text="{TemplateBinding Breadcrumb}" TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Center" IsVisible="{TemplateBinding Breadcrumb, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          <ContentPresenter Name="PART_Actions" Grid.Column="2" VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- Só as ações, à direita: dentro do jogo o cabeçalho do jogo já diz o nome e a aba, então nenhuma página repete migalha nem título (#544). -->
+  <Style Selector="c|PageHeader.actions">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_Actions" HorizontalAlignment="Right" VerticalAlignment="Center"
+                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
 </Styles>

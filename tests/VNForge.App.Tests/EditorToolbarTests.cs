@@ -73,7 +73,8 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     failures.Add("a área dos filtros passa por cima das ações");
                 }
 
-                if (Box(translate).Right > window.ClientSize.Width - 23 || Box(translate).Right < window.ClientSize.Width - 25)
+                var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
                 {
                     failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
                 }
@@ -135,7 +136,8 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     failures.Add("filtros e ações não estão na mesma linha: " + string.Join(",", all.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2)))));
                 }
 
-                if (Box(translate).Right > window.ClientSize.Width - 23 || Box(translate).Right < window.ClientSize.Width - 25)
+                var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
                 {
                     failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
                 }

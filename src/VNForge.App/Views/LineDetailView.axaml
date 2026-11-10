@@ -63,7 +63,7 @@
     <Panel>
       <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
       <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
+        <StackPanel x:Name="WideStack" Spacing="15" Margin="0,0,12,20">
 
           <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
           <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
