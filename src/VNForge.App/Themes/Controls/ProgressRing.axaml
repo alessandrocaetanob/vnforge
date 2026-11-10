@@ -33,7 +33,7 @@
     <Setter Property="IsVisible" Value="False"/>
   </Style>
 
-  <!-- ChapterRow (v3.css ".chrow"): número, nome, barra de três estados, parte pronta, linhas e nota. O capítulo aberto (:here) ganha o fundo e a barra de
+  <!-- ChapterRow (v3.css ".chrow"): número, nome, barra, parte pronta; 48 px com a divisória de 1 px embaixo. O capítulo aberto (:here) ganha o fundo e a barra de
        accent; "Menus e nomes" (:extra) fica sem número e com o nome em cinza. -->
   <Style Selector="c|ChapterRow">
     <Setter Property="Height" Value="48"/>
@@ -41,12 +41,13 @@
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="0" Background="Transparent">
+        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="0" Background="Transparent"
+                BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="28,*,160,120" ColumnSpacing="12" VerticalAlignment="Center">
-            <TextBlock Name="PART_Number" Classes="body-sm" FontFeatures="tnum" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{TemplateBinding Number}"/>
+            <TextBlock Name="PART_Number" Classes="body" FontFeatures="tnum" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{TemplateBinding Number}"/>
             <TextBlock Name="PART_Title" Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
             <ProgressBar Grid.Column="2" Classes="chapter-bar" Minimum="0" Maximum="{TemplateBinding BarTotal}" Value="{TemplateBinding BarDone}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="3" Classes="body-sm" FontFeatures="tnum" Text="{TemplateBinding PercentText}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="3" Classes="body" FontFeatures="tnum" Text="{TemplateBinding PercentText}" TextAlignment="Right"/>
           </Grid>
         </Border>
       </ControlTemplate>
@@ -55,8 +56,9 @@
   <Style Selector="c|ChapterRow:here /template/ Border#PART_Root">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
   </Style>
-  <!-- A barra do quadro: 6 px, canto de 3 px, trilho bg-inset e uma cor só (accent) para a parte pronta. -->
+  <!-- A barra do quadro: 6 px, canto de 3 px, trilho bg-inset e uma cor só (accent) para a parte pronta. O MinWidth de 200 do Fluent esticava a coluna de 160. -->
   <Style Selector="ProgressBar.chapter-bar">
+    <Setter Property="MinWidth" Value="0"/>
     <Setter Property="Height" Value="6"/>
     <Setter Property="MinHeight" Value="6"/>
     <Setter Property="CornerRadius" Value="3"/>

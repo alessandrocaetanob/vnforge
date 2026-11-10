@@ -7,9 +7,23 @@
              x:DataType="vm:DashboardViewModel">
 
   <UserControl.Styles>
+    <!-- Os títulos do quadro: 16/22 nos cartões e 20/28 no resumo, em Zen Kaku bold (o title-md do tema é 17/25). -->
+    <Style Selector="TextBlock.card-title">
+      <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="LineHeight" Value="22"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="TextBlock.map-title">
+      <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="LineHeight" Value="28"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
     <!-- Linha de capítulo: o botão não desenha nada além do fundo de hover; quem desenha é a ChapterRow. -->
     <Style Selector="Button.chapter">
       <Setter Property="Padding" Value="0"/>
+      <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="CornerRadius" Value="0"/>
@@ -31,19 +45,20 @@
       </Border>
 
       <StackPanel Spacing="16" IsVisible="{Binding ShowOverview}">
-      <c:PipelineStepper ItemsSource="{Binding Steps}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Etapas da tradução"/>
+      <Grid x:Name="Body" ColumnDefinitions="*,384" RowDefinitions="Auto" ColumnSpacing="24" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
 
-      <Grid x:Name="Body" ColumnDefinitions="*,440" RowDefinitions="Auto" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
-
-        <!-- O mapa do jogo, como no quadro da #544: o resumo num cartão (a porcentagem grande e uma linha) e os capítulos em outro. -->
+        <!-- Como no quadro da #544: os passos, o resumo (a porcentagem grande e uma linha) e os capítulos são três cartões na coluna da esquerda; a da direita começa na mesma altura. -->
         <StackPanel Spacing="16" VerticalAlignment="Top">
-        <Border Classes="panel" Padding="20,16" MinHeight="98">
+        <Border Name="StepsCard" Classes="panel" ClipToBounds="True">
+          <c:PipelineStepper Classes="dash" ItemsSource="{Binding Steps}" AutomationProperties.Name="Etapas da tradução"/>
+        </Border>
+        <Border Classes="panel" Padding="24" MinHeight="98">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24" VerticalAlignment="Center">
             <TextBlock Name="MapPercent" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="44" FontWeight="Bold" VerticalAlignment="Center" Text="{Binding MapPercentText}"
                        AutomationProperties.Name="{Binding MapSummary}"/>
-            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="title-md" Text="O jogo inteiro"/>
-              <TextBlock Name="MapLine" Classes="body-sm secondary" TextWrapping="Wrap">
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Classes="map-title" Text="O jogo inteiro"/>
+              <TextBlock Name="MapLine" Classes="body secondary" TextWrapping="Wrap">
                 <Run Text="{Binding MapSummary}"/><Run Text=" · "/><Run Text="{Binding PaceText}"/>
               </TextBlock>
             </StackPanel>
@@ -52,9 +67,10 @@
 
         <Border Classes="panel" ClipToBounds="True">
           <StackPanel>
-            <TextBlock Classes="title-md" Text="Capítulos" Margin="16"/>
+            <TextBlock Classes="card-title" Text="Capítulos" Margin="16"/>
             <c:Skeleton Rows="6" IsVisible="{Binding ShowChaptersSkeleton}" AutomationProperties.Name="Carregando os capítulos"/>
-            <ItemsControl ItemsSource="{Binding Chapters}" AutomationProperties.Name="Capítulos do jogo">
+            <!-- A última linha não leva a divisória do quadro: a margem de -1 a empurra para fora do cartão, que corta. -->
+            <ItemsControl ItemsSource="{Binding Chapters}" Margin="0,0,0,-1" AutomationProperties.Name="Capítulos do jogo">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ChapterRowViewModel">
                   <Grid>
@@ -109,14 +125,12 @@
         </Border>
         </StackPanel>
 
-        <StackPanel x:Name="Side" Grid.Column="1" Spacing="12" VerticalAlignment="Top">
+        <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
 
           <Border Classes="panel" ClipToBounds="True">
             <StackPanel>
-              <Border Classes="divider-bottom" Height="48" Padding="16,0">
-                <TextBlock Classes="title-md" Text="Precisa de você" VerticalAlignment="Center"/>
-              </Border>
-              <ItemsControl ItemsSource="{Binding Todos}" AutomationProperties.Name="O que precisa de você">
+              <TextBlock Classes="card-title" Text="Precisa de você" Margin="16"/>
+              <ItemsControl ItemsSource="{Binding Todos}" Margin="0,0,0,-1" AutomationProperties.Name="O que precisa de você">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:TodoRowViewModel">
                     <c:TodoItem Severity="{Binding Severity}" Title="{Binding Title}"
@@ -128,10 +142,11 @@
           </Border>
 
           <Border Classes="panel" Padding="16">
-            <StackPanel Spacing="8">
-              <TextBlock Classes="title-md" Text="Gasto com a IA" VerticalAlignment="Center"/>
+            <StackPanel Spacing="12">
+              <TextBlock Classes="card-title" Text="Gasto com a IA"/>
               <TextBlock Classes="body" Text="{Binding SpentText}"/>
-              <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" AutomationProperties.Name="{Binding SpentText}"/>
+              <c:BudgetBar IsInset="True" Thickness="6" SpentBrush="{DynamicResource Vnf.Accent}" Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}"
+                           AutomationProperties.Name="{Binding SpentText}"/>
             </StackPanel>
           </Border>
 
