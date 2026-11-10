@@ -286,3 +286,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  THE SOFTWARE.
+
+==============================================================
+Janelas do instalador (licencas MIT e SIL OFL 1.1)
+==============================================================
+
+Avalonia (c) AvaloniaUI e colaboradores, SkiaSharp e HarfBuzzSharp (c) Microsoft
+Corporation e Xamarin, CommunityToolkit.Mvvm e .NET runtime (c) .NET Foundation e
+colaboradores. Todos sob a licenca MIT, cujo texto esta acima: o aviso de copyright e esta permissao acompanham todas as
+copias do instalador.
+
+Fontes embutidas: Noto Sans (c) The Noto Project Authors e Zen Kaku Gothic New
+(c) The Zen Kaku Gothic Project Authors, ambas sob a SIL Open Font License 1.1
+(https://openfontlicense.org). O texto de cada licenca esta em
+src/VNForge.App/Assets/Fonts/licenses, no repositorio do VNForge.

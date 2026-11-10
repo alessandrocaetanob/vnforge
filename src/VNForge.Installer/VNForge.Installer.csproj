@@ -1,15 +1,57 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- O instalador que o jogador roda. `vnf release` junta este executável com o .vnfpatch num arquivo só (ver docs/03-cli.md). -->
+  <!-- O instalador que o jogador roda: cinco janelas em Avalonia com o tema do app, e um modo de console (opções silencioso, ajuda e licencas) para automação e testes.
+       `vnf release` junta este executável com o .vnfpatch num arquivo só (ver docs/03-cli.md). É WinExe para o jogador não ver um console; o modo de console se liga ao do pai (ConsoleHost). -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <AssemblyName>vnf-instalador</AssemblyName>
     <RootNamespace>VNForge.Installer</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\VNForge.App\Assets\VNForge.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Trimming no publish self-contained (arquivo único do jogador). O modo partial só corta os assemblies que se declaram trimáveis (o .NET e o Avalonia);
+       o resto (VCDiff, SharpCompress, Newtonsoft.Json, RecyclableMemoryStream e o Avalonia.DesignerSupport, que o instalador nem carrega) segue inteiro.
+       O IL2104 avisa, uma vez por assembly, que esses não são trimáveis; como o partial os deixa intactos, o aviso não aponta risco e fica de fora.
+       O código do instalador e do Patching passa limpo (JSON por source generation, bindings compilados, sem reflexão). -->
+  <PropertyGroup Condition="'$(SelfContained)' == 'true'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VNForge.Patching\VNForge.Patching.csproj" />
+  </ItemGroup>
+
+  <!-- O tema é o do app, não uma cópia: os tokens, a tipografia, os botões e os ícones vêm dos mesmos arquivos. As fontes de família (Vnf.FontUi e as outras) são
+       redefinidas em App.axaml, porque o Tokens.axaml aponta para o pacote de fontes inteiro do app e o instalador leva só as que usa. -->
+  <ItemGroup>
+    <AvaloniaXaml Include="..\VNForge.App\Themes\Tokens.axaml" Link="Themes\Tokens.axaml" />
+    <AvaloniaXaml Include="..\VNForge.App\Themes\TextScale.axaml" Link="Themes\TextScale.axaml" />
+    <AvaloniaXaml Include="..\VNForge.App\Themes\Typography.axaml" Link="Themes\Typography.axaml" />
+    <AvaloniaXaml Include="..\VNForge.App\Themes\Controls\Buttons.axaml" Link="Themes\Controls\Buttons.axaml" />
+    <AvaloniaXaml Include="..\VNForge.App\Assets\Icons.axaml" Link="Assets\Icons.axaml" />
+    <AvaloniaXaml Include="..\VNForge.App\Assets\Brand.axaml" Link="Assets\Brand.axaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="..\VNForge.App\Assets\VNForge.ico" Link="Assets\VNForge.ico" />
+    <AvaloniaResource Include="..\VNForge.App\Assets\Fonts\NotoSans-Regular.ttf" Link="Assets\Fonts\NotoSans-Regular.ttf" />
+    <AvaloniaResource Include="..\VNForge.App\Assets\Fonts\NotoSans-Medium.ttf" Link="Assets\Fonts\NotoSans-Medium.ttf" />
+    <AvaloniaResource Include="..\VNForge.App\Assets\Fonts\NotoSans-SemiBold.ttf" Link="Assets\Fonts\NotoSans-SemiBold.ttf" />
+    <AvaloniaResource Include="..\VNForge.App\Assets\Fonts\ZenKakuGothicNew-Bold.ttf" Link="Assets\Fonts\ZenKakuGothicNew-Bold.ttf" />
   </ItemGroup>
 
 </Project>

@@ -130,7 +130,7 @@
 
   <Grid>
     <ScrollViewer Name="Scroller" HorizontalScrollBarVisibility="Disabled">
-      <Border MinHeight="{Binding #Scroller.Viewport.Height}" Padding="32,12,32,14">
+      <Border MinHeight="{Binding #Scroller.Viewport.Height}" Padding="32,20,32,24">
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="0">
 
           <Border Classes="infobar error" Margin="0,0,0,12" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -163,13 +163,13 @@
           </Grid>
 
           <StackPanel Grid.Row="2" Grid.RowSpan="3" Spacing="12" IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <c:EmptyState Message="O inventário das imagens com texto está vazio. A IA lê as imagens dos pacotes do jogo e anota o texto em japonês de cada uma."
+            <c:EmptyState Message="Este jogo ainda não tem imagens com texto em japonês na lista. A IA lê as imagens dos pacotes do jogo e anota o texto em japonês de cada uma."
                           ActionText="Ler as imagens com a IA" ActionCommand="{Binding ScanCommand}"
                           IsVisible="{Binding !IsScanBusy}"/>
             <StackPanel Spacing="8" HorizontalAlignment="Center" IsVisible="{Binding IsScanBusy}">
               <ProgressBar IsIndeterminate="True" Width="320"/>
               <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding ScanProgressText}" AutomationProperties.Name="Andamento da leitura"/>
-              <Button HorizontalAlignment="Center" Content="Cancelar a leitura" Command="{Binding StopScanCommand}" IsVisible="{Binding IsScanning}"/>
+              <Button HorizontalAlignment="Center" Content="Cancelar a leitura" Command="{Binding StopScanCommand}"/>
             </StackPanel>
           </StackPanel>
 
@@ -314,7 +314,7 @@
               <Grid RowDefinitions="*,Auto">
                 <StackPanel Spacing="12">
                   <StackPanel Spacing="6" IsVisible="{Binding SelectedItem.HasText}">
-                    <TextBlock Classes="overline" Text="Lido pela IA · Haiku com visão"/>
+                    <c:OverlineText Classes="overline" Text="Lido pela IA · Haiku com visão"/>
                     <Border Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
                       <StackPanel Spacing="4">
                         <TextBlock TextWrapping="Wrap" FontWeight="Normal" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.JpRow}" LineHeight="{DynamicResource Vnf.LineHeight.JpRow}"
@@ -325,22 +325,22 @@
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="Texto na imagem"/>
+                    <c:OverlineText Classes="overline" Text="Texto na imagem"/>
                     <TextBox Name="ImageText" BorderBrush="{DynamicResource Vnf.Accent}" BorderThickness="1.5" Text="{Binding Text}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" AutomationProperties.Name="Texto da tradução na imagem"/>
                   </StackPanel>
                   <Grid ColumnDefinitions="*,80" ColumnSpacing="10">
                     <StackPanel Spacing="6">
-                      <TextBlock Classes="overline" Text="Fonte"/>
+                      <c:OverlineText Classes="overline" Text="Fonte"/>
                       <ComboBox Classes="fontbox" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding Font}" FontWeight="Normal" Background="{DynamicResource Vnf.BgCard}" HorizontalAlignment="Stretch" AutomationProperties.Name="Fonte do texto"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
-                      <TextBlock Classes="overline" Text="Tamanho"/>
+                      <c:OverlineText Classes="overline" Text="Tamanho"/>
                       <TextBox Text="{Binding FontSizeText}" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" AutomationProperties.Name="Tamanho da fonte em pixels"/>
                     </StackPanel>
                   </Grid>
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                     <StackPanel Spacing="6">
-                      <TextBlock Classes="overline" Text="Cor"/>
+                      <c:OverlineText Classes="overline" Text="Cor"/>
                       <ItemsControl ItemsSource="{Binding TextSwatches}" AutomationProperties.Name="Cor do texto">
                         <ItemsControl.ItemsPanel>
                           <ItemsPanelTemplate>
@@ -362,12 +362,12 @@
                       </ItemsControl>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
-                      <TextBlock Classes="overline" Text="Contorno"/>
+                      <c:OverlineText Classes="overline" Text="Contorno"/>
                       <TextBox Text="{Binding OutlineText}" FontWeight="Normal" Background="{DynamicResource Vnf.BgInset}" AutomationProperties.Name="Contorno do texto"/>
                     </StackPanel>
                   </Grid>
                   <StackPanel Spacing="6">
-                    <TextBlock Classes="overline" Text="Apagar a área"/>
+                    <c:OverlineText Classes="overline" Text="Apagar a área"/>
                     <ListBox Name="EraseModes" Classes="pillseg" ItemsSource="{Binding EraseChoices}" SelectedItem="{Binding SelectedEraseChoice}" AutomationProperties.Name="Como apagar a área"/>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding UsesSolidErase}">
                       <Ellipse Width="24" Height="24" Fill="{Binding EraseColor}" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1"/>
@@ -404,7 +404,7 @@
       </Border>
     </ScrollViewer>
 
-    <c:ScreenDialog Title="{Binding ConfirmationTitle}" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
+    <c:ScreenDialog Title="{Binding ConfirmationTitle}" DialogWidth="600" IsOpen="{Binding IsConfirming, Mode=OneWay}" CloseCommand="{Binding CancelRewriteCommand}">
       <StackPanel Spacing="16" MinWidth="520">
         <TextBlock Classes="body secondary" TextWrapping="Wrap"
                    Text="Só as imagens que você alterou entram no build. O resto do arquivo não muda: a reescrita é a mínima, e o teste de ida e volta confere o que ficou igual."/>
@@ -441,7 +441,7 @@
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>
 
-    <c:ScreenDialog Title="{Binding ScanTitle}" IsOpen="{Binding IsScanConfirming, Mode=OneWay}" CloseCommand="{Binding CancelScanCommand}">
+    <c:ScreenDialog Title="{Binding ScanTitle}" DialogWidth="600" IsOpen="{Binding IsScanConfirming, Mode=OneWay}" CloseCommand="{Binding CancelScanCommand}">
       <StackPanel Spacing="16" MinWidth="520">
         <TextBlock Classes="body secondary" TextWrapping="Wrap"
                    Text="A IA abre cada imagem do jogo, diz se tem texto em japonês, transcreve esse texto e sugere uma tradução. Nada no jogo muda: o resultado vai para o inventário do projeto (images.json)."/>

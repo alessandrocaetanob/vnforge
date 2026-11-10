@@ -221,8 +221,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     /// <summary>Abre um arquivo no programa do sistema; os testes trocam por um falso.</summary>
     public Action<string> OpenPath { get; set; } = OpenInFileManager;
 
-    /// <summary>O modelo que lê as imagens: o mais barato com visão.</summary>
-    public string ScanModel => ClaudeModels.Haiku;
+    // O modelo que lê as imagens: o mais barato com visão.
+    private static string ScanModel => ClaudeModels.Haiku;
 
     public ObservableCollection<ImageItemViewModel> Items { get; } = [];
 
@@ -544,25 +544,15 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     partial void OnEraseColorChanged(string value) => FieldsChanged();
 
-    partial void OnRegionXChanged(int value)
-    {
-        RefreshOverlay();
-        FieldsChanged();
-    }
+    partial void OnRegionXChanged(int value) => RegionChanged();
 
-    partial void OnRegionYChanged(int value)
-    {
-        RefreshOverlay();
-        FieldsChanged();
-    }
+    partial void OnRegionYChanged(int value) => RegionChanged();
 
-    partial void OnRegionWidthChanged(int value)
-    {
-        RefreshOverlay();
-        FieldsChanged();
-    }
+    partial void OnRegionWidthChanged(int value) => RegionChanged();
 
-    partial void OnRegionHeightChanged(int value)
+    partial void OnRegionHeightChanged(int value) => RegionChanged();
+
+    private void RegionChanged()
     {
         RefreshOverlay();
         FieldsChanged();
@@ -631,13 +621,10 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         var (left, top, right, bottom) = (RegionX, RegionY, RegionX + RegionWidth, RegionY + RegionHeight);
         var reach = HandleSize;
         (double X, double Y, double AnchorX, double AnchorY)[] corners = [(left, top, right, bottom), (right, top, left, bottom), (left, bottom, right, top), (right, bottom, left, top)];
-        foreach (var corner in corners)
+        foreach (var corner in corners.Where(c => Math.Abs(x - c.X) <= reach && Math.Abs(y - c.Y) <= reach))
         {
-            if (Math.Abs(x - corner.X) <= reach && Math.Abs(y - corner.Y) <= reach)
-            {
-                anchor = (corner.AnchorX, corner.AnchorY);
-                return true;
-            }
+            anchor = (corner.AnchorX, corner.AnchorY);
+            return true;
         }
 
         anchor = default;
@@ -718,6 +705,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
         ErrorMessage = null;
         IsPreparingScan = true;
+        using var preparing = new CancellationTokenSource();
+        scanCts = preparing;
         try
         {
             var project = folder;
@@ -726,11 +715,11 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             var (plan, estimate) = await Task.Run(
                 () =>
                 {
-                    var listing = ImageLister.List(directory, formats);
+                    var listing = ImageLister.List(directory, formats, null, preparing.Token);
                     var made = ImageScanPlan.Build(listing, project.LoadImageInventory());
                     return (made, ImageScanCost.Estimate(made.ToRead, ScanModel));
                 },
-                CancellationToken.None);
+                preparing.Token);
             if (plan.Candidates.Count == 0)
             {
                 ErrorMessage = "Não achei imagens que a IA possa ler nos pacotes do jogo.";
@@ -759,12 +748,21 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             ScanFacts.Add(new ResultFact("Custo estimado", Money.Brl(cost)));
             ScanTitle = plan.ToRead.Count == 1 ? "Ler 1 imagem com a IA?" : $"Ler {ProjectLabels.Number(plan.ToRead.Count)} imagens com a IA?";
         }
+        catch (OperationCanceledException)
+        {
+            // A pessoa cancelou a preparação: nada foi pedido à IA e nada a mostrar.
+        }
         catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
         {
             ErrorMessage = $"Não foi possível listar as imagens do jogo: {ex.Message}";
         }
         finally
         {
+            if (ReferenceEquals(scanCts, preparing))
+            {
+                scanCts = null;
+            }
+
             IsPreparingScan = false;
         }
     }
@@ -1058,7 +1056,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         sourceHash = SHA256.HashData(bytes);
         if (!string.Equals(Convert.ToHexStringLower(sourceHash), item.Entry.Hash, StringComparison.OrdinalIgnoreCase))
         {
-            ErrorMessage = $"{item.Name} mudou no jogo depois que a IA leu o inventário; o texto lido ao lado pode estar desatualizado.";
+            ErrorMessage = $"{item.Name} mudou no jogo depois que a lista foi feita. O texto lido nela está desatualizado e precisa ser lido de novo.";
         }
 
         PixelWidth = source.Width;

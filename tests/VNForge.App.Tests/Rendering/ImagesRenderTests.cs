@@ -141,6 +141,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
                         inspect: window =>
                         {
                             Assert.True(vm.IsConfirming);
+                            DialogProbe.AssertCentered(window, 600);
                             var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
                             Assert.Contains("portao.png", texts);
                             Assert.Contains(texts, t => t == "Cópia de segurança antes de gravar");

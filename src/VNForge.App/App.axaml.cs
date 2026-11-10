@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
@@ -15,6 +17,10 @@ namespace VNForge.App;
 
 public sealed class App : Application
 {
+    // O quadro é desenhado pelo navegador em tons de cinza; o Skia do Avalonia suaviza o texto por subpixel (franjas coloridas), que engrossa o traço
+    // no mesmo corpo e peso. A propriedade herda pela árvore visual, então a janela basta; popups e diálogos na camada de sobreposição herdam dela.
+    static App() => Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => TextOptions.SetTextRenderingMode(window, TextRenderingMode.Antialias));
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

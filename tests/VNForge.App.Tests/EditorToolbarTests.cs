@@ -73,7 +73,8 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     failures.Add("a área dos filtros passa por cima das ações");
                 }
 
-                if (Box(translate).Right > window.ClientSize.Width - 23 || Box(translate).Right < window.ClientSize.Width - 25)
+                var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
                 {
                     failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
                 }
@@ -129,22 +130,21 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     failures.Add("os 5 filtros precisam estar visíveis");
                 }
 
-                if (all.Select(c => Math.Round(Box(c).Y)).Distinct().Count() != 1)
+                // O chip do quadro tem 32 px e o botão sm 28: na mesma linha quer dizer o mesmo centro, não o mesmo topo.
+                if (all.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2))).Distinct().Count() != 1)
                 {
-                    failures.Add("filtros e ações não estão na mesma linha: " + string.Join(",", all.Select(c => Math.Round(Box(c).Y))));
+                    failures.Add("filtros e ações não estão na mesma linha: " + string.Join(",", all.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2)))));
                 }
 
-                if (all.Select(c => Math.Round(Box(c).Height)).Distinct().Count() != 1)
-                {
-                    failures.Add("filtros e ações não têm a mesma altura: " + string.Join(",", all.Select(c => Math.Round(Box(c).Height))));
-                }
-
-                if (Box(translate).Right > window.ClientSize.Width - 23 || Box(translate).Right < window.ClientSize.Width - 25)
+                var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
+                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
                 {
                     failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
                 }
 
-                if (chips.Max(c => Box(c).Right) > tools.Min(t => Box(t).X))
+                // Os filtros do quadro são pílulas de 32 px e, a 960 px, não cabem ao lado das ações: a fila rola dentro do ScrollViewer e é o recorte dele que não pode passar das ações.
+                var visibleRight = Math.Min(chips.Max(c => Box(c).Right), Box(chips[0].FindAncestorOfType<ScrollViewer>()!).Right);
+                if (visibleRight > tools.Min(t => Box(t).X))
                 {
                     failures.Add("os filtros passam por cima das ações");
                 }

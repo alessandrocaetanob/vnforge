@@ -999,7 +999,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         LastSavedAt = clock.GetLocalNow();
         QueueMemory(memory => memory.Record(saved));
         var character = context.Characters.Find(saved.EffectiveSpeaker);
-        line.Update(updated, character?.Target, CharacterPalette.For(character));
+        line.Update(updated, character?.Target, CharacterPalette.For(character), character?.Image);
         PruneEditorSuggestion(updated.ScriptKey, saved);
         if (Detail is { } open && string.Equals(open.Id, line.Id, StringComparison.Ordinal))
         {
@@ -1180,7 +1180,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         for (var i = 0; i < scriptLines.Length; i++)
         {
             var character = context.Characters.Find(entries[i].Unit.EffectiveSpeaker);
-            scriptLines[i] = new LineViewModel(entries[i], character?.Target, CharacterPalette.For(character));
+            scriptLines[i] = new LineViewModel(entries[i], character?.Target, CharacterPalette.For(character), character?.Image);
         }
 
         ApplyEditorSuggestions();

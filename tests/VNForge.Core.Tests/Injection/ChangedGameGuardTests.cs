@@ -102,6 +102,22 @@ public sealed class ChangedGameGuardTests : IDisposable
     }
 
     [Fact]
+    public void A_recusa_leva_o_sha_esperado_e_o_encontrado_de_cada_arquivo()
+    {
+        SeedExtractedGame();
+        Game(Ysbin, "versao-nova");
+        File.Delete(Path.Combine(_game, Bgm));
+
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
+
+        Assert.Equal([Bgm, Ysbin], erro.ChangedFiles.Select(f => f.Path).Order(StringComparer.Ordinal));
+        var changed = erro.ChangedFiles.Single(f => f.Path == Ysbin);
+        Assert.Equal(Original(Ysbin, OriginalYsbin).Sha256, changed.ExpectedSha256);
+        Assert.Equal(Original(Ysbin, "versao-nova").Sha256, changed.FoundSha256);
+        Assert.Null(erro.ChangedFiles.Single(f => f.Path == Bgm).FoundSha256);
+    }
+
+    [Fact]
     public void Recusa_nao_cria_backup_nem_toca_no_jogo()
     {
         SeedExtractedGame();

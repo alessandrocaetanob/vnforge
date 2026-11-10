@@ -9,9 +9,10 @@ using Avalonia.Threading;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// O diálogo sobre a tela (v3.css, <c>.scrim</c> e <c>.dialog</c>): um fundo escurecido que cobre a janela inteira e um cartão no alto, sem janela nova.
+/// O diálogo sobre a tela (v3.css, <c>.scrim</c> e <c>.dialog</c>): um fundo escurecido que cobre a janela inteira e um cartão centrado na janela, sem janela nova.
 /// Aberto, o cartão vive na <see cref="OverlayLayer"/> do Avalonia, acima de tudo e com o tamanho da janela; este controle fica onde o XAML o pôs,
 /// sem ocupar nem capturar nada, e leva <c>DataContext</c>, <c>Content</c>, <see cref="Footer"/> e <see cref="Title"/> para o cartão.
+/// A largura do cartão é <see cref="DialogWidth"/> (cada diálogo do quadro tem a sua) e o botão de fechar só aparece com <see cref="ShowClose"/>; <c>Escape</c> fecha de qualquer jeito.
 /// O foco fica preso no cartão (Tab cicla entre os controles dele), <c>Escape</c> e o botão de fechar fecham, e o foco volta a quem o tinha.
 /// <see cref="Closed"/> e <see cref="CloseCommand"/> disparam sempre que <see cref="IsOpen"/> passa a falso, por <c>Escape</c>, pelo botão, por <see cref="Close"/> ou por binding.
 /// </summary>
@@ -22,6 +23,8 @@ public sealed class ScreenDialog : ContentControl
     public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<ScreenDialog, string?>(nameof(Title));
     public static readonly StyledProperty<object?> FooterProperty = AvaloniaProperty.Register<ScreenDialog, object?>(nameof(Footer));
     public static readonly StyledProperty<ICommand?> CloseCommandProperty = AvaloniaProperty.Register<ScreenDialog, ICommand?>(nameof(CloseCommand));
+    public static readonly StyledProperty<double> DialogWidthProperty = AvaloniaProperty.Register<ScreenDialog, double>(nameof(DialogWidth), ScreenDialogSurface.DefaultWidth);
+    public static readonly StyledProperty<bool> ShowCloseProperty = AvaloniaProperty.Register<ScreenDialog, bool>(nameof(ShowClose));
 
     private readonly List<IDisposable> bindings = [];
     private IInputElement? previousFocus;
@@ -49,6 +52,20 @@ public sealed class ScreenDialog : ContentControl
     {
         get => GetValue(FooterProperty);
         set => SetValue(FooterProperty, value);
+    }
+
+    /// <summary>Largura do cartão em pixels (o <c>width</c> de <c>.dlg</c> no quadro); numa janela mais estreita o cartão encolhe e deixa 24 px de cada lado.</summary>
+    public double DialogWidth
+    {
+        get => GetValue(DialogWidthProperty);
+        set => SetValue(DialogWidthProperty, value);
+    }
+
+    /// <summary>Mostra o botão X no cabeçalho. Desligado por padrão: só o Traduzir com IA o tem no quadro.</summary>
+    public bool ShowClose
+    {
+        get => GetValue(ShowCloseProperty);
+        set => SetValue(ShowCloseProperty, value);
     }
 
     /// <summary>Comando extra que roda quando o diálogo fecha (o botão de fechar, <c>Escape</c>, ou <see cref="IsOpen"/> falso).</summary>
@@ -114,6 +131,8 @@ public sealed class ScreenDialog : ContentControl
         bindings.Add(card.Bind(ContentTemplateProperty, this.GetObservable(ContentTemplateProperty)));
         bindings.Add(card.Bind(ScreenDialogSurface.TitleProperty, this.GetObservable(TitleProperty)));
         bindings.Add(card.Bind(ScreenDialogSurface.FooterProperty, this.GetObservable(FooterProperty)));
+        bindings.Add(card.Bind(ScreenDialogSurface.DialogWidthProperty, this.GetObservable(DialogWidthProperty)));
+        bindings.Add(card.Bind(ScreenDialogSurface.ShowCloseProperty, this.GetObservable(ShowCloseProperty)));
         bindings.Add(overlay.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(bounds =>
         {
             card.Width = bounds.Width;
@@ -166,6 +185,10 @@ public sealed class ScreenDialog : ContentControl
 /// <summary>O cartão do <see cref="ScreenDialog"/> na camada de sobreposição: o fundo escurecido, o cartão e o ciclo de Tab dentro dele.</summary>
 internal sealed class ScreenDialogSurface : ContentControl
 {
+    public const double DefaultWidth = 760;
+
+    public static readonly StyledProperty<double> DialogWidthProperty = AvaloniaProperty.Register<ScreenDialogSurface, double>(nameof(DialogWidth), DefaultWidth);
+    public static readonly StyledProperty<bool> ShowCloseProperty = AvaloniaProperty.Register<ScreenDialogSurface, bool>(nameof(ShowClose));
     public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<ScreenDialogSurface, string?>(nameof(Title));
     public static readonly StyledProperty<object?> FooterProperty = AvaloniaProperty.Register<ScreenDialogSurface, object?>(nameof(Footer));
 
@@ -188,6 +211,18 @@ internal sealed class ScreenDialogSurface : ContentControl
     {
         get => GetValue(FooterProperty);
         set => SetValue(FooterProperty, value);
+    }
+
+    public double DialogWidth
+    {
+        get => GetValue(DialogWidthProperty);
+        set => SetValue(DialogWidthProperty, value);
+    }
+
+    public bool ShowClose
+    {
+        get => GetValue(ShowCloseProperty);
+        set => SetValue(ShowCloseProperty, value);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

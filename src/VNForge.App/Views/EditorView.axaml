@@ -14,7 +14,7 @@
 
   <UserControl.Resources>
     <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
-    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14Z</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14ZM0 0L0 0M20 20L20 20</StreamGeometry>
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -65,10 +65,11 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="24,16,24,16" RowSpacing="12">
+  <!-- Sem RowSpacing: as linhas do aviso de erro e da busca ficam vazias na maior parte do tempo e o espaço entre linhas vazias comeria a altura do inspetor; cada uma leva o seu espaço de cima. -->
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="32,6,32,8">
 
     <!-- Cabeçalho: "Capítulo 1 · cena 13 de 45" e o nome da cena. As ações moram na barra logo abaixo (#394). -->
-    <c:PageHeader Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
+    <c:PageHeader Classes="inline" Breadcrumb="{Binding Breadcrumb}" Title="{Binding ScriptTitle}" IsVisible="{Binding IsGridShown}">
       <!-- Ler como jogador (#475): fica no cabeçalho, junto do nome da cena que ele abre, e não na barra, que já enche a 960 px. -->
       <Button Classes="sm" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
               ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
@@ -81,8 +82,8 @@
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
          Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
-      <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
+    <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+      <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <!-- Janela pequena: a lista de cenas sai da grade e abre aqui. -->
           <Button x:Name="ScenesTrigger" Classes="scenes-trigger tool" AutomationProperties.Name="Cenas" ToolTip.Tip="Abre a lista de cenas (Ctrl+B)">
@@ -113,7 +114,7 @@
           </ItemsControl>
         </StackPanel>
       </ScrollViewer>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <!-- Densidade da grade (#460): marcado, cada linha vira roteiro (nome, original e tradução empilhados); a escolha fica em editor-layout.json. -->
         <ToggleButton x:Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding IsScriptDensity}" ToolTip.Tip="{Binding DensityTip}" AutomationProperties.Name="Linhas como roteiro">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -158,7 +159,7 @@
       </StackPanel>
     </Grid>
 
-    <Border Grid.Row="2" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+    <Border Grid.Row="2" Margin="0,8,0,0" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
         <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
         <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
@@ -166,13 +167,13 @@
     </Border>
 
     <!-- Busca e substituição no projeto: abre aqui, sobre a grade, para quem traduz procurar a partir da linha em que está. -->
-    <Border Grid.Row="3" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
+    <Border Grid.Row="3" Margin="0,8,0,0" Classes="panel" ClipToBounds="True" IsVisible="{Binding IsSearchOpen}" AutomationProperties.Name="Busca e substituição">
       <v:SearchReplaceView x:Name="SearchPanel" DataContext="{Binding Search}" CloseCommand="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).CloseSearchCommand}"/>
     </Border>
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="4" x:Name="Columns" Margin="0,8,0,0" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -206,19 +207,17 @@
         <Grid RowDefinitions="32,*,Auto">
           <!-- Dois cabeçalhos, um por densidade (#460): as colunas de sempre e o do Roteiro, onde quem fala, o original e a tradução dividem uma coluna só. -->
           <Border x:Name="ColumnsHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding !IsScriptDensity}">
-            <Grid ColumnDefinitions="56,92,132,*,1.2*,32" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="3" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="4" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Grid ColumnDefinitions="92,148,*,1.2*,32" ColumnSpacing="8">
+              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="2" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="3" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
           <Border x:Name="ScriptHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding IsScriptDensity}">
-            <Grid ColumnDefinitions="56,92,*" ColumnSpacing="8">
-              <TextBlock Classes="overline" Text="Linha" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="2" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Grid ColumnDefinitions="92,*" ColumnSpacing="8">
+              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
+              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
           </Border>
 
@@ -239,7 +238,7 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LineViewModel">
-                <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerColor="{Binding SpeakerColor}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
+                <c:LineRow IsScript="{Binding $parent[v:EditorView].((vm:EditorViewModel)DataContext).IsScriptDensity}" Number="{Binding Number}" Status="{Binding Status}" Speaker="{Binding SpeakerName}" SpeakerColor="{Binding SpeakerColor}" SpeakerImage="{Binding SpeakerImage}" SpeakerOriginal="{Binding SpeakerOriginal}" Original="{Binding SourcePlain}"
                            Translation="{Binding TranslationPlain}" Issue="{Binding Issue}" IssueLabel="{Binding IssueLabel}" IssueTip="{Binding IssueTip}"
                            SpeakerChanged="{Binding IsSpeakerChanged}" SpeakerTip="{Binding SpeakerChangedTip}" HasDoubt="{Binding HasDoubt}" DoubtTip="{Binding DoubtTip}" HasEditorSuggestion="{Binding HasEditorSuggestion}" EditorSuggestionTip="{Binding EditorSuggestionTip}"
                            ToolTip.Tip="{Binding Id}" c:Motion.PulseOnApproval="{Binding Status}"/>

@@ -43,6 +43,14 @@ public static class ClaudeProviderFactory
         return new VNForge.AI.Bible.ClaudeBibleProvider(new AnthropicMessageClient(new AnthropicClient { ApiKey = apiKey }), options);
     }
 
+    /// <summary>Monta o tradutor da ficha do jogo (<c>vnf library sheet translate</c>); mesmas regras de <see cref="Create"/>.</summary>
+    public static VNForge.AI.Sheet.ClaudeSheetTranslator CreateSheet(string apiKey, ClaudeOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+        ArgumentNullException.ThrowIfNull(options);
+        return new VNForge.AI.Sheet.ClaudeSheetTranslator(CreateClient(apiKey), options);
+    }
+
     /// <summary>Monta o leitor de imagens do <c>vnf images scan</c>; mesmas regras de <see cref="Create"/>.</summary>
     public static VNForge.AI.Images.ClaudeImageTextReader CreateImageReader(string apiKey, ClaudeOptions options)
     {

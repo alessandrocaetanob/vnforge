@@ -23,7 +23,7 @@ internal static class VndbSamples
           "image":{"url":"https://t.vndb.org/ch/00/1.jpg","dims":[256,300],"sexual":0,"violence":0},
           "gender":["f","m"],
           "vns":[{"id":"v900001","role":"main","spoiler":0,"release":null},{"id":"v900002","role":"side","spoiler":1,"release":{"id":"r900010"}}],
-          "traits":[{"id":"i6","name":"Brown","group_id":"i1","group_name":"Hair","spoiler":0,"lie":false},{"id":"i2164","name":"Priest","group_id":"i40","group_name":"Role","spoiler":2,"lie":false}]
+          "traits":[{"id":"i6","name":"Brown","group_id":"i1","group_name":"Hair","spoiler":0,"lie":false,"sexual":false},{"id":"i2164","name":"Priest","group_id":"i40","group_name":"Role","spoiler":2,"lie":false,"sexual":false},{"id":"i104","name":"Virgin Sex","group_id":"i43","group_name":"Engages in (Sexual)","spoiler":0,"lie":false,"sexual":true},{"id":"i7","name":"Blue","group_id":"i1","group_name":"Hair","spoiler":0,"lie":false}]
         }]}
         """;
 

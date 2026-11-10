@@ -21,8 +21,8 @@ internal static class ScreenRenderer
     public static string FileName(string screen, ThemeVariant theme) =>
         $"{screen}-{(theme == ThemeVariant.Light ? "claro" : "escuro")}.png";
 
-    /// <summary>Monta a janela, deixa o layout assentar e devolve o quadro renderizado. Chamar na thread da sessão headless.</summary>
-    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height, Action<Window>? inspect = null)
+    /// <summary>Monta a janela, deixa o layout assentar e devolve o quadro renderizado. <paramref name="prepare"/> ajusta a janela já montada antes do quadro (texto de exibição que o dado de teste não reproduz). Chamar na thread da sessão headless.</summary>
+    public static void Render(Control content, ThemeVariant theme, string path, int width = Width, int height = Height, Action<Window>? inspect = null, Action<Window>? prepare = null)
     {
         var window = new Window
         {
@@ -36,6 +36,12 @@ internal static class ScreenRenderer
         {
             window.Show();
             Settle(window);
+            if (prepare is not null)
+            {
+                prepare(window);
+                Settle(window);
+            }
+
             Save(window, path);
             inspect?.Invoke(window);
         }
@@ -45,9 +51,10 @@ internal static class ScreenRenderer
         }
     }
 
-    /// <summary>Salva o quadro atual de uma janela já aberta.</summary>
+    /// <summary>Salva o quadro atual de uma janela já aberta; falha se algum rótulo overline aparecer em caixa baixa.</summary>
     public static void Save(Window window, string path)
     {
+        OverlineProbe.AssertUpperCase(window);
         using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("O Avalonia.Headless não devolveu o quadro; confira o UseSkia na sessão.");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         frame.Save(path, PngBitmapEncoderOptions.Default);
