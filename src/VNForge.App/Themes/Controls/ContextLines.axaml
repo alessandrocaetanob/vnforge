@@ -2,7 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- ContextLines (v3.css ".ctx"): quem fala numa coluna de 76px em 600; ao lado, o original em japonês e a tradução embaixo, em text-secondary 12/18; as duas quebram linha em vez de ficar sob reticências, para o inspetor de 360 px mostrar a fala inteira. -->
+  <!-- ContextLines (v3.css ".ctx"): quem fala numa coluna de 76px em 600; ao lado, o original em japonês e a tradução embaixo, em text-secondary 12/18; as duas quebram linha em vez de ficar sob reticências, para o inspetor de 360 px mostrar a fala inteira.
+       Sem espaço entre as falas nem entre o original e a tradução: o quadro do #537 empilha as linhas de 18 px uma sobre a outra, e esses 10 px é que deixam a caixa do jogo inteira a 1440x1000. -->
   <Style Selector="c|ContextLines">
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Template">
@@ -12,12 +13,12 @@
     </Setter>
     <Setter Property="ItemsPanel">
       <ItemsPanelTemplate>
-        <StackPanel Spacing="6"/>
+        <StackPanel Spacing="0"/>
       </ItemsPanelTemplate>
     </Setter>
     <Setter Property="ItemTemplate">
       <DataTemplate x:DataType="c:ContextLine">
-        <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
+        <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10">
           <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis"/>
           <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Original}" TextWrapping="Wrap"/>
           <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Translation}" TextWrapping="Wrap"

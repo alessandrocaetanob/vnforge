@@ -2,28 +2,37 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- TodoItem (v3.css ".ready"): ícone de gravidade em 20px, título, explicação em 12/16 e o botão que resolve à direita; 48px no mínimo, divisória embaixo. -->
+  <!-- TodoItem (linha do cartão "Precisa de você" do quadro da #544): ícone de gravidade em 24px, título em peso forte, explicação em 12/16 e o botão que resolve à direita em 14 semibold;
+       50px no mínimo, divisória embaixo. -->
   <Style Selector="c|TodoItem">
-    <Setter Property="MinHeight" Value="48"/>
-    <Setter Property="Padding" Value="16,8"/>
+    <Setter Property="MinHeight" Value="50"/>
+    <Setter Property="Padding" Value="16,10"/>
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
     <Setter Property="Template">
       <ControlTemplate>
         <Border Name="PART_Root" Padding="{TemplateBinding Padding}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12">
-            <PathIcon Name="PART_Icon" Width="20" Height="20" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" Data="{DynamicResource Icon.Check}"/>
+          <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="12">
+            <PathIcon Name="PART_Icon" Width="24" Height="24" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" Data="{DynamicResource Icon.Check}"/>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="body" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
+              <TextBlock Classes="body-strong" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
               <TextBlock Classes="caption secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
                          IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
-            <Button Name="PART_Action" Grid.Column="2" Classes="link sm" VerticalAlignment="Center" Command="{TemplateBinding Command}" Content="{TemplateBinding ActionText}"
+            <Button Name="PART_Action" Grid.Column="2" Classes="link todo-action" VerticalAlignment="Center" Command="{TemplateBinding Command}" Content="{TemplateBinding ActionText}"
                     IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
           </Grid>
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- A ação do quadro é em 14 semibold e o texto fica colado na margem; a área de clique tem 32 px de altura e 8 de cada lado (o padding, desfeito pela margem negativa, que também devolve 4 px de altura para a linha ficar em 50). -->
+  <Style Selector="Button.link.todo-action">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="MinHeight" Value="32"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="Margin" Value="-8,-2"/>
   </Style>
   <Style Selector="c|TodoItem:warning">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
