@@ -35,10 +35,11 @@
         <RadioButton Classes="option marked" GroupName="{Binding GroupName, RelativeSource={RelativeSource AncestorType=c:AccentCards}}" Margin="0,0,12,0" VerticalAlignment="Stretch"
                      IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
           <DockPanel>
-            <Border DockPanel.Dock="Bottom" Padding="0,8,0,0">
-              <c:GameTextbox HorizontalAlignment="Stretch" MinHeight="90" Flat="True" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
+            <!-- A caixa do jogo tem três linhas de altura no quadro (90); a Flat desenha só as linhas com texto, então o fundo vem do cartão em volta. -->
+            <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" MinHeight="90" CornerRadius="{DynamicResource Vnf.RadiusMd}" Background="{DynamicResource Vnf.TextboxBg}">
+              <c:GameTextbox HorizontalAlignment="Stretch" VerticalAlignment="Top" Flat="True" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
             </Border>
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="8" Margin="0,0,0,8">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Border Classes="radio-mark"/>
                 <TextBlock Classes="title-sm" LineHeight="20" TextWrapping="Wrap" Text="{Binding Title}" VerticalAlignment="Center"/>

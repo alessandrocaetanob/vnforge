@@ -258,8 +258,7 @@
                                Foreground="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding KeyConfigured}"/>
                   </StackPanel>
                   <!-- Sem chave o botão principal tem o sinal de mais; com chave é o botão comum "Trocar chave". -->
-                  <Button Grid.Column="2" Classes="accent" Command="{Binding ChangeKeyCommand}" IsVisible="{Binding !KeyConfigured}"
-                          AutomationProperties.Name="{Binding ChangeKeyLabel}">
+                  <Button Grid.Column="2" Classes="accent" Command="{Binding ChangeKeyCommand}" IsVisible="{Binding !KeyConfigured}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
                       <TextBlock Text="{Binding ChangeKeyLabel}" VerticalAlignment="Center"/>
