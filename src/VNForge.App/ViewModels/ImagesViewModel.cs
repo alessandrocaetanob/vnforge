@@ -1335,10 +1335,32 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             ImageFilter.WithoutText => !i.HasText,
             _ => true,
         }).ToList();
-        Visible.Clear();
-        foreach (var item in shown)
+
+        // Muda a lista no lugar: esvaziar e encher de novo faria a lista da tela soltar a imagem aberta e o editor sumiria ao marcar.
+        for (var i = Visible.Count - 1; i >= 0; i--)
         {
-            Visible.Add(item);
+            if (!shown.Contains(Visible[i]))
+            {
+                Visible.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (i < Visible.Count && ReferenceEquals(Visible[i], shown[i]))
+            {
+                continue;
+            }
+
+            var at = Visible.IndexOf(shown[i]);
+            if (at >= 0)
+            {
+                Visible.Move(at, i);
+            }
+            else
+            {
+                Visible.Insert(i, shown[i]);
+            }
         }
     }
 

@@ -6,7 +6,7 @@
              x:DataType="vm:ImagesViewModel">
 
   <UserControl.Styles>
-    <!-- A faixa de miniaturas (decisão 1 do quadro): 120×68, estado num ponto no canto, a imagem em edição com contorno accent de 3px. -->
+    <!-- A faixa de miniaturas (decisão 1 do quadro): 120×68, estado num ponto no canto, a imagem em edição com contorno accent de 3px. O contorno fica dentro da área do item (130×78): a lista corta o que passa dela. -->
     <Style Selector="ListBox.thumbs">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Padding" Value="0"/>
@@ -16,7 +16,7 @@
     </Style>
     <Style Selector="ListBox.thumbs > ListBoxItem">
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Margin" Value="0,0,14,0"/>
+      <Setter Property="Margin" Value="0,0,4,0"/>
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Template">
@@ -173,7 +173,7 @@
             </StackPanel>
           </StackPanel>
 
-          <ListBox Grid.Row="2" Classes="thumbs" Margin="-6,6,-6,0" Padding="6,6" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="88" AutomationProperties.Name="Imagens do inventário"
+          <ListBox Grid.Row="2" Classes="thumbs" Margin="-6,6,-6,0" Padding="1,5" ItemsSource="{Binding Visible}" SelectedItem="{Binding SelectedItem}" Height="88" AutomationProperties.Name="Imagens do inventário"
                    IsVisible="{Binding !IsEmpty}">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -182,12 +182,12 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ImageItemViewModel">
-                <Panel Width="120" Height="68" ToolTip.Tip="{Binding Caption}">
-                  <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+                <Panel Width="130" Height="78" ToolTip.Tip="{Binding Caption}">
+                  <Border Margin="5" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
                     <Image Source="{Binding ThumbnailPng, Converter={x:Static c:PngBytesConverter.Instance}}" Stretch="UniformToFill"/>
                   </Border>
-                  <Border Classes="thumb" Margin="-5" BorderThickness="3" CornerRadius="11" IsHitTestVisible="False"/>
-                  <Border Width="14" Height="14" CornerRadius="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
+                  <Border Classes="thumb" BorderThickness="3" CornerRadius="11" IsHitTestVisible="False"/>
+                  <Border Width="14" Height="14" CornerRadius="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,9,0"
                           Background="{DynamicResource Vnf.BgLayer}" Padding="2">
                     <Panel>
                       <Ellipse Fill="{DynamicResource Vnf.StatusApprovedFg}" IsVisible="{Binding IsMarkedState}"/>
