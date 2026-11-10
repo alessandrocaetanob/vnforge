@@ -103,6 +103,9 @@ public sealed partial class TaskEntry : ObservableObject
 
     public string CostText => Steps[0].CostText;
 
+    /// <summary>O custo vai à direita do título só na tarefa avulsa de IA que não é lote: a linha do lote já traz o custo na segunda linha ("... · caprichada · R$ 13,46").</summary>
+    public bool ShowsCostBeside => ShowsCost && !IsBatch;
+
     /// <summary>A tarefa em lote deixou um ponto de restauração que ainda não foi usado: a linha mostra "Desfazer".</summary>
     public bool CanUndo => !IsGroup && Steps[0] is { Restore: not null, IsUndone: false, IsRunning: false };
 

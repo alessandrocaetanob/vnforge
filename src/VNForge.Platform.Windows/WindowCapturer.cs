@@ -89,6 +89,10 @@ public sealed class WindowCapturer : IWindowCapturer
             _ => $"com o título '{target.TitleContains}'",
         };
 
+    /// <summary>
+    /// Captura a imagem da janela. Quando o <c>PrintWindow</c> falha ou volta preto, a imagem dele fica viva enquanto a cópia da tela aloca a segunda, porque é
+    /// ela o último recurso se a cópia falhar: em janelas enormes o pico de memória chega a duas imagens.
+    /// </summary>
     private static WindowImage Copy(IWindowSystem system, nint window)
     {
         var (width, height) = ClientSizeOf(system, window);

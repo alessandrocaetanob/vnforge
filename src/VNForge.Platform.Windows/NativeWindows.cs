@@ -53,9 +53,6 @@ internal static partial class NativeWindows
 
     private const int PathBufferLength = 1024;
 
-    /// <summary>GW_HWNDNEXT: a janela que vem abaixo na ordem de empilhamento.</summary>
-    public const uint NextInOrder = 2;
-
     /// <summary>GW_OWNER (4): a janela dona, ou zero. Janela com dona é caixa de diálogo ou dica, não a janela principal.</summary>
     public const uint OwnerWindow = 4;
 
@@ -65,15 +62,25 @@ internal static partial class NativeWindows
     // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
     public static readonly nint PerMonitorAwareV2 = -4;
 
-    /// <summary>As janelas de nível mais alto, da que está na frente para a de trás.</summary>
+    /// <summary>Retorno da chamada de volta do <c>EnumWindows</c>: um para seguir enumerando, zero para parar.</summary>
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate int EnumWindowsProc(nint window, nint state);
+
+    /// <summary>
+    /// As janelas de nível mais alto, da que está na frente para a de trás. Usa o <c>EnumWindows</c> e não um laço de <c>GetWindow</c>: o laço perde a lista
+    /// quando a janela corrente fecha e pode revisitar janelas se a ordem de empilhamento muda no meio.
+    /// </summary>
     public static List<nint> TopLevelWindows()
     {
         var found = new List<nint>();
-        for (var window = GetTopWindow(0); window != 0; window = GetWindow(window, NextInOrder))
+        EnumWindowsProc callback = (window, _) =>
         {
             found.Add(window);
-        }
+            return 1;
+        };
 
+        EnumWindows(Marshal.GetFunctionPointerForDelegate(callback), 0);
+        GC.KeepAlive(callback);
         return found;
     }
 
@@ -126,7 +133,8 @@ internal static partial class NativeWindows
     }
 
     [LibraryImport("user32.dll")]
-    public static partial nint GetTopWindow(nint window);
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumWindows(nint callback, nint state);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
