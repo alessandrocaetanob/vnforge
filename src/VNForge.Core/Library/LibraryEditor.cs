@@ -45,6 +45,15 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
             return game;
         });
 
+    /// <summary>Marca (ou desmarca) que o jogo pede a localidade japonesa: o Jogar abre pelo Locale Emulator.</summary>
+    public LibraryGame SetJapaneseLocale(string gameId, bool value) =>
+        file.Update(library =>
+        {
+            var game = library.Find(gameId) with { RequiresJapaneseLocale = value };
+            library.Replace(game);
+            return game;
+        });
+
     /// <summary>Tira o jogo da Biblioteca. A pasta dele não é tocada. Devolve se o jogo estava lá.</summary>
     public bool Remove(string gameId) => file.Update(library => library.Remove(gameId));
 

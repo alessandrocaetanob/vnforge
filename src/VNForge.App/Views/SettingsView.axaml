@@ -869,6 +869,20 @@
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Para o texto original. As fontes do Windows só valem se estiverem instaladas; senão o app usa a Noto Sans JP."/>
           </StackPanel>
         </TabItem>
+
+        <!-- Jogos: o Locale Emulator que o Jogar da Biblioteca usa nos jogos que pedem localidade japonesa. -->
+        <TabItem Header="Jogos" IsVisible="{Binding HasLocaleEmulator}">
+          <StackPanel Margin="0,16,0,0" Spacing="8" DataContext="{Binding LocaleEmulator}" x:DataType="vm:LocaleEmulatorSettingsViewModel">
+            <c:OverlineText Classes="overline" Text="Locale Emulator"/>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+              <TextBox Name="LocaleEmulatorPath" Text="{Binding PathText}" PlaceholderText="C:\Ferramentas\LocaleEmulator" AutomationProperties.Name="Caminho do Locale Emulator"/>
+              <Button Grid.Column="1" Command="{Binding ChooseCommand}" Content="Escolher a pasta"/>
+              <Button Grid.Column="2" Classes="accent" Command="{Binding SaveCommand}" Content="Salvar"/>
+            </Grid>
+            <TextBlock Name="LocaleEmulatorStatus" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Status}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A pasta onde está o LEProc.exe, ou o próprio LEProc.exe. Cada jogo escolhe, na gaveta da Biblioteca, se abre por ele."/>
+          </StackPanel>
+        </TabItem>
       </TabControl>
 
       <!-- O crédito da licença dos dados do VNDB (ODbL) fica num lugar fixo, em qualquer aba. -->
