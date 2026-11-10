@@ -30,6 +30,8 @@ public sealed class ReviewModeNavigationTests
         await main.Editor.Loading;
         await main.Dashboard.ReloadAsync();
         main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Editor);
+        // Entrar numa página do jogo recarrega o Painel em segundo plano, para o cabeçalho. Sem esperar, a lista de capítulos muda enquanto o teste a percorre.
+        await main.DashboardRefresh;
         main.Editor.StartReview();
         Assert.True(main.Editor.IsReviewing);
         return (main, root);
