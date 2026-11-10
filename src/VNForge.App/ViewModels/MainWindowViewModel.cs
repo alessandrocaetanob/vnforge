@@ -172,7 +172,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
-        Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
+        Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        Sheet.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))
+            {
+                OnPropertyChanged(nameof(ShowPlayButton));
+                OnPropertyChanged(nameof(ShowNextStepButton));
+                OnPropertyChanged(nameof(Breadcrumb));
+            }
+        };
         Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
         selectedNav = startItem;
         CurrentPage = Library;

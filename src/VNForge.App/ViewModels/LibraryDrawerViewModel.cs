@@ -23,8 +23,10 @@ public enum LibraryDrawerChipKind
     Hidden,
 }
 
-public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library) : ObservableObject
+public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "") : ObservableObject
 {
+    private bool japaneseLocale = card.Game.RequiresJapaneseLocale;
+
     public LibraryCardViewModel Card { get; } = card;
 
     public LibraryViewModel Library { get; } = library;
@@ -134,6 +136,9 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
 
     public bool HasFiles => FilesText is not null;
 
+    /// <summary>O Jogar abre o jogo como está na pasta; com a tradução inteira nela, o botão diz isso.</summary>
+    public string PlayText => Card.Version is { } version && LibraryVersionLabel.IsFullTranslation(version) ? "Jogar traduzido" : "Jogar";
+
     public IReadOnlyList<LibraryVersionItem> Versions { get; } = [new(false, "Original"), new(true, "Traduzido")];
 
     /// <summary>Estado desconhecido não troca nada: o controle fica desligado e a gaveta diz o motivo.</summary>
@@ -157,6 +162,23 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
 
             // O controle já mostra o botão clicado: avisa para ele voltar ao que o estado diz, caso a troca não aconteça.
             OnPropertyChanged();
+        }
+    }
+
+    /// <summary>O tempo de jogo em uma linha, vindo do <c>playtime.json</c>.</summary>
+    public string PlayedText { get; } = playedText;
+
+    /// <summary>O jogo pede a localidade japonesa: o Jogar abre pelo Locale Emulator. Mudar grava no <c>library.json</c>.</summary>
+    public bool RequiresJapaneseLocale
+    {
+        get => japaneseLocale;
+        set
+        {
+            if (japaneseLocale != value)
+            {
+                japaneseLocale = value;
+                Library.RememberJapaneseLocale(Card, value);
+            }
         }
     }
 }
