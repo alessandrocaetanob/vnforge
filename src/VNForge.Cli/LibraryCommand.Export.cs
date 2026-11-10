@@ -73,7 +73,8 @@ internal static partial class LibraryCommand
         };
         var options = new LibraryCatalogOptions(privacy, parseResult.GetValue(CatalogNotesOption));
 
-        var result = LibraryCatalog.Render(library, played, cli.Clock.GetLocalNow(), options, new SheetCatalogSource(SheetStoreOf(cli)));
+        var sheets = new SheetCatalogSource(SheetStoreOf(cli));
+        var result = LibraryCatalog.Render(library, played, cli.Clock.GetLocalNow(), options, sheets);
         if (result.Games == 0)
         {
             throw new LibraryException("Nenhum jogo da biblioteca tem jogo do VNDB confirmado, então não há o que exportar. Rode vnf library match para casar os jogos.");
@@ -84,7 +85,7 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { path, games = result.Games, skipped = result.Skipped, privacy, includesNotes = options.IncludeNotes }));
+            output.WriteLine(JsonEnvelope.Result(new { path, games = result.Games, skipped = result.Skipped, privacy, includesNotes = options.IncludeNotes, staleSheetCharacters = sheets.StaleCharacters }));
             return ErrorHandler.OkExitCode;
         }
 
@@ -92,6 +93,11 @@ internal static partial class LibraryCommand
         if (result.Skipped > 0)
         {
             output.WriteLine($"{CliFormat.Count(result.Skipped, "jogo ficou", "jogos ficaram")} de fora por não ter jogo do VNDB confirmado (vnf library match).");
+        }
+
+        if (sheets.StaleCharacters > 0 && !privacy.ShowSpoilers)
+        {
+            output.WriteLine($"{CliFormat.Count(sheets.StaleCharacters, "personagem ficou", "personagens ficaram")} fora do catálogo: a ficha é antiga e o nível de spoiler deles é desconhecido. Busque de novo com vnf library sheet fetch <jogo>.");
         }
 
         output.WriteLine($"Spoilers: {(privacy.ShowSpoilers ? "visíveis" : "escondidos")}. Conteúdo adulto: {(privacy.ShowAdult ? "visível" : "escondido")}.");

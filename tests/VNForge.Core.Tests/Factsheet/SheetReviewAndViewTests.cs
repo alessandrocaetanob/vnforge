@@ -109,6 +109,27 @@ public sealed class SheetReviewAndViewTests : IDisposable
     }
 
     [Fact]
+    public async Task Personagem_com_spoiler_numa_edicao_ou_de_ficha_antiga_sem_as_edicoes_fica_escondido()
+    {
+        var inEdition = Aoi() with { Appearances = [new VndbCharacterAppearance(Game1, "primary", 0, null), new VndbCharacterAppearance(Game1, "primary", 2, "r2")] };
+        await SheetFetcher.FetchAsync(new VNForge.Vndb.FakeVndbCatalog([Game()], [Kenta(), inEdition]), Store, Game1, cancellationToken: Ct);
+        var game = Store.LoadGame(Game1)!;
+        var characters = Store.LoadCharacters(game.CharacterIds);
+        var old = characters.Select(c => c.Id == "c1" ? c with { Appearances = [.. c.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] } : c).ToList();
+
+        var fresh = SheetViewer.Card(game, characters, Store.LoadTerms(), new LibraryPrivacy());
+        var stale = SheetViewer.Card(game, old, Store.LoadTerms(), new LibraryPrivacy());
+        var open = SheetViewer.Card(game, old, Store.LoadTerms(), new LibraryPrivacy(ShowSpoilers: true));
+
+        Assert.Equal((0, 1), (fresh.StaleCharacters, stale.StaleCharacters));
+        Assert.Equal(["Kenta Aizawa"], fresh.Characters.Select(c => c.Name));
+        Assert.Equal(1, fresh.HiddenCharacters);
+        Assert.Empty(stale.Characters);
+        Assert.Equal(2, stale.HiddenCharacters);
+        Assert.Equal(2, open.Characters.Count);
+    }
+
+    [Fact]
     public async Task O_spoiler_fica_escondido_por_padrao_pelo_nivel_do_VNDB()
     {
         await Translated();

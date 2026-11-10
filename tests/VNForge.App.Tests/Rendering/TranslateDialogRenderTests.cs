@@ -93,6 +93,18 @@ public sealed class TranslateDialogRenderTests(HeadlessFixture fixture, DemoFold
                 var surface = Surface(window);
                 Assert.Equal(3, surface.GetVisualDescendants().OfType<QualityCard>().Count());
                 Assert.Equal(5, surface.GetVisualDescendants().OfType<RadioButton>().Count(r => r is not QualityCard));
+
+                // Quadro: o primário é lg (40 px, não os 32 do tamanho comum) e o título de cada cartão de opção é Zen Kaku bold, não o Noto Sans do corpo.
+                var start = surface.GetVisualDescendants().OfType<Button>().Single(b => ReferenceEquals(b.Command, vm.Translate.StartCommand));
+                Assert.Equal(40, start.Bounds.Height);
+                var titles = surface.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("title-sm")).ToList();
+                Assert.Equal(8, titles.Count);
+                Assert.All(titles, t =>
+                {
+                    Assert.Equal("Zen Kaku Gothic New", t.FontFamily.FamilyNames[0]);
+                    Assert.Equal(FontWeight.Bold, t.FontWeight);
+                });
+
                 var bar = Assert.Single(surface.GetVisualDescendants().OfType<BudgetBar>());
                 Assert.True(bar.Ask > 0 && bar.Limit > 0 && !bar.IsOver);
                 // A barra do quadro (.bar2) vai até o limite: dentro dele não há marca, e a trilha tem o fundo do cartão "Quanto custa".
