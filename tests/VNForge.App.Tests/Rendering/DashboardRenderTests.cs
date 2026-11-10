@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -84,6 +85,95 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
 
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 144.5, $"o Painel passa mais de 144 px da janela: {scroll.Extent.Height} de {scroll.Viewport.Height}");
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("painel-v3-900", theme)));
+        });
+    }
+
+    /// <summary>
+    /// As medidas do Painel e da busca da barra de título tiradas dos pixels do quadro da #544 a 1440×1000 (conferência do #607): os três cartões na coluna da esquerda
+    /// de 888 px contra 384 e 24 de vão, passos de 14/20 com quadradinho de 18 px, 38% e "O jogo inteiro" em 20/28, capítulos de 48 px com a barra de 160, "Precisa de você"
+    /// em linhas de 50 px e o gasto com a barra de 6 px.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Painel_e_a_busca_da_barra_de_titulo_seguem_as_medidas_do_quadro(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await Abrir(theme, ScreenRenderer.Height, (window, _) =>
+        {
+            Color Token(string key) => window.TryFindResource(key, theme, out var found) && found is ISolidColorBrush brush ? brush.Color : throw new InvalidOperationException(key);
+            static Point At(Visual control, Visual origin) => control.TranslatePoint(new Point(0, 0), origin)!.Value;
+            static Border Card(Visual inside) => inside.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
+
+            // Barra de título: 28 px de altura, texto de 12, fundo bg-layer e contorno stroke-control.
+            var search = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("palette-trigger"));
+            Assert.Equal(28, search.Bounds.Height);
+            Assert.Equal(420, search.Bounds.Width);
+            var searchBox = search.GetVisualDescendants().OfType<ContentPresenter>().First();
+            Assert.Equal(Token("Vnf.BgLayer"), ((ISolidColorBrush)searchBox.Background!).Color);
+            Assert.Equal(Token("Vnf.StrokeControl"), ((ISolidColorBrush)searchBox.BorderBrush!).Color);
+            Assert.Equal(12, search.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Buscar jogos, personagens e comandos").FontSize);
+
+            var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
+            var stepper = Assert.Single(view.GetVisualDescendants().OfType<PipelineStepper>());
+            var side = view.GetVisualDescendants().OfType<Control>().Single(c => c.Name == "Side");
+            var stepsCard = Card(stepper);
+            var rows = view.GetVisualDescendants().OfType<ChapterRow>().ToList();
+            var chaptersCard = Card(rows[0]);
+            var mapCard = view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("panel") && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Name == "MapPercent"));
+
+            // Colunas: 888 e 384 com 24 de vão; os passos são o primeiro cartão da coluna da esquerda e a da direita começa na mesma altura.
+            Assert.Equal(384, side.Bounds.Width);
+            Assert.Equal(888, stepsCard.Bounds.Width);
+            Assert.Equal(stepsCard.Bounds.Width, mapCard.Bounds.Width);
+            Assert.Equal(stepsCard.Bounds.Width, chaptersCard.Bounds.Width);
+            Assert.Equal(24, At(side, view).X - (At(stepsCard, view).X + stepsCard.Bounds.Width));
+            Assert.Equal(At(stepsCard, view).Y, At(side, view).Y);
+            Assert.Equal(16, At(mapCard, view).Y - (At(stepsCard, view).Y + stepsCard.Bounds.Height));
+
+            // Passos: rótulo de 14/20 e subtítulo de 13/20; o concluído é o ícone de 24 e os outros o quadradinho de 18 px.
+            var items = stepper.GetVisualDescendants().OfType<PipelineStepItem>().ToList();
+            var title = items[1].GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
+            var subtitle = items[1].GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Subtitle");
+            Assert.Equal((14d, 20d), (title.FontSize, title.LineHeight));
+            Assert.Equal((13d, 20d), (subtitle.FontSize, subtitle.LineHeight));
+            Assert.Equal(new Size(18, 18), items[1].GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Circle").Bounds.Size);
+            Assert.Equal(new Size(24, 24), items[0].GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Circle").Bounds.Size);
+            Assert.Equal(3, items[1].GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Underline").Bounds.Height);
+
+            // 38% e "O jogo inteiro": o bloco começa 24 px dentro do cartão, o título é 20/28 e a linha de apoio 14.
+            var percent = mapCard.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MapPercent");
+            var mapTitle = mapCard.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "O jogo inteiro");
+            Assert.Equal(25, At(percent, mapCard).X);
+            Assert.Equal((20d, 28d), (mapTitle.FontSize, mapTitle.LineHeight));
+            Assert.Equal(14, mapCard.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MapLine").FontSize);
+
+            // Capítulos: título de 16/22, linhas de 48 px com a divisória, barra de 160 px.
+            var chaptersTitle = chaptersCard.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Capítulos");
+            Assert.Equal((16d, 22d), (chaptersTitle.FontSize, chaptersTitle.LineHeight));
+            Assert.Equal(55, At(rows[0], chaptersCard).Y);
+            Assert.Equal(48, At(rows[1], chaptersCard).Y - At(rows[0], chaptersCard).Y);
+            var rowBorder = rows[0].GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Root");
+            Assert.Equal(new Thickness(0, 0, 0, 1), rowBorder.BorderThickness);
+            Assert.Equal(Token("Vnf.StrokeSubtle"), ((ISolidColorBrush)rowBorder.BorderBrush!).Color);
+            Assert.Equal(160, rows[0].GetVisualDescendants().OfType<ProgressBar>().Single().Bounds.Width);
+
+            // Precisa de você: título de 16/22 sem divisória embaixo, linhas de 50 px, ícone de 24, título forte e ação de 14 semibold.
+            var todos = view.GetVisualDescendants().OfType<TodoItem>().ToList();
+            var needCard = Card(todos[0]);
+            var needTitle = needCard.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Precisa de você");
+            Assert.Equal((16d, 22d), (needTitle.FontSize, needTitle.LineHeight));
+            Assert.Equal(55, At(todos[0], needCard).Y);
+            Assert.Equal(50, At(todos[1], needCard).Y - At(todos[0], needCard).Y);
+            Assert.Equal(new Size(24, 24), todos[0].GetVisualDescendants().OfType<PathIcon>().First().Bounds.Size);
+            Assert.Equal(FontWeight.SemiBold, todos[0].GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == todos[0].Title).FontWeight);
+            var action = todos[0].GetVisualDescendants().OfType<Button>().Single();
+            Assert.Equal((14d, FontWeight.SemiBold), (action.FontSize, action.FontWeight));
+
+            // Gasto com a IA: barra de 6 px, accent sobre o bg-inset.
+            var budget = Assert.Single(view.GetVisualDescendants().OfType<BudgetBar>());
+            Assert.Equal(6, budget.Bounds.Height);
+            Assert.Equal(Token("Vnf.Accent"), ((ISolidColorBrush)budget.SpentBrush!).Color);
+            Assert.True(budget.IsInset);
         });
     }
 

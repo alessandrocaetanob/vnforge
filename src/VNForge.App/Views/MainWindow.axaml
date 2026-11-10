@@ -45,15 +45,23 @@
     <Style Selector="WindowDrawnDecorations TextBlock">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <!-- A busca da barra de título é um botão que abre a paleta: campo rebaixado com a dica do atalho. -->
+    <!-- A busca da barra de título é um botão que abre a paleta, como o campo do quadro: 28 px (o MinHeight do botão é 32), fundo bg-layer, contorno stroke-control e texto de 12 px.
+         O ContentPresenter do Fluent pinta os estados com os pincéis dele, então o repouso também é dado ali. -->
     <Style Selector="Button.palette-trigger">
-      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgLayer}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
       <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="MinHeight" Value="28"/>
       <Setter Property="Height" Value="28"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="Normal"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.palette-trigger /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgLayer}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
     </Style>
     <Style Selector="Button.palette-trigger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
@@ -93,7 +101,7 @@
                   AutomationProperties.Name="Buscar jogos, personagens e comandos">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
-              <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="Buscar jogos, personagens e comandos" Margin="8,0,0,0"
+              <TextBlock Grid.Column="1" Classes="caption secondary" Text="Buscar jogos, personagens e comandos" Margin="8,0,0,0"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
               <Border Grid.Column="2" Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+K"/></Border>
             </Grid>
