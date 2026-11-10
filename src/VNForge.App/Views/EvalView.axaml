@@ -39,7 +39,6 @@
     <!-- Linha da tabela: o botão só desenha o fundo e o divisor de baixo (a última não tem); a escolhida para o M4 ganha accent-soft e um fio de 2 px em accent. -->
     <Style Selector="Button.evalrow">
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="CornerRadius" Value="0"/>
@@ -121,7 +120,7 @@
             <TextBlock Text="Rodar provas"/>
           </StackPanel>
         </Button>
-        <Button Grid.Column="5" Classes="subtle" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding CopyTerminalCommandCommand}" ToolTip.Tip="Copia o comando para o terminal"
+        <Button Grid.Column="5" Classes="subtle" Command="{Binding CopyTerminalCommandCommand}" ToolTip.Tip="Copia o comando para o terminal"
                 AutomationProperties.Name="Rodar no terminal">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Rodar no terminal"/>
@@ -299,8 +298,8 @@
 
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
           <Button Classes="lg" Content="Empate" Command="{Binding ChooseTieCommand}"/>
-          <Button Classes="lg subtle" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Content="Nenhum dos dois" Command="{Binding ChooseNeitherCommand}"/>
-          <Button Classes="lg subtle" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding SkipPairCommand}" AutomationProperties.Name="Pular par">
+          <Button Classes="lg subtle" Content="Nenhum dos dois" Command="{Binding ChooseNeitherCommand}"/>
+          <Button Classes="lg subtle" Command="{Binding SkipPairCommand}" AutomationProperties.Name="Pular par">
             <StackPanel Orientation="Horizontal" Spacing="9">
               <PathIcon Width="13" Height="13" Data="{StaticResource Icon.ArrowRight}"/>
               <TextBlock Text="Pular par"/>

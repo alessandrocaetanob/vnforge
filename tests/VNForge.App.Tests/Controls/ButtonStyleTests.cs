@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Media;
@@ -6,7 +7,7 @@ using VNForge.App.Tests.Rendering;
 
 namespace VNForge.App.Tests.Controls;
 
-/// <summary>O botão comum é o contornado do quadro (#580, G3): só o rótulo é semibold, e o que o botão carrega dentro, o subtle e o danger seguem o quadro nos estados.</summary>
+/// <summary>O botão comum é o contornado do quadro (#580, G3): o rótulo é semibold, inclusive no subtle; a linha inteira e o link ficam regulares, e o subtle e o danger seguem o quadro nos estados.</summary>
 public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     private Task OnUi(Action<Window> test) =>
@@ -39,6 +40,15 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
 
     private static ContentPresenter Presenter(Button button) =>
         Assert.Single(button.GetVisualDescendants().OfType<ContentPresenter>(), p => p.Name == "PART_ContentPresenter");
+
+    private static Color Brush(Window window, string key)
+    {
+        Assert.True(window.TryFindResource(key, window.ActualThemeVariant, out var found));
+        return Assert.IsAssignableFrom<ISolidColorBrush>(found).Color;
+    }
+
+    private static Color ForegroundOf(Control root, string text) =>
+        Assert.IsAssignableFrom<ISolidColorBrush>(Text(root, text).Foreground).Color;
 
     private static void Hover(Button button, bool on) => ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(":pointerover", on);
 
@@ -114,10 +124,48 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
 
     [Theory]
     [InlineData("subtle")]
+    [InlineData("subtle sm")]
+    [InlineData("subtle lg")]
+    public async Task Rotulo_do_botao_subtle_e_semibold(string classes)
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = "Roteiro" };
+            foreach (var name in classes.Split(' '))
+            {
+                button.Classes.Add(name);
+            }
+
+            Show(window, button);
+
+            Assert.Equal(FontWeight.SemiBold, Text(button, "Roteiro").FontWeight);
+        });
+    }
+
+    [Fact]
+    public async Task Rotulo_do_botao_subtle_e_text_secondary_em_repouso_e_text_primary_no_hover()
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = "Pular", Classes = { "subtle" } };
+            Show(window, button);
+
+            Assert.Equal(Brush(window, "Vnf.TextSecondary"), ForegroundOf(button, "Pular"));
+
+            Hover(button, true);
+            ScreenRenderer.Settle(window);
+
+            Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "Pular"));
+            Assert.Equal(Brush(window, "Vnf.BgCardHover"), Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).Background).Color);
+        });
+    }
+
+    [Theory]
     [InlineData("subtle evalrow")]
+    [InlineData("subtle chapter")]
     [InlineData("link")]
     [InlineData("word-source")]
-    public async Task Texto_dentro_de_botao_de_linha_ou_link_fica_regular(string classes)
+    public async Task Texto_dentro_de_linha_inteira_ou_link_fica_regular(string classes)
     {
         await OnUi(window =>
         {
@@ -133,6 +181,38 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             {
                 Assert.Equal(FontWeight.Normal, Text(button, text).FontWeight);
             }
+        });
+    }
+
+    [Theory]
+    [InlineData("subtle evalrow")]
+    [InlineData("subtle chapter")]
+    public async Task Linha_inteira_subtle_fica_em_text_primary_no_repouso(string classes)
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = new TextBlock { Text = "Capítulo 1" } };
+            foreach (var name in classes.Split(' '))
+            {
+                button.Classes.Add(name);
+            }
+
+            Show(window, button);
+
+            Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "Capítulo 1"));
+        });
+    }
+
+    [Fact]
+    public async Task Codigo_mono_dentro_de_botao_subtle_fica_regular_e_em_text_primary()
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = new TextBlock { Classes = { "mono" }, Text = "さん" }, Classes = { "subtle" } };
+            Show(window, button);
+
+            Assert.Equal(FontWeight.Normal, Text(button, "さん").FontWeight);
+            Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "さん"));
         });
     }
 
@@ -187,6 +267,84 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             Assert.True(window.TryFindResource("Vnf.SignalErrorFg", window.ActualThemeVariant, out var found));
             var expected = Assert.IsAssignableFrom<ISolidColorBrush>(found).Color;
             Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).BorderBrush).Color);
+        });
+    }
+
+    private static Border Kbd(string text) => new()
+    {
+        Classes = { "kbd" },
+        Child = new TextBlock { Text = text },
+    };
+
+    [Fact]
+    public async Task Kbd_e_retangulo_de_raio_4_com_contorno_de_1_px_e_sem_preenchimento()
+    {
+        await OnUi(window =>
+        {
+            var kbd = Kbd("Ctrl+K");
+            Show(window, kbd);
+
+            Assert.Equal(new CornerRadius(4), kbd.CornerRadius);
+            Assert.Equal(new Thickness(1), kbd.BorderThickness);
+            Assert.Equal(new Thickness(5, 1), kbd.Padding);
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(kbd.Background).Color);
+            Assert.Equal(0.85, kbd.Opacity);
+        });
+    }
+
+    [Fact]
+    public async Task Kbd_usa_mono_500_de_11_px_com_linha_de_14()
+    {
+        await OnUi(window =>
+        {
+            var kbd = Kbd("Esc");
+            Show(window, kbd);
+
+            var text = Text(kbd, "Esc");
+            Assert.Equal(FontWeight.Medium, text.FontWeight);
+            Assert.Equal(11, text.FontSize);
+            Assert.Equal(14, text.LineHeight);
+            Assert.True(window.TryFindResource("Vnf.FontMono", window.ActualThemeVariant, out var mono));
+            Assert.Equal(mono, text.FontFamily);
+        });
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("subtle")]
+    [InlineData("danger")]
+    public async Task Kbd_tem_o_contorno_na_cor_do_texto_do_botao_que_o_carrega(string classes)
+    {
+        await OnUi(window =>
+        {
+            var kbd = Kbd("M");
+            var button = new Button { Content = new StackPanel { Children = { new TextBlock { Text = "Depois" }, kbd } } };
+            foreach (var name in classes.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                button.Classes.Add(name);
+            }
+
+            Show(window, button);
+
+            Assert.Equal(ForegroundOf(button, "M"), Assert.IsAssignableFrom<ISolidColorBrush>(kbd.BorderBrush).Color);
+            Assert.Equal(ForegroundOf(button, "Depois"), ForegroundOf(button, "M"));
+        });
+    }
+
+    [Fact]
+    public async Task Kbd_dentro_do_botao_de_destaque_segue_em_on_accent()
+    {
+        await OnUi(window =>
+        {
+            var kbd = Kbd("Ctrl+Enter");
+            var button = new Button { Content = new StackPanel { Children = { new TextBlock { Text = "Salvar" }, kbd } }, Classes = { "accent" } };
+            Show(window, button);
+
+            var onAccent = Brush(window, "Vnf.OnAccent");
+            Assert.Equal(onAccent, Assert.IsAssignableFrom<ISolidColorBrush>(kbd.BorderBrush).Color);
+            Assert.Equal(onAccent, ForegroundOf(button, "Ctrl+Enter"));
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(kbd.Background).Color);
+            Assert.Equal(0.85, kbd.Opacity);
         });
     }
 }
