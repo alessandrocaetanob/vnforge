@@ -108,6 +108,32 @@ public sealed class CharactersViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_o_filtro_de_papel_o_cartao_mostra_o_papel_que_casou_com_o_filtro_e_nao_o_primeiro()
+    {
+        var vm = await OpenAsync();
+        Assert.Equal("Protagonista", vm.Items.Single(i => i.Name == "Hana Tsukino").Role.Text);
+
+        vm.RoleFacets.Single(f => f.Key == "side").IsSelected = true;
+
+        Assert.Equal(["Hana Tsukino", "Sora Mori"], vm.Items.Select(i => i.Name));
+        Assert.Equal(["Secundária", "Secundário"], vm.Items.Select(i => i.Role.Text));
+    }
+
+    [Fact]
+    public async Task Uma_ficha_ilegivel_aparece_como_erro_na_tela_em_vez_de_deixar_a_lista_em_branco()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        await File.WriteAllTextAsync(new SheetStore(_config.Path).TermsPath, "{ não é json", Ct);
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
+
+        await vm.LoadAsync();
+
+        Assert.Empty(vm.Items);
+        Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
+        Assert.Equal(vm.ErrorMessage, vm.EmptyMessage);
+    }
+
+    [Fact]
     public async Task Abrir_um_jogo_da_pagina_pede_ao_shell_o_jogo_da_Biblioteca()
     {
         var vm = await OpenAsync();

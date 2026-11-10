@@ -201,7 +201,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
             applying = false;
         }
-        catch (Exception ex) when (ex is LibraryException or IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or JsonException)
         {
             if (wanted != generation)
             {
@@ -269,11 +269,13 @@ public sealed partial class CharactersViewModel : ObservableObject
         {
             RebuildFrom(data);
         }
-        catch (LibraryException ex)
+        catch (Exception ex) when (ex is VNForgeException or InvalidOperationException)
         {
-            // Um arquivo da Biblioteca que o Core recusa não derruba a tela: ela mostra o erro, como as outras falhas de leitura.
+            // Um arquivo da Biblioteca ou das fichas que o Core recusa, ou que não bate com o outro, não derruba a tela (este método roda dentro de handlers de propriedade): ela mostra o erro, como as outras falhas de leitura.
             snapshot = null;
-            ErrorMessage = ex.Message;
+            ErrorMessage = ex is InvalidOperationException
+                ? $"A Biblioteca e as fichas de personagens não batem entre si ({ex.Message}). Busque as fichas de novo."
+                : ex.Message;
             Rebuild();
         }
     }
@@ -297,7 +299,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
         var cards = shown.Characters.Where(c => selectedRoles.Count == 0 || c.AppearsIn.Any(a => selectedRoles.Contains(a.RoleCode))).ToList();
         cards = Sort(cards);
-        Items = [.. cards.Select(c => ItemOf(c))];
+        Items = [.. cards.Select(ItemOf)];
         BuildFacets(basis.Characters);
         var games = all.Characters.SelectMany(c => c.AppearsIn).Select(a => a.GameId).Distinct(StringComparer.Ordinal).Count();
         StatusText = $"{GameSheetViewModel.Count(all.Characters.Count, "personagem", "personagens")} de {GameSheetViewModel.Count(games, "jogo", "jogos")}";
@@ -315,14 +317,18 @@ public sealed partial class CharactersViewModel : ObservableObject
     private List<LibraryCharacterCard> Sort(List<LibraryCharacterCard> cards) => SelectedSort.Sort switch
     {
         CharacterSort.MostGames => [.. cards.OrderByDescending(c => c.AppearsIn.Count).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)],
-        CharacterSort.Role => [.. cards.OrderBy(c => SheetLabels.RoleRank(c.AppearsIn[0].RoleCode)).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)],
+        CharacterSort.Role => [.. cards.OrderBy(c => SheetLabels.RoleRank(ShownAppearance(c).RoleCode)).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)],
         _ => cards,
     };
 
     private static SheetPill RolePill(string roleCode, string gender) => new(SheetLabels.RoleBadge(roleCode, gender), roleCode == "main" ? SheetTone.Approved : SheetTone.Pending);
 
-    private static CharacterListItem ItemOf(LibraryCharacterCard card) =>
-        new(card.Id, card.Name, card.Original, card.Image, RolePill(card.AppearsIn[0].RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"));
+    /// <summary>Com filtro de papel, a aparição que casou com ele (o cartão "side" que passou pelo filtro "side" não mostra o papel "main" de outro jogo); sem filtro, a mais importante.</summary>
+    private LibraryCharacterAppearance ShownAppearance(LibraryCharacterCard card) =>
+        card.AppearsIn.FirstOrDefault(a => selectedRoles.Contains(a.RoleCode)) ?? card.AppearsIn[0];
+
+    private CharacterListItem ItemOf(LibraryCharacterCard card) =>
+        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"));
 
     private void BuildFacets(IReadOnlyList<LibraryCharacterCard> basis)
     {
