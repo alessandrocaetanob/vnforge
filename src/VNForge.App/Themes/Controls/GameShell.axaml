@@ -1,0 +1,135 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Abas do jogo (quadro da #544): Ficha, Tradução e Jogar em display 700 15/20, sublinhado de 3px em accent na marcada. -->
+  <Style Selector="ListBox.gametabs">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="32"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.gametabs > ListBoxItem">
+    <Setter Property="Padding" Value="0,6,0,0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Foreground="{TemplateBinding Foreground}"
+                            Padding="{TemplateBinding Padding}"
+                            Margin="0,0,0,11"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"/>
+          <Border Name="PART_Underline" Height="3" CornerRadius="2" VerticalAlignment="Bottom"
+                  Background="{DynamicResource Vnf.Accent}" IsVisible="False"/>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- O Fluent pinta o fundo do item marcado e do item sob o ponteiro nesta mesma parte; as abas só mudam a cor do texto. -->
+  <Style Selector="ListBox.gametabs > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.gametabs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="ListBox.gametabs > ListBoxItem:selected /template/ Border#PART_Underline">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
+  <!-- Segunda linha da aba Tradução: seletor em pílula sobre bg-inset, a seção marcada em bg-card com contorno sutil. -->
+  <Style Selector="ListBox.sections">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="3"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="4"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.sections > ListBoxItem">
+    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Height" Value="28"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="Transparent"
+                          BorderThickness="1"
+                          CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                          Foreground="{TemplateBinding Foreground}"
+                          Padding="{TemplateBinding Padding}"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.sections > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="ListBox.sections > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="ListBox.sections > ListBoxItem:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextTertiary}"/>
+  </Style>
+
+  <!-- Etiqueta (engine) e pílula (andamento) do cabeçalho do jogo. -->
+  <Style Selector="Border.game-tag">
+    <Setter Property="Height" Value="{DynamicResource Vnf.TagHeight}"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.game-pill">
+    <Setter Property="Padding" Value="8,1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusTranslatedBg}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.game-pill.done">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.none">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.done > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.none > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+  </Style>
+  <Style Selector="Border.game-pill > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusTranslatedFg}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+</Styles>

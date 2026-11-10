@@ -15,10 +15,10 @@
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <!-- A grade enche a janela: o último cartão da coluna da direita (o LEIA-ME, "Mudou desde o patch") estica até o fim, como no quadro; a página rola quando o conteúdo é maior. -->
-    <Grid MaxWidth="1280" Margin="24,16,24,24" RowDefinitions="Auto,*">
+    <Grid Margin="32,20,32,24" RowDefinitions="Auto,*">
     <StackPanel Spacing="16">
 
-      <c:PageHeader Breadcrumb="{Binding Project.Name}" Title="Lançar">
+      <c:PageHeader Classes="actions" IsVisible="{Binding LastVersionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="caption secondary" Text="{Binding LastVersionText}" VerticalAlignment="Bottom"
                    AutomationProperties.Name="Última versão lançada"/>
       </c:PageHeader>

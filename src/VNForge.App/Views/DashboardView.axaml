@@ -7,56 +7,17 @@
              x:DataType="vm:DashboardViewModel">
 
   <UserControl.Styles>
-    <!-- A faixa das abas (Visão geral, Provas): a linha de baixo em toda a largura, como nos Ajustes; 48 px de altura, com a sublinha de 3 px sobre a linha (a linha fica atrás das abas, na última linha de pixels da aba, e não numa borda, para a sublinha poder cobri-la; o TabControl mede 2 px a mais que as abas, por isso a margem de baixo de -4), como no quadro do banco de provas. -->
-    <Style Selector="TabControl.tabs">
-      <Setter Property="Template">
-        <ControlTemplate>
-          <Panel>
-            <Border Height="1" Margin="0,47,0,0" VerticalAlignment="Top" Background="{DynamicResource Vnf.StrokeSubtle}"/>
-            <ItemsPresenter Name="PART_ItemsPresenter">
-              <ItemsPresenter.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel/>
-                </ItemsPanelTemplate>
-              </ItemsPresenter.ItemsPanel>
-            </ItemsPresenter>
-          </Panel>
-        </ControlTemplate>
-      </Setter>
-    </Style>
-    <Style Selector="TabControl.tabs > TabItem">
-      <Setter Property="Height" Value="48"/>
-      <Setter Property="Margin" Value="0"/>
-    </Style>
     <!-- Linha de capítulo: o botão não desenha nada além do fundo de hover; quem desenha é a ChapterRow. -->
     <Style Selector="Button.chapter">
       <Setter Property="Padding" Value="0"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+      <Setter Property="CornerRadius" Value="0"/>
     </Style>
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <!-- 4 px em cima e 12 embaixo (eram 16 e 16): a faixa das abas ficou 16 px mais alta, como no quadro, e a Visão geral ainda precisa caber em 1440×900. -->
-    <StackPanel MaxWidth="1280" Margin="24,4,24,12" Spacing="16" HorizontalAlignment="Stretch">
-
-      <StackPanel IsVisible="{Binding HasProject}">
-      <c:PageHeader Breadcrumb="Painel" Title="{Binding Title}" IsVisible="{Binding HasProject}">
-        <Button Classes="accent" Command="{Binding OpenNextStepCommand}" IsVisible="{Binding HasNextStep}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
-            <TextBlock Text="{Binding NextStepLabel}"/>
-          </StackPanel>
-        </Button>
-      </c:PageHeader>
-
-      <!-- As abas do Painel: o mapa do jogo e o banco de provas (#529). Onde o Painel mora no shell novo é decisão do #544. -->
-      <TabControl Classes="tabs" Margin="0,0,0,-4" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" IsVisible="{Binding !ShowEmptyState}" AutomationProperties.Name="Seções do Painel">
-        <TabItem Header="Visão geral"/>
-        <TabItem Header="Provas"/>
-      </TabControl>
-      </StackPanel>
+    <StackPanel Margin="32,20,32,16" Spacing="12" HorizontalAlignment="Stretch">
 
       <!-- Sem projeto (ou projeto sem texto): o selo 訳, uma frase e a ação. -->
       <c:EmptyState IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
@@ -74,23 +35,24 @@
 
       <Grid x:Name="Body" ColumnDefinitions="*,440" RowDefinitions="Auto" ColumnSpacing="20" RowSpacing="16" IsVisible="{Binding !ShowEmptyState}">
 
-        <!-- O mapa do jogo: o anel do jogo inteiro e uma linha por capítulo. -->
-        <Border Classes="panel" Padding="20" VerticalAlignment="Top">
-          <StackPanel Spacing="16">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24">
-              <c:ProgressRing Done="{Binding ReadyLines}" Review="{Binding ReviewLines}" Total="{Binding TotalLines}"
-                              AutomationProperties.Name="{Binding MapSummary}"/>
-              <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                <TextBlock Classes="title-md" Text="O jogo inteiro"/>
-                <TextBlock Classes="body" Text="{Binding MapSummary}"/>
-                <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding PaceText}"/>
-                <c:Legend ItemsSource="{Binding MapLegend}"/>
-              </StackPanel>
-            </Grid>
+        <!-- O mapa do jogo, como no quadro da #544: o resumo num cartão (a porcentagem grande e uma linha) e os capítulos em outro. -->
+        <StackPanel Spacing="16" VerticalAlignment="Top">
+        <Border Classes="panel" Padding="20,16" MinHeight="98">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24" VerticalAlignment="Center">
+            <TextBlock Name="MapPercent" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="44" FontWeight="Bold" VerticalAlignment="Center" Text="{Binding MapPercentText}"
+                       AutomationProperties.Name="{Binding MapSummary}"/>
+            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Classes="title-md" Text="O jogo inteiro"/>
+              <TextBlock Name="MapLine" Classes="body-sm secondary" TextWrapping="Wrap">
+                <Run Text="{Binding MapSummary}"/><Run Text=" · "/><Run Text="{Binding PaceText}"/>
+              </TextBlock>
+            </StackPanel>
+          </Grid>
+        </Border>
 
-            <Border Classes="divider-bottom"/>
-
-            <TextBlock Classes="title-md" Text="Capítulos"/>
+        <Border Classes="panel" ClipToBounds="True">
+          <StackPanel>
+            <TextBlock Classes="title-md" Text="Capítulos" Margin="16"/>
             <c:Skeleton Rows="6" IsVisible="{Binding ShowChaptersSkeleton}" AutomationProperties.Name="Carregando os capítulos"/>
             <ItemsControl ItemsSource="{Binding Chapters}" AutomationProperties.Name="Capítulos do jogo">
               <ItemsControl.ItemTemplate>
@@ -145,8 +107,9 @@
             </Grid>
           </StackPanel>
         </Border>
+        </StackPanel>
 
-        <StackPanel x:Name="Side" Grid.Column="1" Spacing="16" VerticalAlignment="Top">
+        <StackPanel x:Name="Side" Grid.Column="1" Spacing="12" VerticalAlignment="Top">
 
           <Border Classes="panel" ClipToBounds="True">
             <StackPanel>
@@ -156,35 +119,27 @@
               <ItemsControl ItemsSource="{Binding Todos}" AutomationProperties.Name="O que precisa de você">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:TodoRowViewModel">
-                    <c:TodoItem Severity="{Binding Severity}" Title="{Binding Title}" Message="{Binding Message}"
+                    <c:TodoItem Severity="{Binding Severity}" Title="{Binding Title}"
                                 ActionText="{Binding ActionText}" Command="{Binding Command}"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <TextBlock Classes="caption secondary" Margin="16,8" Text="{Binding MoreTodosText}" IsVisible="{Binding HasMoreTodos}"/>
             </StackPanel>
           </Border>
 
           <Border Classes="panel" Padding="16">
             <StackPanel Spacing="8">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="title-md" Text="Gasto com a IA" VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Classes="link" Command="{Binding OpenSettingsCommand}" Content="Ajustes" FontSize="12"/>
-              </Grid>
+              <TextBlock Classes="title-md" Text="Gasto com a IA" VerticalAlignment="Center"/>
               <TextBlock Classes="body" Text="{Binding SpentText}"/>
               <c:BudgetBar Spent="{Binding SpentBrl}" Limit="{Binding LimitBrl}" AutomationProperties.Name="{Binding SpentText}"/>
-              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding SpendHint}"/>
             </StackPanel>
           </Border>
 
-          <Border Classes="panel" Padding="16">
-            <StackPanel Spacing="8">
-              <c:GameStateBanner State="{Binding GameState}" Title="{Binding GameTitle}" Message="{Binding GameMessage}">
-                <Button Classes="sm" Command="{Binding OpenTestCommand}" Content="{Binding GameActionText}"/>
-              </c:GameStateBanner>
-              <v:ChangedScenesPanel DataContext="{Binding SinceTest}" IsVisible="{Binding IsInformative}" Margin="0,8,0,0"/>
-            </StackPanel>
+          <!-- O que mudou desde o último teste (#476): só aparece quando há o que mostrar, então o Painel do quadro (sem teste novo) fica como está. -->
+          <Border Classes="panel" Padding="16" IsVisible="{Binding SinceTest.IsInformative}">
+            <v:ChangedScenesPanel DataContext="{Binding SinceTest}"/>
           </Border>
+
         </StackPanel>
       </Grid>
 

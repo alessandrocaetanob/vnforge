@@ -14,7 +14,7 @@
           <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12">
             <PathIcon Name="PART_Icon" Width="20" Height="20" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" Data="{DynamicResource Icon.Check}"/>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
+              <TextBlock Classes="body" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
               <TextBlock Classes="caption secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
                          IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>

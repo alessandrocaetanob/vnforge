@@ -36,19 +36,17 @@
   <!-- ChapterRow (v3.css ".chrow"): número, nome, barra de três estados, parte pronta, linhas e nota. O capítulo aberto (:here) ganha o fundo e a barra de
        accent; "Menus e nomes" (:extra) fica sem número e com o nome em cinza. -->
   <Style Selector="c|ChapterRow">
-    <Setter Property="Height" Value="44"/>
-    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="Height" Value="48"/>
+    <Setter Property="Padding" Value="16,0"/>
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="{DynamicResource Vnf.RadiusSm}" Background="Transparent">
-          <Grid ColumnDefinitions="24,176,112,96,88,*" ColumnSpacing="12" VerticalAlignment="Center">
-            <TextBlock Name="PART_Number" Classes="body-sm secondary" FontFeatures="tnum" Text="{TemplateBinding Number}" HorizontalAlignment="Right"/>
+        <Border Name="PART_Root" Padding="{TemplateBinding Padding}" CornerRadius="0" Background="Transparent">
+          <Grid ColumnDefinitions="28,*,160,120" ColumnSpacing="12" VerticalAlignment="Center">
+            <TextBlock Name="PART_Number" Classes="body-sm" FontFeatures="tnum" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{TemplateBinding Number}"/>
             <TextBlock Name="PART_Title" Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis"/>
-            <c:Seg3Bar Grid.Column="2" VerticalAlignment="Center" Done="{TemplateBinding BarDone}" Review="{TemplateBinding Review}" Total="{TemplateBinding BarTotal}"/>
+            <ProgressBar Grid.Column="2" Classes="chapter-bar" Minimum="0" Maximum="{TemplateBinding BarTotal}" Value="{TemplateBinding BarDone}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="3" Classes="body-sm" FontFeatures="tnum" Text="{TemplateBinding PercentText}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="4" Classes="body-sm secondary" FontFeatures="tnum" Text="{TemplateBinding LinesText}" TextAlignment="Right"/>
-            <TextBlock Name="PART_Note" Grid.Column="5" Classes="caption secondary" Text="{TemplateBinding Note}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
           </Grid>
         </Border>
       </ControlTemplate>
@@ -57,8 +55,13 @@
   <Style Selector="c|ChapterRow:here /template/ Border#PART_Root">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
   </Style>
-  <Style Selector="c|ChapterRow:here /template/ TextBlock#PART_Note">
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  <!-- A barra do quadro: 6 px, canto de 3 px, trilho bg-inset e uma cor só (accent) para a parte pronta. -->
+  <Style Selector="ProgressBar.chapter-bar">
+    <Setter Property="Height" Value="6"/>
+    <Setter Property="MinHeight" Value="6"/>
+    <Setter Property="CornerRadius" Value="3"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.Accent}"/>
   </Style>
   <Style Selector="c|ChapterRow:extra /template/ TextBlock#PART_Number">
     <Setter Property="IsVisible" Value="False"/>

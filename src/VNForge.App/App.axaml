@@ -53,6 +53,9 @@
     <DataTemplate DataType="vm:BuildViewModel">
       <views:BuildView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:GameTabPlaceholderViewModel">
+      <views:GameTabPlaceholderView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:ReleaseViewModel">
       <views:ReleaseView/>
     </DataTemplate>
@@ -101,5 +104,6 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/ScreenDialog.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/FitWarning.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Motion.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/GameShell.axaml"/>
   </Application.Styles>
 </Application>
