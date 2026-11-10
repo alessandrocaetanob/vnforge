@@ -73,6 +73,27 @@ public sealed class VndbListTests
     }
 
     [Fact]
+    public void Cofre_que_nao_abre_vira_aviso_e_nao_derruba_a_aba()
+    {
+        using var folder = new TempFolder();
+        var service = new VndbListService(new BrokenVault(), new FakeVndbCatalog(), new LibraryFile(folder.Path), new FixedClock(Later), _ => null);
+
+        var connection = new VndbConnectionViewModel(service, new FixedClock(Later));
+
+        Assert.False(connection.HasToken);
+        Assert.Contains("Grave de novo", connection.TokenSourceText);
+    }
+
+    private sealed class BrokenVault : IVndbTokenStore
+    {
+        public string? Load() => throw new VndbException("Não foi possível abrir o token guardado. Grave de novo com 'vnf vndb token set'.");
+
+        public void Save(string value) => throw new InvalidOperationException();
+
+        public bool Delete() => false;
+    }
+
+    [Fact]
     public async Task Sincronizar_traz_o_que_mudou_no_VNDB_e_envia_o_que_mudou_aqui()
     {
         using var setup = new Setup([Game("g1", "v4"), Game("g2", "v5")], [Entry("v4", T0, 80, "Capítulo 4 melhora muito.", LibraryListLabels.Playing)]);

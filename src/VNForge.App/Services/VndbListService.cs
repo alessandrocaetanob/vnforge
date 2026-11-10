@@ -13,7 +13,18 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
     private readonly TimeProvider clock = time ?? TimeProvider.System;
     private readonly LibraryListSynchronizer synchronizer = new(vndb, time);
 
-    public ResolvedVndbToken Token() => VndbTokenResolver.Resolve(store, readEnvironment);
+    /// <summary>O token da variável de ambiente ou do cofre. Um cofre que não abre (outro usuário do Windows, outra máquina) vira "sem token" com o aviso, não uma exceção.</summary>
+    public ResolvedVndbToken Token()
+    {
+        try
+        {
+            return VndbTokenResolver.Resolve(store, readEnvironment);
+        }
+        catch (VndbException e)
+        {
+            return new ResolvedVndbToken(null, VndbTokenSource.None) { Notice = e.Message };
+        }
+    }
 
     /// <summary>Confere o token no VNDB e, se ele vale, guarda no cofre.</summary>
     public async Task<VndbAuthInfo> SaveTokenAsync(string token, CancellationToken ct = default)
