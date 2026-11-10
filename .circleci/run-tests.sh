@@ -64,17 +64,31 @@ local_split() {
 use_circleci=0
 if [ -n "${CIRCLECI:-}" ] && command -v circleci > /dev/null; then use_circleci=1; fi
 
+# Remove CR e linhas vazias das fatias e monta a lista atribuída (ordenada, com repetições).
+assign_shards() {
+  local f
+  shard_files=()
+  for ((i = 0; i < shards; i++)); do
+    f="$logs/$app-$i.classes"
+    tr -d '\r' < "$f" | sed '/^[[:space:]]*$/d' > "$f.tmp"
+    mv "$f.tmp" "$f"
+    shard_files+=("$f")
+  done
+  sort "${shard_files[@]}" > "$logs/$app.assigned"
+}
+
 if [ "$use_circleci" -eq 1 ]; then
-  # O circleci tests run reparte as classes pelas durações que o store_test_results publicou nas rodadas anteriores
-  # (classname do JUnit), e é ele que habilita "Rerun failed tests". O --command só guarda a lista num arquivo: o
-  # script lança um processo por fatia a partir dele, e um xargs que partisse a lista em duas chamadas faria os dois
-  # processos gravarem o mesmo JUnit.
+  # O circleci tests split reparte as classes pelas durações que o store_test_results publicou nas rodadas anteriores
+  # (classname do JUnit) e devolve a fatia no stdout. Não é o circleci tests run: no job 2ab99318 (09/11) ele saiu
+  # com código 0 sem entregar nenhuma classe ao --command, e as 3 fatias ficaram vazias. O script lança um processo
+  # por fatia a partir do arquivo, e um xargs que partisse a lista em duas chamadas faria dois processos gravarem
+  # o mesmo JUnit.
   for ((i = 0; i < shards; i++)); do : > "$logs/$app-$i.classes"; done
   for ((i = 0; i < shards; i++)); do
-    if ! circleci tests run --index="$i" --total="$shards" --split-by=timings --timings-type=classname \
-      --command="cat > '$root/$logs/$app-$i.classes'" --verbose < "$classes" > "$logs/split-$i.log" 2>&1; then
-      # Erro do próprio CLI (rede, plugin) não é repetição parcial: o rodízio local ainda roda tudo.
-      echo "AVISO: circleci tests run falhou na fatia $i; usando o rodízio local em todas as fatias." >&2
+    if ! circleci tests split --index="$i" --total="$shards" --split-by=timings --timings-type=classname --verbose \
+      < "$classes" > "$logs/$app-$i.classes" 2> "$logs/split-$i.log"; then
+      # Erro do próprio CLI (rede, plugin) não é fatia parcial: o rodízio local ainda roda tudo.
+      echo "AVISO: circleci tests split falhou na fatia $i; usando o rodízio local em todas as fatias." >&2
       cat "$logs/split-$i.log" >&2
       use_circleci=0
       break
@@ -82,23 +96,29 @@ if [ "$use_circleci" -eq 1 ]; then
   done
 fi
 if [ "$use_circleci" -eq 0 ]; then local_split; fi
+assign_shards
 
 # Todas as classes, cada uma em exatamente uma fatia. Uma rodada parcial calada é o pior resultado possível aqui.
-# O "Rerun failed tests" do CircleCI também entrega só um pedaço das classes, e o job não tem como distingui-lo
-# de uma falha do divisor (não há variável de ambiente nem flag, só uma linha de log do CLI): falha antes de rodar
-# qualquer teste e manda usar "Rerun workflow from failed".
-shard_files=()
-for ((i = 0; i < shards; i++)); do shard_files+=("$logs/$app-$i.classes"); done
-sort "${shard_files[@]}" | sed '/^$/d' > "$logs/$app.assigned"
+# Se o CLI do CircleCI devolveu fatias que não cobrem a lista, o rodízio local assume em todas as fatias.
+if [ "$use_circleci" -eq 1 ] && ! cmp -s "$logs/$app.assigned" "$classes"; then
+  echo "AVISO: as fatias do circleci tests split não cobrem as $class_total classes do App exatamente uma vez; usando o rodízio local em todas as fatias." >&2
+  for ((i = 0; i < shards; i++)); do
+    echo "--- split-$i.log" >&2
+    cat "$logs/split-$i.log" >&2
+  done
+  local_split
+  assign_shards
+fi
+
+# Daqui em diante uma divergência é bug do script, não do divisor.
 duplicated="$(uniq -d "$logs/$app.assigned")"
 [ -z "$duplicated" ] || abort $'classe em mais de uma fatia:\n'"$duplicated"
 missing="$(comm -23 "$classes" <(uniq "$logs/$app.assigned"))"
 if [ -n "$missing" ]; then
-  abort $'a lista de classes do App ficou incompleta ('"$(wc -l <<< "$missing")"$' de '"$class_total"$' classes sem fatia).\n'\
-$'Numa repetição parcial ("Rerun failed tests") isso é esperado: use "Rerun workflow from failed", que roda tudo.\n'"$missing"
+  abort $'a lista de classes do App ficou incompleta ('"$(wc -l <<< "$missing")"$' de '"$class_total"$' classes sem fatia):\n'"$missing"
 fi
 extra="$(comm -13 "$classes" <(uniq "$logs/$app.assigned"))"
-[ -z "$extra" ] || abort $'o divisor devolveu classe que o -list classes não tem:\n'"$extra"
+[ -z "$extra" ] || abort $'a divisão devolveu classe que o -list classes não tem:\n'"$extra"
 
 names=()
 pids=()
