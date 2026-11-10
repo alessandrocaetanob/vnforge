@@ -109,6 +109,7 @@ public static class SheetFetcher
             VndbImageRef.Portrait(vndb.Image),
             description,
             vndb.Traits,
-            appearances);
+            appearances,
+            vndb.Age);
     }
 }

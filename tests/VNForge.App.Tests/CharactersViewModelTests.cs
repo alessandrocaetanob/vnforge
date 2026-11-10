@@ -1,8 +1,10 @@
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Factsheet;
+using VNForge.Core.Glossary;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -58,6 +60,7 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Contains("1 jogo do VNDB que não está na sua Biblioteca", page.Note, StringComparison.Ordinal);
         Assert.Contains(page.Tags, c => c is { IsHidden: true } && c.Text.StartsWith("1 traço escondido", StringComparison.Ordinal));
         Assert.Equal("Hana Tsukino", vm.OpenName);
+        Assert.Contains(page.Tags, c => c.Text == "17 anos");
     }
 
     [Fact]
@@ -145,5 +148,51 @@ public sealed class CharactersViewModelTests : IDisposable
 
         Assert.Null(vm.Page);
         Assert.Contains("spoiler escondido", vm.Notice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Buscar_do_VNDB_traz_os_personagens_dos_jogos_da_Biblioteca_e_avisa_quando_falha()
+    {
+        new LibraryFile(_config.Path).Save(new GameLibrary([
+            CharactersSamples.Owned("g1", "Moon Flower", CharactersSamples.Moon, "Moon Flower"),
+        ]));
+        var notices = new List<(string Text, ToastKind Kind)>();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, CatalogFactory = CharactersSamples.Catalog, Clock = new FixedClock(CharactersSamples.Now), Notify = (text, kind) => notices.Add((text, kind)) };
+        await vm.LoadAsync();
+        Assert.Empty(vm.Items);
+
+        await vm.SyncCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Hana Tsukino"], vm.Items.Select(i => i.Name));
+        Assert.Equal(ToastKind.Success, Assert.Single(notices).Kind);
+
+        notices.Clear();
+        vm.CatalogFactory = () => throw new InvalidOperationException("sem rede");
+        await vm.SyncCommand.ExecuteAsync(null);
+        Assert.Equal(ToastKind.Error, Assert.Single(notices).Kind);
+    }
+
+    [Fact]
+    public async Task O_cartao_Na_traducao_e_a_barra_de_andamento_aparecem_so_quando_o_jogo_tem_projeto()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
+        vm.Open("c101");
+        await vm.LoadAsync();
+        Assert.False(vm.Page!.HasTranslation);
+        Assert.All(vm.Page.Games, g => Assert.False(g.HasProgress));
+
+        var root = SampleProjects.Create(Path.Combine(_config.Path, "projeto"), "Moon Flower", TranslationStatus.Approved, TranslationStatus.Untranslated);
+        var project = ProjectFolder.Open(root);
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "花" })]);
+        project.SaveCharacters([new CharacterEntry("花", "Hana", CharacterGender.Female, VndbId: "c101")]);
+        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = root }));
+        vm.Open("c101");
+        await vm.LoadAsync();
+
+        var page = vm.Page!;
+        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Moon Flower"), page.Translation);
+        Assert.Equal(0.5, page.Games[0].Progress);
+        Assert.False(page.Games[1].HasProgress);
     }
 }

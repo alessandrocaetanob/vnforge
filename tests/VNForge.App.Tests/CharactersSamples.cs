@@ -25,7 +25,7 @@ internal static class CharactersSamples
         new(id, title, null, [], [], "ja", 2, "2020-01-01", ["ja"], ["win"], null, 3, 1200, 10, "Texto.", []);
 
     internal static VndbCharacter Character(string id, string name, string? original, string? gender, VndbCharacterAppearance[] appearances, VndbTrait[] traits) =>
-        new(id, name, original, name == "Hana Tsukino" ? ["Hanako"] : [], $"{name}.", null, gender is null ? null : new VndbGender(gender, gender), appearances, traits);
+        new(id, name, original, name == "Hana Tsukino" ? ["Hanako"] : [], $"{name}.", null, gender is null ? null : new VndbGender(gender, gender), appearances, traits, name == "Hana Tsukino" ? 17 : null);
 
     internal static FakeVndbCatalog Catalog() => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],

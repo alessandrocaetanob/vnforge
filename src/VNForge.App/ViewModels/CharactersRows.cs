@@ -32,15 +32,21 @@ public sealed record CharacterListItem(string Id, string Name, string? Original,
 }
 
 /// <summary>Um jogo da Biblioteca em que o personagem aparece: a capa, o título, o papel nele e de onde saiu esse papel.</summary>
-public sealed record CharacterGameRow(string GameId, string Title, VndbImageRef? Cover, string Subtitle, SheetPill Role, string Detail)
+public sealed record CharacterGameRow(string GameId, string Title, VndbImageRef? Cover, string Subtitle, double Progress, SheetPill Role, string Detail)
 {
     public bool HasCover => Cover is not null;
+
+    /// <summary>A faixa de andamento da tradução no pé da capa, de 0 a 1; some enquanto o jogo não tem nada pronto.</summary>
+    public bool HasProgress => Progress > 0;
 
     public string AutomationName => $"{Title}. {Role.Text}";
 }
 
 /// <summary>Os traços de um grupo do VNDB (Cabelo, Personalidade, Papel) na página do personagem.</summary>
 public sealed record CharacterTraitGroup(string Name, IReadOnlyList<SheetChip> Chips);
+
+/// <summary>O cartão "Na tradução": o que o projeto de tradução do jogo sabe do personagem (gênero do Glossário, nome no jogo e quantas falas ele tem).</summary>
+public sealed record CharacterTranslation(string Gender, string GameName, string Lines);
 
 /// <summary>A página de um personagem, já com a privacidade aplicada pelo Core.</summary>
 public sealed record CharacterPage(
@@ -55,7 +61,8 @@ public sealed record CharacterPage(
     IReadOnlyList<CharacterTraitGroup> Groups,
     IReadOnlyList<CharacterGameRow> Games,
     string GamesCount,
-    string? Note)
+    string? Note,
+    CharacterTranslation? Translation = null)
 {
     public bool HasNames => NamesLine is not null;
 
@@ -64,4 +71,6 @@ public sealed record CharacterPage(
     public bool HasGroups => Groups.Count > 0;
 
     public bool HasNote => Note is not null;
+
+    public bool HasTranslation => Translation is not null;
 }

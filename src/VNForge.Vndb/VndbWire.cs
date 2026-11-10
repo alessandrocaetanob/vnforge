@@ -153,6 +153,8 @@ internal static class VndbWire
 
         public string?[]? Gender { get; init; }
 
+        public int? Age { get; init; }
+
         public List<Appearance>? Vns { get; init; }
 
         public List<Trait>? Traits { get; init; }
@@ -295,7 +297,8 @@ internal static class VndbWire
             ToCore(c.Image),
             c.Gender is { Length: > 0 } ? new VndbGender(c.Gender[0], c.Gender.Length > 1 ? c.Gender[1] : c.Gender[0]) : null,
             [.. (c.Vns ?? []).Select(v => new VndbCharacterAppearance(v.Id, v.Role, v.Spoiler, v.Release?.Id))],
-            [.. (c.Traits ?? []).Select(t => new VndbTrait(t.Id, t.Name, t.GroupId, t.GroupName, t.Spoiler, t.Lie, t.Sexual))]);
+            [.. (c.Traits ?? []).Select(t => new VndbTrait(t.Id, t.Name, t.GroupId, t.GroupName, t.Spoiler, t.Lie, t.Sexual))],
+            c.Age);
 
     public static VndbRelease ToCore(Release r) =>
         new(

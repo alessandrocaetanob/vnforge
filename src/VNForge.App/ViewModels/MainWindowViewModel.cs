@@ -186,6 +186,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        Characters.Notify = (text, kind) => Toasts.Show(text, kind, key: "characters");
         Sheet.CharacterRequested += (_, request) =>
         {
             Characters.Open(request.Id, request.RevealSpoilers);

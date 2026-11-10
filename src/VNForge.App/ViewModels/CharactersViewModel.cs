@@ -2,9 +2,14 @@ using System.Globalization;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
+using VNForge.Core;
 using VNForge.Core.Factsheet;
+using VNForge.Core.Glossary;
 using VNForge.Core.Library;
+using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -42,6 +47,14 @@ public sealed partial class CharactersViewModel : ObservableObject
     /// <summary>A pasta de configuração do usuário, onde ficam <c>sheets/</c>, o <c>library.json</c> e as edições casadas. Sem ela a área não abre.</summary>
     public string? ConfigDirectory { get; set; }
 
+    /// <summary>O catálogo do VNDB que "Buscar do VNDB" usa; o app passa o cliente com cache, os testes o catálogo falso.</summary>
+    public Func<IVndbCatalog>? CatalogFactory { get; set; }
+
+    public TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    /// <summary>Quem mostra o aviso de uma ação (o aviso do app): o texto e a gravidade.</summary>
+    public Action<string, ToastKind>? Notify { get; set; }
+
     /// <summary>"Abrir jogo" da página do personagem: o shell leva ao jogo, ou começa o projeto dele, como a gaveta da Biblioteca.</summary>
     public event EventHandler<LibraryGame>? GameOpenRequested;
 
@@ -50,6 +63,18 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsLoading { get; private set; }
+
+    /// <summary>Buscando os personagens no VNDB: o botão espera.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SyncCommand))]
+    [NotifyPropertyChangedFor(nameof(SyncLabel))]
+    public partial bool IsSyncing { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncLabel))]
+    public partial string SyncText { get; private set; } = string.Empty;
+
+    public string SyncLabel => IsSyncing ? SyncText : "Buscar do VNDB";
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
@@ -365,19 +390,55 @@ public sealed partial class CharactersViewModel : ObservableObject
             Groups(card),
             games,
             $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
-            notes.Count > 0 ? string.Join(' ', notes) : null);
+            notes.Count > 0 ? string.Join(' ', notes) : null,
+            TranslationOf(data, card));
+    }
+
+    /// <summary>O cartão "Na tradução": só existe quando um dos jogos do personagem tem projeto e o Glossário dele tem o personagem (casado pelo id do VNDB).</summary>
+    private static CharacterTranslation? TranslationOf(Snapshot data, LibraryCharacterCard card)
+    {
+        foreach (var appearance in card.AppearsIn)
+        {
+            var game = data.Library.Games.First(g => g.Id == appearance.GameId);
+            if (game.ProjectPath is not { } path)
+            {
+                continue;
+            }
+
+            try
+            {
+                var project = ProjectFolder.Open(path);
+                if (project.LoadCharacters().FirstOrDefault(c => string.Equals(c.VndbId, card.Id, StringComparison.OrdinalIgnoreCase)) is not { } entry)
+                {
+                    continue;
+                }
+
+                var lines = project.LoadAllText().Values.SelectMany(units => units).Count(u => string.Equals(u.Speaker, entry.Source, StringComparison.Ordinal));
+                return new CharacterTranslation(
+                    entry.Gender switch { CharacterGender.Male => "Masculino", CharacterGender.Female => "Feminino", CharacterGender.Other => "Outro", _ => "Sem gênero" },
+                    entry.Source,
+                    $"{lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {game.Title}");
+            }
+            catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or JsonException)
+            {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance)
     {
         var game = data.Library.Games.First(g => g.Id == appearance.GameId);
-        var described = LibraryCards.Describe(game, privacy);
+        var described = LibraryCards.Describe(game, privacy, LibraryCatalog.ReadTranslation(game));
         var origin = appearance.Editions.Count > 0 ? "Edição casada com a sua pasta" : "Papel mais importante";
         return new CharacterGameRow(
             game.Id,
             game.Title,
             described.Cover == LibraryCoverKind.Image ? described.Image : null,
             described.Subtitle,
+            (described.ProgressPercent ?? 0) / 100.0,
             RolePill(appearance.RoleCode, card.Gender),
             $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}");
     }
@@ -388,6 +449,11 @@ public sealed partial class CharactersViewModel : ObservableObject
         if (card.Gender != SheetLabels.Gender(null))
         {
             chips.Add(new SheetChip(char.ToUpper(card.Gender[0], CultureInfo.GetCultureInfo("pt-BR")) + card.Gender[1..]));
+        }
+
+        if (card.Age is { } age)
+        {
+            chips.Add(new SheetChip(GameSheetViewModel.Count(age, "ano", "anos")));
         }
 
         if (card.RealGender is { } real)
@@ -416,6 +482,53 @@ public sealed partial class CharactersViewModel : ObservableObject
     }
 
     // --- Ações ---
+
+    /// <summary>Traz do VNDB os personagens e as edições dos jogos da Biblioteca (o mesmo <see cref="LibraryCharacterSync"/> da CLI); o que já veio não volta ao VNDB.</summary>
+    [RelayCommand(CanExecute = nameof(CanSync))]
+    private async Task SyncAsync()
+    {
+        if (ConfigDirectory is not { } directory)
+        {
+            return;
+        }
+
+        if (CatalogFactory is null)
+        {
+            Notify?.Invoke("Não há conexão com o VNDB configurada neste app.", ToastKind.Warning);
+            return;
+        }
+
+        IsSyncing = true;
+        SyncText = "Buscando no VNDB…";
+        try
+        {
+            var library = new LibraryFile(directory).Load();
+            var catalog = CatalogFactory();
+            var progress = new Progress<LibraryCharacterSyncProgress>(p => SyncText = $"Buscando no VNDB: {p.Done.ToString(CultureInfo.InvariantCulture)} de {p.Total.ToString(CultureInfo.InvariantCulture)}…");
+            var result = await Task.Run(() => LibraryCharacterSync.SyncAsync(catalog, library, new SheetStore(directory), new GameEditionsFile(directory), false, Clock, progress)).ConfigureAwait(true);
+            if (result.Failures.Count > 0)
+            {
+                Notify?.Invoke($"{GameSheetViewModel.Count(result.Failures.Count, "jogo ficou", "jogos ficaram")} sem personagens ({result.Failures[0].Message}). Tente de novo.", ToastKind.Warning);
+            }
+            else
+            {
+                Notify?.Invoke($"{GameSheetViewModel.Count(result.Characters, "personagem trazido", "personagens trazidos")} de {GameSheetViewModel.Count(result.Games, "jogo", "jogos")}. {VndbCredit.ShortText}", ToastKind.Success);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Notify?.Invoke($"Não foi possível buscar os personagens: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            IsSyncing = false;
+            SyncText = string.Empty;
+        }
+
+        await LoadAsync().ConfigureAwait(true);
+    }
+
+    private bool CanSync() => !IsSyncing && ConfigDirectory is not null;
 
     [RelayCommand]
     private void OpenCharacter(CharacterListItem? item)

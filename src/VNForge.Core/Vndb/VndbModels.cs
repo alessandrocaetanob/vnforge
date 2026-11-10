@@ -55,7 +55,8 @@ public sealed record VndbCharacter(
     VndbImage? Image,
     VndbGender? Gender,
     IReadOnlyList<VndbCharacterAppearance> Appearances,
-    IReadOnlyList<VndbTrait> Traits);
+    IReadOnlyList<VndbTrait> Traits,
+    int? Age = null);
 
 /// <summary>Um idioma de uma edição. <paramref name="MachineTranslated"/> marca tradução automática, que não conta como tradução de verdade.</summary>
 public sealed record VndbReleaseLanguage(string Language, string? Title, string? Latin, bool MachineTranslated, bool Main);

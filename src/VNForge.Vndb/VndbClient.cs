@@ -26,7 +26,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
         + "tags.id,tags.name,tags.category,tags.rating,tags.spoiler,tags.lie";
 
     private const string CharacterFields =
-        "name,original,aliases,description,gender,image.url,image.dims,image.sexual,image.violence,"
+        "name,original,aliases,description,gender,age,image.url,image.dims,image.sexual,image.violence,"
         + "vns.id,vns.role,vns.spoiler,vns.release.id,traits.id,traits.name,traits.group_id,traits.group_name,traits.spoiler,traits.lie,traits.sexual";
 
     private const string ReleaseFields =
