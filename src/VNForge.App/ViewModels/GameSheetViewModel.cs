@@ -486,6 +486,8 @@ public sealed partial class GameSheetViewModel : ObservableObject
         }
 
         var force = !HasPending;
+        var gate = new object();
+        var running = true;
         IsBusy = true;
         BusyText = "Traduzindo a ficha…";
         try
@@ -493,9 +495,12 @@ public sealed partial class GameSheetViewModel : ObservableObject
             var progress = new Progress<SheetTranslationProgress>(p =>
             {
                 // O aviso chega depois, na fila da tela: um que chega depois do fim não pode reescrever o texto já apagado.
-                if (IsBusy)
+                lock (gate)
                 {
-                    BusyText = $"Traduzindo a ficha: {p.Done.ToString(CultureInfo.InvariantCulture)} de {p.Total.ToString(CultureInfo.InvariantCulture)}…";
+                    if (running)
+                    {
+                        BusyText = $"Traduzindo a ficha: {p.Done.ToString(CultureInfo.InvariantCulture)} de {p.Total.ToString(CultureInfo.InvariantCulture)}…";
+                    }
                 }
             });
             var result = await Task.Run(() => new SheetTranslationRunner(translator, new SheetStore(directory)).RunAsync(id, new SheetTranslationOptions { Force = force }, progress)).ConfigureAwait(true);
@@ -507,8 +512,12 @@ public sealed partial class GameSheetViewModel : ObservableObject
         }
         finally
         {
-            IsBusy = false;
-            BusyText = string.Empty;
+            lock (gate)
+            {
+                running = false;
+                IsBusy = false;
+                BusyText = string.Empty;
+            }
         }
 
         await LoadAsync().ConfigureAwait(true);
