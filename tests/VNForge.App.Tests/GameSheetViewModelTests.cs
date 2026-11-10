@@ -526,6 +526,12 @@ public sealed class GameSheetViewModelTests : IDisposable
         vm.TranslatorFactory = () => new VNForge.AI.Sheet.FakeSheetTranslator(item => "Novo: " + item.Source);
         await review.RetranslateCommand.ExecuteAsync(null);
 
+        Assert.Equal("Apagar a revisão e traduzir", review.RetranslateText);
+        Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("apaga a revisão", StringComparison.Ordinal));
+        Assert.NotEqual(TranslationStatus.Machine, Store.LoadCharacter("c1")!.Description!.Status);
+        await review.RetranslateCommand.ExecuteAsync(null);
+
+        Assert.Equal("Traduzir de novo", review.RetranslateText);
         var description = Store.LoadCharacter("c1")!.Description!;
         Assert.Equal(("Novo: The protagonist.", TranslationStatus.Machine), (description.Target, description.Status));
         Assert.Equal(TranslationStatus.Machine, Store.LoadTerms().Find(SheetTermKind.Trait, "i1")!.Text.Status);
@@ -545,6 +551,54 @@ public sealed class GameSheetViewModelTests : IDisposable
 
         Assert.Single(_notices, n => n.Kind == ToastKind.Warning);
         Assert.Equal(TranslationStatus.Machine, Store.LoadTerms().Find(SheetTermKind.Tag, "g1")!.Text.Status);
+    }
+
+    [Fact]
+    public async Task Navegar_ou_reler_com_texto_que_nao_pode_ser_gravado_nao_perde_o_rascunho_e_o_que_pode_e_gravado_antes()
+    {
+        var vm = await ReadyAsync();
+        var review = await ReviewAsync(vm);
+        vm.SelectedSpoiler = vm.SpoilerOptions[2];
+        review.SelectedFilter = review.Filters[1];
+        while (review.Current!.Title != "Haruto Mine")
+        {
+            review.NextCommand.Execute(null);
+        }
+
+        review.Pairs[0].Draft = "Veterano do clube.";
+        vm.CycleSpoilerCommand.Execute(null);
+
+        Assert.Equal("Veterano do clube.", Store.LoadCharacter("c6")!.Description!.Target);
+        vm.SelectedSpoiler = vm.SpoilerOptions[2];
+
+        while (review.Current!.Title != "Misaki Tōdō")
+        {
+            review.NextCommand.Execute(null);
+        }
+
+        review.Pairs[1].Draft = "Só um nome";
+        review.NextCommand.Execute(null);
+        review.PreviousCommand.Execute(null);
+        review.SelectedFilter = review.Filters[0];
+        vm.ExitReviewCommand.Execute(null);
+
+        Assert.Equal("Misaki Tōdō", review.Current!.Title);
+        Assert.Equal("Só um nome", review.Pairs[1].Draft);
+        Assert.True(review.Pairs[1].HasError);
+        Assert.Same(review.Filters[1], review.SelectedFilter);
+        Assert.True(vm.IsReviewing);
+    }
+
+    [Fact]
+    public async Task Tempo_esgotado_ao_buscar_a_ficha_vira_aviso_e_nao_escapa_do_comando()
+    {
+        var vm = await ReadyAsync(translate: false);
+        vm.CatalogFactory = () => throw new TaskCanceledException("tempo esgotado");
+
+        await vm.FetchCommand.ExecuteAsync(null);
+
+        Assert.Contains(_notices, n => n.Kind == ToastKind.Error && n.Text.Contains("tempo esgotado", StringComparison.Ordinal));
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]

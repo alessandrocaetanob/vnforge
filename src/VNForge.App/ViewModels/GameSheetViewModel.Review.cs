@@ -79,6 +79,9 @@ public sealed partial class SheetReviewViewModel : ObservableObject
     private GameSheetCard? card;
     private string? currentKey;
     private int index;
+    private bool retranslateArmed;
+    private bool revertingFilter;
+    private SheetFilterOption appliedFilter = FilterOptions[0];
 
     internal SheetReviewViewModel(GameSheetViewModel owner) => this.owner = owner;
 
@@ -105,6 +108,9 @@ public sealed partial class SheetReviewViewModel : ObservableObject
     public string EmptyText => all.Count == 0 ? "Não há nada para revisar nesta ficha." : "Nenhum bloco neste filtro. Escolha Tudo para ver todos.";
 
     public string Title => "Revisar a ficha";
+
+    /// <summary>O botão pede um segundo clique quando o bloco já tem texto revisado ou aprovado: traduzir de novo apaga a revisão.</summary>
+    public string RetranslateText => retranslateArmed ? "Apagar a revisão e traduzir" : "Traduzir de novo";
 
     public string Subtitle => Current is { } block
         ? $"{block.Title} · bloco {(index + 1).ToString(CultureInfo.InvariantCulture)} de {shown.Count.ToString(CultureInfo.InvariantCulture)} · revisado igual a uma fala"
@@ -137,6 +143,12 @@ public sealed partial class SheetReviewViewModel : ObservableObject
     /// <summary>A ficha foi relida: refaz a lista pelo filtro e fica no mesmo bloco, ou no que ocupa o lugar dele quando o filtro o tirou da lista.</summary>
     internal void Update(IReadOnlyList<SheetBlock> blocks, GameSheetCard? newCard)
     {
+        // Reler a ficha refaz os campos: o que a pessoa escreveu e não foi gravado se grava antes, e se não puder ser gravado a tela fica como está.
+        if (!CommitQuietly())
+        {
+            return;
+        }
+
         all = blocks;
         card = newCard;
         var previous = index;
@@ -149,6 +161,20 @@ public sealed partial class SheetReviewViewModel : ObservableObject
 
     partial void OnSelectedFilterChanged(SheetFilterOption value)
     {
+        if (revertingFilter)
+        {
+            return;
+        }
+
+        if (!CommitQuietly())
+        {
+            revertingFilter = true;
+            SelectedFilter = appliedFilter;
+            revertingFilter = false;
+            return;
+        }
+
+        appliedFilter = value;
         shown = [.. all.Where(Matches)];
         index = 0;
         currentKey = Current?.Key;
@@ -164,6 +190,7 @@ public sealed partial class SheetReviewViewModel : ObservableObject
 
     private void Refill()
     {
+        retranslateArmed = false;
         Pairs.Clear();
         if (Current is { } block)
         {
@@ -219,7 +246,11 @@ public sealed partial class SheetReviewViewModel : ObservableObject
             return;
         }
 
-        CommitQuietly();
+        if (!CommitQuietly())
+        {
+            return;
+        }
+
         index = target;
         currentKey = Current?.Key;
         Refill();
@@ -233,12 +264,22 @@ public sealed partial class SheetReviewViewModel : ObservableObject
             return;
         }
 
+        if (!retranslateArmed && block.Pairs.Any(p => p.Texts.Any(t => t.Status >= TranslationStatus.Reviewed)))
+        {
+            retranslateArmed = true;
+            OnPropertyChanged(nameof(RetranslateText));
+            owner.Notify?.Invoke("Este bloco já foi revisado e traduzir de novo apaga a revisão. Clique outra vez em Apagar a revisão e traduzir para confirmar.", ToastKind.Warning);
+            return;
+        }
+
         var translator = owner.CreateTranslator();
         if (translator is null)
         {
             return;
         }
 
+        retranslateArmed = false;
+        OnPropertyChanged(nameof(RetranslateText));
         await RunAsync(async () =>
         {
             var result = await Task.Run(() => new SheetTranslationRunner(translator, store).RetranslateAsync(id, block.Fields)).ConfigureAwait(true);
@@ -331,6 +372,7 @@ public sealed partial class SheetReviewViewModel : ObservableObject
             try
             {
                 SheetBlocks.EditPair(store, id, pair.Pair, pair.Draft.Trim());
+                pair.MarkSaved();
             }
             catch (LibraryException ex)
             {
@@ -350,19 +392,32 @@ public sealed partial class SheetReviewViewModel : ObservableObject
     }
 
     /// <summary>Grava o texto escrito antes de sair ou de trocar de bloco; o que não vale fica no par e não sai da tela.</summary>
-    internal void CommitQuietly()
+    internal bool CommitQuietly()
     {
         if (owner.Store is not { } store || owner.VisualNovelId is not { } id || !Pairs.Any(p => p.IsDirty))
         {
-            return;
+            return true;
         }
 
-        var errors = SaveDrafts(store, id, [.. Pairs]);
-        Show(errors);
-        if (errors.Count == 0)
+        List<(ReviewPairViewModel Pair, string Message)> errors;
+        try
         {
-            _ = owner.ReloadAfterChangeAsync();
+            errors = SaveDrafts(store, id, [.. Pairs]);
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            owner.Notify?.Invoke(ex.Message, ToastKind.Error);
+            return false;
+        }
+
+        Show(errors);
+        if (errors.Count > 0)
+        {
+            return false;
+        }
+
+        _ = owner.ReloadAfterChangeAsync();
+        return true;
     }
 
     internal void RefreshActions()
@@ -381,7 +436,7 @@ public sealed partial class SheetReviewViewModel : ObservableObject
         {
             changed = await action().ConfigureAwait(true);
         }
-        catch (Exception ex) when (ex is LibraryException or InvalidOperationException or HttpRequestException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             owner.Notify?.Invoke(ex.Message, ToastKind.Error);
         }

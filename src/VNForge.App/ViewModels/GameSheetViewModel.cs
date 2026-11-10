@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
@@ -317,7 +318,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 State = GameSheetState.Ready;
             }
         }
-        catch (LibraryException ex)
+        catch (Exception ex) when (ex is LibraryException or IOException or UnauthorizedAccessException or JsonException)
         {
             if (wanted != generation)
             {
@@ -455,7 +456,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
             var result = await Task.Run(() => SheetFetcher.FetchAsync(catalog, new SheetStore(directory), id, Clock)).ConfigureAwait(true);
             Notify?.Invoke($"Ficha buscada no VNDB: {Count(result.Characters, "personagem", "personagens")} e {Count(result.Sheet.Tags.Count, "tag", "tags")}. {VndbCredit.ShortText}", ToastKind.Success);
         }
-        catch (Exception ex) when (ex is VndbException or LibraryException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Notify?.Invoke($"Não foi possível buscar a ficha: {ex.Message}", ToastKind.Error);
         }
@@ -506,7 +507,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
             var result = await Task.Run(() => new SheetTranslationRunner(translator, new SheetStore(directory)).RunAsync(id, new SheetTranslationOptions { Force = force }, progress)).ConfigureAwait(true);
             ReportTranslation(result);
         }
-        catch (Exception ex) when (ex is LibraryException or InvalidOperationException or HttpRequestException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Notify?.Invoke($"Não foi possível traduzir a ficha: {ex.Message}", ToastKind.Error);
         }
@@ -571,7 +572,11 @@ public sealed partial class GameSheetViewModel : ObservableObject
     {
         if (IsReviewing)
         {
-            Review.CommitQuietly();
+            if (!Review.CommitQuietly())
+            {
+                return;
+            }
+
             IsReviewing = false;
         }
     }

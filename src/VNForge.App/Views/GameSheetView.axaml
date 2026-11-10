@@ -255,7 +255,7 @@
                         <Button Classes="subtle sm sheet-link" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.RetranslateCommand}">
                           <StackPanel Orientation="Horizontal" Spacing="8">
                             <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
-                            <TextBlock Text="Traduzir de novo"/>
+                            <TextBlock Text="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.RetranslateText}"/>
                           </StackPanel>
                         </Button>
                         <Button Classes="sm" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.MarkReviewedCommand}">
