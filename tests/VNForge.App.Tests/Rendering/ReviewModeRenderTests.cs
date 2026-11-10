@@ -243,7 +243,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var bar = view.FindControl<Border>("ActionBar")!;
             var barFrame = Frame(window, bar);
             Assert.True(barFrame.Left >= 0 && barFrame.Right <= window.Width && barFrame.Bottom <= window.Height, $"a barra cabe na janela ({barFrame})");
-            Assert.True(barFrame.Width > window.Width - 160, "a barra vai de ponta a ponta do Editor");
+            Assert.True(barFrame.Width > window.Width - 160, $"a barra vai de ponta a ponta do Editor ({barFrame} na janela de {window.Width})");
             Assert.DoesNotContain(bar.GetVisualAncestors(), a => a is ScrollViewer);
 
             var review = vm.Editor.Review!;

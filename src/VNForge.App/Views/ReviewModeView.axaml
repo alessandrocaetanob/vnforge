@@ -138,7 +138,7 @@
   </UserControl.Styles>
 
   <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="9,0,7,0" Focusable="True" AutomationProperties.Name="Modo revisão">
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Focusable="True" AutomationProperties.Name="Modo revisão">
 
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
