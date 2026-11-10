@@ -2,6 +2,8 @@ using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Library;
+using VNForge.Core.Projects;
+using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
@@ -9,6 +11,8 @@ namespace VNForge.App.Tests;
 public sealed class GameCapturesViewModelTests : IDisposable
 {
     private static readonly LibraryEngine Engine = new("yuris", "Yu-RIS", LibraryEngineSource.Engine);
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private readonly TempFolder _data = new();
     private readonly TempFolder _game = new();
@@ -168,6 +172,93 @@ public sealed class GameCapturesViewModelTests : IDisposable
         Assert.Null(library.GameOfProject(_data.SubFolder("outro")));
     }
 
+    [Fact]
+    public async Task Erro_qualquer_na_captura_vira_o_aviso_da_pagina()
+    {
+        _capturer.Crash = true;
+        var vm = Create();
+        vm.Enter(Game);
+
+        _hotkey.Press();
+        await vm.Capturing;
+
+        Assert.Equal("A captura falhou: a janela sumiu no meio da cópia.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task F9_apertada_com_uma_captura_em_andamento_e_ignorada()
+    {
+        _capturer.Gate = new ManualResetEventSlim();
+        var vm = Create();
+        vm.Enter(Game);
+
+        _hotkey.Press();
+        Assert.True(_capturer.Entered.Wait(TimeSpan.FromSeconds(10), Ct));
+        _hotkey.Press();
+        _capturer.Gate.Set();
+        await vm.Capturing;
+
+        Assert.Equal(1, _capturer.Calls);
+        Assert.Single(vm.Captures);
+    }
+
+    private async Task<(MainWindowViewModel Shell, LibraryViewModel Library, string Root)> OpenShellAsync()
+    {
+        var root = SampleProjects.Create(_data.SubFolder("projeto"), "Minha VN", TranslationStatus.Machine);
+        var game = Game with { ProjectPath = GameLibrary.NormalizeFolder(root) };
+        var file = LibrarySamples.Save(_data.SubFolder("library"), new GameLibrary([game]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: _clock);
+        var start = new StartViewModel(new RecentProjectsFile(_data.SubFolder("recents")), new FakeFolderPicker(root), _clock);
+        var shell = new MainWindowViewModel(start, library: library);
+        shell.Play.CapturesFile = new GameCapturesFile(_data.SubFolder("captures"), _clock);
+        shell.Play.NotesFile = new GameNotesFile(_data.SubFolder("config"));
+        shell.Play.Hotkey = _hotkey;
+        shell.Play.Clock = _clock;
+        await shell.Start.OpenFolderCommand.ExecuteAsync(null);
+        shell.SelectedGameTab = shell.GameTabs.Single(t => t.Tab == GameTab.Play);
+        return (shell, library, game.Id);
+    }
+
+    [Fact]
+    public async Task Aba_aberta_antes_de_a_Biblioteca_carregar_acha_o_jogo_quando_ela_termina()
+    {
+        var (shell, library, _) = await OpenShellAsync();
+        Assert.True(shell.Play.HasNoGame);
+
+        await library.LoadAsync();
+
+        Assert.True(shell.Play.HasGame);
+        Assert.Equal(1, _hotkey.Active);
+    }
+
+    [Fact]
+    public async Task Fechar_a_janela_grava_a_nota_e_solta_o_atalho()
+    {
+        var (shell, library, gameId) = await OpenShellAsync();
+        await library.LoadAsync();
+        shell.Play.NoteText = "Voltar na rota da Aoi.";
+
+        Assert.True(shell.TryClose());
+
+        Assert.Equal("Voltar na rota da Aoi.", new GameNotesFile(_data.SubFolder("config")).Load().Of(gameId)?.Text);
+        Assert.Equal(0, _hotkey.Active);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_com_a_aba_aberta_grava_a_nota_e_entra_no_jogo_novo()
+    {
+        var (shell, library, gameId) = await OpenShellAsync();
+        await library.LoadAsync();
+        shell.Play.NoteText = "Nota do primeiro.";
+        var other = SampleProjects.Create(_data.SubFolder("outro"), "Outra VN", TranslationStatus.Machine);
+
+        await shell.Start.OpenAsync(other);
+
+        Assert.Equal("Nota do primeiro.", new GameNotesFile(_data.SubFolder("config")).Load().Of(gameId)?.Text);
+        Assert.True(shell.Play.HasNoGame);
+        Assert.Equal(0, _hotkey.Active);
+    }
+
     private sealed class FakeHotkey : IGlobalHotkey
     {
         private Action? _pressed;
@@ -206,11 +297,27 @@ public sealed class GameCapturesViewModelTests : IDisposable
 
         public bool Black { get; set; }
 
+        public bool Crash { get; set; }
+
+        public ManualResetEventSlim? Gate { get; set; }
+
+        public ManualResetEventSlim Entered { get; } = new();
+
+        public int Calls { get; private set; }
+
         public string? Failure { get; set; }
 
         public WindowImage Capture(WindowTarget target)
         {
             Target = target;
+            Calls++;
+            Entered.Set();
+            Gate?.Wait(TimeSpan.FromSeconds(10));
+            if (Crash)
+            {
+                throw new InvalidOperationException("a janela sumiu no meio da cópia.");
+            }
+
             if (Failure is not null)
             {
                 throw new LibraryException(Failure);

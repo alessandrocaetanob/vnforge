@@ -121,6 +121,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(LibraryCountText));
             }
         };
+        // A aba Jogar aberta antes de a Biblioteca carregar ainda não achou o jogo do projeto: procura de novo quando a lista chega.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (ReferenceEquals(CurrentPage, Play) && Play.HasNoGame && CurrentProject is { } project)
+            {
+                Play.Enter(Library.GameOfProject(project.Root));
+            }
+        };
         Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
         start.PropertyChanged += (_, e) =>
@@ -903,6 +911,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        Play.Leave();
+
         // Só a janela que vai mesmo fechar cancela o lançamento em curso.
         Release.CancelIfRunning();
         return true;
@@ -936,7 +946,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             lastTranslationItem = dashboardItem;
         }
 
+        var otherProject = CurrentProject?.Root != summary.Root;
         CurrentProject = summary;
+        if (otherProject && ReferenceEquals(CurrentPage, Play))
+        {
+            // A aba Jogar aberta troca de jogo: grava a nota do antigo e passa o atalho para o novo.
+            Play.Enter(Library.GameOfProject(summary.Root));
+        }
+
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);

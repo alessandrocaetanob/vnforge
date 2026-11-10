@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.Time.Testing;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
@@ -95,7 +96,17 @@ public sealed class GameCapturesRenderTests(HeadlessFixture fixture, DemoFolderF
                     Assert.Equal(6, shots.Count);
                     Assert.Equal(3, shots.Select(s => Math.Round(s.TranslatePoint(default, page)!.Value.X)).Distinct().Count());
                     Assert.All(shots, s => Assert.InRange(s.Bounds.Width / s.Bounds.Height, 1.55, 1.65));
-                    Assert.All(page.GetVisualDescendants().OfType<Avalonia.Controls.Image>().Where(i => i.IsEffectivelyVisible), i => Assert.NotNull(i.Source));
+                    // As miniaturas são decodificadas fora da thread da tela e chegam um pouco depois do layout.
+                    var thumbnails = page.GetVisualDescendants().OfType<FileThumbnail>().Where(i => i.IsEffectivelyVisible).ToList();
+                    Assert.Equal(6, thumbnails.Count);
+                    for (var wait = 0; wait < 100 && thumbnails.Any(t => t.Source is null); wait++)
+                    {
+                        await Task.Delay(50, TestContext.Current.CancellationToken);
+                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                    }
+
+                    Assert.All(thumbnails, t => Assert.NotNull(t.Source));
+                    ScreenRenderer.Settle(window);
                     Assert.False(page.FindControl<Control>("BlackBanner")!.IsEffectivelyVisible);
                     Assert.Equal(420, page.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("notes-field")).Bounds.Width + 2 * 24 + 2, 1);
 
