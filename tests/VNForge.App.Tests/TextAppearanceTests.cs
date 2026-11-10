@@ -144,6 +144,10 @@ public class TextAppearanceSettingsTests
         Assert.Equal(72d, at150["Vnf.RowHeight"]);
         Assert.Equal(20d, at100["Vnf.PillHeight"]);
         Assert.Equal(30d, at150["Vnf.PillHeight"]);
+        Assert.Equal(22d, at100["Vnf.MarkerHeight"]);
+        Assert.Equal(33d, at150["Vnf.MarkerHeight"]);
+        Assert.Equal(26d, at100["Vnf.MarkerLineHeight"]);
+        Assert.Equal(39d, at150["Vnf.MarkerLineHeight"]);
         Assert.All(TextAppearance.Scales, s => Assert.True(
             (double)at150[TextAppearance.LineHeightKey(s.Name)]! >= (double)at150[TextAppearance.FontSizeKey(s.Name)]!, s.Name));
     }

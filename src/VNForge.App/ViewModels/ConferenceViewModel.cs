@@ -76,7 +76,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FixAllCommand), nameof(ApplyFixCommand), nameof(MarkOkCommand), nameof(OpenLineCommand), nameof(OpenLineByIdCommand), nameof(RegisterCharacterCommand), nameof(FixAndNextCommand), nameof(ApplySettingCommand), nameof(UseVariantCommand), nameof(KeepDifferentCommand))]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsBusy), nameof(IsClear), nameof(ShowEmptyText), nameof(HasBanner), nameof(BannerState), nameof(BannerTitle), nameof(BannerMessage), nameof(ShowTestButton))]
     public partial bool IsLoading { get; private set; }
 
     /// <summary>Verdadeiro enquanto uma correção ou um "ok" grava <c>text/*.json</c> em segundo plano.</summary>
@@ -90,7 +90,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>Falha ao ler ou corrigir o projeto: o fato e a consequência, em português.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText))]
+    [NotifyPropertyChangedFor(nameof(EmptyMessage), nameof(IsClear), nameof(ShowEmptyText), nameof(HasBanner), nameof(BannerState), nameof(BannerTitle), nameof(BannerMessage), nameof(ShowTestButton))]
     public partial string? ErrorMessage { get; private set; }
 
     /// <summary>Resultado da última correção ("2 correções aplicadas.").</summary>
@@ -150,15 +150,17 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>"2 problemas travam o teste no jogo."; vazio sem erro.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasBlockingErrors))]
+    [NotifyPropertyChangedFor(nameof(HasBlockingErrors), nameof(HasBanner), nameof(BannerState), nameof(BannerTitle), nameof(BannerMessage), nameof(ShowTestButton))]
     public partial string BlockingMessage { get; private set; } = string.Empty;
 
     /// <summary>O número da faixa do alto, que ela pinta de vermelho: "4"; vazio sem erro.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BannerTitle))]
     public partial string BlockingCount { get; private set; } = string.Empty;
 
     /// <summary>O resto da frase da faixa depois do número: "problemas travam o teste no jogo."; vazio sem erro.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BannerTitle))]
     public partial string BlockingRest { get; private set; } = string.Empty;
 
     /// <summary>Há erro aberto: a faixa do alto aparece. Erro nunca se silencia.</summary>
@@ -173,7 +175,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     /// <summary>O ponto e o contorno da faixa: vermelho com erro, âmbar só com aviso, verde com a conferência limpa.</summary>
     public GameState BannerState => HasBlockingErrors ? GameState.Blocked : HasOnlyWarnings ? GameState.Caution : GameState.Translated;
 
-    public string BannerTitle => HasBlockingErrors ? BlockingMessage.TrimEnd('.') : "Nada trava o teste no jogo";
+    public string BannerTitle => HasBlockingErrors ? $"{BlockingCount} {BlockingRest.TrimEnd('.')}" : "Nada trava o teste no jogo";
 
     public string BannerMessage => HasBlockingErrors
         ? "Corrija estes antes de testar. Os avisos não travam nada."
@@ -190,19 +192,6 @@ public sealed partial class ConferenceViewModel : ObservableObject
     [RelayCommand]
     private void Test() => TestRequested?.Invoke(this, EventArgs.Empty);
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-        if (e.PropertyName is nameof(IsClear) or nameof(HasOnlyWarnings) or nameof(HasBlockingErrors) or nameof(BlockingMessage))
-        {
-            OnPropertyChanged(nameof(HasBanner));
-            OnPropertyChanged(nameof(BannerState));
-            OnPropertyChanged(nameof(BannerTitle));
-            OnPropertyChanged(nameof(BannerMessage));
-            OnPropertyChanged(nameof(ShowTestButton));
-        }
-    }
-
     /// <summary>"Corrigir 3 com um clique"; "Corrigir com um clique" quando não há o que corrigir.</summary>
     [ObservableProperty]
     public partial string FixAllLabel { get; private set; } = "Corrigir com um clique";
@@ -216,6 +205,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>Quantas ocorrências a última conferência achou, sem filtro; nulo enquanto o projeto não foi conferido (ou a conferência falhou).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOnlyWarnings), nameof(HasBanner), nameof(BannerState), nameof(BannerTitle), nameof(BannerMessage), nameof(ShowTestButton))]
     public partial int? IssueCount { get; private set; }
 
     /// <summary>Quantas dessas ocorrências são erros, os que travam o teste no jogo (o filtro "Travam o teste"); nulo como <see cref="IssueCount"/>.</summary>
@@ -1043,6 +1033,11 @@ public sealed partial class ConferenceViewModel : ObservableObject
         OnPropertyChanged(nameof(IsClear));
         OnPropertyChanged(nameof(ShowEmptyText));
         OnPropertyChanged(nameof(HasOnlyWarnings));
+        OnPropertyChanged(nameof(HasBanner));
+        OnPropertyChanged(nameof(BannerState));
+        OnPropertyChanged(nameof(BannerTitle));
+        OnPropertyChanged(nameof(BannerMessage));
+        OnPropertyChanged(nameof(ShowTestButton));
     }
 
     private void RebuildBlocking(int errors)

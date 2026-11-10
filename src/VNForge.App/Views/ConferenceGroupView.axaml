@@ -13,12 +13,17 @@
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
     </Style>
+    <Style Selector="Border.radio:not(.on)">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
     <Style Selector="Border.radio.on">
       <Setter Property="BorderThickness" Value="5"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
     </Style>
   </UserControl.Styles>
-  <StackPanel Margin="16,14,16,6" AutomationProperties.Name="{Binding AutomationName}">
+  <Border Classes="divider-bottom" AutomationProperties.Name="{Binding AutomationName}">
+  <StackPanel Margin="16,14,16,6">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
       <StackPanel Orientation="Horizontal" Spacing="12">
         <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
@@ -37,7 +42,8 @@
         <DataTemplate x:DataType="vm:ConferenceVariantViewModel">
           <Border Classes="divider-top" Padding="0,8">
             <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="16" AutomationProperties.Name="{Binding AutomationName}">
-              <Border Classes="radio" Classes.on="{Binding IsReference}" VerticalAlignment="Top" Margin="0,3,0,0"/>
+              <Border Classes="radio" Classes.on="{Binding IsReference}" VerticalAlignment="Top" Margin="0,3,0,0" Tapped="OnRadioTapped"
+                      AutomationProperties.Name="{Binding UseAutomationName}"/>
               <StackPanel Grid.Column="1" MinWidth="0">
                 <TextBlock FontSize="14" LineHeight="22" TextWrapping="Wrap" c:MarkedText.Source="{Binding Translation}"/>
                 <ItemsControl ItemsSource="{Binding VisibleLines}">
@@ -69,4 +75,5 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
   </StackPanel>
+  </Border>
 </UserControl>
