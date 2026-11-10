@@ -34,16 +34,22 @@ internal static class DemoBuild
 
         var projectRoot = DemoProject.Create(Path.Combine(root, "projeto"), game);
         var project = ProjectFolder.Open(projectRoot);
-        var scripts = Directory.CreateDirectory(Path.Combine(project.GameCacheDirectory, "pkg")).FullName;
-        for (var n = 1; n <= DemoProject.ScriptCount; n++)
-        {
-            File.WriteAllText(Path.Combine(scripts, $"yst{n:D5}.ybn"), $"script {n}");
-        }
+        WriteScripts(project.GameCacheDirectory);
 
         // Duas injeções antigas: a pasta do jogo termina com o build da segunda, e cada backup guarda o original.
         Inject(project, new DateTimeOffset(2026, 10, 17, 18, 20, 0, TimeSpan.Zero), Payload(4_300_000, 2));
         Inject(project, new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), Payload(4_350_000, 3));
         return projectRoot;
+    }
+
+    /// <summary>Os scripts de <c>.cache/game</c>: o que a extração deixa depois de descompactar.</summary>
+    public static void WriteScripts(string cacheGameDirectory)
+    {
+        var scripts = Directory.CreateDirectory(Path.Combine(cacheGameDirectory, "pkg")).FullName;
+        for (var n = 1; n <= DemoProject.ScriptCount; n++)
+        {
+            File.WriteAllText(Path.Combine(scripts, $"yst{n:D5}.ybn"), $"script {n}");
+        }
     }
 
     private static void Inject(ProjectFolder project, DateTimeOffset when, byte[] build)
@@ -84,7 +90,11 @@ internal sealed class DemoBuildEngine : IEngine, IGameUnpacker, IGameRepacker
 
     public IReadOnlyList<IGamePatch> Patches => [];
 
-    public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default) => new([]);
+    public GameUnpackResult Unpack(string gameDir, string destinationDirectory, CancellationToken cancellationToken = default)
+    {
+        DemoBuild.WriteScripts(destinationDirectory);
+        return new([]);
+    }
 
     public UnpackedGame Open(string unpackedDirectory) =>
         new(new DemoBuildContext(), [.. Directory.EnumerateFiles(unpackedDirectory, "*.ybn", SearchOption.AllDirectories)
