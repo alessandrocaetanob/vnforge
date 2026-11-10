@@ -78,9 +78,9 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     {
         var vm = Create();
 
-        Assert.Equal(["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
+        Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"],
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"],
             vm.Steps.Select(s => s.Subtitle));
     }
 

@@ -206,7 +206,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public partial WizardStep Step { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasGame), nameof(GameFolderLabel))]
+    [NotifyPropertyChangedFor(nameof(HasGame), nameof(GameFolderLabel), nameof(BrowseGameLabel))]
     [NotifyCanExecuteChangedFor(nameof(NextCommand))]
     public partial string? GameFolder { get; private set; }
 
@@ -244,6 +244,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     public string GameFolderLabel => GameFolder ?? "Nenhuma pasta escolhida";
 
+    public string BrowseGameLabel => GameFolder is null ? "Escolher pasta" : "Escolher outra pasta";
+
     public string ProjectDirectoryLabel => ProjectDirectory ?? "Nenhuma pasta escolhida";
 
     /// <summary>A migalha do cabeçalho: "Passo 2 de 4"; "Pronto" depois de criar o projeto.</summary>
@@ -275,7 +277,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     public string StepTitle => Step switch
     {
-        WizardStep.Game => "Pasta do jogo",
+        WizardStep.Game => "Jogo",
         WizardStep.Vndb => "Ficha do VNDB",
         WizardStep.Names => "Idiomas e nome",
         WizardStep.Accents => "Acentos",
@@ -548,10 +550,10 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         SearchVndbCommand.NotifyCanExecuteChanged();
     }
 
-    private static readonly string[] StepTitles = ["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
+    private static readonly string[] StepTitles = ["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"];
+        ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"];
 
     private void RefreshSteps()
     {
@@ -559,7 +561,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         [
             HasDetection ? EngineName : null,
             confirmedLink is { } linked ? linked.Title : "Sem VNDB",
-            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
+            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Id.ToUpperInvariant()}",
             EncodingStrategies.Selected.Title,
             SelectedQualityTitle,
         ];

@@ -39,7 +39,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal([1, 2, 3, 4, 5], vm.Steps.Select(s => s.Number));
-        Assert.Equal(["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
+        Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal([PipelineStepState.Active, PipelineStepState.Pending, PipelineStepState.Pending, PipelineStepState.Pending, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
     }
 
@@ -49,7 +49,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"],
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -87,7 +87,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = await AtStepAsync(WizardStep.Accents);
 
         Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
-        Assert.Equal("Japonês → Português do Brasil", vm.Steps[2].Subtitle);
+        Assert.Equal("Japonês → PT-BR", vm.Steps[2].Subtitle);
         Assert.Equal("Sem VNDB", vm.Steps[1].Subtitle);
         Assert.Equal("Yu-RIS", vm.Steps[0].Subtitle);
     }
@@ -100,7 +100,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         vm.SourceLanguages.Select("en");
         vm.EncodingStrategies.Select("cp1252");
 
-        Assert.Equal("Inglês → Espanhol", vm.Steps[2].Subtitle);
+        Assert.Equal("Inglês → ES", vm.Steps[2].Subtitle);
         Assert.Equal("Com acentos, ajuste no jogo", vm.Steps[3].Subtitle);
     }
 
@@ -145,7 +145,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         vm.GoToStepCommand.Execute(WizardStep.Names);
         await vm.NextCommand.ExecuteAsync(null);
 
-        Assert.Equal("Japonês → Inglês", vm.Steps[2].Subtitle);
+        Assert.Equal("Japonês → EN", vm.Steps[2].Subtitle);
     }
 
     [Fact]
