@@ -12,11 +12,6 @@
     <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}"/>
   </UserControl.KeyBindings>
 
-  <UserControl.Resources>
-    <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
-    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14ZM0 0L0 0M20 20L20 20</StreamGeometry>
-  </UserControl.Resources>
-
   <UserControl.Styles>
     <Style Selector="TextBlock.colhead">
       <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
@@ -50,38 +45,13 @@
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     </Style>
-
-    <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
-         dos filtros e o contorno accent, que é o que diz que está ligado. -->
-    <Style Selector="ToggleButton.density">
-      <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
-      <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
-      <Setter Property="Padding" Value="8,0"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
-    </Style>
-    <Style Selector="ToggleButton.density /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="BorderBrush" Value="Transparent"/>
-    </Style>
-    <Style Selector="ToggleButton.density:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
-    </Style>
-    <Style Selector="ToggleButton.density:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
-    </Style>
   </UserControl.Styles>
 
   <!-- Sem RowSpacing: as linhas do aviso de erro e da busca ficam vazias na maior parte do tempo e o espaço entre linhas vazias comeria a altura do inspetor; cada uma leva o seu espaço de cima. -->
   <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="32,6,32,8">
 
-    <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
-         Quadro do #546: Conferir arquivo e Modo revisão saem da barra e viram os passos Conferir e Revisão do cabeçalho do jogo; Buscar e Dúvidas largam o texto abaixo de 1400 px e ficam como ícones com dica. -->
+    <!-- Barra do Editor, numa linha só: os filtros à esquerda e as Dúvidas da IA à direita. Quadro do #546: Roteiro, Ler como jogador, Buscar e Traduzir com IA vivem no cabeçalho do jogo
+         (GameHeaderView), e Conferir arquivo e Modo revisão são os passos Conferir e Revisão dele; as Dúvidas largam o texto abaixo de 1400 px e ficam como ícone com dica. -->
     <Grid x:Name="Toolbar" Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -115,40 +85,11 @@
         </StackPanel>
       </ScrollViewer>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <!-- Densidade da grade (#460): marcado, cada linha vira roteiro (nome, original e tradução empilhados); a escolha fica em editor-layout.json. -->
-        <ToggleButton x:Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding IsScriptDensity}" ToolTip.Tip="{Binding DensityTip}" AutomationProperties.Name="Linhas como roteiro">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Script}"/>
-            <TextBlock Classes="btn-label" Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-          </StackPanel>
-        </ToggleButton>
-        <!-- Ler como jogador (#475): sem a linha de título do quadro do #546, fica na barra, junto das ações da cena. -->
-        <Button Classes="tool" Command="{Binding StartReadingCommand}" AutomationProperties.Name="Ler como jogador"
-                ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-            <TextBlock Classes="btn-label" Text="Ler como jogador" TextWrapping="NoWrap"/>
-          </StackPanel>
-        </Button>
-        <Button Classes="tool" Command="{Binding ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
-                ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
-            <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
-          </StackPanel>
-        </Button>
         <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="{Binding DoubtLines, StringFormat='Dúvidas ({0}), revisar as linhas com dúvida da IA'}"
                 ToolTip.Tip="Modo revisão só nas linhas em que a IA ficou em dúvida">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Info}"/>
             <TextBlock Classes="btn-label" Text="{Binding DoubtLines, StringFormat='Dúvidas ({0})'}" TextWrapping="NoWrap"/>
-          </StackPanel>
-        </Button>
-        <Button Classes="accent sm" Margin="6,0,0,0" Command="{Binding TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"
-                ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
-            <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
       </StackPanel>

@@ -11,10 +11,10 @@ using VNForge.Core.Projects;
 namespace VNForge.App.Tests.Rendering;
 
 /// <summary>
-/// O Editor com uma linha selecionada nos dois cabeçalhos do jogo (o completo do quadro e o compacto de uma linha) em 1366×768 e 1440×1000, nos dois temas:
+/// O Editor com uma linha selecionada nos dois cabeçalhos do jogo (o completo do quadro do #546 e o compacto de uma linha) em 1366×768 e 1440×1000, nos dois temas:
 /// <c>editor-{completo|compacto}-{1366|1440}-{escuro|claro}.png</c> em <c>VNFORGE_RENDER_DIR</c>. A medida é a da tela como ela abre, com a explicação fechada
 /// e sem rolar: a caixa do jogo tem de estar inteira dentro da área visível do inspetor, e o teste falha com a medida do corte quando não está. O cabeçalho completo
-/// só entra a 1440×1000, a medida do quadro; a 1366×768 o app mostra o compacto.
+/// só entra a 1440×1000, a medida do quadro: a 1366×768 ele leva 163 px e a caixa não cabe sem rolar, então esse caso segue medido só com o compacto.
 /// </summary>
 public sealed class EditorGameBoxVisibleRenderTests(HeadlessFixture fixture, DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<DemoFolderFixture>
 {
@@ -25,7 +25,7 @@ public sealed class EditorGameBoxVisibleRenderTests(HeadlessFixture fixture, Dem
         get
         {
             var data = new TheoryData<string, int, string>();
-            // O cabeçalho completo a 1366×768 não existe no app: o Editor usa o compacto em qualquer janela. O completo a 1440×1000 entra para o quadro do shell.
+            // O completo a 1366×768 não entra: a caixa do jogo não cabe sem rolar com os 163 px do cabeçalho do quadro. O compacto fica como a medida de referência da altura.
             foreach (var (header, width) in new[] { ("completo", 1440), ("compacto", 1366), ("compacto", 1440) })
             {
                 foreach (var theme in new[] { "escuro", "claro" })

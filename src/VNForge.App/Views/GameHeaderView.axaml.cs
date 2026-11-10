@@ -12,6 +12,7 @@ namespace VNForge.App.Views;
 public sealed partial class GameHeaderView : UserControl
 {
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsCompact));
+    public static readonly StyledProperty<bool> IsEditorProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsEditor));
 
     /// <summary>A largura da capa, em pixels.</summary>
     public const double CoverWidth = 56;
@@ -33,6 +34,7 @@ public sealed partial class GameHeaderView : UserControl
         Sections.Tapped += OnSectionsTapped;
         Sections.KeyDown += OnSectionsKeyDown;
         LayoutUpdated += (_, _) => UpdateSectionsPlacement();
+        UpdateHeaderLayout();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -41,14 +43,37 @@ public sealed partial class GameHeaderView : UserControl
         if (change.Property == IsCompactProperty)
         {
             Classes.Set("compact", IsCompact);
+            UpdateHeaderLayout();
             UpdateSectionsPlacement();
         }
+        else if (change.Property == IsEditorProperty)
+        {
+            Classes.Set("editor", IsEditor);
+            UpdateHeaderLayout();
+        }
+    }
+
+    /// <summary>Qual das três faces do topo aparece: a do Editor (o quadro do #546, com as ações da grade), a compacta ou a completa das outras páginas.</summary>
+    private void UpdateHeaderLayout()
+    {
+        var editor = IsEditor && !IsCompact;
+        EditorHeader.IsVisible = editor;
+        EditorActions.IsVisible = editor;
+        Regular.IsVisible = !editor && !IsCompact;
+        Compact.IsVisible = !editor && IsCompact;
     }
 
     public bool IsCompact
     {
         get => GetValue(IsCompactProperty);
         set => SetValue(IsCompactProperty, value);
+    }
+
+    /// <summary>A página aberta é o Editor: o topo traz o cabeçalho do quadro do #546 em vez do completo das outras páginas. Vale só quando <see cref="IsCompact"/> é falso.</summary>
+    public bool IsEditor
+    {
+        get => GetValue(IsEditorProperty);
+        set => SetValue(IsEditorProperty, value);
     }
 
     /// <summary>

@@ -7,6 +7,8 @@
              x:DataType="vm:MainWindowViewModel">
 
   <UserControl.Resources>
+    <!-- Três linhas de texto, a última mais curta: a densidade Roteiro da grade (#460). Mesma grade de 20 px dos ícones do app. -->
+    <StreamGeometry x:Key="Icon.Script">M3 4.5H17V6H3V4.5ZM3 9.25H17V10.75H3V9.25ZM3 14H12V15.5H3V14ZM0 0L0 0M20 20L20 20</StreamGeometry>
     <DataTemplate x:Key="SectionItem" x:DataType="vm:NavItemViewModel">
       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
@@ -31,6 +33,35 @@
       <Setter Property="VerticalAlignment" Value="Bottom"/>
       <Setter Property="Margin" Value="0,0,32,4"/>
     </Style>
+    <!-- Cabeçalho do Editor, como o quadro do #546: a segunda linha leva o seletor à esquerda e Roteiro, Buscar e Traduzir com IA à direita, 12 px sob as abas. -->
+    <Style Selector="v|GameHeaderView.editor ListBox#Sections">
+      <Setter Property="Margin" Value="32,12,32,0"/>
+    </Style>
+    <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
+         dos filtros e o contorno accent, que é o que diz que está ligado. -->
+    <Style Selector="ToggleButton.density">
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="Padding" Value="16,0"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+    <Style Selector="ToggleButton.density:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    </Style>
     <!-- Compacto sem largura para as abas e as seções lado a lado: a segunda linha desce para a própria linha, sob as abas. -->
     <Style Selector="v|GameHeaderView.compact.sections-below ListBox#Sections">
       <Setter Property="Margin" Value="32,8,32,0"/>
@@ -44,7 +75,7 @@
       <StackPanel Margin="32,8,32,0">
 
         <!-- Compacto (Editor, Conferir, Testar e Glossário): a volta vira um botão de seta e a capa some, para a página ficar com a altura. -->
-        <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12" IsVisible="{Binding !IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+        <Grid Name="Regular" Margin="0,4,0,12" RowDefinitions="Auto,Auto" RowSpacing="12">
           <Button Classes="subtle sm" Padding="12,0" HorizontalAlignment="Left" Command="{Binding OpenLibraryCommand}"
                   AutomationProperties.Name="Voltar para a Biblioteca">
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -98,7 +129,7 @@
           </Grid>
         </Grid>
 
-        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=v:GameHeaderView}}">
+        <Grid Name="Compact" Margin="0,0,0,4" ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="False">
           <Button Classes="subtle sm icon" Command="{Binding OpenLibraryCommand}" VerticalAlignment="Center"
                   AutomationProperties.Name="Voltar para a Biblioteca" ToolTip.Tip="Voltar para a Biblioteca">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
@@ -114,6 +145,28 @@
           </StackPanel>
         </Grid>
 
+        <!-- O cabeçalho do Editor, como o quadro do #546: a capa de 44 px, o nome e a linha de dados, e "Ler como jogador" à direita. A volta para a Biblioteca fica no trilho. -->
+        <Grid Name="EditorHeader" Margin="0,8,0,0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" IsVisible="False">
+          <Border Width="44" Height="58.67" CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                  Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
+            <Panel ClipToBounds="True">
+              <c:Cover Width="44" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+            </Panel>
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Classes="title-lg" Text="{Binding ProjectTitle}" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Name="BoardSubtitle" Classes="body-sm secondary" Text="{Binding GameBoardSubtitle}" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <Button Grid.Column="2" Name="ReadAsPlayer" Padding="16,0" Height="32" FontSize="14" VerticalAlignment="Center" Command="{Binding Editor.StartReadingCommand}" IsEnabled="{Binding Editor.IsGridShown}"
+                  AutomationProperties.Name="Ler como jogador"
+                  ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <TextBlock Text="Ler como jogador" TextWrapping="NoWrap"/>
+            </StackPanel>
+          </Button>
+        </Grid>
+
         <Grid ColumnDefinitions="Auto,*">
           <ListBox Name="GameTabs" Classes="gametabs" ItemsSource="{Binding GameTabs}" SelectedItem="{Binding SelectedGameTab}" AutomationProperties.Name="Abas do jogo">
             <ListBox.ItemTemplate>
@@ -127,6 +180,30 @@
     </Border>
 
     <!-- A segunda linha da Tradução. O Editor e a Revisão são a mesma página; Conferir leva o contador de erros. -->
+    <!-- Roteiro, Buscar e Traduzir com IA do Editor, na linha do seletor de seções (o quadro do #546). Buscar abre o painel de busca, que fica na página. -->
+    <StackPanel Name="EditorActions" Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,1" IsVisible="False">
+      <ToggleButton Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding Editor.IsScriptDensity}" ToolTip.Tip="{Binding Editor.DensityTip}" AutomationProperties.Name="Linhas como roteiro">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Script}"/>
+          <TextBlock Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+        </StackPanel>
+      </ToggleButton>
+      <Button Name="SearchButton" Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding Editor.ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
+              ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
+          <TextBlock Text="Buscar" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+      <Button Name="TranslateButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" Command="{Binding Editor.TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"
+              ToolTip.Tip="Escolha o que traduzir, com que qualidade e por quanto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+          <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
     <ListBox Name="Sections" Classes="sections" IsVisible="{Binding ShowSections}" ItemsSource="{Binding Sections}"
              ItemTemplate="{StaticResource SectionItem}" SelectedItem="{Binding SelectedSection}" AutomationProperties.Name="Seções da tradução"/>
   </Grid>

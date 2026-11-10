@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using VNForge.App.Services;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 
@@ -52,6 +53,27 @@ public sealed partial class MainWindowViewModel
     /// <summary>A capa do jogo no VNDB, do <c>vndb.json</c> do projeto; nula sem o vínculo ou sem imagem. O cabeçalho a mostra no <c>Cover</c>.</summary>
     [ObservableProperty]
     public partial VndbImageRef? GameCover { get; private set; }
+
+    /// <summary>"Japonês para PT-BR", do <c>vnforge.json</c> do projeto; vazio quando o arquivo não abre.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GameBoardSubtitle))]
+    public partial string GameLanguagePair { get; private set; } = string.Empty;
+
+    /// <summary>A linha de dados sob o nome no cabeçalho do Editor: "Yu-RIS · Japonês para PT-BR · 38% traduzida".</summary>
+    public string GameBoardSubtitle => string.Join(" · ", new[] { GameEngineLabel, GameLanguagePair, $"{GameProgress.Percent(ReadyLines, TotalLines)}% traduzida" }.Where(part => part.Length > 0));
+
+    private void ReadGameLanguages(string root)
+    {
+        try
+        {
+            var languages = ProjectFolder.Open(root).LoadConfig().Languages;
+            GameLanguagePair = $"{ProjectLabels.SourceLanguage(languages.Source)} para {ProjectLabels.TargetLanguage(languages.Target)}";
+        }
+        catch (Exception ex) when (ex is ProjectConfigException or IOException or UnauthorizedAccessException)
+        {
+            GameLanguagePair = string.Empty;
+        }
+    }
 
     private void ReadVndbLink(string root)
     {

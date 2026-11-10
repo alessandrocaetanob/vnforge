@@ -351,7 +351,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
-    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(CanReturnToGame), nameof(Breadcrumb))]
+    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(GameBoardSubtitle), nameof(CanReturnToGame), nameof(Breadcrumb))]
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
@@ -893,6 +893,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         ReadVndbLink(summary.Root);
+        ReadGameLanguages(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)
