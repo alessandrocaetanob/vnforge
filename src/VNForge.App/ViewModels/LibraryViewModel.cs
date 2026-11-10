@@ -327,7 +327,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         foreach (var game in current.Games.Where(g => g.ProjectPath is not null))
         {
             counts[game.Id] = readTranslation(game);
-            states[game.Id] = LibraryTranslationReader.Read(game);
+            states[game.Id] = ReadVersion(game);
         }
 
         return (current, counts, readUserTags(), states);

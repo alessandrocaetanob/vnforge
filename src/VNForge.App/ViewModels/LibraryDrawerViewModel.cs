@@ -1,4 +1,5 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
@@ -22,7 +23,7 @@ public enum LibraryDrawerChipKind
     Hidden,
 }
 
-public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library)
+public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library) : ObservableObject
 {
     public LibraryCardViewModel Card { get; } = card;
 
@@ -126,10 +127,17 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
 
     public bool HasLastSwitch => LastSwitchText is not null;
 
+    /// <summary>"Arquivos alterados": quantos a última injeção gravou e se todos têm cópia de segurança.</summary>
+    public string? FilesText => Card.Version is { Kind: LibraryTranslationKind.Translated, FilesChanged: > 0 } version
+        ? version.FilesWithoutOriginal == 0 ? $"{version.FilesChanged}, todos com cópia" : $"{version.FilesChanged}, {version.FilesWithoutOriginal} criados pelo patch"
+        : null;
+
+    public bool HasFiles => FilesText is not null;
+
     public IReadOnlyList<LibraryVersionItem> Versions { get; } = [new(false, "Original"), new(true, "Traduzido")];
 
     /// <summary>Estado desconhecido não troca nada: o controle fica desligado e a gaveta diz o motivo.</summary>
-    public bool IsVersionKnown => Card.Version is { Kind: not LibraryTranslationKind.Unknown };
+    public bool IsVersionKnown => Card.Version is { } version && LibraryVersionLabel.IsKnown(version);
 
     /// <summary>O botão marcado: "Original" com o jogo como veio, "Traduzido" com a tradução inteira, nenhum quando a pasta só tem parte dela. Escolher o outro troca.</summary>
     public LibraryVersionItem? SelectedVersion
@@ -146,6 +154,9 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
             {
                 Library.StartSwitch(Card, value.Translated);
             }
+
+            // O controle já mostra o botão clicado: avisa para ele voltar ao que o estado diz, caso a troca não aconteça.
+            OnPropertyChanged();
         }
     }
 }

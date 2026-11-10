@@ -77,6 +77,9 @@ public sealed class LibraryVersionTests : IDisposable
         Assert.Equal("Patch do VNForge no jogo", vm.Drawer.VersionPill);
         Assert.Equal("Traduzido", vm.Drawer.SelectedVersion!.Label);
         Assert.True(vm.Drawer.HasLastSwitch);
+        Assert.Equal("1, todos com cópia", vm.Drawer.FilesText);
+        Assert.Same(vm.Selected, vm.Drawer.Card);
+        Assert.Same(vm.Cards.Single(), vm.Selected);
         Assert.False(vm.IsSwitching);
     }
 
@@ -86,9 +89,15 @@ public sealed class LibraryVersionTests : IDisposable
         var changed = DemoBuild.Payload(1000, 9);
         await File.WriteAllBytesAsync(Archive, changed, Ct);
         var vm = await LoadedAsync(Game(_project));
+        var drawer = vm.Drawer!;
+        var renotified = false;
+        drawer.PropertyChanged += (_, e) => renotified |= e.PropertyName == nameof(LibraryDrawerViewModel.SelectedVersion);
 
         await SwitchToAsync(vm, translated: false);
 
+        Assert.True(renotified);
+        Assert.False(vm.IsSwitching);
+        Assert.Null(vm.Drawer!.SelectedVersion);
         Assert.NotNull(vm.SwitchProblem);
         Assert.True(vm.HasSwitchProblem);
         Assert.Equal(changed, await File.ReadAllBytesAsync(Archive, Ct));
@@ -109,6 +118,16 @@ public sealed class LibraryVersionTests : IDisposable
         Assert.Equal("O jogo mudou depois da extração", problem.Title);
         Assert.Equal("2 arquivos", problem.Differing);
         Assert.Equal("recusada", LibraryViewModel.Describe(new InjectionException("recusada")).Message);
+        Assert.Equal("A troca não terminou", LibraryViewModel.Describe(new InvalidOperationException("estado ruim")).Title);
+    }
+
+    [Fact]
+    public void Traduzido_sem_o_patch_descrito_e_desconhecido()
+    {
+        var state = new LibraryTranslationState(LibraryTranslationKind.Translated);
+
+        Assert.False(LibraryVersionLabel.IsKnown(state));
+        Assert.Null(LibraryVersionLabel.For(state).Tag);
     }
 
     [Fact]

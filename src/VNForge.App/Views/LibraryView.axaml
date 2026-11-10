@@ -233,9 +233,11 @@
               <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
                       Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
 
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" IsVisible="{Binding HasLastSwitch}">
-                <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Última troca"/>
-                <TextBlock Name="LastSwitch" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding LastSwitchText}"/>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6" IsVisible="{Binding HasLastSwitch}">
+                <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Arquivos alterados" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Name="FilesChanged" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding FilesText}" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Última troca"/>
+                <TextBlock Name="LastSwitch" Grid.Row="1" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding LastSwitchText}"/>
               </Grid>
 
               <Border Classes="lib-hr"/>

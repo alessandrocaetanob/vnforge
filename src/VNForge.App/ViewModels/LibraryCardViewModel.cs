@@ -55,7 +55,7 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
     /// <summary>O que a pasta do jogo tem agora (original, com o patch do VNForge ou desconhecido); nulo quando o jogo não tem projeto ligado.</summary>
     public LibraryTranslationState? Version { get; } = version;
 
-    private LibraryVersionLabel? VersionLabel => Version is { Kind: not LibraryTranslationKind.Unknown } ? LibraryVersionLabel.For(Version) : null;
+    private LibraryVersionLabel? VersionLabel => Version is { } version && LibraryVersionLabel.IsKnown(version) ? LibraryVersionLabel.For(version) : null;
 
     /// <summary>A etiqueta sob o cartão: "PT-BR no jogo" ou "Original". Sem ela, o VNForge não afirma nada sobre a pasta.</summary>
     public bool HasVersionTag => VersionLabel is not null;

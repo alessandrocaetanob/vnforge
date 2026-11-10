@@ -15,7 +15,7 @@ public sealed record LibraryVersionLabel(string? Tag, string Pill, string Tone, 
     public static LibraryVersionLabel For(LibraryTranslationState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (state.Kind == LibraryTranslationKind.Unknown)
+        if (!IsKnown(state))
         {
             return new LibraryVersionLabel(null, "Estado desconhecido", "warn", state.Reason ?? "O VNForge não sabe o que há na pasta deste jogo.", null);
         }
@@ -41,6 +41,10 @@ public sealed record LibraryVersionLabel(string? Tag, string Pill, string Tone, 
             ? new LibraryVersionLabel("Uma cena no jogo", "Só uma cena no jogo", "warn", $"Só a cena {scene} está no jogo, desde {since}. Traduzido grava a tradução inteira.", BackupNote)
             : new LibraryVersionLabel("PT-BR no jogo", "Patch do VNForge no jogo", "ok", $"No jogo desde {since}.", BackupNote);
     }
+
+    /// <summary>O Core sabe o que há na pasta; um "traduzido" sem o patch descrito é tratado como desconhecido.</summary>
+    public static bool IsKnown(LibraryTranslationState state) =>
+        state.Kind == LibraryTranslationKind.Original || state is { Kind: LibraryTranslationKind.Translated, Patch: not null };
 
     /// <summary>A tradução inteira está na pasta: é o que o botão "Traduzido" mostra como marcado.</summary>
     public static bool IsFullTranslation(LibraryTranslationState state) =>

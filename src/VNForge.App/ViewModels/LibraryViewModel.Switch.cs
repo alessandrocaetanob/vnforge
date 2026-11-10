@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using VNForge.Core;
 using VNForge.Core.Injection;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
@@ -64,20 +63,36 @@ public sealed partial class LibraryViewModel
         var steps = new Reporter<GameTestStep>(step => post(() => SwitchStatus = step.Label()));
         try
         {
-            await Task.Run(() => toTranslated ? switcher.ToTranslated(game, steps) : switcher.ToOriginal(game), CancellationToken.None);
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            SwitchProblem = Describe(e);
+            try
+            {
+                await Task.Run(() => toTranslated ? switcher.ToTranslated(game, steps) : switcher.ToOriginal(game), CancellationToken.None);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                SwitchProblem = Describe(e);
+            }
+
+            // Com sucesso ou não, o que vale é o que a pasta tem agora: o cartão e a gaveta se refazem dele, e só então a próxima troca é liberada.
+            versions[game.Id] = await Task.Run(() => ReadVersion(game), CancellationToken.None);
+            Refilter();
         }
         finally
         {
             IsSwitching = false;
         }
+    }
 
-        // Com sucesso ou não, o que vale é o que a pasta tem agora: o cartão e a gaveta se refazem dele.
-        versions[game.Id] = await Task.Run(() => LibraryTranslationReader.Read(game), CancellationToken.None);
-        Refilter();
+    /// <summary>O estado da pasta do jogo; uma pasta que não lê (o HD desligado, por exemplo) deixa só este jogo desconhecido, sem derrubar a Biblioteca.</summary>
+    private static LibraryTranslationState ReadVersion(LibraryGame game)
+    {
+        try
+        {
+            return LibraryTranslationReader.Read(game);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return new LibraryTranslationState(LibraryTranslationKind.Unknown, Reason: $"não foi possível ler a pasta do jogo: {e.Message}");
+        }
     }
 
     internal static LibrarySwitchProblem Describe(Exception e) => e switch
