@@ -299,7 +299,13 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
             .OrderBy(w => w.Source)
             .Select(w => EvidenceName(w.Source))
             .ToList();
-        return new Scored(novel, new LibraryCandidate(novel.Id, novel.Title, novel.AltTitle, novel.Released, Math.Round(score, 3), evidence));
+        return new Scored(novel, new LibraryCandidate(novel.Id, novel.Title, novel.AltTitle, novel.Released, Math.Round(score, 3), evidence)
+        {
+            Image = VndbImageRef.Cover(novel.Image),
+            Length = novel.Length,
+            LengthMinutes = novel.LengthMinutes,
+            Rating = novel.Rating,
+        });
     }
 
     private static IEnumerable<string> TitlesOf(VndbVisualNovel novel)

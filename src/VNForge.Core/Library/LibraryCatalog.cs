@@ -39,6 +39,31 @@ public static class LibraryLength
             _ => "sem votos",
         };
     }
+
+    private static readonly string[] CategoryNames = ["Muito curta", "Curta", "Média", "Longa", "Muito longa"];
+
+    /// <summary>
+    /// A duração como a grade e a gaveta a escrevem: "Média · 18 h", a faixa do VNDB e as horas votadas. Sem a faixa, ela sai dos minutos; sem as horas, só a faixa;
+    /// nulo quando o VNDB não tem nenhum dos dois.
+    /// </summary>
+    public static string? Short(int? minutes, int? category)
+    {
+        var votes = minutes is > 0 ? minutes : null;
+        var band = category is >= 1 and <= 5 ? category : votes is { } m ? CategoryOf(m) : null;
+        if (band is null)
+        {
+            return null;
+        }
+
+        var name = CategoryNames[band.Value - 1];
+        return votes is { } minutesVoted ? $"{name} · {Hours(minutesVoted)}" : name;
+    }
+
+    private static int CategoryOf(int minutes) =>
+        minutes < 120 ? 1 : minutes < 600 ? 2 : minutes < 1800 ? 3 : minutes < 3000 ? 4 : 5;
+
+    private static string Hours(int minutes) =>
+        minutes < 60 ? $"{minutes} min" : $"{((int)Math.Round(minutes / 60.0, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture)} h";
 }
 
 /// <summary>

@@ -2,10 +2,19 @@ namespace VNForge.Core.Library;
 
 /// <summary>Como a varredura anda. <paramref name="MaxDepth"/> conta as pastas abaixo da raiz (0 olha só a raiz).</summary>
 /// <param name="IncludeUnknown">Também lista pasta com executável e nenhuma assinatura conhecida, com a engine <c>unknown</c>. Fora isso, pasta sem engine reconhecida não é jogo.</param>
-public sealed record LibraryScanOptions(int MaxDepth = 6, bool IncludeUnknown = false);
+/// <param name="EstimateFolders">Antes de varrer, conta as pastas só pelos nomes (sem descer dentro de pasta que tem executável) para o andamento dizer "214 de 380 pastas". Custa uma passada a mais, então a CLI não liga.</param>
+public sealed record LibraryScanOptions(int MaxDepth = 6, bool IncludeUnknown = false, bool EstimateFolders = false);
 
-/// <summary>O andamento da varredura: pastas olhadas, jogos achados até agora e a pasta atual.</summary>
-public sealed record LibraryScanProgress(int Directories, int Games, string Current);
+/// <summary>
+/// O andamento da varredura: pastas olhadas, jogos achados até agora e a pasta atual. <see cref="Found"/> é o jogo que esta pasta acabou de revelar (nulo nas pastas que não são jogo);
+/// <see cref="EstimatedDirectories"/> é a conta prévia de pastas, quando pedida; ela é uma estimativa, e a varredura pode olhar mais ou menos pastas que isso.
+/// </summary>
+public sealed record LibraryScanProgress(int Directories, int Games, string Current)
+{
+    public LibraryGame? Found { get; init; }
+
+    public int? EstimatedDirectories { get; init; }
+}
 
 /// <summary>O que a varredura achou. <paramref name="Cancelled"/> diz que parou no meio: <paramref name="Games"/> é o que deu tempo de achar.</summary>
 public sealed record LibraryScanResult(IReadOnlyList<LibraryGame> Games, int Directories, bool Cancelled);
@@ -50,6 +59,7 @@ public sealed class LibraryScanner(EngineRecognizer recognizer, IGameWindowTitle
         var games = new List<LibraryGame>();
         var pending = new Stack<(string Path, int Depth)>();
         pending.Push((top, 0));
+        var estimate = options.EstimateFolders ? EstimateFolders(top, options.MaxDepth, cancellationToken) : (int?)null;
         var directories = 0;
         var cancelled = false;
         while (pending.Count > 0)
@@ -68,7 +78,7 @@ public sealed class LibraryScanner(EngineRecognizer recognizer, IGameWindowTitle
                 games.Add(game);
             }
 
-            progress?.Report(new LibraryScanProgress(directories, games.Count, path));
+            progress?.Report(new LibraryScanProgress(directories, games.Count, path) { Found = game, EstimatedDirectories = estimate is { } total ? Math.Max(total, directories) : null });
             if (game is null && depth < options.MaxDepth)
             {
                 foreach (var child in Children(path))
@@ -79,6 +89,42 @@ public sealed class LibraryScanner(EngineRecognizer recognizer, IGameWindowTitle
         }
 
         return new LibraryScanResult([.. games.OrderBy(g => g.Folder, StringComparer.OrdinalIgnoreCase)], directories, cancelled);
+    }
+
+    /// <summary>Quantas pastas a varredura deve olhar, contadas só pelo nome: não desce dentro de pasta que tem executável, que é quase sempre a de um jogo.</summary>
+    private static int EstimateFolders(string root, int maxDepth, CancellationToken cancellationToken)
+    {
+        var count = 0;
+        var pending = new Stack<(string Path, int Depth)>();
+        pending.Push((root, 0));
+        while (pending.Count > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            var (path, depth) = pending.Pop();
+            count++;
+            if (depth >= maxDepth || HasExecutable(path))
+            {
+                continue;
+            }
+
+            foreach (var child in Children(path))
+            {
+                pending.Push((child, depth + 1));
+            }
+        }
+
+        return count;
+    }
+
+    private static bool HasExecutable(string folder)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(folder, "*.exe", Listing).Any();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private LibraryGame? Inspect(string folder, LibraryScanOptions options)

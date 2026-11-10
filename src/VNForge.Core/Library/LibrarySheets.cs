@@ -15,13 +15,14 @@ public interface ILibrarySheetSource
 /// <summary>
 /// A ficha de um jogo. <paramref name="Synopsis"/> vem no formato do VNDB (pode ter <c>[spoiler]</c>); nula, o catálogo usa a sinopse original de <see cref="LibraryVndbInfo"/>.
 /// <paramref name="SynopsisTranslated"/> diz se o texto está em português. <paramref name="TagNames"/> dá o nome em português de cada tag do VNDB, pelo id (<see cref="LibraryTag.Id"/>);
-/// tag que não está nela sai com o nome do VNDB.
+/// tag que não está nela sai com o nome do VNDB. <paramref name="SynopsisReviewed"/> diz que a sinopse em português já foi revisada (a Biblioteca escreve "Revisada" ao lado dela).
 /// </summary>
 public sealed record LibrarySheet(
     string? Synopsis,
     bool SynopsisTranslated,
     IReadOnlyList<LibrarySheetCharacter> Characters,
-    IReadOnlyDictionary<string, string> TagNames);
+    IReadOnlyDictionary<string, string> TagNames,
+    bool SynopsisReviewed = false);
 
 /// <summary>
 /// Um personagem da ficha. <paramref name="Spoiler"/> é o nível do VNDB (0, 1 ou 2): com a privacidade escondendo spoiler, o catálogo omite o personagem.

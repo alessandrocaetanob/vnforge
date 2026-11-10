@@ -1,4 +1,5 @@
 using VNForge.Core.Library;
+using VNForge.Core.Text;
 
 namespace VNForge.Core.Factsheet;
 
@@ -36,7 +37,7 @@ public sealed class SheetCatalogSource(SheetStore store) : ILibrarySheetSource
             }
         }
 
-        return new LibrarySheet(sheet.Synopsis?.Shown, sheet.Synopsis?.HasTarget == true, characters, tagNames);
+        return new LibrarySheet(sheet.Synopsis?.Shown, sheet.Synopsis?.HasTarget == true, characters, tagNames, sheet.Synopsis is { HasTarget: true, Status: >= TranslationStatus.Reviewed });
     }
 
     private static LibrarySheetCharacter Character(CharacterSheet character, string visualNovelId, SheetTerms terms)

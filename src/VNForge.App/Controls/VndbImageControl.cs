@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -21,6 +22,9 @@ public abstract class VndbImageControl : Control
     public static readonly StyledProperty<VndbImageRef?> ImageProperty = AvaloniaProperty.Register<VndbImageControl, VndbImageRef?>(nameof(Image));
     public static readonly StyledProperty<string?> SeedProperty = AvaloniaProperty.Register<VndbImageControl, string?>(nameof(Seed));
 
+    public static readonly StyledProperty<bool> LoadOnlyInViewportProperty = AvaloniaProperty.Register<VndbImageControl, bool>(nameof(LoadOnlyInViewport));
+
+    private bool inViewport = true;
     private BitmapLease? lease;
     private CancellationTokenSource? loading;
     private IVndbImageSource? watching;
@@ -53,6 +57,16 @@ public abstract class VndbImageControl : Control
         set => SetValue(SeedProperty, value);
     }
 
+    /// <summary>
+    /// Só baixa e segura o bitmap enquanto o controle está perto da área visível (a da rolagem que o contém, com uma tela de folga). A grade da Biblioteca liga: com centenas de jogos, só as
+    /// capas à vista ocupam memória, e as que saem de vista devolvem o bitmap.
+    /// </summary>
+    public bool LoadOnlyInViewport
+    {
+        get => GetValue(LoadOnlyInViewportProperty);
+        set => SetValue(LoadOnlyInViewportProperty, value);
+    }
+
     /// <summary>A imagem do VNDB está na tela; falso quando o controle mostra o marcador.</summary>
     public bool HasImage => lease is not null;
 
@@ -62,6 +76,12 @@ public abstract class VndbImageControl : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (LoadOnlyInViewport)
+        {
+            inViewport = false;
+            EffectiveViewportChanged += OnEffectiveViewportChanged;
+        }
+
         if (VndbImages.Source is { } source)
         {
             watching = source;
@@ -74,6 +94,7 @@ public abstract class VndbImageControl : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         CancelLoading();
+        EffectiveViewportChanged -= OnEffectiveViewportChanged;
         if (watching is not null)
         {
             watching.PrivacyChanged -= OnPrivacyChanged;
@@ -92,11 +113,25 @@ public abstract class VndbImageControl : Control
     // A privacidade pode mudar em qualquer thread (a CLI trocou o ajuste): a tela relê a imagem na UI e a esconde se for o caso.
     private void OnPrivacyChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(Reload);
 
+    private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)
+    {
+        var view = e.EffectiveViewport;
+        var near = view.Width > 0 && view.Height > 0
+            && new Rect(view.X - view.Width, view.Y - view.Height, view.Width * 3, view.Height * 3).Intersects(new Rect(Bounds.Size));
+        if (near == inViewport)
+        {
+            return;
+        }
+
+        inViewport = near;
+        Reload();
+    }
+
     private void Reload()
     {
         CancelLoading();
         SetLease(null);
-        if (Image is { } image && VndbImages.Source is { } source && VisualRoot is not null)
+        if (Image is { } image && VndbImages.Source is { } source && VisualRoot is not null && (inViewport || !LoadOnlyInViewport))
         {
             if (source.TryGet(image) is { } ready)
             {
