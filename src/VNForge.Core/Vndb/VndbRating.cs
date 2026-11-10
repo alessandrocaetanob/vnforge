@@ -21,4 +21,7 @@ public static class VndbRating
         var outOfTen = Math.Round(value / 10, 1, MidpointRounding.AwayFromZero);
         return "nota " + outOfTen.ToString("0.#", PtBr);
     }
+
+    /// <summary>"7,9 de 10" para a nota <c>rating</c> do VNDB; nulo quando ninguém votou.</summary>
+    public static string? Score(double? rating) => Label(rating) is { } label ? label["nota ".Length..] + " de 10" : null;
 }

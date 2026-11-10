@@ -157,4 +157,30 @@ public static class PlayTime
             ? $"{minutes} min"
             : string.Create(CultureInfo.InvariantCulture, $"{minutes / 60} h {minutes % 60:00} min");
     }
+
+    /// <summary>Quando foi o último jogo, pela data do PC: <c>Hoje, 21:14</c>, <c>Ontem, 20:02</c> ou <c>Há 5 dias</c>.</summary>
+    public static string LastPlayed(DateTimeOffset last, DateTimeOffset now)
+    {
+        var (when, today) = (last.ToLocalTime(), now.ToLocalTime().Date);
+        return (today - when.Date).Days switch
+        {
+            <= 0 => string.Create(CultureInfo.InvariantCulture, $"Hoje, {when:HH:mm}"),
+            1 => string.Create(CultureInfo.InvariantCulture, $"Ontem, {when:HH:mm}"),
+            var days => string.Create(CultureInfo.InvariantCulture, $"Há {days} dias"),
+        };
+    }
+
+    /// <summary>O tempo de jogo de um jogo em uma linha: <c>27 h 40 min em 14 sessões · último jogado Hoje, 21:14</c>, ou <c>Ainda não jogado</c>.</summary>
+    public static string Summary(PlayStats stats, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(stats);
+        if (stats.Sessions == 0)
+        {
+            return "Ainda não jogado";
+        }
+
+        var sessions = stats.Sessions == 1 ? "1 sessão" : string.Create(CultureInfo.InvariantCulture, $"{stats.Sessions} sessões");
+        var text = $"{Format(stats.Total)} em {sessions}";
+        return stats.LastPlayedAt is { } last ? $"{text} · último jogado {LastPlayed(last, now)}" : text;
+    }
 }

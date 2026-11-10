@@ -21,7 +21,7 @@ public sealed class LibraryQueueTests : IDisposable
     private LibraryViewModel Create(Func<PortugueseTranslationChecker>? checker = null)
     {
         var file = new LibraryFile(_config.Path);
-        return new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), null, null, new FixedClock(LibrarySamples.Now), LibrarySamples.Translation, null, new LibrarySamples.Sheets(), null, checker);
+        return new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), null, null, new FixedClock(LibrarySamples.Now), LibrarySamples.Translation, null, new LibrarySamples.Sheets(), portugueseChecker: checker);
     }
 
     private async Task<LibraryViewModel> Loaded(IEnumerable<LibraryGame>? games = null)
