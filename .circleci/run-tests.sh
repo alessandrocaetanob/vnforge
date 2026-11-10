@@ -10,7 +10,8 @@
 #   VNFORGE_APP_SHARDS          fatias do App, padrão 3
 #   VNFORGE_SMALL_PARALLEL      quantos projetos pequenos rodam ao mesmo tempo, ao lado das fatias do App; padrão 2
 #   VNFORGE_TIMINGS_FILE        tempos por classe do App, padrão .circleci/tempos-app.txt
-#   VNFORGE_RENDER_DIR          base das pastas de render (uma subpasta por processo); padrão uma pasta temporária
+#   VNFORGE_RENDER_DIR          base dos PNGs de render: com ela definida, cada processo grava em <dir>/<processo>/ e
+#                               a pasta fica; sem ela, uma pasta temporária que o script apaga ao sair
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -124,6 +125,8 @@ assign_shards() {
   LC_ALL=C sort "${shard_files[@]}" > "$logs/$app.assigned"
 }
 
+refresh_hint="Para atualizar $timings_file, baixe o logs/tempos-app.txt dos artefatos do job linux da última rodada verde da main (job=<número>; curl -fsS https://circleci.com/api/v2/project/gh/alessandrocaetanob/vnforge/\$job/artifacts lista as URLs) e copie sobre ele."
+
 estimated=0
 plan_split
 assign_shards
@@ -145,7 +148,7 @@ else
   echo "AVISO: $timings_file não existe; as $class_total classes do App foram estimadas, com Rendering espalhada pelas fatias." >&2
 fi
 if ((estimated * 10 > class_total)); then
-  echo "AVISO: mais de 10% das classes do App estão sem tempo; atualize $timings_file com o tempos-app.txt dos artefatos de uma rodada da main." >&2
+  echo "AVISO: mais de 10% das classes do App estão sem tempo. $refresh_hint" >&2
 fi
 while read -r i count planned est; do
   printf '  fatia %s: %s classes, %s s planejados (soma dos tempos dos testes), %s estimadas\n' "$i" "$count" "$planned" "$est"
@@ -168,7 +171,13 @@ run_process() {
 
 # Cada processo desenha os PNGs numa pasta própria: duas fatias na mesma pasta se sobrescreveriam se uma classe
 # repetisse um nome de arquivo, e um processo lendo o PNG de outro daria um resultado que depende da ordem.
-render_base="${VNFORGE_RENDER_DIR:-$(mktemp -d)}"
+# A pasta temporária é do script e some ao sair (o runner é reaproveitado e os PNGs enchiam o disco); a que o
+# chamador define em VNFORGE_RENDER_DIR fica, é onde ele vai buscar os PNGs.
+render_base="${VNFORGE_RENDER_DIR:-}"
+if [ -z "$render_base" ]; then
+  render_base="$(mktemp -d)"
+  trap 'rm -rf "$render_base"' EXIT
+fi
 
 launch() {
   local name="$1"
@@ -204,8 +213,29 @@ done
 # Os demais projetos entram numa fila e rodam no máximo VNFORGE_SMALL_PARALLEL de cada vez. O container do job tem
 # 4 CPUs e 6 GB e um processo do App com a suíte inteira chega a 3,7 GB; com as 3 fatias, 8 projetos em paralelo
 # eram 11 processos disputando 4 CPUs. Os 8 somam cerca de 290 s de parede, então com 2 por vez a fila esvazia em
-# 150 a 200 s, bem antes das fatias do App.
-mapfile -t small < <(printf '%s\n' "${!dlls[@]}" | LC_ALL=C sort | grep -vx "$app" || true)
+# 150 a 200 s, bem antes das fatias do App. A fila sai do mais lento para o mais rápido, para a cauda ficar curta; a
+# ordem é a do job 1717 (Cli 94 s, Core 57, Installer 40, Patching 31, AI 30, YuRis 27, Vndb 7, Platform.Windows 3).
+# Projeto que não está nesta lista (novo) entra antes dos conhecidos, por nome, porque não se sabe quanto leva.
+known_order=(Cli Core Installer Patching AI Engines.YuRis Vndb Platform.Windows)
+small=()
+declare -A is_small=()
+for name in "${!dlls[@]}"; do
+  [ "$name" = "$app" ] && continue
+  is_small[$name]=1
+done
+while IFS= read -r name; do small+=("$name"); done < <(
+  printf '%s\n' "${!is_small[@]}" | LC_ALL=C sort | while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    found=0
+    for k in "${known_order[@]}"; do
+      if [ "$name" = "VNForge.$k.Tests" ]; then found=1; fi
+    done
+    if [ "$found" -eq 0 ]; then echo "$name"; fi
+  done
+  for k in "${known_order[@]}"; do
+    if [ -n "${is_small[VNForge.$k.Tests]:-}" ]; then echo "VNForge.$k.Tests"; fi
+  done
+)
 next_small=0
 
 echo "Rodando o App em $shards fatias ($class_total classes) e ${#small[@]} projetos pequenos, $small_parallel por vez."
@@ -217,7 +247,7 @@ while :; do
   for name in "${names[@]}"; do
     if [ ! -f "$logs/$name.status" ]; then
       running+=("$name")
-      if [[ "$name" != "$app"-* ]]; then running_small=$((running_small + 1)); fi
+      if [ -n "${is_small[$name]:-}" ]; then running_small=$((running_small + 1)); fi
     fi
   done
   while ((next_small < ${#small[@]} && running_small < small_parallel)); do
@@ -280,15 +310,39 @@ for name in "${names[@]}"; do
   read -r rc seconds < "$logs/$name.status"
   printf '  %-36s saída %s, %ss\n' "$name" "$rc" "$seconds"
 done
-# Planejado contra medido: se a razão parede/soma de uma fatia se afasta das outras, o arquivo de tempos envelheceu.
+
+# Planejado contra medido, por fatia, a partir do tempos-app.txt que acabou de ser gerado. A razão parede/soma tem que
+# ficar parecida entre as fatias: se uma se afasta das outras (por exemplo, fatia só de Rendering contra fatia sem
+# Rendering), a soma deixou de servir de peso e o peso passa a ser o tempo de parede por classe. O aviso sai quando a
+# soma medida de uma fatia difere da planejada em mais de 25%, sinal de que o arquivo de tempos envelheceu.
 if [ "${#app_xmls[@]}" -gt 0 ]; then
+  walls=""
+  slice_files=()
+  for ((i = 0; i < shards; i++)); do
+    slice_files+=("$logs/$app-$i.classes")
+    if [ -f "$results/$app-$i.xml" ]; then
+      read -r _ seconds < "$logs/$app-$i.status"
+      walls+=" $i:$seconds"
+    fi
+  done
   echo "Fatias do App, planejado contra medido (soma dos tempos dos testes, em s):"
-  while read -r i count planned est; do
-    [ -f "$results/$app-$i.xml" ] || continue
-    read -r _ seconds < "$logs/$app-$i.status"
-    measured="$(junit_class_times "$results/$app-$i.xml" | LC_ALL=C awk '{ s += $2 } END { printf "%.0f", s }')"
-    printf '  fatia %s: planejado %s, medido %s, parede %ss, parede/soma %s\n' "$i" "${planned%.*}" "$measured" "$seconds" \
-      "$(LC_ALL=C awk -v w="$seconds" -v m="$measured" 'BEGIN { if (m > 0) printf "%.2f", w / m; else print "-" }')"
-  done < "$logs/$app.plan"
+  LC_ALL=C awk -v walls="$walls" -v n="$shards" '
+    BEGIN { split(walls, w, " "); for (k in w) { split(w[k], p, ":"); wall[p[1]] = p[2] } }
+    FILENAME == ARGV[1] { planned[$1] = $3; next }
+    FILENAME == ARGV[2] { if ($1 !~ /^#/ && NF >= 2) t[$1] = $2; next }
+    { sum[FILENAME] += t[$1] }
+    END {
+      for (i = 0; i < n; i++) {
+        if (!(i in wall)) continue
+        m = sum[ARGV[i + 3]]; pl = planned[i]
+        printf "  fatia %d: planejado %.0f, medido %.0f, parede %ss, parede/soma %s\n", i, pl, m, wall[i], (m > 0 ? sprintf("%.2f", wall[i] / m) : "-");
+        if (pl > 0 && (m - pl > pl / 4 || pl - m > pl / 4)) stale = 1
+      }
+      if (stale) print "STALE"
+    }' "$logs/$app.plan" "$logs/tempos-app.txt" "${slice_files[@]}" > "$logs/resumo-fatias.txt"
+  grep -vx STALE "$logs/resumo-fatias.txt" || true
+  if grep -qx STALE "$logs/resumo-fatias.txt"; then
+    echo "AVISO: a soma medida de uma fatia difere da planejada em mais de 25%. $refresh_hint" >&2
+  fi
 fi
 exit "$failed"

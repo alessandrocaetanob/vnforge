@@ -117,13 +117,14 @@ jobs:
             else
               bash .circleci/run-tests.sh
             fi
-      # Roda mesmo com o passo Testes vermelho (a referência diz que store_test_results sempre executa depois de uma
-      # falha, e o passo não aceita when). Não roda se o job for cancelado ou estourar o tempo. Os JUnit alimentam a
-      # aba Tests e o Insights.
+      # O store_test_results e o store_artifacts rodam mesmo com o passo Testes vermelho, mas não se o job for
+      # cancelado ou estourar o tempo (https://circleci.com/docs/reference/configuration-reference/, "The when
+      # attribute"). Por isso não levam `when`: a mesma página diz que, como passos comuns, eles não o aceitam.
+      # Os JUnit alimentam a aba Tests e o Insights.
       - store_test_results:
           path: test-results
       # A divisão do App, a saída de cada processo e o tempos-app.txt (os tempos medidos nesta rodada, que se copiam
-      # para .circleci/tempos-app.txt) ficam em Artifacts. Como o store_test_results, roda também com o Testes vermelho.
+      # para .circleci/tempos-app.txt) ficam em Artifacts.
       - store_artifacts:
           path: test-results/logs
           destination: logs
