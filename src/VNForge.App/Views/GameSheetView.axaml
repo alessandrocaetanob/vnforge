@@ -1,0 +1,335 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.GameSheetView"
+             x:DataType="vm:GameSheetViewModel"
+             AutomationProperties.Name="Ficha do jogo">
+
+  <UserControl.Resources>
+    <!-- O selo de etapa (.v3-pill). -->
+    <DataTemplate x:Key="Pill" x:DataType="vm:SheetPill">
+      <Border Classes="sheet-pill" Classes.ai="{Binding IsAi}" Classes.tr="{Binding IsTranslated}" Classes.rev="{Binding IsReviewed}"
+              Classes.ok="{Binding IsApproved}" Classes.warn="{Binding IsWarning}">
+        <TextBlock Text="{Binding Text}"/>
+      </Border>
+    </DataTemplate>
+
+    <!-- A etiqueta (.v3-tag), a sua (.mine) e o aviso tracejado das escondidas (.hid). -->
+    <DataTemplate x:Key="Chip" x:DataType="vm:SheetChip">
+      <Panel>
+        <Border Classes="sheet-tag" Classes.mine="{Binding IsMine}" Classes.hid="{Binding IsHidden}">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <PathIcon IsVisible="{Binding IsHidden}" Data="{StaticResource Icon.EyeOff}"/>
+            <TextBlock Text="{Binding Text}"/>
+          </StackPanel>
+        </Border>
+        <Rectangle IsVisible="{Binding IsHidden}" IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}"
+                   StrokeThickness="1" StrokeDashArray="3,3" RadiusX="12" RadiusY="12"/>
+      </Panel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="TraitChip" x:DataType="vm:TraitChip">
+      <Panel>
+        <Border Classes="sheet-tag" Classes.warn="{Binding IsSpoiler}" Classes.hid="{Binding IsHidden}">
+          <TextBlock Text="{Binding Text}"/>
+        </Border>
+        <Rectangle IsVisible="{Binding IsHidden}" IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}"
+                   StrokeThickness="1" StrokeDashArray="3,3" RadiusX="12" RadiusY="12"/>
+      </Panel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Panel>
+    <!-- Sem ficha para mostrar: sem vínculo com o VNDB, lendo, ainda não buscada ou com erro. -->
+    <c:EmptyState IsVisible="{Binding ShowEmpty}" Message="{Binding EmptyMessage}" ActionText="{Binding EmptyActionText}" ActionCommand="{Binding EmptyActionCommand}"/>
+
+    <!-- A ficha: duas colunas, a sinopse, as tags e os personagens à esquerda; os dados, o estado do texto e o spoiler à direita. -->
+    <ScrollViewer IsVisible="{Binding IsReady}" HorizontalScrollBarVisibility="Disabled">
+      <Panel>
+        <Grid Name="Overview" IsVisible="{Binding IsOverview}" Margin="32,20,32,24" ColumnDefinitions="*,352" ColumnSpacing="24">
+          <StackPanel Spacing="20">
+
+            <Border Classes="sheet-card pad6">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="sheet-h2" Text="Sinopse" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <ContentControl Content="{Binding SynopsisPill}" ContentTemplate="{StaticResource Pill}"/>
+                    <Button Classes="subtle sm sheet-link" Command="{Binding ToggleOriginalCommand}" IsVisible="{Binding CanToggleOriginal}" Content="{Binding SynopsisToggleText}"/>
+                  </StackPanel>
+                </Grid>
+                <TextBlock Name="SynopsisText" Classes="sheet-prose" Text="{Binding SynopsisText}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="sheet-card pad6" IsVisible="{Binding HasTags}">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="sheet-h2" Text="Gêneros e tags" VerticalAlignment="Center"/>
+                  <ContentControl Grid.Column="1" VerticalAlignment="Center" Content="{Binding TagsPill}" ContentTemplate="{StaticResource Pill}"/>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Tags}" ItemTemplate="{StaticResource Chip}" AutomationProperties.Name="Tags do jogo">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBlock Classes="sheet-note" Text="{Binding TagsNote}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="sheet-card pad6" IsVisible="{Binding HasCharacters}">
+              <StackPanel Spacing="16">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Classes="sheet-h2" Text="Personagens"/>
+                    <TextBlock Classes="secondary" VerticalAlignment="Center" FontSize="14" LineHeight="19" Text="{Binding CharactersCount}"/>
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="subtle sm sheet-link" Command="{Binding ToggleAllCharactersCommand}" IsVisible="{Binding CanShowAll}" Content="{Binding ShowAllText}"/>
+                </Grid>
+                <ItemsControl Name="Characters" ItemsSource="{Binding CharacterTiles}" Margin="0,0,-12,-12" AutomationProperties.Name="Personagens">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <UniformGrid Columns="2"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CharacterTile">
+                      <Border Classes="sheet-tile" Margin="0,0,12,12" AutomationProperties.Name="{Binding AutomationName}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                          <Panel VerticalAlignment="Top" Width="56" Height="56">
+                            <c:Portrait Size="Md" Image="{Binding Image}" Seed="{Binding Name}" IsVisible="{Binding ShowsPortrait}"/>
+                            <Border Classes="sheet-portrait-box" IsVisible="{Binding ShowsPlaceholder}">
+                              <PathIcon Width="24" Height="24" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
+                            </Border>
+                            <Panel IsVisible="{Binding !ShowsPortrait}">
+                              <Border Classes="sheet-portrait-box" IsVisible="{Binding ShowsImageHidden}" BorderBrush="Transparent">
+                                <PathIcon Width="24" Height="24" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
+                              </Border>
+                              <Border Classes="sheet-portrait-box" IsVisible="{Binding ShowsHidden}" BorderBrush="Transparent">
+                                <PathIcon Width="24" Height="24" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
+                              </Border>
+                              <Rectangle IsVisible="{Binding !ShowsPlaceholder}" IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}"
+                                         StrokeThickness="1" StrokeDashArray="3,3" RadiusX="16" RadiusY="16"/>
+                            </Panel>
+                          </Panel>
+                          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Top">
+                            <TextBlock FontWeight="Bold" FontSize="14" LineHeight="20" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="secondary" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="12" Text="{Binding Original}" IsVisible="{Binding HasOriginal}"/>
+                            <TextBlock Classes="secondary" FontSize="12" LineHeight="20" Text="{Binding Caption}" IsVisible="{Binding HasCaption}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0" IsVisible="{Binding HasPills}">
+                              <ContentControl Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
+                              <ContentControl Content="{Binding Status}" ContentTemplate="{StaticResource Pill}" IsVisible="{Binding HasStatus}"/>
+                            </StackPanel>
+                            <TextBlock Classes="secondary" FontSize="12" LineHeight="20" Margin="0,2,0,0" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding Line}" IsVisible="{Binding HasLine}"/>
+                            <Panel IsVisible="{Binding ShowsHidden}" HorizontalAlignment="Left" Margin="0,2,0,0">
+                              <Button Classes="sheet-spoil" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).RevealCommand}" CommandParameter="{Binding}"
+                                      AutomationProperties.Name="Mostrar o personagem escondido">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Eye}"/>
+                                  <TextBlock FontSize="12" LineHeight="16" Text="Mostrar"/>
+                                </StackPanel>
+                              </Button>
+                              <Rectangle IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" RadiusX="12" RadiusY="12"/>
+                            </Panel>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1" Spacing="16">
+
+            <Border Classes="sheet-card">
+              <StackPanel Spacing="12" Grid.IsSharedSizeScope="True">
+                <TextBlock Classes="sheet-h3" Text="Sobre o jogo"/>
+                <StackPanel Spacing="6">
+                  <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Duração"/>
+                    <TextBlock Name="Duration" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding DurationText}"/>
+                  </Grid>
+                  <Grid ColumnSpacing="16" IsVisible="{Binding HasReleased}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Lançado"/>
+                    <TextBlock Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding ReleasedText}"/>
+                  </Grid>
+                  <Grid ColumnSpacing="16" IsVisible="{Binding HasRating}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Nota no VNDB"/>
+                    <TextBlock Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding RatingText}"/>
+                  </Grid>
+                  <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="VNDB"/>
+                    <TextBlock Grid.Column="1" Classes="mono" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding VndbIdText}"/>
+                  </Grid>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="sheet-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" Text="Texto em português"/>
+                <c:StatusSegments Counts="{Binding BlockCounts}" AutomationProperties.Name="Andamento do texto em português"/>
+                <ItemsControl ItemsSource="{Binding CountPills}" ItemTemplate="{StaticResource Pill}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <Button Name="ReviewButton" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding StartReviewCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+                    <TextBlock Text="Revisar a ficha"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="TranslateButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding TranslateCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                    <TextBlock Text="{Binding TranslateLabel}"/>
+                  </StackPanel>
+                </Button>
+                <TextBlock Classes="sheet-note" Text="{Binding BusyText}" IsVisible="{Binding ShowBusy}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="sheet-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" Text="Spoiler"/>
+                <ListBox Name="SpoilerLevels" Classes="sections" ItemsSource="{Binding SpoilerOptions}" SelectedItem="{Binding SelectedSpoiler}"
+                         HorizontalAlignment="Stretch" AutomationProperties.Name="Nível de spoiler"/>
+                <TextBlock Classes="sheet-note" Text="{Binding SpoilerHint}"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <!-- A revisão da ficha, bloco a bloco (segunda tela do quadro). -->
+        <Panel IsVisible="{Binding IsReviewing}">
+        <Grid Name="ReviewPage" DataContext="{Binding Review}" x:DataType="vm:SheetReviewViewModel"
+              Margin="32,20,32,24" ColumnDefinitions="*,300" ColumnSpacing="24">
+          <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Classes="sheet-h2" Text="{Binding Title}"/>
+                <TextBlock Classes="sheet-note" Text="{Binding Subtitle}"/>
+              </StackPanel>
+              <ListBox Grid.Column="1" Name="Filters" Classes="sections" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" VerticalAlignment="Center"
+                       AutomationProperties.Name="Filtro dos blocos"/>
+            </Grid>
+
+            <TextBlock Classes="sheet-note" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"/>
+
+            <ItemsControl ItemsSource="{Binding Pairs}" IsVisible="{Binding HasBlock}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="16"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ReviewPairViewModel">
+                  <Border Classes="sheet-card">
+                    <StackPanel Spacing="12">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock FontWeight="Bold" Text="{Binding Title}" VerticalAlignment="Center"/>
+                        <ContentControl Grid.Column="1" Content="{Binding Pill}" ContentTemplate="{StaticResource Pill}"/>
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <StackPanel Spacing="4">
+                          <c:OverlineText Classes="overline" Text="VNDB, em inglês"/>
+                          <TextBlock Classes="secondary" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding Original}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <c:OverlineText Classes="overline" Text="Português"/>
+                          <TextBox Classes="sheet-field" Text="{Binding Draft}" IsReadOnly="{Binding !CanEdit}" AutomationProperties.Name="{Binding Title}"/>
+                          <TextBlock Classes="sheet-note" Text="{Binding Hint}" IsVisible="{Binding HasHint}"/>
+                          <TextBlock FontSize="13" LineHeight="20" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding Error}" IsVisible="{Binding HasError}"/>
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding ShowsActions}">
+                        <Button Classes="subtle sm sheet-link" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.RetranslateCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                            <TextBlock Text="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.RetranslateText}"/>
+                          </StackPanel>
+                        </Button>
+                        <Button Classes="sm" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.MarkReviewedCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+                            <TextBlock Text="Marcar revisado"/>
+                          </StackPanel>
+                        </Button>
+                        <Button Classes="sm accent" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).Review.ApproveNextCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Check}"/>
+                            <TextBlock Text="Aprovar e próxima"/>
+                          </StackPanel>
+                        </Button>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Classes="sheet-card" IsVisible="{Binding HasSpoilerCard}">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock FontWeight="Bold" Text="Traços com spoiler" VerticalAlignment="Center"/>
+                  <Panel Grid.Column="1" VerticalAlignment="Center">
+                    <Button Name="SpoilerLevelButton" Classes="sheet-spoil" Command="{Binding CycleSpoilerCommand}" ToolTip.Tip="Troca o nível de spoiler: Escondido, Leve ou Tudo">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Eye}"/>
+                        <TextBlock FontSize="12" LineHeight="16" Text="{Binding SpoilerLevelText}"/>
+                      </StackPanel>
+                    </Button>
+                    <Rectangle IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" RadiusX="12" RadiusY="12"/>
+                  </Panel>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding SpoilerTraits}" ItemTemplate="{StaticResource TraitChip}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1" Spacing="16">
+            <Border Classes="sheet-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" Text="Progresso da ficha"/>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="30" LineHeight="36" FontWeight="Bold" Text="{Binding ProgressText}"/>
+                  <TextBlock Grid.Column="1" Classes="secondary" VerticalAlignment="Center" Text="blocos"/>
+                </Grid>
+                <ProgressBar Classes="sheet-bar" Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"/>
+                <ItemsControl ItemsSource="{Binding CountPills}" ItemTemplate="{StaticResource Pill}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+            <Border Classes="sheet-card">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" Text="O que fica no jogo"/>
+                <TextBlock Classes="sheet-note" Text="{Binding KeepText}"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+        </Panel>
+      </Panel>
+    </ScrollViewer>
+  </Panel>
+</UserControl>

@@ -105,10 +105,10 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Contains(play.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Jogar");
             Assert.DoesNotContain(header.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Dashboard.OpenNextStepCommand && b.IsEffectivelyVisible);
 
-            var page = Assert.Single(window.GetVisualDescendants().OfType<GameTabPlaceholderView>(), v => v.IsEffectivelyVisible);
+            // O projeto de amostra não tem o vínculo com o VNDB: a Ficha diz isso em vez de mostrar uma ficha vazia.
+            var page = Assert.Single(window.GetVisualDescendants().OfType<GameSheetView>(), v => v.IsEffectivelyVisible);
             var empty = Assert.Single(page.GetVisualDescendants().OfType<EmptyState>());
-            Assert.Equal(vm.Sheet.Message, empty.Message);
-            Assert.Contains(page.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && Equals(b.Content, vm.Sheet.ActionText));
+            Assert.Equal(vm.Sheet.EmptyMessage, empty.Message);
 
             ScreenRenderer.Settle(window);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-ficha", theme)));
