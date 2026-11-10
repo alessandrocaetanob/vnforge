@@ -78,6 +78,14 @@ public sealed class App : Application
                         ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                         new ClaudeOptions { Model = LineSuggester.ReadModel(configDirectory), Effort = ClaudeEffort.Medium }),
                 },
+                Play =
+                {
+                    CapturesFile = new GameCapturesFile(GameCapturesFile.DefaultDirectory()),
+                    NotesFile = new GameNotesFile(configDirectory),
+                    Capturer = new VNForge.Platform.Windows.WindowCapturer(),
+                    Hotkey = OperatingSystem.IsWindows() ? new VNForge.Platform.Windows.GlobalHotkey() : null,
+                    PostToUi = a => Avalonia.Threading.Dispatcher.UIThread.Post(a),
+                },
                 Images =
                 {
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(

@@ -87,10 +87,10 @@
                   </StackPanel>
                 </Button>
               </Panel>
-              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Play.PlayCommand}" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar">
+              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Play.Session.PlayCommand}" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                  <TextBlock Text="{Binding Play.PlayLabel}"/>
+                  <TextBlock Text="{Binding Play.Session.PlayLabel}"/>
                 </StackPanel>
               </Button>
             </Panel>

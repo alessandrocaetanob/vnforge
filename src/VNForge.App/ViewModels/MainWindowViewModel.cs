@@ -182,12 +182,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(Breadcrumb));
             }
         };
-        Play = new GamePlayViewModel(Library);
-        Play.SettingsRequested += (_, _) =>
+        var session = new GamePlayViewModel(Library);
+        session.SettingsRequested += (_, _) =>
         {
             Settings.SelectedTab = SettingsViewModel.GamesTab;
             SelectedNav = settingsItem;
         };
+        Play = new GameCapturesViewModel { OpenFolder = this.openFolder, ShowEditor = () => SelectedNav = editorItem, Session = session };
         selectedNav = startItem;
         CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -811,6 +812,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
+        if (target == NavKey.Play)
+        {
+            Play.Enter(CurrentProject is { } project ? Library.GameOfProject(project.Root) : null);
+        }
+        else
+        {
+            Play.Leave();
+        }
+
         if (target == NavKey.Editor)
         {
             Editor.DropChangedSinceTestIfOutdated();
@@ -934,7 +944,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         ReadVndbLink(summary.Root);
-        Play.Open(summary.Root);
+        Play.Session?.Open(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)

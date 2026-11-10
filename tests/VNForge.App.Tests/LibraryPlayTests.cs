@@ -171,6 +171,38 @@ public sealed class LibraryPlayTests : IDisposable
     }
 
     /// <summary>O relógio do teste: o tempo só anda quando o processo falso é consultado ou o teste manda.</summary>
+    [Fact]
+    public async Task Aba_Jogar_do_projeto_mostra_o_tempo_as_sessoes_e_as_semanas_e_grava_o_interruptor_do_lancador()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(25), GameProcessState.Running), (TimeSpan.FromMinutes(15), GameProcessState.Exited)] };
+        var library = Create(launcher);
+        await library.LoadAsync();
+        var play = new GamePlayViewModel(library, _clock);
+        play.Open(project);
+
+        Assert.True(play.HasGame);
+        Assert.Equal(("0 min", "ainda sem sessões"), (play.TotalText, play.AverageText));
+        Assert.True(play.ShowsEmptyRows);
+
+        await play.PlayCommand.ExecuteAsync(null);
+
+        Assert.Equal(("40 min", "em 1 sessão · a média é de 40 min"), (play.TotalText, play.AverageText));
+        Assert.Equal(["Direto"], play.Rows.Select(r => r.Via));
+        Assert.Equal(PlayHistory.Weeks, play.Bars.Count);
+        Assert.True(play.Bars[^1].IsCurrent);
+        Assert.False(play.IsPlaying);
+        play.ViewIndex = 0;
+        Assert.Equal("Esta semana", play.Rows.Single().When);
+
+        play.OpensLauncherOn = true;
+        await library.Remembering;
+        Assert.True(new LibraryFile(Config).Load().Find(game.Id).OpensLauncher);
+        Assert.True(play.OpensLauncherOn);
+    }
+
     private sealed class PlayClock(DateTimeOffset wall) : TimeProvider
     {
         private long _ticks;

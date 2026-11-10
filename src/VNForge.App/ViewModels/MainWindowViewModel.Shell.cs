@@ -59,8 +59,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>A aba Ficha do jogo (d9, #554).</summary>
     public GameSheetViewModel Sheet { get; }
 
-    /// <summary>A aba Jogar do jogo (d3, #549).</summary>
-    public GamePlayViewModel Play { get; }
+    /// <summary>A aba Jogar: capturas e notas do jogo (#553), o tempo de jogo e o Jogar (#549, em <see cref="GameCapturesViewModel.Session"/>).</summary>
+    public GameCapturesViewModel Play { get; }
 
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
     public bool InGame => HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null;

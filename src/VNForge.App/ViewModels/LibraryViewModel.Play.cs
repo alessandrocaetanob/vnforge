@@ -10,12 +10,6 @@ public sealed partial class LibraryViewModel
 
     internal string? LocaleEmulatorPath => library.LocaleEmulatorPath;
 
-    internal LibraryGame? GameOfProject(string projectRoot)
-    {
-        var root = GameLibrary.NormalizeFolder(projectRoot);
-        return games.FirstOrDefault(g => g.ProjectPath is { } path && string.Equals(path, root, StringComparison.OrdinalIgnoreCase));
-    }
-
     internal Task PlayGameAsync(LibraryGame game)
     {
         var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)));
