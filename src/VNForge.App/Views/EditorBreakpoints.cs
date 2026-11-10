@@ -27,6 +27,14 @@ public static class EditorBreakpoints
 
     public const double InspectorTabsWidth = 360;
 
+    /// <summary>
+    /// Abaixo desta altura de janela o Editor usa o cabeçalho compacto (80 px) em vez do completo do quadro do #546 (161 px): com o completo a caixa do jogo, que fica em y=729 a 1440 px
+    /// de largura e mede 75 px, só aparece inteira sem rolar a partir de cerca de 915 px de janela (a 860 faltam 55 px). Com o compacto ela começa em y=648 e cabe a partir de cerca de 835 px.
+    /// </summary>
+    public const double FullHeaderMinHeight = 920;
+
+    public static bool UsesFullHeader(double windowHeight) => windowHeight >= FullHeaderMinHeight;
+
     /// <summary>Abaixo desta largura de janela a margem lateral do Editor cai de <see cref="WideMargin"/> para <see cref="NarrowMargin"/>, para a barra de filtros e ações caber.</summary>
     public const double NarrowMarginBelow = 1100;
 

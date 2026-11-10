@@ -2,17 +2,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- docs/design/components/LineRow: colunas 92 · 148 · 1* · 1.2* · 32 com gap de 8 e recuo de 12 (v4: o texto leva o que sobra). Original em jp-row, o resto em body-sm. O quadro do #530 não tem coluna Linha: o número vai só no nome de acessibilidade da linha e na dica.
+  <!-- Quadro do #546 (".v3-gl"): colunas 72 · 148 · 1* · 1* · 28 com vão de 10 e recuo de 16. Original em jp-row, o resto em body-sm. O quadro não tem coluna Linha: o número vai só no nome de acessibilidade da linha e na dica.
        As três colunas de texto moram numa grade interna (PART_Text): a mesma conta de larguras, e a densidade Roteiro (#460) as empilha em três linhas dessa grade, sem coluna de falante. -->
   <Style Selector="c|LineRow">
     <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
-    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="Padding" Value="16,0"/>
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}">
-        <Grid Name="PART_Row" ColumnDefinitions="92,*,32" ColumnSpacing="8" Margin="{TemplateBinding Padding}">
+        <Grid Name="PART_Row" ColumnDefinitions="72,*,28" ColumnSpacing="10" Margin="{TemplateBinding Padding}">
           <c:StatusBadge Name="PART_Status" Status="{TemplateBinding Status}"/>
-          <Grid Name="PART_Text" Grid.Column="1" ColumnDefinitions="148,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
+          <Grid Name="PART_Text" Grid.Column="1" ColumnDefinitions="148,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="2" VerticalAlignment="Center">
             <!-- Quem fala: o retrato de 28 px (a imagem do VNDB, o busto desenhado ou o livro da narração) e o nome (quadro: retrato redondo ao lado do nome, 9 px de vão). -->
             <Grid Name="PART_Who" ColumnDefinitions="Auto,*" ColumnSpacing="9" VerticalAlignment="Center">
               <c:Portrait Name="PART_Portrait" Size="Sm" Image="{TemplateBinding SpeakerImage}" Seed="{TemplateBinding SpeakerText}" Tint="{TemplateBinding SpeakerColor}" VerticalAlignment="Center"/>
@@ -76,7 +76,7 @@
        A altura acompanha o texto, de 72 px (uma linha de cada) a 108 px (duas de cada): a lista mede os itens que mostra e estima o resto pela média. -->
   <Style Selector="c|LineRow:script">
     <Setter Property="Height" Value="NaN"/>
-    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Padding" Value="16,8"/>
   </Style>
   <Style Selector="c|LineRow:script /template/ Grid#PART_Row">
     <Setter Property="VerticalAlignment" Value="Top"/>
@@ -153,7 +153,7 @@
     <Setter Property="Height" Value="{DynamicResource Vnf.RowHeight}"/>
   </Style>
   <Style Selector="ListBox.lines > ListBoxItem /template/ Border#SelectionBar">
-    <Setter Property="Margin" Value="0,6"/>
+    <Setter Property="Margin" Value="0"/>
   </Style>
   <Style Selector="ListBox.lines.script > ListBoxItem">
     <Setter Property="Height" Value="NaN"/>

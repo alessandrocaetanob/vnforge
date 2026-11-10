@@ -288,6 +288,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(GameProgressLabel));
         OnPropertyChanged(nameof(GameProgressDone));
         OnPropertyChanged(nameof(GameProgressNone));
+        OnPropertyChanged(nameof(GameBoardSubtitle));
     }
 
     [RelayCommand]

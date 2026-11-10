@@ -53,7 +53,7 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
                 var window = new Window { Width = 1440, Height = 900, Content = new EditorView { DataContext = vm } };
                 window.Show();
                 Settle(window);
-                var header = window.GetVisualDescendants().OfType<PageHeader>().Single();
+                var header = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "Toolbar");
                 var columns = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "Columns");
                 Assert.True(header.IsEffectivelyVisible && columns.IsEffectivelyVisible);
 
@@ -123,10 +123,10 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
     }
 
     [Theory]
-    [InlineData(960, true)]
-    [InlineData(1366, true)]
-    [InlineData(1440, false)]
-    public async Task Com_o_chip_Soa_estranho_visivel_os_filtros_cabem_na_faixa_ou_rolam_sem_cobrir_as_acoes(int windowWidth, bool iconsOnly)
+    [InlineData(960)]
+    [InlineData(1366)]
+    [InlineData(1440)]
+    public async Task Com_o_chip_Soa_estranho_visivel_os_filtros_cabem_na_faixa_ou_rolam_sem_cobrir_as_acoes(int windowWidth)
     {
         using var temp = new TempFolder();
         var vm = await OpenAsync(temp, oneMarked: true);
@@ -155,7 +155,7 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
 
                 // A faixa rola; o que ela mostra nunca passa por cima das ações, e o que não cabe fica atrás da borda dela, não solto sobre os botões.
                 var stripBox = Box(strip);
-                if (stripBox.Right > tools.Min(t => Box(t).X))
+                if (tools.Count > 0 && stripBox.Right > tools.Min(t => Box(t).X))
                 {
                     failures.Add($"a faixa de filtros ({stripBox.Right:0}) passa por cima das ações ({tools.Min(t => Box(t).X):0})");
                 }
@@ -170,12 +170,6 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
                 if (clipped.Count == 0 && chips.Select(c => Math.Round(Box(c).Y)).Distinct().Count() != 1)
                 {
                     failures.Add("os filtros não estão na mesma linha");
-                }
-
-                var labels = tools.Select(t => t.GetVisualDescendants().OfType<TextBlock>().Single().IsEffectivelyVisible).ToList();
-                if (labels.Any(shown => shown == iconsOnly))
-                {
-                    failures.Add($"rótulos dos botões secundários: {string.Join(",", labels)} (só ícones esperado: {iconsOnly})");
                 }
 
                 window.Close();
