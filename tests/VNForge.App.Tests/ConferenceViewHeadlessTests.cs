@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -212,9 +213,10 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
                     Assert.Contains("Como vai ficar", texts);
                     Assert.Contains("O que é isso", texts);
 
-                    // O detalhe mostra a gravidade com o SeverityTag, e a primeira linha vem selecionada.
-                    var tag = window.GetVisualDescendants().OfType<SeverityTag>().Single();
-                    Assert.Equal(SeverityLevel.Warning, tag.Level);
+                    // O detalhe mostra a gravidade no selo do quadro (palavra, sem ícone; aviso não leva a classe error), e a primeira linha vem selecionada.
+                    var tag = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("sev") && !b.Classes.Contains("ai") && b.IsEffectivelyVisible && b.GetVisualAncestors().OfType<Border>().Any(p => AutomationProperties.GetName(p) == "Problema selecionado"));
+                    Assert.DoesNotContain("error", tag.Classes);
+                    Assert.Equal("Aviso", Assert.IsType<TextBlock>(tag.Child).Text);
                 }
                 finally
                 {

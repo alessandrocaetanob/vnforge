@@ -24,11 +24,13 @@ public sealed class BudgetBar : TemplatedControl
     public static readonly StyledProperty<IBrush?> TrackBrushProperty = AvaloniaProperty.Register<BudgetBar, IBrush?>(nameof(TrackBrush));
     public static readonly StyledProperty<IBrush?> AskBrushProperty = AvaloniaProperty.Register<BudgetBar, IBrush?>(nameof(AskBrush));
     public static readonly StyledProperty<bool> ShowLimitProperty = AvaloniaProperty.Register<BudgetBar, bool>(nameof(ShowLimit), true);
+    public static readonly StyledProperty<double> ThicknessProperty = AvaloniaProperty.Register<BudgetBar, double>(nameof(Thickness), BarHeight);
+    public static readonly StyledProperty<IBrush?> SpentBrushProperty = AvaloniaProperty.Register<BudgetBar, IBrush?>(nameof(SpentBrush));
 
     static BudgetBar()
     {
-        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty, IsInsetProperty, TrackBrushProperty, AskBrushProperty, ShowLimitProperty);
-        AffectsMeasure<BudgetBar>(IsInsetProperty);
+        AffectsRender<BudgetBar>(SpentProperty, AskProperty, LimitProperty, IsInsetProperty, TrackBrushProperty, AskBrushProperty, ShowLimitProperty, SpentBrushProperty, ThicknessProperty);
+        AffectsMeasure<BudgetBar>(IsInsetProperty, ThicknessProperty);
         SpentProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         AskProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
         LimitProperty.Changed.AddClassHandler<BudgetBar>((bar, _) => bar.UpdateState());
@@ -75,6 +77,20 @@ public sealed class BudgetBar : TemplatedControl
         set => SetValue(AskBrushProperty, value);
     }
 
+    /// <summary>A espessura da barra; o Painel usa 6, a do quadro.</summary>
+    public double Thickness
+    {
+        get => GetValue(ThicknessProperty);
+        set => SetValue(ThicknessProperty, value);
+    }
+
+    /// <summary>A cor do que já foi gasto; nulo vale <c>seg-ai</c>. O Painel usa <c>accent</c>, como no quadro.</summary>
+    public IBrush? SpentBrush
+    {
+        get => GetValue(SpentBrushProperty);
+        set => SetValue(SpentBrushProperty, value);
+    }
+
     /// <summary>Se a marca do limite é desenhada; só o limite some, a conta do <see cref="IsOver"/> continua.</summary>
     public bool ShowLimit
     {
@@ -86,7 +102,7 @@ public sealed class BudgetBar : TemplatedControl
     public bool IsOver => Limit > 0 && Spent + Ask > Limit;
 
     protected override Size MeasureOverride(Size availableSize) =>
-        new(double.IsInfinity(availableSize.Width) ? 160 : availableSize.Width, IsInset ? BarHeight : BarHeight + (MarkOverhang * 2));
+        new(double.IsInfinity(availableSize.Width) ? 160 : availableSize.Width, IsInset ? Thickness : Thickness + (MarkOverhang * 2));
 
     public override void Render(DrawingContext context)
     {
@@ -94,7 +110,7 @@ public sealed class BudgetBar : TemplatedControl
         var width = Bounds.Width;
         var scale = Math.Max(Limit, Spent + Ask);
         var top = IsInset ? 0 : MarkOverhang;
-        var track = new RoundedRect(new Rect(0, top, width, BarHeight), BarHeight / 2);
+        var track = new RoundedRect(new Rect(0, top, width, Thickness), Thickness / 2);
         context.DrawRectangle(TrackBrush ?? Brush(IsInset ? "Vnf.BgInset" : "Vnf.SegPending"), null, track);
         if (scale <= 0)
         {
@@ -105,14 +121,14 @@ public sealed class BudgetBar : TemplatedControl
         {
             var spent = width * Math.Clamp(Spent / scale, 0, 1);
             var ask = width * Math.Clamp(Ask / scale, 0, 1);
-            context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, top, spent, BarHeight));
-            context.DrawRectangle(AskFill(), null, new Rect(spent, top, ask, BarHeight));
+            context.DrawRectangle(SpentBrush ?? Brush("Vnf.SegAi"), null, new Rect(0, top, spent, Thickness));
+            context.DrawRectangle(AskFill(), null, new Rect(spent, top, ask, Thickness));
         }
 
         if (Limit > 0 && ShowLimit && (!IsInset || IsOver))
         {
             var x = Math.Round(width * Limit / scale);
-            context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, top - MarkOverhang), new Point(x, top + BarHeight + MarkOverhang));
+            context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, top - MarkOverhang), new Point(x, top + Thickness + MarkOverhang));
         }
     }
 
