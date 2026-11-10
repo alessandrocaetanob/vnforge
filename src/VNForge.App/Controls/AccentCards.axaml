@@ -36,7 +36,7 @@
                      IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
           <DockPanel>
             <Border DockPanel.Dock="Bottom" Padding="0,8,0,0">
-              <c:GameTextbox HorizontalAlignment="Stretch" Flat="True" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
+              <c:GameTextbox HorizontalAlignment="Stretch" MinHeight="90" Flat="True" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
             </Border>
             <StackPanel Spacing="8">
               <StackPanel Orientation="Horizontal" Spacing="8">

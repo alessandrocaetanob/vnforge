@@ -37,7 +37,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             _ => new NoopClient());
 
     private static Button Botao(Window window, string texto) =>
-        window.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == texto);
+        window.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == texto || Avalonia.Automation.AutomationProperties.GetName(b) == texto);
 
     private sealed class NoopClient : IClaudeMessageClient
     {

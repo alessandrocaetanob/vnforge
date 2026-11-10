@@ -145,7 +145,7 @@
       <Setter Property="Opacity" Value="0.55"/>
     </Style>
     <!-- Linha de regra do quadro (".x-rule"): 20 de lado, 11 em cima e embaixo, nome em 14/500 e exemplo em 12/16 a 4px do nome. -->
-    <Style Selector="c|ToggleRule /template/ Border#PART_Root">
+    <Style Selector="c|ToggleRule">
       <Setter Property="Padding" Value="20,11"/>
     </Style>
     <Style Selector="c|ToggleRule /template/ TextBlock.body">
@@ -153,6 +153,9 @@
     </Style>
     <Style Selector="c|ToggleRule /template/ TextBlock#PART_Description">
       <Setter Property="Margin" Value="0,4,0,0"/>
+    </Style>
+    <Style Selector="c|ToggleRule /template/ ToggleSwitch">
+      <Setter Property="Margin" Value="0,0,-12,0"/>
     </Style>
     <Style Selector="TextBlock.rule-title">
       <Setter Property="FontSize" Value="14"/>
@@ -167,7 +170,13 @@
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
     </Style>
     <!-- Campo numérico do quadro: 32 de altura e sem as setas, como o campo de texto. -->
+    <Style Selector="TextBox.field">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+    </Style>
     <Style Selector="NumericUpDown.field">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
       <Setter Property="ShowButtonSpinner" Value="False"/>
       <Setter Property="MinHeight" Value="32"/>
       <Setter Property="Height" Value="32"/>
@@ -234,7 +243,7 @@
 
         <!-- IA e gasto -->
         <TabItem Header="IA e gasto">
-          <StackPanel Margin="0,16,0,0" Spacing="20">
+          <StackPanel Margin="0,16,0,0" Spacing="16">
 
             <!-- Cartão da chave: estado, Trocar chave e Testar conexão. A chave nunca aparece depois de guardada. -->
             <Border Classes="panel lg" Padding="20,14">
@@ -280,14 +289,14 @@
             </Border>
 
             <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet); o limite para a IA e o app pergunta acima do aviso. -->
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="16">
               <c:OverlineText Classes="overline" Text="Orçamento"/>
               <Border Classes="panel lg" Padding="20,16">
                 <StackPanel Spacing="12">
                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="20">
                     <StackPanel Spacing="4">
                       <TextBlock Classes="body-strong" Text="Cotação do dólar"/>
-                      <TextBox Text="{Binding ExchangeRateText, UpdateSourceTrigger=LostFocus}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
+                      <TextBox Classes="field" Text="{Binding ExchangeRateText, UpdateSourceTrigger=LostFocus}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
@@ -302,7 +311,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="4">
                       <TextBlock Classes="body-strong" Text="Limite de gasto"/>
-                      <TextBox Text="{Binding SpendLimitText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
+                      <TextBox Classes="field" Text="{Binding SpendLimitText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
@@ -314,7 +323,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Spacing="4">
                       <TextBlock Classes="body-strong" Text="Avisar acima de"/>
-                      <TextBox Text="{Binding WarnAboveText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Nunca" AutomationProperties.Name="Avisar acima de, em reais">
+                      <TextBox Classes="field" Text="{Binding WarnAboveText, UpdateSourceTrigger=LostFocus}" PlaceholderText="Nunca" AutomationProperties.Name="Avisar acima de, em reais">
                         <TextBox.InnerLeftContent>
                           <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </TextBox.InnerLeftContent>
@@ -336,7 +345,7 @@
             </StackPanel>
 
             <!-- Qualidade padrão: o preço e o tempo valem para as linhas que faltam no projeto aberto; o modelo exato fica em "Detalhes técnicos". -->
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="16">
               <c:OverlineText Classes="overline" Text="{Binding QualityHeading}"/>
               <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-12,0" AutomationProperties.Name="Qualidade padrão">
                 <ItemsControl.ItemsPanel>
@@ -601,9 +610,9 @@
           <Grid Margin="0,16,0,0" ColumnDefinitions="*,330" ColumnSpacing="20" IsEnabled="{Binding HasProject}">
             <Border Classes="panel lg" ClipToBounds="True" VerticalAlignment="Top">
               <StackPanel>
-                <Grid Height="40" ColumnDefinitions="*,Auto" Margin="20,4,20,0">
-                  <TextBlock Classes="title-sm" VerticalAlignment="Center" Text="Regras"/>
-                  <TextBlock Grid.Column="1" Classes="body-sm secondary" VerticalAlignment="Center" Text="formatting.json"/>
+                <Grid Height="40" ColumnDefinitions="*,Auto" Margin="20,0">
+                  <TextBlock Classes="title-sm" VerticalAlignment="Top" Margin="0,11,0,0" Text="Regras"/>
+                  <TextBlock Grid.Column="1" Classes="body-sm secondary" LineHeight="20" VerticalAlignment="Top" Margin="0,12,0,0" Text="formatting.json"/>
                 </Grid>
                 <Border Classes="divider-top">
                   <StackPanel>
@@ -665,8 +674,8 @@
 
             <Border Grid.Column="1" Classes="panel lg" ClipToBounds="True" VerticalAlignment="Top">
               <StackPanel>
-                <Grid Height="40" Margin="20,4,20,0">
-                  <TextBlock Classes="title-sm" VerticalAlignment="Center" Text="Caixa e prévia"/>
+                <Grid Height="40" Margin="20,0">
+                  <TextBlock Classes="title-sm" VerticalAlignment="Top" Margin="0,11,0,0" Text="Caixa e prévia"/>
                 </Grid>
                 <Border Padding="20,0,20,20">
                   <StackPanel Spacing="12">

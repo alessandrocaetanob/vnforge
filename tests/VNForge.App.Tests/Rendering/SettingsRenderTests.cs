@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using VNForge.AI.Settings;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core.Formatting;
 using VNForge.Core.Projects;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
@@ -60,6 +61,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                         if (tab >= 2)
                         {
                             vm.Settings.EncodingStrategy = "cp1252";
+                            vm.Settings.SelectedEllipsis = vm.Settings.EllipsisStyles.Single(s => s.Value == EllipsisStyle.Character);
                         }
 
                         ScreenRenderer.Settle(window);
