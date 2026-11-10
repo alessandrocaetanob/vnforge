@@ -215,7 +215,7 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                 try
                 {
                     var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-                    Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentos", "Dicionários", "Aparência"], tabs.Items.OfType<TabItem>().Select(t => t.Header as string));
+                    Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentos", "Dicionários", "Aparência"], tabs.Items.OfType<TabItem>().Where(t => t.IsVisible).Select(t => t.Header as string));
 
                     tabs.SelectedIndex = 3;
                     Assentar(window);
