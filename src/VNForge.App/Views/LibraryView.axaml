@@ -301,14 +301,29 @@
                 <TextBlock Name="Synopsis" Margin="0,6,0,0" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding Synopsis}"/>
               </StackPanel>
 
-              <StackPanel IsVisible="{Binding HasTags}">
+              <StackPanel>
                 <c:OverlineText Classes="overline" Text="Tags" Margin="0,0,0,6"/>
                 <ItemsControl Name="TagsPanel" ItemsSource="{Binding Chips}">
                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:LibraryDrawerChip">
                       <Panel Margin="0,0,6,6">
-                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsPlain}"><TextBlock Text="{Binding Text}"/></Border>
+                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsTag}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding Text}"/>
+                            <Button Classes="lib-tagx" IsVisible="{Binding Mine}" AutomationProperties.Name="{Binding Text, StringFormat='Tirar a tag {0} do jogo'}"
+                                    Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).RemoveTagCommand}" CommandParameter="{Binding}">
+                              <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
+                            </Button>
+                          </StackPanel>
+                        </Border>
+                        <Button Name="AddTagChip" Classes="lib-addtag" IsVisible="{Binding IsAdd}" AutomationProperties.Name="Pôr uma tag sua neste jogo"
+                                Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).TogglePickerCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Add}"/>
+                            <TextBlock Text="{Binding Text}"/>
+                          </StackPanel>
+                        </Button>
                         <Panel IsVisible="{Binding IsHidden}" Height="24">
                           <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" Fill="Transparent"/>
                           <StackPanel Orientation="Horizontal" Spacing="4" Margin="10,0" VerticalAlignment="Center">
@@ -320,6 +335,39 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <!-- O escolhedor do "+ tag": as suas tags com a caixa marcada nas que o jogo tem, e o campo que cria uma tag nova já posta no jogo. -->
+                <Popup Name="GameTagsPopup" IsOpen="{Binding IsPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsPanel}" Placement="BottomEdgeAlignedLeft" VerticalOffset="4"
+                       IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsPanel}">
+                  <Border Classes="lib-pop">
+                    <StackPanel Spacing="12">
+                      <c:OverlineText Classes="overline" Text="Suas tags"/>
+                      <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" IsVisible="{Binding HasNoOwnTags}" Text="Você ainda não tem tags. Crie a primeira aqui embaixo."/>
+                      <ItemsControl Name="GameTagOptions" ItemsSource="{Binding PickerOptions}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LibraryTagOptionViewModel">
+                            <Button Classes="lib-opt" AutomationProperties.Name="{Binding Text}" Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).ToggleTagCommand}" CommandParameter="{Binding}">
+                              <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="lib-ck" Classes.on="{Binding IsChecked}" VerticalAlignment="Center">
+                                  <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.OnAccent}" IsVisible="{Binding IsChecked}" Data="{StaticResource Icon.Checkmark}"/>
+                                </Border>
+                                <Border Grid.Column="1" Classes="lib-tag mine"><TextBlock Text="{Binding Text}"/></Border>
+                                <TextBlock Grid.Column="2" Classes="lib-dim" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding CountText}"/>
+                              </Grid>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+                          <TextBox Name="GameNewTag" Classes="bare" Text="{Binding NewTagName}" MaxLength="40" PlaceholderText="Nova tag" AutomationProperties.Name="Nova tag">
+                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateTagCommand}"/></TextBox.KeyBindings>
+                          </TextBox>
+                        </Border>
+                        <Button Grid.Column="1" Name="GameCreateTag" Classes="accent sm" Content="Criar" Command="{Binding CreateTagCommand}"/>
+                      </Grid>
+                    </StackPanel>
+                  </Border>
+                </Popup>
               </StackPanel>
 
               <StackPanel Spacing="16" IsVisible="{Binding HasTranslation}">

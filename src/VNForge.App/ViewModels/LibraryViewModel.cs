@@ -302,6 +302,32 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
+    /// <summary>Põe a tag no jogo (criando-a se for nova) ou a tira, grava e redesenha a grade, a gaveta e as contagens. Falso quando a edição não valeu (o aviso já foi dado).</summary>
+    internal bool SetGameTag(string gameId, string name, bool on)
+    {
+        var done = EditTags(t =>
+        {
+            if (on)
+            {
+                t.Add(gameId, name);
+            }
+            else if (t.TryGet(name, out _))
+            {
+                t.Remove(gameId, name);
+            }
+
+            return t;
+        });
+        if (done is null)
+        {
+            return false;
+        }
+
+        Tags.Refresh();
+        Refilter();
+        return true;
+    }
+
     [RelayCommand]
     private void ToggleFilter(LibraryFilterChipViewModel? chip) => SelectFilter(chip?.Filter ?? LibraryFilter.All);
 

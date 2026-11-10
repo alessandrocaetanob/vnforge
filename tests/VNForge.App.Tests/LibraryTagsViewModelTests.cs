@@ -178,4 +178,43 @@ public sealed class LibraryTagsViewModelTests : IDisposable
         Assert.Equal(["favorito"], vm.Tags.Active.Select(t => t.Text));
         Assert.Equal(2, vm.Cards.Count);
     }
+
+    [Fact]
+    public async Task Por_tag_no_jogo_pelo_chip_mais_tag_escolhendo_ou_criando()
+    {
+        var vm = await Open(Favorites);
+        vm.Select(vm.Cards.Single(c => c.Id == Id(0)));
+        var drawer = vm.Drawer!;
+        Assert.Contains(drawer.Chips, c => c.IsAdd);
+
+        drawer.TogglePickerCommand.Execute(null);
+        var rejogar = drawer.PickerOptions.Single(o => o.Text == "rejogar");
+        Assert.False(rejogar.IsChecked);
+        drawer.ToggleTagCommand.Execute(rejogar);
+
+        Assert.Equal(["favorito", "rejogar"], TagsFile.Load().TagsOf(Id(0)));
+        Assert.True(vm.Drawer!.IsPickerOpen);
+        Assert.Equal(["favorito", "rejogar"], vm.Drawer.Chips.Where(c => c.Mine).Select(c => c.Text));
+        Assert.True(vm.Drawer.PickerOptions.Single(o => o.Text == "rejogar").IsChecked);
+
+        vm.Drawer.NewTagName = "  Pra  Rever ";
+        vm.Drawer.CreateTagCommand.Execute(null);
+
+        Assert.Equal(["favorito", "pra rever", "rejogar"], TagsFile.Load().TagsOf(Id(0)));
+        Assert.Contains(vm.Tags.OwnOptions, o => o is { Text: "pra rever", Count: 1 });
+    }
+
+    [Fact]
+    public async Task Tirar_tag_do_jogo_pelo_x_do_chip_so_tira_dele()
+    {
+        var vm = await Open(Favorites);
+        vm.Select(vm.Cards.Single(c => c.Id == Id(0)));
+
+        vm.Drawer!.RemoveTagCommand.Execute(vm.Drawer.Chips.Single(c => c.Mine));
+
+        Assert.Empty(TagsFile.Load().TagsOf(Id(0)));
+        Assert.Equal(["favorito", "rejogar"], TagsFile.Load().TagsOf(Id(1)));
+        Assert.DoesNotContain(vm.Drawer!.Chips, c => c.Mine);
+        Assert.Contains(vm.Tags.OwnOptions, o => o is { Text: "favorito", Count: 1 });
+    }
 }

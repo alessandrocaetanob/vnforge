@@ -134,7 +134,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
-  <Style Selector="Border.lib-tag > TextBlock">
+  <Style Selector="Border.lib-tag TextBlock">
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="LineHeight" Value="16"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
@@ -144,8 +144,32 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="Border.lib-tag.mine > TextBlock">
+  <Style Selector="Border.lib-tag.mine TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+
+  <!-- O x de tirar a tag sua do jogo, dentro do chip: botão sem aparência. -->
+  <Style Selector="Button.lib-tagx">
+    <Setter Property="Padding" Value="2"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- O chip "+ tag" da gaveta: igual a ".v3-tag", com borda tracejada para dizer que é ação. -->
+  <Style Selector="Button.lib-addtag">
+    <Setter Property="Height" Value="{DynamicResource Vnf.TagHeight}"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
 
   <!-- O botão "Tags" e os termos do filtro: pílulas de 32 como os chips; o termo ligado é accent com o X de tirar. -->
