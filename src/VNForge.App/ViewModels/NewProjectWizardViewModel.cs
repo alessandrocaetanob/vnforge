@@ -553,7 +553,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static readonly string[] StepTitles = ["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"];
+        ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"];
 
     private void RefreshSteps()
     {
@@ -561,7 +561,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         [
             HasDetection ? EngineName : null,
             confirmedLink is { } linked ? linked.Title : "Sem VNDB",
-            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
+            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Id.ToUpperInvariant()}",
             EncodingStrategies.Selected.Title,
             SelectedQualityTitle,
         ];

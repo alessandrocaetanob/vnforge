@@ -15,7 +15,9 @@
           <StackPanel Spacing="6">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Border Name="PART_Mark" Classes="radio-mark"/>
-              <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <!-- Sem a classe title-sm: o estilo dela ganha do LineHeight local do template e mandaria 22; o quadro tem 15/20. -->
+              <TextBlock Grid.Column="1" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="15" LineHeight="20" FontWeight="Bold" Foreground="{DynamicResource Vnf.TextPrimary}"
+                         Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
             <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro da #547 tem 12 com entrelinha de 20. -->
             <TextBlock FontSize="12" LineHeight="20" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Description}"

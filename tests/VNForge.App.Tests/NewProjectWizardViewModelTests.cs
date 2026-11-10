@@ -164,7 +164,7 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         await vm.SetGameFolderAsync(game);
         Assert.Equal(WizardStep.Game, vm.Step);
         Assert.False(vm.BackCommand.CanExecute(null));
-        Assert.Equal("Passo 1 de 5 · Pasta do jogo", vm.StepLabel);
+        Assert.Equal("Passo 1 de 5 · Jogo", vm.StepLabel);
 
         vm.SetProjectDirectory(ProjectPath());
         await vm.NextCommand.ExecuteAsync(null);

@@ -18,11 +18,11 @@
         <RadioButton Classes="option marked" GroupName="{Binding GroupName, RelativeSource={RelativeSource AncestorType=c:AccentCards}}" Margin="0,0,12,0" VerticalAlignment="Stretch"
                      IsEnabled="{Binding IsAvailable}" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
           <DockPanel>
-            <c:GameTextbox DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,16,0,0" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
+            <c:GameTextbox DockPanel.Dock="Bottom" Flat="True" HorizontalAlignment="Stretch" Margin="0,16,0,0" Layout="{Binding Layout}" AutomationProperties.Name="Frase de teste"/>
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <Border Classes="radio-mark"/>
-                <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" TextWrapping="Wrap" Text="{Binding Title}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Title}" VerticalAlignment="Center"/>
               </Grid>
               <Border HorizontalAlignment="Left" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                       Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding ShowBadge}">
