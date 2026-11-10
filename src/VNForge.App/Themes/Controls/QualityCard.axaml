@@ -15,9 +15,7 @@
           <StackPanel Spacing="6">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Border Name="PART_Mark" Classes="radio-mark"/>
-              <!-- Sem a classe title-sm: o estilo dela ganha do LineHeight local do template e mandaria 22; o quadro tem 15/20. -->
-              <TextBlock Grid.Column="1" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="15" LineHeight="20" FontWeight="Bold" Foreground="{DynamicResource Vnf.TextPrimary}"
-                         Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <TextBlock Name="PART_Title" Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
             <TextBlock Name="PART_Description" Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
@@ -33,10 +31,13 @@
       </ControlTemplate>
     </Setter>
   </Style>
-  <!-- Variante "inline" (Ajustes, v6): o preço e o tempo na mesma linha, de 4 em 4px, e a descrição em 12/20. -->
+  <!-- Variante "inline" (Ajustes e Novo projeto, v6): o preço e o tempo na mesma linha, de 4 em 4px, o título em 15/20 e a descrição em 12/20. O estilo da classe title-sm ganha do LineHeight do template (mandaria 22), por isso a medida vem daqui. -->
   <Style Selector="c|QualityCard.inline /template/ StackPanel#PART_PriceRow">
     <Setter Property="Orientation" Value="Horizontal"/>
     <Setter Property="Spacing" Value="4"/>
+  </Style>
+  <Style Selector="c|QualityCard.inline /template/ TextBlock#PART_Title">
+    <Setter Property="LineHeight" Value="20"/>
   </Style>
   <Style Selector="c|QualityCard.inline /template/ TextBlock#PART_Description">
     <Setter Property="LineHeight" Value="20"/>

@@ -85,10 +85,14 @@ public sealed class GameTextbox : Control
     public static readonly StyledProperty<bool> FlatProperty =
         AvaloniaProperty.Register<GameTextbox, bool>(nameof(Flat));
 
+    /// <summary>No visual liso (<see cref="Flat"/>), mantém as linhas vagas do perfil, só que sem as guias pontilhadas: o bloco dos cartões de acentos tem sempre as três linhas do quadro da #547.</summary>
+    public static readonly StyledProperty<bool> ShowVacantProperty =
+        AvaloniaProperty.Register<GameTextbox, bool>(nameof(ShowVacant));
+
     static GameTextbox()
     {
-        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty, FlatProperty);
-        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty, FlatProperty);
+        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty, FlatProperty, ShowVacantProperty);
+        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty, FlatProperty, ShowVacantProperty);
     }
 
     private double fitScale = 1;
@@ -133,6 +137,14 @@ public sealed class GameTextbox : Control
         set => SetValue(FlatProperty, value);
     }
 
+    public bool ShowVacant
+    {
+        get => GetValue(ShowVacantProperty);
+        set => SetValue(ShowVacantProperty, value);
+    }
+
+    private bool IncludeVacant => !Flat || ShowVacant;
+
     /// <summary>A escala do desenho na última medida: 1 quando a caixa cabe na largura recebida (ou <see cref="FitToWidth"/> está desligado) e menos que 1 quando foi encolhida.</summary>
     public double FitScale => fitScale;
 
@@ -143,7 +155,7 @@ public sealed class GameTextbox : Control
             : availableWidth / contentWidth;
 
     /// <summary>A grade de linhas que o controle desenha para o <see cref="Layout"/> atual; vazia sem ele.</summary>
-    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout, !Flat) : [];
+    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout, IncludeVacant) : [];
 
     /// <summary>
     /// Monta a grade: cada página tem as linhas do perfil (ou as que a tradução usa, se forem mais). A linha com texto dentro do limite é <c>Text</c>,
@@ -203,7 +215,7 @@ public sealed class GameTextbox : Control
         var rowHeight = Math.Max(m.RowHeight, textHeight);
         var y = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop;
         var bounds = new List<GameTextboxRowBounds>();
-        foreach (var row in Describe(layout, !Flat))
+        foreach (var row in Describe(layout, IncludeVacant))
         {
             var gap = row.FirstOverflow ? m.OverflowGap : 0;
             var height = row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
@@ -225,7 +237,7 @@ public sealed class GameTextbox : Control
         var m = Metrics.For(Size, Flat);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
-        var height = HeightOf(layout, m, rowHeight, !Flat);
+        var height = HeightOf(layout, m, rowHeight, IncludeVacant);
         var width = ContentWidth(layout, m, columnWidth);
         fitScale = FitToWidth ? ScaleToFit(width, availableSize.Width) : 1;
         // O bloco liso estica até a largura recebida; o desenho (em coordenadas sem escala) cobre essa largura dividida pela escala.
@@ -267,15 +279,10 @@ public sealed class GameTextbox : Control
             Flat);
 
         var top = layout.Speaker is null ? 0 : m.PlateOverhang;
-        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight, !Flat) - top);
+        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight, IncludeVacant) - top);
         if (Flat)
         {
             context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), null, new RoundedRect(frame, 8));
-        }
-        else if (Size == GameTextboxSize.Review)
-        {
-            // Quadro do #546 (".sbox"): uma borda só, no stage-stroke, com o raio lg e sem o aro interno das outras caixas.
-            context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Brush("Vnf.StageStroke", Tint(ink, 0.16)), 1), new RoundedRect(frame.Deflate(0.5), 16));
         }
         else
         {
@@ -284,7 +291,7 @@ public sealed class GameTextbox : Control
         }
 
         var y = top + m.PadTop;
-        foreach (var row in Describe(layout, !Flat))
+        foreach (var row in Describe(layout, IncludeVacant))
         {
             y = DrawRow(context, layout, row, y, paint);
         }
@@ -292,7 +299,7 @@ public sealed class GameTextbox : Control
         DrawNext(context, ink, paint.Width, y + m.NextTop, m);
         if (layout.Speaker is { } speaker)
         {
-            DrawPlate(context, speaker, paint.Typeface, Size == GameTextboxSize.Review ? Brushes.White : layout.SpeakerColor?.DarkBrush ?? ink, m);
+            DrawPlate(context, speaker, paint.Typeface, layout.SpeakerColor?.DarkBrush ?? ink, m);
         }
     }
 
@@ -320,9 +327,7 @@ public sealed class GameTextbox : Control
             DrawLine(context, layout.Boxes[row.Page].Lines[n], p.Typeface, isOverflow ? p.Overflow : p.Ink, p.ColumnWidth, new Point(m.PadX, y + ((p.RowHeight - p.TextHeight) / 2)), m);
         }
 
-        // No palco do modo revisão só a vaga sem texto leva a régua pontilhada: as linhas escritas ficam limpas, como no quadro do #546.
-        var ruled = Size == GameTextboxSize.Review ? row.Line is null : !p.Flat || isOverflow;
-        if (ruled)
+        if (!p.Flat || isOverflow)
         {
             var rule = y + p.RowHeight - 0.5;
             var ruleEnd = m.FrameColumn > 0 ? p.Width - m.PadX : m.PadX + (layout.Columns * p.ColumnWidth);
@@ -402,8 +407,7 @@ public sealed class GameTextbox : Control
 
     private void DrawPlate(DrawingContext context, string speaker, Typeface typeface, IBrush ink, Metrics m)
     {
-        // Só no palco do modo revisão a placa é de texto branco em JetBrains Mono Medium (".nt" e ".pl" do quadro do #546); nas outras caixas segue a cor do personagem.
-        var text = Format(speaker, Size == GameTextboxSize.Review ? new Typeface(typeface.FontFamily, FontStyle.Normal, FontWeight.Medium) : typeface, ink, m.PlateFont);
+        var text = Format(speaker, typeface, ink, m.PlateFont);
         var plate = new Rect(m.PlateLeft, 0, text.Width + (m.PlatePadX * 2), m.PlateHeight);
         if (!Flat)
         {
@@ -491,7 +495,7 @@ public sealed class GameTextbox : Control
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
             GameTextboxSize.Stage => new(34, 40, 38, 40, 24, 34, 17, 36, 18, 17, 28, 14),
-            GameTextboxSize.Review => new(27, 26, 19, 36, 17.6, 28, 14, 24, 16, 14, 22, -5, 0, 5, 14.35),
+            GameTextboxSize.Review => new(27, 26, 19, 36, 17.6, 28, 14, 25, 15, 14, 22, -5, 0, 5, 14.35),
             _ => new(24, 26, 28, 26, 14, 24, 12, 22, 12, 12, 20, 5),
         };
     }
