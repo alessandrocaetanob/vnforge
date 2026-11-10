@@ -106,7 +106,7 @@ public sealed class BudgetBar : TemplatedControl
             var spent = width * Math.Clamp(Spent / scale, 0, 1);
             var ask = width * Math.Clamp(Ask / scale, 0, 1);
             context.DrawRectangle(Brush("Vnf.SegAi"), null, new Rect(0, top, spent, BarHeight));
-            context.DrawRectangle(IsOver ? Brush("Vnf.SignalWarningFg") : AskBrush ?? Brush(IsInset ? "Vnf.SegTranslated" : "Vnf.Accent"), null, new Rect(spent, top, ask, BarHeight));
+            context.DrawRectangle(AskFill(), null, new Rect(spent, top, ask, BarHeight));
         }
 
         if (Limit > 0 && ShowLimit && (!IsInset || IsOver))
@@ -114,6 +114,17 @@ public sealed class BudgetBar : TemplatedControl
             var x = Math.Round(width * Limit / scale);
             context.DrawLine(new Pen(Brush("Vnf.TextPrimary"), 2), new Point(x, top - MarkOverhang), new Point(x, top + BarHeight + MarkOverhang));
         }
+    }
+
+    /// <summary>O pedido em aviso quando passa do limite; senão <see cref="AskBrush"/> e, sem ele, <c>seg-translated</c> na barra embutida ou <c>accent</c>.</summary>
+    private IBrush AskFill()
+    {
+        if (IsOver)
+        {
+            return Brush("Vnf.SignalWarningFg");
+        }
+
+        return AskBrush ?? Brush(IsInset ? "Vnf.SegTranslated" : "Vnf.Accent");
     }
 
     private void UpdateState() => PseudoClasses.Set(":over", IsOver);
