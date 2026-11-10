@@ -72,6 +72,9 @@
     </Setter>
   </Style>
   <!-- O ToggleSwitch do Fluent reserva 12 px depois do botão e uma folga acima e abaixo mesmo sem texto; o quadro põe o rótulo a 8 px do botão. -->
+  <Style Selector="ToggleSwitch.lib-switch /template/ Border#OuterBorder, ToggleSwitch.lib-switch /template/ Border#SwitchKnobBounds">
+    <Setter Property="Width" Value="36"/>
+  </Style>
   <Style Selector="ToggleSwitch.lib-switch">
     <Setter Property="MinWidth" Value="0"/>
     <Setter Property="Margin" Value="0,-6,-12,-6"/>
@@ -291,7 +294,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Pill" Padding="16,5" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+        <Border Name="PART_Pill" Padding="15,4" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
           <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Foreground="{TemplateBinding Foreground}"/>
         </Border>
       </ControlTemplate>

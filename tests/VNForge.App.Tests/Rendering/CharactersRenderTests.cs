@@ -84,7 +84,19 @@ public sealed class CharactersRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.Contains("Moon Flower", texts);
             Assert.Contains("Star Garden", texts);
             Assert.Equal("Personagens › Hana Tsukino", vm.Breadcrumb);
+            Assert.Contains("Aparência", texts);
+            Assert.Contains("Personalidade", texts);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-pagina", theme)));
+
+            vm.Characters.ShowSpoilers = false;
+            ScreenRenderer.Settle(window);
+            texts = Texts(Page(window));
+
+            Assert.Contains("Spoiler", texts);
+            Assert.Contains("Nível 2", texts);
+            Assert.Contains("1 traço com spoiler", texts);
+            Assert.DoesNotContain("Escondidos", texts);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-pagina-spoiler", theme)));
             return Task.CompletedTask;
         });
     }

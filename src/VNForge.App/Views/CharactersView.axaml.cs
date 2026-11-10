@@ -5,7 +5,7 @@ namespace VNForge.App.Views;
 
 public sealed partial class CharactersView : UserControl
 {
-    /// <summary>O lado do retrato da grade: cinco colunas, como no quadro, com 20 px entre elas.</summary>
+    /// <summary>O lado do retrato da grade: cinco colunas que dividem a largura sem sobra, como no quadro, com 20 px entre elas (o WrapPanel da tela usa o mesmo ItemSpacing).</summary>
     public static readonly StyledProperty<double> CardSideProperty = AvaloniaProperty.Register<CharactersView, double>(nameof(CardSide), 160);
 
     private const int Columns = 5;
@@ -14,7 +14,7 @@ public sealed partial class CharactersView : UserControl
     public CharactersView()
     {
         InitializeComponent();
-        CardsScroll.SizeChanged += (_, e) => CardSide = Math.Max(96, Math.Floor((e.NewSize.Width - 4) / Columns - Gap));
+        CardsScroll.SizeChanged += (_, e) => CardSide = Math.Max(96, (e.NewSize.Width - Gap * (Columns - 1) - 0.5) / Columns);
     }
 
     public double CardSide

@@ -406,13 +406,14 @@ public sealed partial class CharactersViewModel : ObservableObject
 
         if (outside > 0)
         {
-            notes.Add($"Este personagem também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Ele não entra" : "Eles não entram")} na lista.");
+            notes.Add($"{card.Name} também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Esse jogo fica fora da lista" : "Esses jogos ficam fora da lista")}.");
         }
 
         var description = card.Description;
         var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
         var known = extras is { } read && string.Equals(read.Id, id, StringComparison.OrdinalIgnoreCase) ? read : null;
         var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a, known?.Counts.GetValueOrDefault(a.GameId))).ToList();
+        var hiddenTraits = raw.Traits.Where(t => SheetViewer.IsTraitHidden(t, privacy)).ToList();
         return new CharacterPage(
             card.Id,
             card.Name,
@@ -421,8 +422,8 @@ public sealed partial class CharactersViewModel : ObservableObject
             card.Image,
             new SheetPill($"Descrição {SheetLabels.Status(status)}", SheetPill.ToneOf(status)),
             description?.Text ?? "Este personagem não tem descrição no VNDB.",
-            Tags(card),
-            Groups(card),
+            Tags(card, hiddenTraits),
+            Groups(card, hiddenTraits),
             games,
             $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
             notes.Count > 0 ? string.Join(' ', notes) : null,
@@ -496,7 +497,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}");
     }
 
-    private static List<SheetChip> Tags(LibraryCharacterCard card)
+    private static List<SheetChip> Tags(LibraryCharacterCard card, IReadOnlyList<VndbTrait> hidden)
     {
         var chips = new List<SheetChip>();
         if (card.Gender != SheetLabels.Gender(null))
@@ -517,18 +518,37 @@ public sealed partial class CharactersViewModel : ObservableObject
         chips.AddRange(card.Traits.Take(FirstTraits).Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0)));
         if (card.HiddenTraits > 0)
         {
-            chips.Add(new SheetChip(GameSheetViewModel.Count(card.HiddenTraits, "traço escondido", "traços escondidos"), IsHidden: true));
+            var reason = hidden.All(t => t.Spoiler > 0) ? ("traço com spoiler", "traços com spoiler") : ("traço escondido", "traços escondidos");
+            chips.Add(new SheetChip(GameSheetViewModel.Count(card.HiddenTraits, reason.Item1, reason.Item2), IsHidden: true));
         }
 
         return chips;
     }
 
-    private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card)
+    /// <summary>Os grupos do VNDB em português, na ordem do quadro; Cabelo, Olhos, Corpo e Roupas viram um só, Aparência.</summary>
+    private static readonly string[] GroupOrder = ["Aparência", "Personalidade", "Ocupação", "Objetos", "Atividades", "Situações", "Conteúdo adulto"];
+
+    private static string GroupName(string vndbGroup) => vndbGroup switch
     {
-        var groups = card.Traits.GroupBy(t => t.Group).Select(g => new CharacterTraitGroup(g.Key, [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))])).ToList();
-        if (card.HiddenTraits > 0)
+        "Hair" or "Eyes" or "Body" or "Clothes" => "Aparência",
+        "Personality" => "Personalidade",
+        "Role" => "Ocupação",
+        "Items" => "Objetos",
+        "Engages in" => "Atividades",
+        "Subject of" => "Situações",
+        "Sexual Content" or "Sexual content" => "Conteúdo adulto",
+        _ => vndbGroup,
+    };
+
+    private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, IReadOnlyList<VndbTrait> hidden)
+    {
+        var groups = card.Traits.GroupBy(t => GroupName(t.Group))
+            .OrderBy(g => Array.IndexOf(GroupOrder, g.Key) is var rank and >= 0 ? rank : GroupOrder.Length)
+            .Select(g => new CharacterTraitGroup(g.Key, [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))]))
+            .ToList();
+        if (hidden.Count > 0)
         {
-            groups.Add(new CharacterTraitGroup("Escondidos", [new SheetChip(GameSheetViewModel.Count(card.HiddenTraits, "traço com spoiler ou conteúdo adulto", "traços com spoiler ou conteúdo adulto"), IsHidden: true)]));
+            groups.Add(new CharacterTraitGroup("Spoiler", [.. hidden.Select(t => new SheetChip(t.Spoiler > 0 ? $"Nível {t.Spoiler.ToString(CultureInfo.InvariantCulture)}" : "Adulto", IsHidden: true))]));
         }
 
         return groups;
