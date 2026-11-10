@@ -368,24 +368,24 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         Subtitle = SubtitleText();
-        RedrawContinue();
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(Privacy));
         Refilter();
     }
 
-    private void RedrawContinue()
+    // Sai da lista que a grade mostra (filtro, busca e privacidade), para um jogo que a grade não mostra não aparecer no topo.
+    private void RedrawContinue(IEnumerable<LibraryGame> shown)
     {
         var now = clock.GetUtcNow();
         Continue.Clear();
-        foreach (var game in played.ByLastPlayed(games))
+        foreach (var game in played.ByLastPlayed([.. shown]))
         {
             if (Continue.Count == ContinueMax || played.StatsOf(game.Id) is not { LastPlayedAt: { } last } stats || now - last > ContinueWindow)
             {
                 break;
             }
 
-            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)));
+            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))) { IsPlaying = game.Id == PlayingId };
             Continue.Add(new LibraryContinueViewModel(card, $"{PlayTime.LastPlayed(last, now)} · {PlayTime.Format(stats.Total)}"));
         }
 
@@ -402,6 +402,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))) { IsPlaying = game.Id == PlayingId });
         }
 
+        RedrawContinue(shown);
         HasNoResults = games.Count > 0 && Cards.Count == 0;
         OnPropertyChanged(nameof(HasFilter));
         Select(Cards.FirstOrDefault(c => c.Id == selectedId));
@@ -507,8 +508,9 @@ public sealed partial class LibraryViewModel : ObservableObject
             SetPlaying(id);
             await Task.Run(() => player.PlayAsync(id, launch, CancellationToken.None), CancellationToken.None);
         }
-        catch (LibraryException e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
+            // Um jogo apagado entre o clique e o plano, ou um lançador que falha com outra exceção, aparece como as demais falhas.
             ErrorMessage = e.Message;
             return;
         }
@@ -528,7 +530,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private void SetPlaying(string? id)
     {
         PlayingId = id;
-        foreach (var card in Cards)
+        foreach (var card in Cards.Concat(Continue.Select(c => c.Card)))
         {
             card.IsPlaying = id is not null && card.Id == id;
         }
@@ -543,7 +545,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         await Task.WhenAny(previous);
         if (editor is not null)
         {
-            await RunEditAsync(() => editor.SetJapaneseLocale(id, value), id);
+            if (!await RunEditAsync(() => editor.SetJapaneseLocale(id, value), id))
+            {
+                // Não gravou: a gaveta nova volta o interruptor ao valor que está no library.json.
+                Select(Cards.FirstOrDefault(c => c.Id == id));
+            }
         }
     }
 
@@ -593,7 +599,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private async Task RunEditAsync<T>(Func<T> edit, string? keep)
+    private async Task<bool> RunEditAsync<T>(Func<T> edit, string? keep)
     {
         try
         {
@@ -602,7 +608,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         catch (LibraryException e)
         {
             ErrorMessage = e.Message;
-            return;
+            return false;
         }
 
         await LoadCoreAsync();
@@ -610,6 +616,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             Select(Cards.FirstOrDefault(c => c.Id == keep));
         }
+
+        return true;
     }
 
     internal async Task<LibraryGame?> ConfirmMatchAsync(string gameId, string vndbId)

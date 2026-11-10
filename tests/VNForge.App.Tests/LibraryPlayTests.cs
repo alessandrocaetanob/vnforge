@@ -97,6 +97,67 @@ public sealed class LibraryPlayTests : IDisposable
     }
 
     [Fact]
+    public async Task Falha_do_lancador_ou_jogo_apagado_aparece_no_aviso_e_nao_derruba_o_comando()
+    {
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa");
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var launcher = new FakeGameLauncher(_clock) { FailWith = new IOException("O disco sumiu.") };
+        var library = Create(launcher);
+        await library.LoadAsync();
+
+        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
+        Assert.Equal("O disco sumiu.", library.ErrorMessage);
+        Assert.Null(library.PlayingId);
+
+        new LibraryFile(Config).Update(l => l.Remove(game.Id));
+        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
+        Assert.NotEqual("O disco sumiu.", library.ErrorMessage);
+        Assert.NotEmpty(library.ErrorMessage!);
+    }
+
+    [Fact]
+    public async Task Continuar_jogando_segue_a_busca_da_grade_e_mostra_o_jogo_aberto_como_Jogando()
+    {
+        var clannad = AddGame("clannad", "CLANNAD");
+        var amaoto = AddGame("amaoto", "Amaoto no Hakoniwa");
+        LibrarySamples.Save(Config, new GameLibrary([clannad, amaoto]));
+        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
+        var library = Create(launcher);
+        await library.LoadAsync();
+        foreach (var card in library.Cards.ToList())
+        {
+            await library.PlayCommand.ExecuteAsync(card);
+        }
+
+        Assert.Equal(2, library.Continue.Count);
+        library.SearchText = "CLANNAD";
+        Assert.Equal(["CLANNAD"], library.Continue.Select(c => c.Title));
+
+        var open = new List<bool>();
+        launcher.OnPoll = () => open.Add(library.Continue.Single().Card.IsPlaying);
+        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
+        Assert.Equal([true], open);
+        Assert.False(library.Continue.Single().Card.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Se_gravar_a_localidade_japonesa_falha_o_interruptor_volta_ao_valor_gravado()
+    {
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa");
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var library = Create(new FakeGameLauncher(_clock));
+        await library.LoadAsync();
+        library.Select(library.Cards.Single());
+        File.WriteAllText(new LibraryFile(Config).Path, "{ não é json");
+
+        library.Drawer!.RequiresJapaneseLocale = true;
+        await library.Remembering;
+
+        Assert.NotNull(library.ErrorMessage);
+        Assert.False(library.Drawer!.RequiresJapaneseLocale);
+    }
+
+    [Fact]
     public void O_ultimo_jogado_e_dito_pela_data_do_PC()
     {
         var now = Start.AddDays(3);
@@ -135,14 +196,18 @@ public sealed class LibraryPlayTests : IDisposable
 
         public GameLaunch? Launched { get; private set; }
 
+        public Exception? FailWith { get; set; }
+
+        public Action? OnPoll { get; set; }
+
         public IGameProcess Start(GameLaunch launch)
         {
             Launched = launch;
-            return new FakeProcess(clock, Script);
+            return FailWith is null ? new FakeProcess(clock, Script, OnPoll) : throw FailWith;
         }
     }
 
-    private sealed class FakeProcess(PlayClock clock, (TimeSpan Advance, GameProcessState State)[] script) : IGameProcess
+    private sealed class FakeProcess(PlayClock clock, (TimeSpan Advance, GameProcessState State)[] script, Action? onPoll) : IGameProcess
     {
         private int _polls;
 
@@ -151,6 +216,7 @@ public sealed class LibraryPlayTests : IDisposable
             var (advance, state) = _polls < script.Length ? script[_polls] : (TimeSpan.Zero, GameProcessState.Exited);
             _polls++;
             clock.Advance(advance);
+            onPoll?.Invoke();
             return state;
         }
 

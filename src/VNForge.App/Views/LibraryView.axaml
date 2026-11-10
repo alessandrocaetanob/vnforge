@@ -121,7 +121,8 @@
                         <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
                         <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Detail}"/>
                       </StackPanel>
-                      <Button Grid.Column="2" Classes="accent icon sm" VerticalAlignment="Center" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).PlayCommand}"
+                      <Button Grid.Column="2" Classes="sm" VerticalAlignment="Center" IsEnabled="False" IsVisible="{Binding Card.IsPlaying}" Content="Jogando" AutomationProperties.Name="Jogando"/>
+                      <Button Grid.Column="2" Classes="accent icon sm" VerticalAlignment="Center" IsVisible="{Binding !Card.IsPlaying}" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).PlayCommand}"
                               CommandParameter="{Binding Card}" AutomationProperties.Name="{Binding AutomationName, StringFormat='Jogar {0}'}">
                         <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
                       </Button>
