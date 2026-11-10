@@ -61,7 +61,15 @@ public sealed class LibraryFile(string directory)
     public T Update<T>(Func<GameLibrary, T> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"A pasta de '{Path}' não pôde ser criada: {e.Message}", e);
+        }
+
         using var gate = Acquire();
         var library = Load();
         var result = change(library);
@@ -87,10 +95,18 @@ public sealed class LibraryFile(string directory)
         FileLock.Acquire(Path + ".lock", LockTimeout, $"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
 
     /// <summary>Grava a biblioteca sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
+    /// <exception cref="LibraryException">O arquivo não pôde ser gravado (disco cheio, sem permissão, preso por outro programa).</exception>
     public void Save(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        AtomicFile.WriteAllText(Path, Serialize(library), _wait);
+        try
+        {
+            AtomicFile.WriteAllText(Path, Serialize(library), _wait);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"O arquivo '{Path}' não pôde ser gravado: {e.Message}", e);
+        }
     }
 
     public static string Serialize(GameLibrary library)

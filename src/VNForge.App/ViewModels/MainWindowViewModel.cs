@@ -111,7 +111,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
-        Library = library ?? new LibraryViewModel(new LibraryFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-biblioteca", Guid.NewGuid().ToString("N"))), new NoFolderPicker());
+        Library = library ?? LibraryViewModel.Detached();
         Library.RecentProjects = () => recentProjects;
         start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
         Library.PropertyChanged += (_, e) =>
@@ -122,7 +122,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         };
         Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
-        Library.ExistingProjectRequested += (_, _) => start.OpenFolderCommand.Execute(null);
+        Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
         start.PropertyChanged += (_, e) =>
         {
             // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.
@@ -1320,7 +1320,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return ReferenceEquals(SelectedNav, item);
     }
 
-    private static void OpenInFileManager(string path)
+    internal static void OpenInFileManager(string path)
     {
         try
         {

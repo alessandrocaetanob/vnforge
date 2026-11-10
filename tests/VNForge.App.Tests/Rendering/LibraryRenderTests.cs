@@ -211,7 +211,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 var previous = VndbImages.Source;
                 VndbImages.Source = new LibrarySamples.Images();
                 var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library());
-                var library = new LibraryViewModel(file, new FakeFolderPicker(null), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, userTags: Tags, sheets: new LibrarySamples.Sheets());
+                var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, userTags: Tags, sheets: new LibrarySamples.Sheets());
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(LibrarySamples.Now));
                 var vm = new MainWindowViewModel(start, library: library);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };

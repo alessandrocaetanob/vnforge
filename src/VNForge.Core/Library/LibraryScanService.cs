@@ -4,7 +4,7 @@ namespace VNForge.Core.Library;
 public sealed record LibraryScanOutcome(LibraryScanResult Scan, LibraryMergeResult Merge, IReadOnlyList<LibraryProjectLink> Linked, LibraryMatchRun? Match);
 
 /// <summary>
-/// A varredura da tela e a da CLI (<c>vnf library scan</c> e <c>vnf library match</c>) pelo mesmo caminho: varre a pasta, junta ao <c>library.json</c> sob a trava do arquivo, liga os
+/// A varredura da tela da Biblioteca (a CLI, em <c>vnf library scan</c> e <c>vnf library match</c>, tem o próprio caminho em <c>LibraryCommand</c>): varre a pasta, junta ao <c>library.json</c> sob a trava do arquivo, liga os
 /// projetos de tradução que já existem e, com <see cref="LibraryRoot.MatchVndb"/>, casa os jogos novos com o VNDB, gravando jogo a jogo para que uma pausa não perca o que já foi feito.
 /// Só lê nomes de arquivo da pasta dos jogos; não escreve nela.
 /// </summary>

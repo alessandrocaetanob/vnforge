@@ -48,7 +48,7 @@ public sealed partial class LibraryFilterChipViewModel(LibraryFilter filter, str
 /// </summary>
 public sealed partial class LibraryViewModel : ObservableObject
 {
-    private readonly LibraryFile file;
+    private readonly LibraryFile? file;
     private readonly IFolderPicker picker;
     private readonly LibraryScanService? scanService;
     private readonly LibraryEditor? editor;
@@ -64,18 +64,21 @@ public sealed partial class LibraryViewModel : ObservableObject
     private UserTags userTags = new();
     private CancellationTokenSource? scanning;
     private long lastReport;
+    private int loadGeneration;
 
+    /// <param name="file">O <c>library.json</c>; nulo é a Biblioteca sem arquivo (só os testes do shell), que fica vazia e não grava nada.</param>
+    /// <param name="post">Leva uma ação à thread da tela: o progresso da varredura chega de outras threads e mexe em coleções ligadas à tela. A interface passa <c>Dispatcher.UIThread.Post</c>.</param>
     public LibraryViewModel(
-        LibraryFile file,
+        LibraryFile? file,
         IFolderPicker picker,
+        Action<Action> post,
         LibraryScanService? scanService = null,
         LibraryEditor? editor = null,
         TimeProvider? clock = null,
         Func<LibraryGame, StatusCounts?>? readTranslation = null,
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
-        Action<string>? openFolder = null,
-        Action<Action>? post = null)
+        Action<string>? openFolder = null)
     {
         this.file = file;
         this.picker = picker;
@@ -86,7 +89,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         readUserTags = userTags ?? (() => new UserTags());
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
-        this.post = post ?? (action => action());
+        this.post = post;
         Filters =
         [
             new LibraryFilterChipViewModel(LibraryFilter.All, "Todos") { IsSelected = true },
@@ -103,10 +106,13 @@ public sealed partial class LibraryViewModel : ObservableObject
             }
             else if (e.PropertyName is nameof(LibraryScanViewModel.RescanOnOpen))
             {
-                RememberRescanOnOpen();
+                Remembering = RememberRescanOnOpenAsync();
             }
         };
     }
+
+    /// <summary>Uma Biblioteca sem arquivo e sem varredura: sempre vazia. Serve ao shell montado sem janela, nos testes.</summary>
+    internal static LibraryViewModel Detached() => new(null, new NoFolderPicker(), action => action());
 
     /// <summary>As pastas dos projetos de tradução conhecidos, para ligar cada projeto ao jogo dele; o shell traz a lista dos recentes.</summary>
     public Func<IReadOnlyList<string>> RecentProjects { get; set; } = () => [];
@@ -179,6 +185,11 @@ public sealed partial class LibraryViewModel : ObservableObject
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
 
+    /// <summary>Uma varredura está rodando: "Adicionar pasta" e "Varrer de novo" esperam, porque duas varreduras se cancelariam e sujariam a mesma página de andamento.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ChooseFolderCommand), nameof(RescanCommand))]
+    public partial bool IsScanBusy { get; private set; }
+
     /// <summary>A busca ou o filtro não deixaram nenhum jogo, e há jogos na biblioteca.</summary>
     [ObservableProperty]
     public partial bool HasNoResults { get; private set; }
@@ -209,6 +220,9 @@ public sealed partial class LibraryViewModel : ObservableObject
     /// <summary>A leitura em curso, para os testes esperarem.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
+    /// <summary>A gravação da escolha "Ler a pasta toda de novo ao abrir o app", para os testes esperarem.</summary>
+    public Task Remembering { get; private set; } = Task.CompletedTask;
+
     /// <summary>A varredura em curso, para os testes esperarem.</summary>
     public Task Scanning { get; private set; } = Task.CompletedTask;
 
@@ -236,6 +250,7 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private async Task LoadCoreAsync()
     {
+        var generation = ++loadGeneration;
         string? error = null;
         GameLibrary loaded;
         Dictionary<string, StatusCounts?> counts = new(StringComparer.Ordinal);
@@ -250,6 +265,12 @@ public sealed partial class LibraryViewModel : ObservableObject
             error = e.Message;
             loaded = new GameLibrary();
             tags = new UserTags();
+        }
+
+        if (generation != loadGeneration)
+        {
+            // Uma leitura mais nova já começou: o resultado desta é mais velho e não pode sobrescrever o dela.
+            return;
         }
 
         library = loaded;
@@ -272,6 +293,11 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags) Read(IReadOnlyList<string> recent)
     {
+        if (file is null)
+        {
+            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), readUserTags());
+        }
+
         var current = file.Load();
         if (recent.Count > 0 && LibraryProjectLinker.LinkAll(current, recent).Count > 0)
         {
@@ -523,7 +549,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     // ---- varredura ----
 
     /// <summary>"Escolher pasta" da biblioteca vazia e "Adicionar pasta" do cabeçalho: pede a pasta e varre. Sem jogos ainda, a varredura ganha a página de primeira varredura.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task ChooseFolderAsync()
     {
         var folder = await picker.PickFolderAsync("Pasta ou drive dos jogos");
@@ -533,15 +559,24 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
+    private bool CanStartScan() => !IsScanBusy;
+
     /// <summary>Solta uma pasta ou um drive na biblioteca vazia: o mesmo que escolher a pasta.</summary>
     public Task DropFolderAsync(string path) => ScanFolderAsync(path);
 
     /// <summary>Varre <paramref name="folder"/>. Devolve quando a varredura termina (ou pausa).</summary>
     public Task ScanFolderAsync(string folder)
     {
+        if (IsScanBusy)
+        {
+            return Scanning;
+        }
+
         var existing = library.Roots.FirstOrDefault(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(folder), StringComparison.OrdinalIgnoreCase));
         var root = new LibraryRoot(folder, Scan.IncludeSubfolders, Scan.MatchVndb, existing?.RescanOnOpen ?? Scan.RescanOnOpen);
-        return Scanning = ScanAsync(root, firstScan: games.Count == 0);
+        // Pausada ou trocando de pasta, a primeira varredura já tem jogos achados, mas segue sendo a primeira.
+        var firstScan = Mode == LibraryMode.FirstScan || games.Count == 0;
+        return Scanning = RunExclusiveAsync(() => ScanAsync(root, firstScan));
     }
 
     /// <summary>"Trocar pasta" da primeira varredura: para a varredura de agora, pede outra pasta e recomeça.</summary>
@@ -560,11 +595,24 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     /// <summary>"Varrer de novo": lê de novo cada pasta guardada, em segundo plano, sem trocar a página.</summary>
-    [RelayCommand]
-    private Task RescanAsync() => Scanning = RescanAllAsync([.. library.Roots]);
+    [RelayCommand(CanExecute = nameof(CanStartScan))]
+    private Task RescanAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(() => RescanAllAsync([.. library.Roots]));
 
     /// <summary>Lê de novo as pastas que a pessoa marcou com "Ler a pasta toda de novo ao abrir o app". O shell chama ao abrir.</summary>
-    public Task RescanOnOpenAsync() => Scanning = RescanAllAsync([.. library.Roots.Where(r => r.RescanOnOpen)]);
+    public Task RescanOnOpenAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(() => RescanAllAsync([.. library.Roots.Where(r => r.RescanOnOpen)]));
+
+    private async Task RunExclusiveAsync(Func<Task> work)
+    {
+        IsScanBusy = true;
+        try
+        {
+            await work();
+        }
+        finally
+        {
+            IsScanBusy = false;
+        }
+    }
 
     private async Task RescanAllAsync(IReadOnlyList<LibraryRoot> roots)
     {
@@ -645,18 +693,20 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     /// <summary>"Ler a pasta toda de novo ao abrir o app" vale na hora: a pasta já guardada muda no <c>library.json</c>. Sem a pasta guardada ainda, a escolha entra com a varredura.</summary>
-    private void RememberRescanOnOpen()
+    private async Task RememberRescanOnOpenAsync()
     {
-        if (Scan.Phase == LibraryScanPhase.Idle || !Scan.HasFolder)
+        if (file is null || Scan.Phase == LibraryScanPhase.Idle || !Scan.HasFolder)
         {
             return;
         }
 
         var path = GameLibrary.NormalizeFolder(Scan.Folder);
+        var value = Scan.RescanOnOpen;
         try
         {
-            file.Update(l => SetRescanOnOpen(l, path));
-            SetRescanOnOpen(library, path);
+            // A trava do arquivo espera até 15 s por outro processo: fora da thread da tela.
+            await Task.Run(() => file.Update(l => SetRescanOnOpen(l, path, value)));
+            SetRescanOnOpen(library, path, value);
         }
         catch (LibraryException e)
         {
@@ -664,11 +714,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private void SetRescanOnOpen(GameLibrary target, string path)
+    private static void SetRescanOnOpen(GameLibrary target, string path, bool value)
     {
         if (target.Roots.FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)) is { } root)
         {
-            target.SetRoot(root with { RescanOnOpen = Scan.RescanOnOpen });
+            target.SetRoot(root with { RescanOnOpen = value });
         }
     }
 

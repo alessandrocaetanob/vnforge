@@ -1,5 +1,6 @@
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -509,5 +510,55 @@ public sealed class MainWindowShellTests
         Assert.Equal("Yu-RIS", ProjectLabels.EngineName("yuris"));
         Assert.Equal("KiriKiri", ProjectLabels.EngineName("kirikiri"));
         Assert.Equal("siglus", ProjectLabels.EngineName("siglus"));
+    }
+
+    [Fact]
+    public async Task A_barra_de_status_conta_os_jogos_do_library_json_que_o_shell_recebeu()
+    {
+        using var temp = new TempFolder();
+        var file = LibrarySamples.Save(temp.SubFolder("biblioteca"), LibrarySamples.Library());
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+
+        await library.LoadAsync();
+
+        Assert.Same(library, vm.Library);
+        Assert.Equal("12 jogos na Biblioteca", vm.LibraryCountText);
+    }
+
+    [Fact]
+    public async Task Abrir_um_projeto_que_ja_existe_da_biblioteca_vazia_leva_a_Ficha()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", [TranslationStatus.Machine]);
+        var vm = Create(temp, root);
+
+        vm.Library.OpenExistingProjectCommand.Execute(null);
+        await vm.ProjectOpening;
+
+        Assert.Equal("Minha VN", vm.ProjectTitle);
+        Assert.Same(vm.Sheet, vm.CurrentPage);
+    }
+
+    [Fact]
+    public async Task O_mesmo_erro_ao_abrir_o_projeto_do_jogo_aparece_de_novo_na_segunda_vez()
+    {
+        using var temp = new TempFolder();
+        var missing = Path.Combine(temp.Path, "sumiu");
+        var game = LibrarySamples.Games().First(g => g.ProjectPath is null && g.Engine.Translatable) with { ProjectPath = missing };
+        var file = LibrarySamples.Save(temp.SubFolder("biblioteca"), LibrarySamples.Library([game]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+        await library.LoadAsync();
+
+        library.OpenGameCommand.Execute(library.Cards[0]);
+        await vm.ProjectOpening;
+        var first = library.ErrorMessage;
+        library.ReportProblem(string.Empty);
+        library.OpenGameCommand.Execute(library.Cards[0]);
+        await vm.ProjectOpening;
+
+        Assert.False(string.IsNullOrEmpty(first));
+        Assert.Equal(first, library.ErrorMessage);
     }
 }

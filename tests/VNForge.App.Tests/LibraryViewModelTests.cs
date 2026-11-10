@@ -33,7 +33,8 @@ public sealed class LibraryViewModelTests : IDisposable
         IFolderPicker? picker = null,
         bool withServices = true,
         Action<string>? openFolder = null,
-        FakeVndbCatalog? catalog = null)
+        FakeVndbCatalog? catalog = null,
+        Action<Action>? post = null)
     {
         LibraryScanService? scan = null;
         LibraryEditor? editor = null;
@@ -44,7 +45,7 @@ public sealed class LibraryViewModelTests : IDisposable
             editor = new LibraryEditor(File, () => new LibraryMatcher(vndb, Clock));
         }
 
-        return new LibraryViewModel(File, picker ?? new FakeFolderPicker(null), scan, editor, Clock, LibrarySamples.Translation, null, new LibrarySamples.Sheets(), openFolder);
+        return new LibraryViewModel(File, picker ?? new FakeFolderPicker(null), post ?? (action => action()), scan, editor, Clock, LibrarySamples.Translation, null, new LibrarySamples.Sheets(), openFolder);
     }
 
     private async Task<LibraryViewModel> Loaded(Action<LibraryViewModel>? configure = null, bool withServices = true, Action<string>? openFolder = null)
@@ -453,6 +454,7 @@ public sealed class LibraryViewModelTests : IDisposable
         await vm.ScanFolderAsync(_games.Path);
 
         vm.Scan.RescanOnOpen = true;
+        await vm.Remembering;
 
         Assert.True(File.Load().Roots.Single().RescanOnOpen);
 
@@ -523,5 +525,143 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.True(vm.Scan.IsRunning);
         Assert.Equal("Pausar", vm.Scan.ActionText);
         Assert.Equal("Varrendo", vm.Scan.Title);
+    }
+
+    [Fact]
+    public async Task Pausar_e_continuar_a_primeira_varredura_segue_na_primeira_varredura()
+    {
+        Collection();
+        LibraryViewModel? holder = null;
+        var paused = false;
+        var vm = Create(post: action =>
+        {
+            action();
+            if (!paused && holder!.Scan.Rows.Count > 0)
+            {
+                paused = true;
+                holder.ScanActionCommand.Execute(null);
+            }
+        });
+        holder = vm;
+        await vm.LoadAsync();
+
+        await vm.ScanFolderAsync(_games.Path);
+
+        Assert.Equal(LibraryScanPhase.Paused, vm.Scan.Phase);
+        Assert.Equal("Continuar", vm.Scan.ActionText);
+        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
+
+        await vm.ScanActionCommand.ExecuteAsync(null);
+
+        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
+        Assert.Equal(LibraryScanPhase.Done, vm.Scan.Phase);
+        Assert.True(vm.Scan.ShowTable);
+        Assert.Equal(3, File.Load().Games.Count);
+        Assert.Equal("Ver a Biblioteca", vm.Scan.ActionText);
+    }
+
+    [Fact]
+    public async Task Trocar_a_pasta_no_meio_da_primeira_varredura_recomeca_na_primeira_varredura()
+    {
+        Collection();
+        using var other = new TempFolder();
+        System.IO.File.WriteAllText(Path.Combine(other.Path, "x.exe"), "x");
+        LibraryViewModel? holder = null;
+        var started = false;
+        Task? change = null;
+        var vm = Create(
+            new FakeFolderPicker(other.Path),
+            post: action =>
+            {
+                action();
+                if (!started && holder!.Scan.Rows.Count > 0)
+                {
+                    started = true;
+                    change = holder.ChangeFolderCommand.ExecuteAsync(null);
+                }
+            });
+        holder = vm;
+        await vm.LoadAsync();
+
+        await vm.ScanFolderAsync(_games.Path);
+        await change!;
+        await vm.Scanning;
+
+        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
+        Assert.Equal(LibraryScanPhase.Done, vm.Scan.Phase);
+        Assert.Equal(other.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
+    }
+
+    [Fact]
+    public async Task Enquanto_uma_varredura_roda_adicionar_pasta_e_varrer_de_novo_esperam()
+    {
+        Collection();
+        using var other = new TempFolder();
+        LibraryViewModel? holder = null;
+        var observed = false;
+        var canChoose = true;
+        var canRescan = true;
+        Task? ignored = null;
+        var vm = Create(
+            new FakeFolderPicker(other.Path),
+            post: action =>
+            {
+                action();
+                if (!observed && holder!.Scan.Rows.Count > 0)
+                {
+                    observed = true;
+                    canChoose = holder.ChooseFolderCommand.CanExecute(null);
+                    canRescan = holder.RescanCommand.CanExecute(null);
+                    ignored = holder.ScanFolderAsync(other.Path);
+                }
+            });
+        holder = vm;
+        await vm.LoadAsync();
+
+        await vm.ScanFolderAsync(_games.Path);
+
+        Assert.True(observed);
+        Assert.False(canChoose);
+        Assert.False(canRescan);
+        Assert.Same(vm.Scanning, ignored);
+        Assert.Equal(_games.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
+        Assert.Single(File.Load().Roots);
+        Assert.False(vm.IsScanBusy);
+        Assert.True(vm.ChooseFolderCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task A_leitura_mais_velha_que_termina_por_ultimo_nao_sobrescreve_a_mais_nova()
+    {
+        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
+        using var release = new ManualResetEventSlim();
+        using var firstRead = new ManualResetEventSlim();
+        var calls = 0;
+        var vm = new LibraryViewModel(
+            File,
+            new FakeFolderPicker(null),
+            action => action(),
+            clock: Clock,
+            readTranslation: game =>
+            {
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    firstRead.Set();
+                    release.Wait(Ct);
+                }
+
+                return LibrarySamples.Translation(game);
+            });
+
+        var older = vm.LoadAsync();
+        firstRead.Wait(Ct);
+        LibrarySamples.Save(_config.Path, LibrarySamples.Library(LibrarySamples.Games().Take(2)));
+        var newer = vm.LoadAsync();
+        await newer;
+        release.Set();
+        await older;
+
+        Assert.Equal(2, vm.Cards.Count);
+        Assert.Equal("2 jogos na Biblioteca", vm.StatusText);
     }
 }

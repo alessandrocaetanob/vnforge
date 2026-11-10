@@ -11,9 +11,9 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
     /// <exception cref="VNForge.Core.Vndb.VndbException">O VNDB falhou.</exception>
     public async Task<LibraryGame> ConfirmAsync(string gameId, string vndbId, CancellationToken cancellationToken = default)
     {
-        var game = Get(gameId);
+        var game = await Task.Run(() => Get(gameId), CancellationToken.None).ConfigureAwait(false);
         var confirmed = await matcherFactory().ConfirmAsync(game, vndbId, cancellationToken).ConfigureAwait(false);
-        file.Update(library => library.Replace(confirmed));
+        await Task.Run(() => file.Update(library => library.Replace(confirmed)), CancellationToken.None).ConfigureAwait(false);
         return confirmed;
     }
 
@@ -21,9 +21,9 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
     /// <exception cref="VNForge.Core.Vndb.VndbException">O VNDB falhou.</exception>
     public async Task<LibraryGame> SearchAgainAsync(string gameId, CancellationToken cancellationToken = default)
     {
-        var game = Get(gameId);
+        var game = await Task.Run(() => Get(gameId), CancellationToken.None).ConfigureAwait(false);
         var searched = await matcherFactory().MatchAsync(game, new LibraryMatchOptions(), cancellationToken).ConfigureAwait(false);
-        file.Update(library => library.Replace(searched));
+        await Task.Run(() => file.Update(library => library.Replace(searched)), CancellationToken.None).ConfigureAwait(false);
         return searched;
     }
 

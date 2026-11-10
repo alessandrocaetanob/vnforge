@@ -8,7 +8,9 @@ using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Factsheet;
 using VNForge.Core.Jmdict;
+using VNForge.Core.Library;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
@@ -51,8 +53,10 @@ public sealed class App : Application
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var suggester = LineSuggester.ForUser(configDirectory);
+            var library = CreateLibrary(configDirectory, picker, [new YuRisEngine()], a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
-                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"))) { PersonalGlossary = new PersonalGlossary(configDirectory) })
+                () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"))) { PersonalGlossary = new PersonalGlossary(configDirectory) },
+                library: library)
             {
                 Editor = new EditorViewModel(suggester: suggester, layoutMemory: new EditorLayoutMemory(configDirectory))
                 {
@@ -90,9 +94,36 @@ public sealed class App : Application
             main.Conference.Shortener = suggester;
             window.DataContext = main;
             desktop.MainWindow = window;
-            window.Opened += async (_, _) => await start.LoadAsync();
+            window.Opened += async (_, _) =>
+            {
+                // Os recentes primeiro: a Biblioteca liga cada projeto de tradução ao jogo dele por essa lista.
+                await start.LoadAsync();
+                await main.Library.LoadAsync();
+                await main.Library.RescanOnOpenAsync();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>A Biblioteca do app: o mesmo <c>library.json</c> da CLI e do cache de imagens, a varredura e o casamento com o VNDB pelo mesmo cliente com cache.</summary>
+    internal static LibraryViewModel CreateLibrary(string configDirectory, IFolderPicker picker, IReadOnlyList<VNForge.Core.Engines.IEngine> engines, Action<Action> post)
+    {
+        var file = new LibraryFile(configDirectory);
+        var vndb = VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"));
+        LibraryViewModel? library = null;
+        var scan = new LibraryScanService(
+            file,
+            new LibraryScanner(new EngineRecognizer(engines), new GameWindowTitleReader()),
+            () => new LibraryMatcher(vndb),
+            () => library?.RecentProjects() ?? []);
+        return library = new LibraryViewModel(
+            file,
+            picker,
+            post,
+            scan,
+            new LibraryEditor(file, () => new LibraryMatcher(vndb)),
+            sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
+            openFolder: MainWindowViewModel.OpenInFileManager);
     }
 }

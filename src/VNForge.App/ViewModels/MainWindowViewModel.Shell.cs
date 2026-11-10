@@ -187,6 +187,17 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>
+    private async Task OpenExistingProjectAsync()
+    {
+        var before = CurrentProject;
+        await Start.OpenFolderCommand.ExecuteAsync(null);
+        if (CurrentProject is { } opened && !ReferenceEquals(opened, before))
+        {
+            SelectedNav = sheetItem;
+        }
+    }
+
     private async Task OpenLibraryProjectAsync(string path)
     {
         try
@@ -194,6 +205,11 @@ public sealed partial class MainWindowViewModel
             if (await Start.OpenAsync(path) is not null)
             {
                 SelectedNav = sheetItem;
+            }
+            else if (Start.ErrorMessage is { Length: > 0 } problem)
+            {
+                // Não depende do PropertyChanged de Start.ErrorMessage: o mesmo erro duas vezes seguidas não o dispara de novo.
+                Library.ReportProblem(problem);
             }
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
