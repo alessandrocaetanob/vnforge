@@ -279,6 +279,11 @@ internal static partial class LibraryCommand
             + (card.HiddenTags > 0 ? $" ({CliFormat.Count(card.HiddenTags, "tag escondida", "tags escondidas")}; spoiler e conteúdo adulto)" : string.Empty));
         output.WriteLine($"  Personagens: {card.Characters.Count}{(card.HiddenCharacters > 0 ? $" (mais {CliFormat.Count(card.HiddenCharacters, "escondido", "escondidos")} por spoiler; use --show-spoilers)" : string.Empty)}"
             + (card.CharactersTruncated ? "; o VNDB tem mais do que o limite trazido" : string.Empty));
+        if (card.StaleCharacters > 0 && !privacy.ShowSpoilers)
+        {
+            output.WriteLine($"  Aviso: {CliFormat.Count(card.StaleCharacters, "personagem está escondido", "personagens estão escondidos")} porque a ficha é antiga e o nível de spoiler deles é desconhecido. Busque de novo com vnf library sheet fetch <jogo>.");
+        }
+
         foreach (var character in card.Characters)
         {
             output.WriteLine($"    {character.Name}{(character.Original is { } name ? $" ({name})" : string.Empty)}{Id(ids, SheetField.OfCharacter(character.Id).Key)} · {character.Role} · {character.Gender}"
@@ -419,12 +424,18 @@ internal static partial class LibraryCommand
                     filled = result.Characters.Filled,
                     synopsisApplied = result.SynopsisApplied,
                     notReady = result.NotReady,
+                    staleCharacters = result.StaleCharacters,
                 }));
             }
             else
             {
                 output.WriteLine($"{found.Title}: {CliFormat.Count(result.Characters.Matched, "personagem casou", "personagens casaram")} com o projeto ({result.Characters.Added} novos, {result.Characters.Filled} completados).");
                 output.WriteLine(result.SynopsisApplied ? "Sinopse levada para a bíblia." : "A bíblia já tinha sinopse (ou não há sinopse pronta); nada mudou nela.");
+                if (result.StaleCharacters > 0)
+                {
+                    output.WriteLine($"{CliFormat.Count(result.StaleCharacters, "personagem ficou", "personagens ficaram")} sem descrição: a ficha é antiga e o nível de spoiler deles é desconhecido. Busque de novo com vnf library sheet fetch {parseResult.GetRequiredValue(game)}.");
+                }
+
                 if (result.NotReady > 0)
                 {
                     output.WriteLine($"{CliFormat.Count(result.NotReady, "texto ficou", "textos ficaram")} de fora por ainda não {(minimum == TranslationStatus.Reviewed ? "estar revisado" : "ter tradução")}. Revise com vnf library sheet review {found.Id}.");

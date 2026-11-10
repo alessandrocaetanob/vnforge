@@ -59,6 +59,7 @@ public sealed record SheetStatusCounts(int Pending, int Machine, int Translated,
 
 /// <summary>
 /// A ficha do jogo depois de esconder o que a <see cref="LibraryPrivacy"/> esconde. <paramref name="HiddenTags"/> e <paramref name="HiddenCharacters"/> contam o que sumiu.
+/// <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, valem como nível 2 e somem até a ficha ser buscada de novo.
 /// </summary>
 public sealed record GameSheetCard(
     string VisualNovelId,
@@ -71,7 +72,8 @@ public sealed record GameSheetCard(
     IReadOnlyList<SheetCharacterCard> Characters,
     int HiddenCharacters,
     bool CharactersTruncated,
-    SheetStatusCounts Counts);
+    SheetStatusCounts Counts,
+    int StaleCharacters = 0);
 
 /// <summary>
 /// Aplica a privacidade da biblioteca à ficha. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): sem <see cref="LibraryPrivacy.ShowSpoilers"/> só
@@ -100,7 +102,7 @@ public static class SheetViewer
         var all = game.CharacterIds.Select(id => byId.GetValueOrDefault(id)).OfType<CharacterSheet>().ToList();
 
         var visibleTags = game.Tags.Where(t => !LibraryVisibility.IsHidden(t, privacy)).Select(t => TagCard(t, terms)).ToList();
-        var visibleCharacters = all.Where(c => (c.In(game.VisualNovelId)?.Spoiler ?? 0) <= max).Select(c => CharacterCard(c, game.VisualNovelId, terms, privacy)).ToList();
+        var visibleCharacters = all.Where(c => (c.In(game.VisualNovelId)?.WorstSpoiler ?? 0) <= max).Select(c => CharacterCard(c, game.VisualNovelId, terms, privacy)).ToList();
 
         var texts = new List<SheetText>();
         texts.AddRange(new[] { game.Synopsis }.OfType<SheetText>());
@@ -119,7 +121,8 @@ public static class SheetViewer
             visibleCharacters,
             all.Count - visibleCharacters.Count,
             game.CharactersTruncated,
-            SheetStatusCounts.Of(texts));
+            SheetStatusCounts.Of(texts),
+            all.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
     }
 
     /// <summary>A privacidade esconde o traço: nível de spoiler acima do liberado, mentira sem os spoilers liberados, ou traço sexual (ou sem o campo, de ficha antiga, até a próxima busca) sem o conteúdo adulto liberado.</summary>
@@ -166,7 +169,7 @@ public static class SheetViewer
             character.Original,
             SheetLabels.Role(appearance?.Role ?? "appears"),
             appearance?.Role ?? "appears",
-            appearance?.Spoiler ?? 0,
+            appearance?.WorstSpoiler ?? 0,
             imageHidden ? null : character.Image,
             imageHidden,
             character.Description is { } description ? Shown(description, privacy) : null,
@@ -176,7 +179,7 @@ public static class SheetViewer
             character.Traits.Count - traits.Count);
     }
 
-    private static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
+    internal static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
     {
         var term = terms.Find(SheetTermKind.Trait, trait.Id);
         return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, trait.GroupName, trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated);

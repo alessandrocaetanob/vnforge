@@ -297,6 +297,34 @@ public sealed class LibrarySheetCommandTests : IDisposable
         Assert.DoesNotContain("dies", File.ReadAllText(project.BiblePath), StringComparison.Ordinal);
     }
 
+    private void MakeSheetOld()
+    {
+        Store.Update(s => s.SaveCharacter(s.LoadCharacter("c1")! with { Appearances = [.. s.LoadCharacter("c1")!.Appearances.Select(a => a with { Editions = null, Spoiler = 0 })] }));
+    }
+
+    [Fact]
+    public async Task Show_e_apply_avisam_dos_personagens_de_ficha_antiga_e_mandam_buscar_de_novo()
+    {
+        Prepare();
+        await Run("library", "sheet", "fetch", "CLANNAD");
+        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
+        await Run("library", "sheet", "review", "CLANNAD");
+        MakeSheetOld();
+        var project = NewProject();
+
+        var show = await Run("library", "sheet", "show", "CLANNAD");
+        var shown = await Run("library", "sheet", "show", "CLANNAD", "--show-spoilers");
+        var apply = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root);
+        var applyJson = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root, "--json");
+
+        Assert.Contains("Aviso: 1 personagem está escondido porque a ficha é antiga", show.Output, StringComparison.Ordinal);
+        Assert.Contains("vnf library sheet fetch", show.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Aviso:", shown.Output, StringComparison.Ordinal);
+        Assert.Contains("1 personagem ficou sem descrição: a ficha é antiga", apply.Output, StringComparison.Ordinal);
+        Assert.Contains("vnf library sheet fetch CLANNAD", apply.Output, StringComparison.Ordinal);
+        Assert.Equal(1, Data(applyJson).GetProperty("staleCharacters").GetInt32());
+    }
+
     [Fact]
     public async Task Apply_sem_projeto_ligado_pede_o_projeto()
     {
