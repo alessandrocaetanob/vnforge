@@ -77,6 +77,14 @@ public sealed partial class ScriptItemViewModel(ScriptProgress progress, string?
     [ObservableProperty]
     public partial bool IsGroupStart { get; set; }
 
+    /// <summary>O cabeçalho do capítulo aparece acima do item: só quando a lista tem mais de um capítulo, porque com um só o quadro mostra a lista plana de cenas.</summary>
+    [ObservableProperty]
+    public partial bool ShowsGroupHeader { get; set; }
+
+    /// <summary>A linha da cena aparece: o capítulo está aberto, ou a lista é plana. O item que só leva o cabeçalho de um capítulo fechado fica sem ela.</summary>
+    [ObservableProperty]
+    public partial bool ShowsScene { get; set; } = true;
+
     /// <summary>O capítulo a que a cena pertence na lista; nulo antes de a lista ser agrupada.</summary>
     [ObservableProperty]
     public partial ChapterGroupViewModel? Chapter { get; set; }

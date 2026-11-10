@@ -6,6 +6,18 @@
              x:Class="VNForge.App.Views.ReviewModeView"
              x:DataType="vm:ReviewModeViewModel">
 
+  <UserControl.Resources>
+    <!-- As falas vizinhas do roteiro: como o modelo de ContextLines, com o nome na cor do personagem, como no quadro. -->
+    <DataTemplate x:Key="NeighbourLine" x:DataType="c:ContextLine">
+      <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="2">
+        <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="{Binding Who}" TextTrimming="CharacterEllipsis" c:SpeakerColorTint.Color="{Binding Color}"/>
+        <TextBlock Grid.Column="1" Classes="caption secondary" FontFamily="{DynamicResource Vnf.FontJp}" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Original}" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption secondary" LineHeight="{DynamicResource Vnf.LineHeight.BodySm}" Text="{Binding Translation}" TextWrapping="Wrap"
+                   IsVisible="{Binding Translation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <UserControl.Styles>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
     <!-- O foco fica na tela para as teclas valerem depois de um clique: os botões não o levam embora. -->
@@ -54,9 +66,6 @@
     </Style>
     <Style Selector="PathIcon.fit.over">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
-    </Style>
-    <Style Selector="Border.card.current">
-      <Setter Property="Padding" Value="20"/>
     </Style>
     <Style Selector="StackPanel.neighbour">
       <Setter Property="Opacity" Value="0.75"/>
@@ -110,6 +119,15 @@
     <Style Selector="Border.queue-row.current">
       <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
     </Style>
+    <!-- A tecla do atalho na barra de ações, como no quadro: contorno de canto quase reto e sem fundo (o círculo do tema vem do raio grande). -->
+    <Style Selector="Border.actionbar Border.kbd">
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.actionbar Button:not(.accent) Border.kbd">
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
     <Style Selector="Border.actionbar">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
@@ -125,7 +143,10 @@
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
       <Button Classes="sm" Command="{Binding CloseCommand}" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip.Tip="Volta à lista de linhas (Esc)">
-        <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap"/>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
+          <TextBlock Text="Voltar ao editor" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+        </StackPanel>
       </Button>
       <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Center">
         <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding HeaderTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding HeaderTitle}" AutomationProperties.Name="Cena"/>
@@ -165,7 +186,7 @@
           <Panel IsVisible="{Binding HasPrevious}">
             <StackPanel x:Name="PreviousBlock" Classes="neighbour" Spacing="4">
               <c:OverlineText Classes="overline" Text="Fala anterior"/>
-              <c:ContextLines ItemsSource="{Binding PreviousLines}" AutomationProperties.Name="Fala anterior"/>
+              <c:ContextLines ItemsSource="{Binding PreviousLines}" ItemTemplate="{StaticResource NeighbourLine}" AutomationProperties.Name="Fala anterior"/>
             </StackPanel>
           </Panel>
 
@@ -206,19 +227,23 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                 <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
-                <SelectableTextBlock Grid.Column="1" Classes="caption secondary" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
-                                     Text="{Binding SpeakerText}" c:SpeakerColorTint.Color="{Binding Detail.SpeakerColor}" c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
+                <SelectableTextBlock x:Name="SpeakerLine" Grid.Column="1" Classes="caption secondary" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
+                                     c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
               <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSource}" FontSize="{DynamicResource Vnf.FontSize.ReviewSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
-              <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
-                      ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
-                  <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
-                  <TextBlock Classes="caption secondary" Text="{Binding Detail.ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
-                             IsVisible="{Binding Detail.ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                </StackPanel>
-              </Button>
+              <!-- Fileira sob o original: os marcadores do fim do texto (virar a página) e "Entender o japonês", lado a lado como no quadro. -->
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel x:Name="SourceMarkers" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
+                <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
+                        ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
+                    <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+                    <TextBlock Classes="caption secondary" Text="{Binding Detail.ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
+                               IsVisible="{Binding Detail.ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
               <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding Detail.IsExplaining}"/>
               <c:ExplainCard ItemsSource="{Binding Detail.ExplainParts}" Footnote="Só para você ler, não entra na tradução."
                              IsVisible="{Binding Detail.ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
@@ -257,7 +282,7 @@
           <Panel IsVisible="{Binding HasNext}">
             <StackPanel x:Name="NextBlock" Classes="neighbour" Spacing="4">
               <c:OverlineText Classes="overline" Text="Fala seguinte"/>
-              <c:ContextLines ItemsSource="{Binding NextLines}" AutomationProperties.Name="Fala seguinte"/>
+              <c:ContextLines ItemsSource="{Binding NextLines}" ItemTemplate="{StaticResource NeighbourLine}" AutomationProperties.Name="Fala seguinte"/>
             </StackPanel>
           </Panel>
         </StackPanel>
@@ -265,8 +290,14 @@
 
       <!-- O palco: a caixa do jogo em tamanho grande, como no jogo de verdade, é a resposta mais direta a "esta fala está boa?". Sob ele, se cabe ou o que fazer. -->
       <c:StageColumn Grid.Column="1" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Top">
-        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" FixedHeight="{Binding StageFixedHeight}" AutomationProperties.Name="Palco">
-          <c:GameTextbox x:Name="StageBox" Size="Stage" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
+        <c:ReviewStage x:Name="Stage" SceneName="{Binding SceneName}" AutomationProperties.Name="Palco">
+          <c:ReviewStage.FixedHeight>
+            <MultiBinding Converter="{x:Static c:ReviewStage.HeightConverter}">
+              <Binding Path="StageFixedHeight"/>
+              <Binding Path="Detail.HasEditorSuggestion" FallbackValue="False"/>
+            </MultiBinding>
+          </c:ReviewStage.FixedHeight>
+          <c:GameTextbox x:Name="StageBox" Size="Review" FontFamily="{DynamicResource Vnf.FontMono}" Layout="{Binding Detail.Preview.Layout}" IsVisible="{Binding Detail.Preview.HasLayout, FallbackValue=False}"
                          AutomationProperties.Name="Caixa do jogo"/>
         </c:ReviewStage>
 
@@ -306,7 +337,24 @@
             </Border>
 
             <!-- Na fila por risco a coluna do palco tem só o palco, a barra e a tabela da fila, como no quadro: o que cabe, "Reescrever com um toque" e os avisos de dúvida e de marcadores ficam de fora; o erro do QA vai como chip no cartão de risco. -->
-            <StackPanel x:Name="LineChecks" Spacing="12" IsVisible="{Binding !IsRisk}">
+            <!-- Com uma sugestão do editor para uma linha que passa da caixa, o quadro põe só este aviso sob o palco: a sugestão é o que resolve. -->
+            <Border x:Name="SuggestionFitNotice" Classes="infobar warning" IsVisible="{Binding Detail.HasEditorSuggestionFitNote, FallbackValue=False}" AutomationProperties.Name="Aviso: ainda não cabe na caixa do jogo">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Warning}"/>
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Ainda não cabe na caixa do jogo"/>
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Detail.EditorSuggestionFitNote}"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <StackPanel x:Name="LineChecks" Spacing="12">
+              <StackPanel.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="!IsRisk"/>
+                  <Binding Path="!Detail.HasEditorSuggestionFitNote" FallbackValue="True"/>
+                </MultiBinding>
+              </StackPanel.IsVisible>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="A caixa do jogo aparece quando o projeto tem o perfil de formatação."
                        IsVisible="{Binding !Detail.Preview.HasLayout, FallbackValue=True}"/>
             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Detail.FitText, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}">
@@ -407,8 +455,8 @@
           </Button>
           <Button Classes="subtle lg" Command="{Binding SkipCommand}" ToolTip.Tip="Mostra a próxima fala sem marcar esta (seta para a direita)">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
               <PathIcon Width="14" Height="14" Data="{StaticResource Icon.ArrowRight}"/>
+              <TextBlock Text="Pular" TextWrapping="NoWrap" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
         </StackPanel>

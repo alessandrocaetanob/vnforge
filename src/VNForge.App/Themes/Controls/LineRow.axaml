@@ -15,7 +15,7 @@
           <Grid Name="PART_Text" Grid.Column="1" ColumnDefinitions="148,*,1.2*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2" VerticalAlignment="Center">
             <!-- Quem fala: o retrato de 28 px (a imagem do VNDB, o busto desenhado ou o livro da narração) e o nome (quadro: retrato redondo ao lado do nome, 9 px de vão). -->
             <Grid Name="PART_Who" ColumnDefinitions="Auto,*" ColumnSpacing="9" VerticalAlignment="Center">
-              <c:Portrait Name="PART_Portrait" Size="Sm" Image="{TemplateBinding SpeakerImage}" Seed="{TemplateBinding SpeakerText}" VerticalAlignment="Center"/>
+              <c:Portrait Name="PART_Portrait" Size="Sm" Image="{TemplateBinding SpeakerImage}" Seed="{TemplateBinding SpeakerText}" Tint="{TemplateBinding SpeakerColor}" VerticalAlignment="Center"/>
               <SelectableTextBlock Name="PART_Speaker" Grid.Column="1" Classes="body-sm" FontFamily="{DynamicResource Vnf.FontJp}" Text="{TemplateBinding SpeakerText}"
                                    TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding SpeakerTip}"/>
             </Grid>

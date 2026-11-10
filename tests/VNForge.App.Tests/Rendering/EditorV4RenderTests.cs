@@ -119,7 +119,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                 try
                 {
                     var inspetor = window.GetVisualDescendants().OfType<LineDetailView>().Single();
-                    var usar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("use-in-row"));
+                    var usar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Name != "UseEditorSuggestionButton" && b.Classes.Contains("use-in-row"));
                     var abas = inspetor.GetVisualDescendants().OfType<TabControl>().Single();
                     Assert.True(usar.IsEffectivelyVisible);
 
@@ -133,7 +133,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.True(usar.IsEffectivelyVisible);
 
                     var degrade = inspetor.GetVisualDescendants().OfType<Border>().Single(b => b.OpacityMask is LinearGradientBrush);
-                    var rodape = inspetor.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("divider-top") && b.GetVisualDescendants().Contains(usar));
+                    var rodape = inspetor.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ActionsBar" && b.GetVisualDescendants().Contains(usar));
                     Assert.False(degrade.IsHitTestVisible);
                     Assert.True(Math.Abs(degrade.TranslatePoint(new Point(0, degrade.Bounds.Height), window)!.Value.Y - rodape.TranslatePoint(default, window)!.Value.Y) <= 8 + Tolerance, "o degradê termina logo acima da barra fixa");
                 }
@@ -247,7 +247,7 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     var inspetor = window.GetVisualDescendants().OfType<LineDetailView>().Single();
                     var painel = inspetor.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
                     var aprovar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ApproveButton");
-                    var usar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("use-in-row"));
+                    var usar = inspetor.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible && b.Classes.Contains("use-in-row"));
                     var nome = width == 1440 ? "editor-v4-caixa-nao-cabe" : "editor-v4-compacto-caixa-nao-cabe";
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(nome, theme)));
 

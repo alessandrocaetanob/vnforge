@@ -362,7 +362,7 @@ public sealed partial class EditorViewModel
     }
 
     private static ContextLine ContextOf(LineViewModel other) =>
-        new(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null);
+        new(other.SpeakerLabel, other.SourcePlain, other.HasTranslation ? other.TranslationPlain : null, Color: other.SpeakerColor);
 
     /// <summary>Guarda a aprovação com a hora do relógio do Editor. Só a passagem para Aprovada conta; gravar de novo uma linha já aprovada não.</summary>
     private void RecordApproval(string scriptKey, TextUnit previous, TextUnit saved)

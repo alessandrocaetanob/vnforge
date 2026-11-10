@@ -46,7 +46,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.True(view.Bounds.Width > 1200 && view.Bounds.Height > 600, "a tela ocupa o Editor");
 
             var box = Assert.Single(view.GetVisualDescendants().OfType<GameTextbox>());
-            Assert.Equal(GameTextboxSize.Stage, box.Size);
+            Assert.Equal(GameTextboxSize.Review, box.Size);
             var frame = Frame(window, box);
             Assert.True(frame.Left > window.Width / 2 - 40, "a caixa do jogo fica na coluna da direita");
             Assert.True(frame.Right <= window.Width && frame.Bottom <= window.Height, "a caixa cabe na janela");
@@ -220,12 +220,10 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
             var probe = PixelProbe.Capture(window, stage);
-            var top = Token(stage, "Vnf.StageTop");
-            var bottom = Token(stage, "Vnf.StageBottom");
 
-            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê (a vinheta começa depois dos 55% do raio).
+            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê do quadro (azul-acinzentado #2A3655 em cima, #293452 aos 20%), igual nos dois temas e sem vinheta.
             var area = new Rect(probe.Width * 0.45, probe.Height * 0.08, probe.Width * 0.3, probe.Height * 0.12);
-            var expected = PixelProbe.Blend(bottom, 0.14, top);
+            var expected = Color.FromRgb(0x29, 0x35, 0x53);
             Assert.True(probe.CountInArea(area, expected, 14) > area.Width * area.Height * 0.9, "o alto do palco é o degradê escuro do tema");
             Assert.True(((0.2126 * expected.R) + (0.7152 * expected.G) + (0.0722 * expected.B)) / 255 < 0.3, "o palco é escuro mesmo no tema claro");
         });
@@ -245,7 +243,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var bar = view.FindControl<Border>("ActionBar")!;
             var barFrame = Frame(window, bar);
             Assert.True(barFrame.Left >= 0 && barFrame.Right <= window.Width && barFrame.Bottom <= window.Height, $"a barra cabe na janela ({barFrame})");
-            Assert.True(barFrame.Width > window.Width - 160, "a barra vai de ponta a ponta do Editor");
+            Assert.True(barFrame.Width > window.Width - 160, $"a barra vai de ponta a ponta do Editor ({barFrame} na janela de {window.Width})");
             Assert.DoesNotContain(bar.GetVisualAncestors(), a => a is ScrollViewer);
 
             var review = vm.Editor.Review!;
@@ -272,7 +270,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         {
             var view = Assert.Single(window.GetVisualDescendants().OfType<ReviewModeView>(), v => v.IsEffectivelyVisible);
             var speaker = Assert.Single(view.GetVisualDescendants().OfType<SelectableTextBlock>(), b => AutomationProperties.GetName(b) == "Quem fala");
-            Assert.StartsWith("美咲", speaker.Text, StringComparison.Ordinal);
+            Assert.StartsWith("美咲", speaker.Inlines!.Text, StringComparison.Ordinal);
             // O texto da tela pode trazer a tradução e a voz; o menu copia o nome do jogo.
             Assert.Equal("美咲", SpeakerMenu.GetOriginal(speaker));
             var flyout = Assert.IsType<MenuFlyout>(speaker.ContextFlyout, exactMatch: false);
@@ -476,7 +474,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     public async Task A_1366_a_fala_seguinte_volta_quando_a_linha_seguinte_deixa_o_roteiro_caber()
     {
         using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
+        var root = CreateProject(temp.SubFolder("projeto"), tallSecond: true);
 
         await Abrir(root, ThemeVariant.Dark, (window, vm) =>
         {
@@ -737,7 +735,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
         ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(name, theme)));
     }
 
-    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false, bool withDoubt = false)
+    private static string CreateProject(string parent, bool longNeighbours = false, bool reviewedFirstTwo = false, bool tallThird = false, bool withDoubt = false, bool tallSecond = false)
     {
         var folder = ProjectFolder.Create(parent, new ProjectConfig(
             DemoProject.Name,
@@ -769,7 +767,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             :
             [
                 Line("yst00001", 1, "美咲", @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p") with { Doubt = withDoubt ? new TranslationDoubt(DoubtKind.Tone, "Ela fala sério ou em tom de brincadeira?") : null },
-                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", LongText + @"\p"),
+                Line("yst00001", 2, "健太", @"担任の先生が腕を組んで立っていた。\p", (tallSecond ? LongText + " " + LongText : LongText) + @"\p"),
                 Line("yst00001", 3, "美咲", @"「うん」\p", @"Aham.\p"),
             ]);
         folder.SaveText("yst00002", [Line("yst00002", 1, "美咲", @"「そう」\p", @"Isso.\p")]);

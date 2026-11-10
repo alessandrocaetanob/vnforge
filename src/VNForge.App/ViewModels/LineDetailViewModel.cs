@@ -557,6 +557,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(WrapIsOff));
         OnPropertyChanged(nameof(FitIsNeutral));
         OnPropertyChanged(nameof(FitIsShown));
+        NotifyEditorSuggestionFitNoteChanged();
     }
 
     partial void OnNotesChanged(string value)

@@ -78,6 +78,25 @@ public class GameTextboxTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         Assert.Equal(esperado, GameTextbox.ScaleToFit(conteudo, disponivel), 6);
 
     [Fact]
+    public async Task No_palco_da_revisao_a_moldura_leva_a_regua_de_14_35_px_e_o_texto_o_avanco_do_corpo_de_17_6_px()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var layout = Caixa([2], falante: null) with { Columns = 40 };
+                var caixa = new GameTextbox { Layout = layout, Size = GameTextboxSize.Review, FontFamily = new Avalonia.Media.FontFamily("avares://VNForge.App/Assets/Fonts#JetBrains Mono") };
+                caixa.Measure(Avalonia.Size.Infinity);
+
+                // 40 colunas de 14,35 px mais 26 px de recuo de cada lado: os 626 px do quadro.
+                Assert.Equal(626, caixa.DesiredSize.Width, 1);
+                // O texto segue o avanço natural do JetBrains Mono em 17,6 px (0,6 em), bem abaixo da régua da moldura.
+                var linha = caixa.RowBounds()[0].Bounds;
+                Assert.Equal(40 * 17.6 * 0.6, linha.Width, 0);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task Com_FitToWidth_a_caixa_de_73_colunas_encolhe_em_proporcao_e_sem_ele_mantem_o_tamanho()
     {
         await fixture.Session.Dispatch(
