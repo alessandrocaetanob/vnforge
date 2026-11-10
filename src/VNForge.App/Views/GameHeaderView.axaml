@@ -37,6 +37,12 @@
     <Style Selector="v|GameHeaderView.editor ListBox#Sections">
       <Setter Property="Margin" Value="32,12,32,0"/>
     </Style>
+    <!-- Sem largura para o seletor e as ações lado a lado, as ações descem para a própria linha, à direita, sob o seletor. -->
+    <Style Selector="v|GameHeaderView.editor.actions-below StackPanel#EditorActions">
+      <Setter Property="Grid.Row" Value="2"/>
+      <Setter Property="VerticalAlignment" Value="Top"/>
+      <Setter Property="Margin" Value="0,8,32,0"/>
+    </Style>
     <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
          dos filtros e o contorno accent, que é o que diz que está ligado. -->
     <Style Selector="ToggleButton.density">
@@ -69,7 +75,7 @@
 
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,Auto">
+  <Grid RowDefinitions="Auto,Auto,Auto">
     <!-- O cabeçalho do jogo: a volta para a Biblioteca, a capa (ainda um selo sobre o andamento), o nome, a engine, o andamento e o próximo passo; abaixo, as abas. -->
     <Border Background="{DynamicResource Vnf.BgBase}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
       <StackPanel Margin="32,8,32,0">

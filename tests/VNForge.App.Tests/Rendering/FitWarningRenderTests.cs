@@ -76,7 +76,7 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        ConferirCorte(aviso, 75);
+        ConferirCorte(aviso, 90);
     }
 
     [Theory]

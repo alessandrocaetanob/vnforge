@@ -33,7 +33,11 @@ public sealed partial class GameHeaderView : UserControl
         InitializeComponent();
         Sections.Tapped += OnSectionsTapped;
         Sections.KeyDown += OnSectionsKeyDown;
-        LayoutUpdated += (_, _) => UpdateSectionsPlacement();
+        LayoutUpdated += (_, _) =>
+        {
+            UpdateSectionsPlacement();
+            UpdateActionsPlacement();
+        };
         UpdateHeaderLayout();
     }
 
@@ -86,6 +90,26 @@ public sealed partial class GameHeaderView : UserControl
         if (Classes.Contains("sections-below") != below)
         {
             Classes.Set("sections-below", below);
+        }
+    }
+
+    /// <summary>
+    /// No cabeçalho do Editor as ações (Roteiro, Buscar e Traduzir com IA) dividem a linha do seletor de seções; sem largura para os dois, descem para uma linha sob ele.
+    /// O limite vem das larguras medidas, como o das seções no compacto.
+    /// </summary>
+    private void UpdateActionsPlacement()
+    {
+        if (!EditorActions.IsVisible || Bounds.Width <= 0 || EditorActions.DesiredSize.Width <= 0 || Sections.DesiredSize.Width <= 0)
+        {
+            return;
+        }
+
+        var sections = Sections.DesiredSize.Width - Sections.Margin.Left - Sections.Margin.Right;
+        var actions = EditorActions.DesiredSize.Width - EditorActions.Margin.Left - EditorActions.Margin.Right;
+        var below = 2 * RightMargin + sections + SectionsGap + actions > Bounds.Width;
+        if (Classes.Contains("actions-below") != below)
+        {
+            Classes.Set("actions-below", below);
         }
     }
 
