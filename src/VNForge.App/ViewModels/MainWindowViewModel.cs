@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -106,11 +107,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
-        start.Recents.CollectionChanged += (_, _) => OnPropertyChanged(nameof(LibraryCountText));
+        Library = library ?? new LibraryViewModel(new LibraryFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-biblioteca", Guid.NewGuid().ToString("N"))), new NoFolderPicker());
+        Library.RecentProjects = () => recentProjects;
+        start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
+        Library.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LibraryViewModel.StatusText))
+            {
+                OnPropertyChanged(nameof(LibraryCountText));
+            }
+        };
+        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Library.ExistingProjectRequested += (_, _) => start.OpenFolderCommand.Execute(null);
+        start.PropertyChanged += (_, e) =>
+        {
+            // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.
+            if (e.PropertyName == nameof(StartViewModel.ErrorMessage) && start.ErrorMessage is { Length: > 0 } problem)
+            {
+                Library.ReportProblem(problem);
+            }
+        };
         Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
@@ -153,7 +173,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
         Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
         selectedNav = startItem;
-        CurrentPage = start;
+        CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Palette.PropertyChanged += OnPaletteChanged;
         Editor.PropertyChanged += OnEditorChanged;
@@ -239,6 +259,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     public StartViewModel Start { get; }
+
+    /// <summary>A Biblioteca de VNs, a tela inicial. O <see cref="Start"/> segue como quem abre e lembra os projetos de tradução.</summary>
+    public LibraryViewModel Library { get; }
+
+    private IReadOnlyList<string> recentProjects = [];
 
     /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
     public ToastService Toasts { get; }
@@ -338,8 +363,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
     public partial object CurrentPage { get; private set; }
 
-    /// <summary>A página é o Início: a barra de status mostra só a versão e o estado da chave.</summary>
-    public bool IsStartPage => CurrentPage is StartViewModel;
+    /// <summary>A página é a Biblioteca: a barra de status mostra só a versão e o estado da chave.</summary>
+    public bool IsStartPage => CurrentPage is LibraryViewModel;
 
     /// <summary>"VNForge 0.1.0", a versão do app na barra de status.</summary>
     public string AppVersionText { get; } = $"VNForge {AppVersion()}";
@@ -478,7 +503,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Images => Images,
                     NavKey.Build => Build,
                     NavKey.Release => Release,
-                    _ => Start,
+                    _ => Library,
                 };
                 if (value.Key == NavKey.Dashboard)
                 {
@@ -492,8 +517,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
                 if (value.Key == NavKey.Start)
                 {
-                    // O anel, a porcentagem e o próximo passo do Início vêm da pasta, que o Editor e a Conferência mudam; a cotação e o limite também.
+                    // O andamento de cada jogo vem da pasta do projeto, que o Editor e a Conferência mudam; a lista de recentes também.
                     _ = Start.LoadAsync();
+                    _ = Library.LoadAsync();
                 }
                 else if (value.Key == NavKey.Build)
                 {
@@ -811,10 +837,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();
-        wizard.Cancelled += (_, _) => CurrentPage = Start;
+        wizard.Cancelled += (_, _) => CurrentPage = Library;
         wizard.Completed += (_, root) =>
         {
-            CurrentPage = Start;
+            CurrentPage = Library;
             ProjectOpening = OpenCreatedProjectAsync(root);
         };
         CurrentPage = wizard;

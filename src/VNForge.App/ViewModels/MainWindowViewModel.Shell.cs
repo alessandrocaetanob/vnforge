@@ -2,6 +2,8 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
+using VNForge.Core;
+using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
 
@@ -164,6 +166,41 @@ public sealed partial class MainWindowViewModel
 
     [RelayCommand]
     private void OpenLibrary() => SelectedNav = Nav[0];
+
+    /// <summary>
+    /// "Abrir jogo" da gaveta da Biblioteca: um jogo com projeto de tradução abre o projeto e leva à Ficha; um jogo que o VNForge traduz e ainda não tem projeto abre o assistente
+    /// de novo projeto com a pasta dele; um jogo de engine sem suporte só explica, porque ainda não há o que abrir nele.
+    /// </summary>
+    private void OpenGameFromLibrary(LibraryGame game, Func<NewProjectWizardViewModel>? newProjectWizard)
+    {
+        if (game.ProjectPath is { } path)
+        {
+            ProjectOpening = OpenLibraryProjectAsync(path);
+        }
+        else if (game.Engine.Translatable)
+        {
+            ShowWizard(newProjectWizard, game.Folder);
+        }
+        else
+        {
+            Toasts.Show($"O VNForge ainda não traduz jogos da engine {game.Engine.Name}. Por enquanto a Biblioteca só guarda o jogo e a ficha dele.", ToastKind.Info, key: "library-open");
+        }
+    }
+
+    private async Task OpenLibraryProjectAsync(string path)
+    {
+        try
+        {
+            if (await Start.OpenAsync(path) is not null)
+            {
+                SelectedNav = sheetItem;
+            }
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Library.ReportProblem($"{e.Message} O projeto não pôde ser aberto.");
+        }
+    }
 
     [RelayCommand]
     private void ReturnToGame()

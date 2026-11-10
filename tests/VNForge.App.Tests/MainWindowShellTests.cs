@@ -30,7 +30,7 @@ public sealed class MainWindowShellTests
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
 
-        Assert.Equal("1 jogo na Biblioteca", vm.LibraryCountText);
+        Assert.Equal("Nenhum jogo ainda", vm.LibraryCountText);
         Assert.Equal("VNDB: sem consulta ainda", vm.VndbStatusText);
         Assert.Equal(MainWindowViewModel.VndbConnection.Unknown, vm.Vndb);
         Assert.False(vm.ShowWorkStatus);
@@ -84,7 +84,7 @@ public sealed class MainWindowShellTests
 
         Assert.True(vm.HasProject);
         Assert.False(vm.InGame);
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
         Assert.Equal("Biblioteca", vm.Breadcrumb);
     }
 
@@ -137,7 +137,7 @@ public sealed class MainWindowShellTests
         vm.OpenLibraryCommand.Execute(null);
 
         Assert.False(vm.InGame);
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
     }
 
     [Fact]
@@ -356,7 +356,7 @@ public sealed class MainWindowShellTests
 
         vm.SelectedGameTab = vm.GameTabs[1];
 
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
         Assert.False(vm.InGame);
         Assert.All(vm.Sections, s => Assert.False(s.IsEnabled));
     }

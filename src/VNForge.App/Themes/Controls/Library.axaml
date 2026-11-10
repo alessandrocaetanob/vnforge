@@ -1,0 +1,273 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- A Biblioteca (quadro da #548 e da #545). Cada regra cita a classe do quadro de onde vem. -->
+
+  <!-- ".h1", ".h2", ".h3" do quadro: display 700 em 30/38, 20/28 e 16/22. -->
+  <Style Selector="TextBlock.lib-h1">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="30"/>
+    <Setter Property="LineHeight" Value="38"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.lib-h2">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="20"/>
+    <Setter Property="LineHeight" Value="28"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.lib-h3">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="16"/>
+    <Setter Property="LineHeight" Value="22"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="TextBlock.lib-sub">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="TextBlock.lib-dim">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+
+  <!-- ".v3-lbl": rótulo de seção em 11/16, 600, espaçado, caixa alta, text-secondary. -->
+  <Style Selector="TextBlock.lib-lbl">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="LetterSpacing" Value="0.77"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+
+  <!-- ".v3-card": título em display 700 15/20 e a linha de baixo em 12/16 secundária. -->
+  <Style Selector="TextBlock.lib-ct">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+  </Style>
+  <Style Selector="TextBlock.lib-cs">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+  </Style>
+
+  <!-- O cartão da grade e da lista: um botão sem aparência; a capa e o texto são do modelo. -->
+  <Style Selector="Button.libcard">
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.libcard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+
+  <!-- ".v3-cchip": etiqueta de engine no pé da capa, 22 de altura, 11/22 600; ".warn" pinta de cover-chip-warn. -->
+  <Style Selector="Border.cchip">
+    <Setter Property="Height" Value="22"/>
+    <Setter Property="Padding" Value="9,0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.CoverChipBg}"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Bottom"/>
+    <Setter Property="Margin" Value="8"/>
+  </Style>
+  <Style Selector="Border.cchip > TextBlock">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="22"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipInk}"/>
+  </Style>
+  <Style Selector="Border.cchip.warn > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipWarn}"/>
+  </Style>
+  <!-- ".v3-cstate": o círculo do casamento no canto da capa. -->
+  <Style Selector="Border.cstate">
+    <Setter Property="Width" Value="{DynamicResource Vnf.CoverStateSize}"/>
+    <Setter Property="Height" Value="{DynamicResource Vnf.CoverStateSize}"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.CoverChipBg}"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+    <Setter Property="Margin" Value="8"/>
+  </Style>
+  <Style Selector="Border.cstate PathIcon">
+    <Setter Property="Width" Value="14"/>
+    <Setter Property="Height" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipInk}"/>
+  </Style>
+  <Style Selector="Border.cstate.warn PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipWarn}"/>
+  </Style>
+
+  <!-- ".v3-tag": 24 de altura, 12/16, bg-inset com borda stroke-subtle; ".mine" é a tag da pessoa. -->
+  <Style Selector="Border.lib-tag">
+    <Setter Property="Height" Value="{DynamicResource Vnf.TagHeight}"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="Border.lib-tag > TextBlock">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="16"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.lib-tag.mine">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="Border.lib-tag.mine > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+
+  <!-- ".v3-pill": 1 e 8 de folga, 11/18 600; cada tom é um par bg/fg de status. -->
+  <Style Selector="Border.lib-pill">
+    <Setter Property="Padding" Value="8,1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.lib-pill > TextBlock">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="18"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+  </Style>
+  <Style Selector="Border.lib-pill[Tag=ok]"><Setter Property="Background" Value="{DynamicResource Vnf.StatusApprovedBg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=ok] > TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.StatusApprovedFg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=rev]"><Setter Property="Background" Value="{DynamicResource Vnf.StatusReviewedBg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=rev] > TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.StatusReviewedFg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=tr]"><Setter Property="Background" Value="{DynamicResource Vnf.StatusTranslatedBg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=tr] > TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.StatusTranslatedFg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=warn]"><Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=warn] > TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=err]"><Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/></Style>
+  <Style Selector="Border.lib-pill[Tag=err] > TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/></Style>
+
+  <!-- ".v3-seg": pílula de bg-inset com 3 de folga; o item marcado vira bg-card com borda stroke-subtle. -->
+  <Style Selector="ListBox.libseg">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="Padding" Value="3"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" Spacing="4"/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem">
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Pill" Padding="16,5" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Foreground="{TemplateBinding Foreground}"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem TextBlock">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="18"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ Border#PART_Pill">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="Padding" Value="15,4"/>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem:pointerover:not(:selected) /template/ Border#PART_Pill">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+
+  <!-- ".v3-input": campo de 32 com ícone, bg-inset, borda stroke-control, raio 8; o TextBox dentro não tem moldura própria. -->
+  <Style Selector="Border.lib-input">
+    <Setter Property="Height" Value="{DynamicResource Vnf.ControlMd}"/>
+    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="Border.lib-input:focus-within">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.FocusRing}"/>
+  </Style>
+  <Style Selector="TextBox.bare">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="FontSize" Value="14"/>
+  </Style>
+  <Style Selector="TextBox.bare:focus /template/ Border#PART_BorderElement, TextBox.bare:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+
+  <!-- ".drawer" (a gaveta): bg-card, borda stroke-subtle, raio 20, 24 de folga, sombra de flyout. -->
+  <Style Selector="Border.lib-drawer">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusXl}"/>
+    <Setter Property="Padding" Value="24"/>
+    <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
+  </Style>
+  <!-- ".card" dos quadros da varredura. -->
+  <Style Selector="Border.lib-card">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="Padding" Value="16"/>
+  </Style>
+  <Style Selector="Border.lib-hr">
+    <Setter Property="Height" Value="1"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+  </Style>
+  <!-- ".ico-box": quadrado de 40 com raio 12 em accent-soft. -->
+  <Style Selector="Border.lib-icobox">
+    <Setter Property="Width" Value="40"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+  </Style>
+  <Style Selector="Border.lib-icobox PathIcon">
+    <Setter Property="Width" Value="20"/>
+    <Setter Property="Height" Value="20"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <!-- Linhas da tabela da varredura: ".tbl" com 48 de altura e divisória embaixo. -->
+  <Style Selector="Border.lib-row">
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.RowHeight}"/>
+    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+  </Style>
+</Styles>

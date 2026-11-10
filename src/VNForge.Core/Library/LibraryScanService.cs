@@ -16,19 +16,21 @@ public sealed class LibraryScanService(LibraryFile file, LibraryScanner scanner,
 
     /// <summary>
     /// Varre <paramref name="root"/>. Parar pelo <paramref name="cancellationToken"/> não lança: o que já foi achado entra na biblioteca (<see cref="LibraryScanResult.Cancelled"/>) e o casamento
-    /// não começa. O casamento parado no meio também guarda o que casou.
+    /// não começa. O casamento parado no meio também guarda o que casou. <paramref name="onScanned"/> avisa que a leitura das pastas terminou e o casamento (se houver) vai começar.
     /// </summary>
     /// <exception cref="LibraryException">A pasta não existe ou o <c>library.json</c> está ilegível.</exception>
     public async Task<LibraryScanOutcome> RunAsync(
         LibraryRoot root,
         IProgress<LibraryScanProgress>? scanProgress = null,
         IProgress<LibraryMatchProgress>? matchProgress = null,
+        Action<LibraryScanResult>? onScanned = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(root);
         var options = new LibraryScanOptions(root.IncludeSubfolders ? new LibraryScanOptions().MaxDepth : 0, IncludeUnknown: true, EstimateFolders: true);
         var scan = await Task.Run(() => scanner.Scan(root.Path, options, scanProgress, cancellationToken), CancellationToken.None).ConfigureAwait(false);
 
+        onScanned?.Invoke(scan);
         var recent = recentProjects();
         var (merge, linked) = file.Update(library =>
         {

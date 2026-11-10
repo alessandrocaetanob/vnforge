@@ -18,7 +18,7 @@ public class MainWindowViewModelTests
         var vm = Create(temp);
 
         Assert.Equal("Biblioteca", vm.SelectedNav?.Label);
-        Assert.IsType<StartViewModel>(vm.CurrentPage);
+        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
         Assert.False(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
         Assert.Null(vm.CurrentProject);
         Assert.Equal("Nenhum projeto aberto", vm.ProjectTitle);
@@ -36,7 +36,7 @@ public class MainWindowViewModelTests
 
         Assert.Equal("Minha VN", vm.ProjectTitle);
         Assert.True(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
-        Assert.IsType<StartViewModel>(vm.CurrentPage);
+        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class MainWindowViewModelTests
 
         vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
 
-        Assert.IsType<StartViewModel>(vm.CurrentPage);
+        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
         Assert.Equal(NavKey.Start, vm.SelectedNav?.Key);
     }
 
@@ -87,7 +87,7 @@ public class MainWindowViewModelTests
         Assert.Same(wizard, vm.CurrentPage);
 
         wizard.CancelCommand.Execute(null);
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class MainWindowViewModelTests
         await vm.ProjectOpening;
         await vm.Editor.Loading;
 
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
         Assert.Equal("meu-projeto", vm.ProjectTitle);
         Assert.Single(vm.Start.Recents);
     }
@@ -176,7 +176,7 @@ public class MainWindowViewModelTests
         vm.Start.OpenSelectedInEditorCommand.Execute(null);
 
         Assert.NotNull(vm.Start.ErrorMessage);
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class MainWindowViewModelTests
 
         vm.Start.NewProjectCommand.Execute(null);
 
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
     }
 
     [Fact]

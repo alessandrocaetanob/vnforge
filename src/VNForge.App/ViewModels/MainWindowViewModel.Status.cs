@@ -22,13 +22,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>O visto da chave só aparece na Biblioteca; a chave que falta é um aviso e aparece em toda tela.</summary>
     public bool ShowKeyOk => ApiKeyConfigured && IsStartPage;
 
-    /// <summary>"12 jogos na Biblioteca": os jogos que a Biblioteca lista, os mesmos do Início.</summary>
-    public string LibraryCountText => Start.Recents.Count switch
-    {
-        0 => "Biblioteca vazia",
-        1 => "1 jogo na Biblioteca",
-        var n => $"{n} jogos na Biblioteca",
-    };
+    /// <summary>"12 jogos na Biblioteca", "Nenhum jogo ainda" ou "Varrendo D:\Jogos\VN": o que a Biblioteca diz de si.</summary>
+    public string LibraryCountText => Library.StatusText;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VndbStatusText))]

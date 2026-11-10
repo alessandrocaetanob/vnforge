@@ -219,7 +219,7 @@ public class MainWindowRailTests
         Assert.Same(vm.Settings, vm.CurrentPage);
 
         vm.SelectedTopNav = vm.TopNav[0];
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
         Assert.Null(vm.SelectedBottomNav);
     }
 

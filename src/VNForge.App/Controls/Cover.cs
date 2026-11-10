@@ -15,10 +15,22 @@ public sealed class Cover : VndbImageControl
 
     private static readonly IBrush Strip = new SolidColorBrush(Color.Parse("#0e1211"), 0.55);
 
+    public static readonly StyledProperty<bool> FillWidthProperty = AvaloniaProperty.Register<Cover, bool>(nameof(FillWidth));
+
+    static Cover() => FillWidthProperty.Changed.AddClassHandler<Cover>((cover, _) => cover.InvalidateMeasure());
+
+    /// <summary>Usa a largura que o pai dá (a capa da grade, que muda com a janela) no lugar do token da miniatura; a altura segue sendo 4/3 da largura.</summary>
+    public bool FillWidth
+    {
+        get => GetValue(FillWidthProperty);
+        set => SetValue(FillWidthProperty, value);
+    }
+
     protected override string DefaultAutomationName => Seed is { Length: > 0 } name ? $"Capa de {name}" : "Capa";
 
     private double WidthToUse(double available) =>
         !double.IsNaN(Width) ? Width
+        : FillWidth && !double.IsInfinity(available) && available > 0 ? available
         : !double.IsInfinity(available) && available > 0 && available < Token("Vnf.CoverThumbWidth", 44) ? available
         : Token("Vnf.CoverThumbWidth", 44);
 
