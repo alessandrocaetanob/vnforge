@@ -38,8 +38,9 @@ public static class TextAppearance
         ("JpBody", 19, 30),
         ("JpRow", 13, 18),
         ("BodyLoose", 14, 22),
-        ("ReviewSource", 18, 27),
-        ("ReviewTranslation", 20, 30),
+        ("ReviewSource", 19, 27),
+        ("ReviewTranslation", 17, 30),
+        ("ReviewSuggestion", 15, 24),
     ];
 
     public static string FontSizeKey(string name) => $"Vnf.FontSize.{name}";

@@ -85,7 +85,7 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
             var script = review.FindControl<ScrollViewer>("Script")!;
             var card = review.FindControl<Border>("TranslationCard")!;
             var translated = card.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == vm.Editor.Review!.Detail!.FieldText);
-            Assert.Equal(30d, translated.FontSize);
+            Assert.Equal(25.5d, translated.FontSize);
             Assert.True(translated.Bounds.Height >= translated.LineHeight, "a tradução ocupa ao menos uma linha inteira");
             var top = translated.TranslatePoint(default, script)!.Value.Y;
             var bottom = top + translated.Bounds.Height;

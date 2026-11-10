@@ -55,11 +55,17 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
 
-  <!-- O peso semibold é do rótulo do botão contornado; o subtle é regular, porque carrega linhas inteiras (Eval, capítulos do Painel) e o texto dentro herda o peso. -->
+  <!-- O subtle do quadro (v3-btn.subtle) é o botão comum sem caixa: o rótulo herda o semibold e fica em text-secondary, e vira text-primary no hover.
+       A linha inteira (evalrow do Eval, chapter do Painel, row das linhas de regra da aba Dicionários) não é rótulo: o texto fica regular e em text-primary.
+       A regra de linha exige a classe subtle junto e põe a cor no botão, nunca no TextBlock, para que o hover e o disabled do botão continuem valendo. -->
   <Style Selector="Button.subtle">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="Button.subtle.evalrow, Button.subtle.chapter, Button.subtle.row">
     <Setter Property="FontWeight" Value="Normal"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
   </Style>
   <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.subtle:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
@@ -117,9 +123,6 @@
     <Setter Property="Padding" Value="0"/>
     <Setter Property="HorizontalContentAlignment" Value="Center"/>
   </Style>
-  <Style Selector="Button.icon.subtle">
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
-  </Style>
   <Style Selector="Button.icon.sm">
     <Setter Property="Width" Value="{DynamicResource Vnf.ControlSm}"/>
   </Style>
@@ -136,16 +139,21 @@
     <Setter Property="Height" Value="8"/>
   </Style>
 
+  <!-- kbd do quadro: retângulo de raio 4, sem preenchimento, contorno de 1px na cor do texto (currentColor) e opacidade .85; mono 500 de 11/14.
+       O Border não tem Foreground; o contorno é um binding compilado no Foreground herdado (TextElement), a mesma fonte do TextBlock de dentro, que não põe cor própria.
+       Assim ele acompanha repouso, hover e disabled do botão que o carrega. Não há como fazer isso só com pincéis de recurso, porque a cor do texto muda por estado. -->
   <Style Selector="Border.kbd">
-    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{Binding $self.(TextElement.Foreground), x:DataType=Border}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
-    <Setter Property="Padding" Value="6,1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="5,1"/>
+    <Setter Property="Opacity" Value="0.85"/>
   </Style>
   <Style Selector="Border.kbd > TextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Pill}"/>
+    <Setter Property="FontWeight" Value="Medium"/>
   </Style>
 </Styles>

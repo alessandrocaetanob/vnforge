@@ -105,16 +105,23 @@ jobs:
                   - ~/.nuget/packages
       - run:
           name: Testes
-          # O dotnet-coverage só imprime quando uma suíte termina, e a do App roda calada por uns 10 minutos: o limite
-          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho.
+          # O dotnet-coverage só imprime quando o comando termina, e a suíte do App roda calada por minutos: o limite
+          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho. O script imprime a cada 2 minutos.
           no_output_timeout: 30m
+          # O script roda as suítes em paralelo e divide a do App em três processos (VNFORGE_APP_SHARDS): um
+          # dotnet-coverage só, em volta dele, junta os processos filhos num coverage.xml para o Sonar.
           command: |
             set -euo pipefail
             if [ -f .sonar-begun ]; then
-              dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
+              dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml
             else
-              dotnet test --solution VNForge.slnx --configuration Release --no-build
+              bash .circleci/run-tests.sh
             fi
+      # Roda mesmo com o passo Testes vermelho (a referência diz que store_test_results sempre executa depois de uma
+      # falha, e o passo não aceita when). Não roda se o job for cancelado ou estourar o tempo. Os JUnit alimentam a
+      # aba Tests, o Insights e o divisor por tempo do circleci tests run.
+      - store_test_results:
+          path: test-results
       - run:
           name: Sonar end
           # when: always fecha a análise mesmo com teste vermelho; só roda se o begin terminou.

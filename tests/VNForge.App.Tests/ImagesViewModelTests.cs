@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using VNForge.AI.Cost;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Engines;
@@ -146,12 +147,12 @@ public sealed class ImagesViewModelTests : IDisposable
 
         vm.Text = "Colégio";
         await vm.Previewing;
-        Assert.Equal("Cabe na área · 70 px de 200 px de largura", vm.FitText);
+        Assert.Equal("Cabe na placa · 70 de 200 px de largura", vm.FitText);
         Assert.True(vm.FitsRegion);
 
         vm.Text = "Colégio Sakuragaoka do bairro";
         await vm.Previewing;
-        Assert.StartsWith("Não cabe na área · 290 px de 200 px de largura", vm.FitText);
+        Assert.StartsWith("Não cabe na placa · 290 de 200 px de largura", vm.FitText);
         Assert.False(vm.FitsRegion);
     }
 
@@ -285,9 +286,238 @@ public sealed class ImagesViewModelTests : IDisposable
         await vm.RewriteCommand.ExecuteAsync(null);
 
         Assert.True(vm.IsConfirming);
-        Assert.Equal("Gerar o build com 1 imagem alterada?", vm.ConfirmationTitle);
-        Assert.Equal("portao.png", Assert.Single(vm.ConfirmationFiles).Path);
-        Assert.Equal(["1 de 1", "3"], vm.ConfirmationFacts.Select(f => f.Value));
+        Assert.Equal("Regravar 1 imagem no PAK?", vm.ConfirmationTitle);
+        Assert.Equal("Regravar 1 imagem", vm.ConfirmationButton);
+        var file = Assert.Single(vm.ConfirmationFiles);
+        Assert.Equal("portao.png", file.Path);
+        Assert.Matches(@"^img\.pak · \d+ KB para \d+ KB$", file.Detail);
+        Assert.Equal(["Arquivos PAK tocados", "Entradas que ficam byte a byte iguais", "Cópia de segurança antes de gravar"], vm.ConfirmationFacts.Select(f => f.Label));
+        Assert.Equal(["1 de 1", "3", "sim"], vm.ConfirmationFacts.Select(f => f.Value));
+    }
+
+    [Fact]
+    public async Task TheRewriteDialogCountsTheImagesInTheTitleAndTheButton()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        await vm.MarkCommand.ExecuteAsync(null);
+        await Select(vm, Logo);
+        vm.Text = "Título";
+        await vm.MarkCommand.ExecuteAsync(null);
+
+        await vm.RewriteCommand.ExecuteAsync(null);
+
+        Assert.Equal("Regravar 2 imagens no PAK?", vm.ConfirmationTitle);
+        Assert.Equal("Regravar 2 imagens", vm.ConfirmationButton);
+        Assert.Equal("Regravar no PAK", vm.RewriteLabel);
+        Assert.Equal(2, vm.ConfirmationFiles.Count);
+    }
+
+    [Fact]
+    public async Task ThePackageLineNamesTheFormatOfTheOpenImage()
+    {
+        var vm = Open();
+
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        await vm.Previewing;
+
+        Assert.Equal("No PAK", vm.PackageLabel);
+        Assert.StartsWith("img.pak · entrada bg/portao.png · ", vm.PackageText);
+    }
+
+    [Fact]
+    public async Task TheToolbarKeepsOneActiveToolAndSelectAreaIsTheDefault()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        Assert.True(vm.IsSelectTool);
+
+        vm.UseToolCommand.Execute(ImageTool.Erase);
+        Assert.True(vm.IsEraseTool);
+        Assert.False(vm.IsSelectTool);
+
+        vm.UseToolCommand.Execute(ImageTool.Text);
+        Assert.True(vm.IsTextTool);
+        Assert.False(vm.IsEraseTool);
+    }
+
+    [Fact]
+    public async Task TheTextColorIsChosenAmongThreeSwatchesAndAnOldCustomColorGetsItsOwn()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        Assert.Equal(["#1d1d2a", "#f1eee6", "#5a4630"], vm.TextSwatches.Select(w => w.Hex));
+        Assert.Equal(["#1d1d2a"], vm.TextSwatches.Where(w => w.IsSelected).Select(w => w.Hex));
+
+        vm.PickTextColorCommand.Execute("#f1eee6");
+        Assert.Equal("#f1eee6", vm.TextColor);
+        Assert.Equal(["#f1eee6"], vm.TextSwatches.Where(w => w.IsSelected).Select(w => w.Hex));
+
+        vm.TextColor = "#336699";
+        Assert.Equal(4, vm.TextSwatches.Count);
+        Assert.Equal(["#336699"], vm.TextSwatches.Where(w => w.IsSelected).Select(w => w.Hex));
+        Assert.True(vm.TextSwatches[1].IsLight);
+        Assert.False(vm.TextSwatches[0].IsLight);
+    }
+
+    [Fact]
+    public async Task TheOutlineFieldSaysNoneOrTakesAColor()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        Assert.Equal("Nenhum", vm.OutlineText);
+        Assert.False(vm.HasOutline);
+
+        vm.OutlineText = "#FFFFFF";
+        Assert.True(vm.HasOutline);
+        Assert.Equal("#ffffff", vm.OutlineColor);
+
+        vm.OutlineText = "isto não é cor";
+        Assert.True(vm.HasOutline);
+        Assert.Equal("#ffffff", vm.OutlineColor);
+
+        vm.OutlineText = " nenhum ";
+        Assert.False(vm.HasOutline);
+
+        vm.HasOutline = true;
+        vm.OutlineColor = "#000000";
+        Assert.Equal("#000000", vm.OutlineText);
+    }
+
+    [Fact]
+    public async Task AHandleOfTheAreaHandsBackTheOppositeCornerAsTheAnchor()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.SetRegion(100, 80, 200, 60);
+        vm.OverlayScale = 0.5;
+
+        Assert.Equal(20, vm.HandleSize);
+        Assert.Equal(4, vm.OverlayStroke);
+        Assert.True(vm.TryResizeAnchor(98, 82, out var fromTopLeft));
+        Assert.Equal((300d, 140d), fromTopLeft);
+        Assert.True(vm.TryResizeAnchor(305, 135, out var fromBottomRight));
+        Assert.Equal((100d, 80d), fromBottomRight);
+        Assert.False(vm.TryResizeAnchor(200, 110, out _));
+    }
+
+    [Fact]
+    public async Task TheInventoryOpensInTheSystemProgram()
+    {
+        var vm = Open();
+        string? opened = null;
+        vm.OpenPath = path => opened = path;
+
+        Assert.True(vm.CanOpenInventory);
+        vm.OpenInventoryCommand.Execute(null);
+
+        Assert.Equal(folder.ImageInventoryPath, opened);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task TheSuggestedTranslationOfTheInventoryReachesTheItem()
+    {
+        folder.SaveImageInventory([new ImageTextEntry(Pack, Gate, Hash(gate), 640, 360, "桜ヶ丘高校 校門", "Colégio Sakuragaoka, portão"), new ImageTextEntry(Pack, Logo, Hash(logo), 320, 120, "タイトル")]);
+        var vm = Open();
+
+        var withTranslation = vm.Items.Single(i => i.Path == Gate);
+        var without = vm.Items.Single(i => i.Path == Logo);
+
+        Assert.True(withTranslation.HasTranslation);
+        Assert.Equal("Colégio Sakuragaoka, portão", withTranslation.Translation);
+        Assert.False(without.HasTranslation);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public void TheEmptyInventoryOffersToReadTheImagesInsteadOfSendingThePersonToTheTerminal()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var vm = Open();
+
+        Assert.True(vm.IsEmpty);
+        Assert.False(vm.CanOpenInventory);
+        Assert.True(vm.ScanCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ReadingTheImagesAsksBeforeCallingTheAiThenWritesTheInventoryWithTheSuggestion()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var reader = new FakeImageTextReader(image => image.Data.AsSpan().SequenceEqual(gate) ? "桜ヶ丘高校 校門" : string.Empty) { InputTokens = 1000, OutputTokens = 100, Translate = _ => "Colégio Sakuragaoka, portão" };
+        var vm = Open();
+        vm.ReaderFactory = _ => reader;
+
+        await vm.ScanCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsScanConfirming);
+        Assert.Empty(reader.Received);
+        Assert.Contains(vm.ScanFacts, f => f.Label == "Vão à IA");
+        Assert.Contains(vm.ScanFacts, f => f.Label == "Custo estimado");
+
+        vm.ConfirmScanCommand.Execute(null);
+        await vm.Scanning;
+
+        Assert.False(vm.IsScanConfirming);
+        Assert.False(vm.IsScanning);
+        Assert.Null(vm.ErrorMessage);
+        var entry = Assert.Single(folder.LoadImageInventory(), e => e.Path == Gate);
+        Assert.Equal("桜ヶ丘高校 校門", entry.Text);
+        Assert.Equal("Colégio Sakuragaoka, portão", entry.Translation);
+        Assert.False(vm.IsEmpty);
+        Assert.Equal("Colégio Sakuragaoka, portão", vm.Items.Single(i => i.Path == Gate).Translation);
+    }
+
+    [Fact]
+    public async Task CancellingTheReadingDialogCallsNothing()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var reader = new FakeImageTextReader();
+        var vm = Open();
+        vm.ReaderFactory = _ => reader;
+        await vm.ScanCommand.ExecuteAsync(null);
+
+        vm.CancelScanCommand.Execute(null);
+
+        Assert.False(vm.IsScanConfirming);
+        Assert.Empty(reader.Received);
+        Assert.Empty(folder.LoadImageInventory());
+    }
+
+    [Fact]
+    public async Task WithoutAnApiKeyTheReadingExplainsInsteadOfFailingLater()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var vm = Open();
+        vm.ReaderFactory = _ => throw new InvalidOperationException("Falta a chave da IA.");
+
+        await vm.ScanCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsScanConfirming);
+        Assert.Contains("chave de API", vm.ErrorMessage);
+        Assert.DoesNotContain("vnf", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task TheReadingStopsBeforeCallingTheAiWhenTheEstimateBreaksTheSpendLimit()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var reader = new FakeImageTextReader();
+        var vm = Open();
+        vm.ReaderFactory = _ => reader;
+        vm.Limits = () => new BudgetLimits(0.0001m, null);
+
+        await vm.ScanCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsScanConfirming);
+        Assert.Contains("limite de", vm.ErrorMessage);
+        Assert.Empty(reader.Received);
     }
 
     [Fact]
@@ -338,7 +568,7 @@ public sealed class ImagesViewModelTests : IDisposable
         await vm.Previewing;
 
         Assert.Equal(before + 1, composer.Renders);
-        Assert.Equal("Cabe na área · 30 px de " + vm.RegionWidth + " px de largura", vm.FitText.Split(',')[0]);
+        Assert.Equal("Cabe na placa · 30 de " + vm.RegionWidth + " px de largura", vm.FitText.Split(',')[0]);
     }
 
     [Fact]

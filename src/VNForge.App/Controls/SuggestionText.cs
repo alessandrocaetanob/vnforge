@@ -6,7 +6,7 @@ namespace VNForge.App.Controls;
 
 /// <summary>
 /// O texto da sugestão do editor (#532) num <see cref="TextBlock"/>: <c>Current</c> é a tradução de hoje e <c>Proposed</c> a proposta. Com <c>ShowRemoved</c> (o inspetor) a tradução de hoje
-/// aparece riscada e a proposta em verde, inteira, como no quadro. Sem ele (o Modo revisão) só a proposta aparece, com marca verde nas palavras que mudaram.
+/// aparece riscada e a proposta em verde, depois do começo que não mudou, como no quadro. Sem ele (o Modo revisão) só a proposta aparece, com marca verde nas palavras que mudaram.
 /// As cores vêm dos estilos <c>Run.ins</c> e <c>Run.sug-del</c> de <c>AiSuggestion.axaml</c>.
 /// </summary>
 public static class SuggestionText
@@ -53,13 +53,31 @@ public static class SuggestionText
 
         if (GetShowRemoved(block))
         {
-            if (!string.IsNullOrEmpty(current))
+            // Como no quadro: o começo que não mudou fica sem marca; o resto da tradução de hoje vem riscado e o da proposta, em verde.
+            current ??= string.Empty;
+            var prefix = CommonWordPrefix(current, proposed);
+            if (prefix.Length > 0)
             {
-                block.Inlines.Add(Styled(current, "sug-del"));
+                block.Inlines.Add(new Run(prefix));
+            }
+
+            var removed = current[prefix.Length..];
+            var added = proposed[prefix.Length..];
+            if (removed.Length > 0)
+            {
+                block.Inlines.Add(Styled(removed, "sug-del"));
+            }
+
+            if (removed.Length > 0 && added.Length > 0)
+            {
                 block.Inlines.Add(new Run(" "));
             }
 
-            block.Inlines.Add(Styled(proposed, "ins"));
+            if (added.Length > 0)
+            {
+                block.Inlines.Add(Styled(added, "ins"));
+            }
+
             return;
         }
 
@@ -74,6 +92,28 @@ public static class SuggestionText
             first = false;
             block.Inlines.Add(segment.Kind == DiffKind.Insert ? Styled(segment.Text, "ins") : new Run(segment.Text));
         }
+    }
+
+    /// <summary>O começo igual dos dois textos, cortado numa fronteira de palavra: nunca no meio de uma delas.</summary>
+    private static string CommonWordPrefix(string current, string proposed)
+    {
+        var n = 0;
+        while (n < current.Length && n < proposed.Length && current[n] == proposed[n])
+        {
+            n++;
+        }
+
+        for (; n > 0; n--)
+        {
+            var atWord = char.IsWhiteSpace(current[n - 1])
+                || ((n == current.Length || char.IsWhiteSpace(current[n])) && (n == proposed.Length || char.IsWhiteSpace(proposed[n])));
+            if (atWord)
+            {
+                break;
+            }
+        }
+
+        return current[..n];
     }
 
     private static Run Styled(string text, string styleClass)

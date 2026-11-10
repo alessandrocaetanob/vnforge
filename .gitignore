@@ -34,6 +34,7 @@ publish/
 .idea/
 *.DotSettings.user
 TestResults/
+test-results/
 coverage*/
 *.coverage
 *.trx

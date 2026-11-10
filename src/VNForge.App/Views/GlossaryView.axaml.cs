@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
@@ -92,6 +93,25 @@ public sealed partial class GlossaryView : UserControl
                     }
                 },
                 DispatcherPriority.Loaded);
+        }
+    }
+
+    /// <summary>Enter na linha focada do Meu glossário edita o termo, o mesmo que o duplo clique.</summary>
+    private void OnPersonalRowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is Control { DataContext: PersonalTermRow row } && DataContext is GlossaryViewModel vm && vm.Personal.EditCommand.CanExecute(row))
+        {
+            vm.Personal.EditCommand.Execute(row);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Duplo clique na linha do Meu glossário abre o editor do termo: o quadro não desenha o botão de editar na linha (#537).</summary>
+    private void OnPersonalRowDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { DataContext: PersonalTermRow row } && DataContext is GlossaryViewModel vm && vm.Personal.EditCommand.CanExecute(row))
+        {
+            vm.Personal.EditCommand.Execute(row);
         }
     }
 }

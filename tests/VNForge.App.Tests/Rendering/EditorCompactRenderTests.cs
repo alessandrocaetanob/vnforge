@@ -98,7 +98,7 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
                     Assert.DoesNotContain(inspector.GetVisualDescendants().OfType<TabControl>(), t => t.IsEffectivelyVisible);
                     Assert.Equal(GameTextboxSize.Medium, inspector.GetVisualDescendants().OfType<GameTextbox>().Single().Size);
                     var panel = inspector.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel"));
-                    Assert.InRange(panel.Bounds.Width, 421, EditorBreakpoints.InspectorMaxWidth + 1);
+                    Assert.InRange(panel.Bounds.Width, EditorBreakpoints.InspectorMaxWidth - 1, EditorBreakpoints.InspectorMaxWidth + 1);
                 }
                 finally
                 {

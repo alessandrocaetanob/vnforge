@@ -59,7 +59,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
             "Amaoto no Hakoniwa", new GameConfig(game, "jogo.exe"), new EngineConfig("yuris"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
         folder.SaveImageInventory(
         [
-            new ImageTextEntry(Pack, Gate, Convert.ToHexStringLower(SHA256.HashData(gate)), Width, Height, "桜ヶ丘高校 校門"),
+            new ImageTextEntry(Pack, Gate, Convert.ToHexStringLower(SHA256.HashData(gate)), Width, Height, "桜ヶ丘高校 校門", "Colégio Sakuragaoka, portão"),
             new ImageTextEntry(Pack, "ui/titulo.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, "タイトル"),
             new ImageTextEntry(Pack, "ui/logo.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, "ロゴ"),
             new ImageTextEntry(Pack, "bg/rua.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, string.Empty),
@@ -111,7 +111,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
                             var right = previews.Max(p => p.TranslatePoint(new Avalonia.Point(0, 0), window)!.Value.X);
                             Assert.True(right - left > 400, "Original e traduzida ficam lado a lado, não uma sobre a outra.");
                             Assert.True(strip.Bounds.Height >= 68);
-                            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.StartsWith("Cabe na área", StringComparison.Ordinal) == true);
+                            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text?.StartsWith("Cabe na placa", StringComparison.Ordinal) == true);
                             Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "O que muda no build");
                         });
                 }
@@ -144,8 +144,8 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
                             DialogProbe.AssertCentered(window, 600);
                             var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).ToList();
                             Assert.Contains("portao.png", texts);
-                            Assert.Contains(texts, t => t?.Contains("injeção faz a cópia de segurança", StringComparison.Ordinal) == true);
-                            Assert.DoesNotContain(texts, t => t?.StartsWith("Cópia de segurança antes de gravar", StringComparison.Ordinal) == true);
+                            Assert.Contains(texts, t => t == "Cópia de segurança antes de gravar");
+                            Assert.Contains(texts, t => t == "Regravar 1 imagem no PAK?");
                         });
                 }
 

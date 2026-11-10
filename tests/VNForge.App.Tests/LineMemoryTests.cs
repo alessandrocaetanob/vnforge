@@ -114,7 +114,7 @@ public sealed class LineMemoryTests : IDisposable
         await vm.MemoryLoading;
 
         Assert.True(vm.IsSceneCollapsed);
-        Assert.Equal("2 falas", vm.SceneCountText);
+        Assert.Equal("2 falas antes", vm.SceneCountText);
 
         vm.ToggleSceneCommand.Execute(null);
 
