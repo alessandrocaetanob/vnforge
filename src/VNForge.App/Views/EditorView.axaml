@@ -18,6 +18,13 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
+    <Style Selector="TextBlock.colhead">
+      <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
+      <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Caption}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
     <!-- Janela abaixo de 1400 px (EditorBreakpoints): o botão das cenas aparece e os botões secundários largam o texto. -->
     <Style Selector="Button.scenes-trigger">
       <Setter Property="IsVisible" Value="False"/>
@@ -173,7 +180,7 @@
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" Margin="0,8,0,0" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="4" x:Name="Columns" Margin="-8,16,-8,6" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="220"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
@@ -204,20 +211,21 @@
 
       <!-- Grade de linhas: somente leitura; a edição acontece no inspetor. -->
       <Border Grid.Column="1" Classes="panel" ClipToBounds="True" AutomationProperties.Name="Linhas">
-        <Grid RowDefinitions="32,*,Auto">
-          <!-- Dois cabeçalhos, um por densidade (#460): as colunas de sempre e o do Roteiro, onde quem fala, o original e a tradução dividem uma coluna só. -->
-          <Border x:Name="ColumnsHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding !IsScriptDensity}">
-            <Grid ColumnDefinitions="92,148,*,1.2*,32" ColumnSpacing="8">
-              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala" VerticalAlignment="Center"/>
-              <c:OverlineText Grid.Column="2" Classes="overline" Text="Original" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-              <c:OverlineText Grid.Column="3" Classes="overline" Text="Tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        <Grid RowDefinitions="38,*,Auto">
+          <!-- Dois cabeçalhos, um por densidade (#460): as colunas de sempre e o do Roteiro, onde quem fala, o original e a tradução dividem uma coluna só.
+               Quadro do #546 (".v3-gh"): 38 px, mesmas colunas da linha, títulos em 12/16 600 text-secondary, sem caixa alta. -->
+          <Border x:Name="ColumnsHeader" Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding !IsScriptDensity}">
+            <Grid ColumnDefinitions="72,148,*,*,28" ColumnSpacing="10">
+              <TextBlock Classes="colhead" Text="Situação"/>
+              <TextBlock Grid.Column="1" Classes="colhead" Text="Quem fala"/>
+              <TextBlock Grid.Column="2" Classes="colhead" Text="Original" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Grid.Column="3" Classes="colhead" Text="Tradução" TextTrimming="CharacterEllipsis"/>
             </Grid>
           </Border>
-          <Border x:Name="ScriptHeader" Classes="divider-bottom" Padding="12,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding IsScriptDensity}">
-            <Grid ColumnDefinitions="92,*" ColumnSpacing="8">
-              <c:OverlineText Classes="overline" Text="Situação" VerticalAlignment="Center"/>
-              <c:OverlineText Grid.Column="1" Classes="overline" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+          <Border x:Name="ScriptHeader" Classes="divider-bottom" Padding="16,0" Background="{DynamicResource Vnf.BgCard}" IsVisible="{Binding IsScriptDensity}">
+            <Grid ColumnDefinitions="72,*" ColumnSpacing="10">
+              <TextBlock Classes="colhead" Text="Situação"/>
+              <TextBlock Grid.Column="1" Classes="colhead" Text="Quem fala · original · tradução" TextTrimming="CharacterEllipsis"/>
             </Grid>
           </Border>
 
