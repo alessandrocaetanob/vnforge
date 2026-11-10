@@ -49,7 +49,7 @@
     <Style Selector="ToggleButton.density">
       <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
       <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
-      <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="Padding" Value="8,0"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Background" Value="Transparent"/>
