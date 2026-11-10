@@ -419,7 +419,7 @@
 
         <Border Classes="infobar banner" BorderThickness="1" BorderBrush="Transparent">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Margin="0,8,0,0" Data="{StaticResource Icon.Info}"/>
+            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Margin="0,8,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
             <StackPanel Grid.Column="1">
               <TextBlock Classes="body-strong" Text="Onde fica a chave"/>
               <TextBlock FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{x:Static vm:NewProjectWizardViewModel.KeyNote}"/>
