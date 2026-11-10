@@ -133,6 +133,8 @@ public sealed class App : Application
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager,
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
-            playLog: playLog);
+            playLog: playLog,
+            switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+            engines: engines);
     }
 }
