@@ -192,7 +192,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                     Assert.Same(start.NewProjectCommand, primary.Command);
                     AssertPlainLanguage(texts);
 
-                    Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Settings)), n => Assert.False(n.IsEnabled));
+                    Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Characters or NavKey.Settings)), n => Assert.False(n.IsEnabled));
                     var status = StatusBarText(window);
                     Assert.Contains(vm.AppVersionText, status, StringComparison.Ordinal);
                     Assert.Contains("Chave do Claude", status, StringComparison.Ordinal);

@@ -36,7 +36,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.False(header.IsCompact);
 
             var rail = window.GetVisualDescendants().OfType<ListBox>().Where(l => l.Classes.Contains("navrail") && l.IsEffectivelyVisible).ToList();
-            Assert.Equal(["Biblioteca", "Ajustes"], rail.SelectMany(l => l.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text));
+            Assert.Equal(["Biblioteca", "Personagens", "Ajustes"], rail.SelectMany(l => l.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text));
             var library = Assert.Single(rail[0].GetVisualDescendants().OfType<ListBoxItem>());
             Assert.True(library.IsSelected);
             var label = library.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Biblioteca");
