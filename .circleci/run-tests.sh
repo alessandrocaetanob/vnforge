@@ -40,31 +40,48 @@ for dir in tests/*.Tests; do
 done
 [ -n "${dlls[$app]:-}" ] || abort "tests/$app não foi encontrado."
 
-# Divide as classes do App. O -list classes imprime um banner e uma linha em branco antes das classes.
+# Divide as classes do App. O -list classes imprime um banner e uma linha em branco antes das classes; só isso é
+# descartado. Qualquer outra linha tem que parecer um nome de classe, senão a conferência de completude abaixo
+# compararia as fatias com uma lista que já perdeu classes.
 classes="$logs/$app.classes"
-dotnet "${dlls[$app]}" -list classes | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_.+`]*$' | grep -F . | sort > "$classes" || true
+dotnet "${dlls[$app]}" -list classes > "$logs/$app.list" || abort "o -list classes do $app falhou."
+tr -d '\r' < "$logs/$app.list" | sed -e '/^xUnit\.net /d' -e '/^[[:space:]]*$/d' | sort > "$classes"
 [ -s "$classes" ] || abort "o -list classes não devolveu nenhuma classe do $app."
+unexpected="$(grep -Ev '^[^[:space:]]+$' "$classes" || true)"
+[ -z "$unexpected" ] || abort $'linha do -list classes que não é nome de classe:\n'"$unexpected"
 class_total="$(wc -l < "$classes")"
 
-for ((i = 0; i < shards; i++)); do : > "$logs/$app-$i.classes"; done
+# As classes de Rendering abrem a janela principal a cada caso e levam 81% do tempo: cada fatia recebe uma parte
+# igual delas e uma parte igual das demais.
+local_split() {
+  for ((i = 0; i < shards; i++)); do : > "$logs/$app-$i.classes"; done
+  awk -v n="$shards" -v dir="$logs" -v app="$app" '
+    /^VNForge\.App\.Tests\.Rendering\./ { print > (dir "/" app "-" (r++ % n) ".classes"); next }
+    { print > (dir "/" app "-" (o++ % n) ".classes") }' "$classes"
+}
 
-if command -v circleci > /dev/null; then
+# O CIRCLECI também é exigido: quem tem o CLI instalado na máquina de desenvolvimento roda o rodízio local.
+use_circleci=0
+if [ -n "${CIRCLECI:-}" ] && command -v circleci > /dev/null; then use_circleci=1; fi
+
+if [ "$use_circleci" -eq 1 ]; then
   # O circleci tests run reparte as classes pelas durações que o store_test_results publicou nas rodadas anteriores
   # (classname do JUnit), e é ele que habilita "Rerun failed tests". O --command só guarda a lista num arquivo: o
   # script lança um processo por fatia a partir dele, e um xargs que partisse a lista em duas chamadas faria os dois
   # processos gravarem o mesmo JUnit.
+  for ((i = 0; i < shards; i++)); do : > "$logs/$app-$i.classes"; done
   for ((i = 0; i < shards; i++)); do
-    circleci tests run --index="$i" --total="$shards" --split-by=timings --timings-type=classname \
-      --command="cat > '$root/$logs/$app-$i.classes'" --verbose < "$classes" > "$logs/split-$i.log" 2>&1 \
-      || { cat "$logs/split-$i.log" >&2; abort "circleci tests run falhou na fatia $i."; }
+    if ! circleci tests run --index="$i" --total="$shards" --split-by=timings --timings-type=classname \
+      --command="cat > '$root/$logs/$app-$i.classes'" --verbose < "$classes" > "$logs/split-$i.log" 2>&1; then
+      # Erro do próprio CLI (rede, plugin) não é repetição parcial: o rodízio local ainda roda tudo.
+      echo "AVISO: circleci tests run falhou na fatia $i; usando o rodízio local em todas as fatias." >&2
+      cat "$logs/split-$i.log" >&2
+      use_circleci=0
+      break
+    fi
   done
-else
-  # Sem o CLI (rodada local): as classes de Rendering abrem a janela principal a cada caso e levam 81% do tempo,
-  # então cada fatia recebe uma parte igual delas e uma parte igual das demais.
-  awk -v n="$shards" -v dir="$logs" -v app="$app" '
-    /^VNForge\.App\.Tests\.Rendering\./ { print > (dir "/" app "-" (r++ % n) ".classes"); next }
-    { print > (dir "/" app "-" (o++ % n) ".classes") }' "$classes"
 fi
+if [ "$use_circleci" -eq 0 ]; then local_split; fi
 
 # Todas as classes, cada uma em exatamente uma fatia. Uma rodada parcial calada é o pior resultado possível aqui.
 # O "Rerun failed tests" do CircleCI também entrega só um pedaço das classes, e o job não tem como distingui-lo
@@ -88,9 +105,13 @@ pids=()
 
 # Roda um processo e grava "<código de saída> <segundos>" ao terminar; o arquivo é o que o laço de espera confere.
 run_process() {
-  local name="$1" start=$SECONDS rc=0
+  local name="$1" start=$SECONDS rc=0 child
   shift
-  "$@" > "$logs/$name.log" 2>&1 || rc=$?
+  "$@" > "$logs/$name.log" 2>&1 &
+  child=$!
+  # O subshell recebe o TERM do cancelamento e repassa ao dotnet, que senão sobrevive no runner reaproveitado.
+  trap 'kill "$child" 2> /dev/null || true' INT TERM
+  wait "$child" || rc=$?
   echo "$rc $((SECONDS - start))" > "$logs/$name.status"
 }
 
@@ -102,8 +123,16 @@ launch() {
   pids+=("$!")
 }
 
-# Se o CircleCI cancela o job, os processos de teste não podem ficar vivos no runner.
-trap 'kill "${pids[@]}" 2> /dev/null || true' INT TERM
+# Se o CircleCI cancela o job, os processos de teste não podem ficar vivos no runner: cada subshell mata o seu
+# dotnet, e o script espera por eles antes de sair com erro.
+cancel() {
+  trap - INT TERM
+  echo "Cancelado: encerrando os processos de teste." >&2
+  kill "${pids[@]}" 2> /dev/null || true
+  wait || true
+  exit 130
+}
+trap cancel INT TERM
 
 for name in "${!dlls[@]}"; do
   [ "$name" = "$app" ] && continue
@@ -147,7 +176,7 @@ for name in "${names[@]}"; do
   tests=0 failures=0 skipped=0
   if [ -f "$xml" ]; then
     tests="$(count '<testcase ' "$xml")"
-    failures="$(count '<failure' "$xml")"
+    failures=$(($(count '<failure[ >]' "$xml") + $(count '<error[ >]' "$xml")))
     skipped="$(count '<skipped' "$xml")"
   fi
   total_tests=$((total_tests + tests))
