@@ -175,14 +175,18 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void A_capa_adulta_fica_escondida_ate_a_privacidade_liberar()
+    public void O_jogo_adulto_nem_entra_na_pagina_ate_a_privacidade_liberar()
     {
-        var hidden = Render([Adult()]).Html;
-        var shown = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true))).Html;
+        var hidden = Render([Clannad(), Adult()]);
+        var shown = Render([Clannad(), Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));
 
-        Assert.DoesNotContain("9999.jpg", hidden, StringComparison.Ordinal);
-        Assert.Contains("Capa escondida", hidden, StringComparison.Ordinal);
-        Assert.Contains("9999.jpg", shown, StringComparison.Ordinal);
+        Assert.Equal(1, hidden.Games);
+        Assert.Equal(1, hidden.Adult);
+        Assert.DoesNotContain("Jogo Adulto", hidden.Html, StringComparison.Ordinal);
+        Assert.DoesNotContain("9999.jpg", hidden.Html, StringComparison.Ordinal);
+        Assert.Equal(2, shown.Games);
+        Assert.Equal(0, shown.Adult);
+        Assert.Contains("9999.jpg", shown.Html, StringComparison.Ordinal);
     }
 
     [Fact]

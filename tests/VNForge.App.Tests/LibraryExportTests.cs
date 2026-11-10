@@ -17,11 +17,11 @@ public sealed class LibraryExportTests : IDisposable
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private async Task<(LibraryViewModel Library, List<string> Opened)> Loaded(IEnumerable<LibraryGame>? games = null)
+    private async Task<(LibraryViewModel Library, List<string> Opened)> Loaded(IEnumerable<LibraryGame>? games = null, ILibrarySheetSource? sheets = null)
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
         var opened = new List<string>();
-        var library = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(_out.Path), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, sheets: new LibrarySamples.Sheets());
+        var library = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(_out.Path), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, sheets: sheets ?? new LibrarySamples.Sheets());
         library.Export.OpenFile = opened.Add;
         library.Export.Folder = _out.Path;
         await library.LoadAsync();
@@ -37,7 +37,10 @@ public sealed class LibraryExportTests : IDisposable
         export.Open();
 
         Assert.True(export.IsOpen);
-        Assert.Equal("10 jogos; 2 ficam de fora por não terem casamento no VNDB", export.Scopes[0].Detail);
+        Assert.Equal("9 jogos; 2 sem casamento no VNDB e 1 adulto ficam de fora", export.Scopes[0].Detail);
+        export.IncludeSensitive = true;
+        Assert.Equal("10 jogos; 2 sem casamento no VNDB ficam de fora", export.Scopes[0].Detail);
+        export.IncludeSensitive = false;
         Assert.Equal("3 jogos", export.Scopes[1].Detail);
         Assert.False(export.Scopes[2].IsAvailable);
 
@@ -87,6 +90,37 @@ public sealed class LibraryExportTests : IDisposable
     }
 
     [Fact]
+    public async Task Qualquer_erro_da_gravacao_vira_aviso_no_dialogo_que_continua_aberto()
+    {
+        var (library, opened) = await Loaded(sheets: new BrokenSheets());
+        library.Export.Open();
+
+        await library.Export.ExportCommand.ExecuteAsync(null);
+
+        Assert.Equal("ficha quebrada", library.Export.ErrorMessage);
+        Assert.True(library.Export.IsOpen);
+        Assert.False(library.Export.IsBusy);
+        Assert.Empty(opened);
+    }
+
+    [Fact]
+    public async Task Esc_durante_a_gravacao_nao_abre_o_navegador()
+    {
+        var (library, opened) = await Loaded();
+        library.Export.Open();
+        library.Export.IsOpen = false;
+
+        await library.Export.ExportCommand.ExecuteAsync(null);
+
+        Assert.Empty(opened);
+    }
+
+    private sealed class BrokenSheets : ILibrarySheetSource
+    {
+        public LibrarySheet? SheetOf(LibraryGame game) => throw new InvalidOperationException("ficha quebrada");
+    }
+
+    [Fact]
     public async Task Trocar_escolhe_a_pasta_do_seletor()
     {
         var (library, _) = await Loaded();
@@ -127,6 +161,7 @@ public sealed class LibraryExportTests : IDisposable
 
         File.Delete(path);
         await library.Export.ExportCommand.ExecuteAsync(null);
+        library.Export.Open();
         await library.Export.ExportCommand.ExecuteAsync(null);
 
         Assert.Null(library.Export.ErrorMessage);

@@ -138,7 +138,7 @@
   </UserControl.Styles>
 
   <!-- As teclas (Enter, E, M, setas e Esc) são tratadas em ReviewModeView.axaml.cs: o KeyBinding age antes de qualquer filtro e não deixa ignorar a tecla segurada. -->
-  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="12" Focusable="True" AutomationProperties.Name="Modo revisão">
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto" RowSpacing="14" Focusable="True" AutomationProperties.Name="Modo revisão">
 
     <!-- Topo numa linha: voltar ao Editor, o nome da cena com "Linha 1 de 6" e um bloco por linha, e as linhas revisadas hoje. -->
     <Grid x:Name="TopBar" ColumnDefinitions="*,Auto,*" ColumnSpacing="16" MinHeight="40">
@@ -152,19 +152,22 @@
         <TextBlock x:Name="SceneTitle" Classes="title-md" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding HeaderTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding HeaderTitle}" AutomationProperties.Name="Cena"/>
         <TextBlock x:Name="SourceCaption" Classes="body-sm secondary" HorizontalAlignment="Center" MaxWidth="420" Text="{Binding SourceText}" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasSourceText}" AutomationProperties.Name="Fonte da revisão"/>
         <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" Text="{Binding PositionText}" IsVisible="{Binding ShowPosition}"/>
-        <ItemsControl ItemsSource="{Binding VisibleBlocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="4"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:ReviewBlock">
-              <Border Classes="block" VerticalAlignment="Center" Classes.approved="{Binding IsApproved}" Classes.later="{Binding IsLater}"
-                      Classes.skipped="{Binding IsSkipped}" Classes.current="{Binding IsCurrent}"/>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <!-- Cena de centenas de falas: os blocos encolhem para caber nos 420 px do título, em vez de empurrar o título e o botão Voltar para fora da barra. -->
+        <Viewbox MaxWidth="420" Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center">
+          <ItemsControl ItemsSource="{Binding VisibleBlocks}" HorizontalAlignment="Center" AutomationProperties.Name="Linhas da revisão">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="4"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReviewBlock">
+                <Border Classes="block" VerticalAlignment="Center" Classes.approved="{Binding IsApproved}" Classes.later="{Binding IsLater}"
+                        Classes.skipped="{Binding IsSkipped}" Classes.current="{Binding IsCurrent}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Viewbox>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Right">
         <!-- A ordem da fila (c6): da primeira linha da cena, ou "o que mais precisa de você", de todo o projeto, do maior risco ao menor. -->
@@ -178,7 +181,7 @@
     </Grid>
 
     <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo, com até 64% da largura. As duas colunas alinham pelo topo e o bloco fica centrado na altura que sobra entre o topo e a barra. -->
-    <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="24" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
+    <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="32" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
 
       <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
         <StackPanel x:Name="ScriptStack" Spacing="12" Margin="0,0,12,4">

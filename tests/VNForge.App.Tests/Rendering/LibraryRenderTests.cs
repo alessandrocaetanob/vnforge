@@ -174,7 +174,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             var texts = Texts(window);
             foreach (var expected in new[]
                      {
-                         "Exportar catálogo", "QUAIS JOGOS", "Todos", "10 jogos; 2 ficam de fora por não terem casamento no VNDB", "Só com português", "3 jogos", "O filtro atual", "Nenhum filtro ligado",
+                         "Exportar catálogo", "QUAIS JOGOS", "Todos", "9 jogos; 2 sem casamento no VNDB e 1 adulto ficam de fora", "Só com português", "3 jogos", "O filtro atual", "Nenhum filtro ligado",
                          "O QUE ENTRA", "Ficha em português: sinopse, tags e personagens", "O que você jogou e o tempo", "A sua nota", "O que você traduziu", "Spoiler e conteúdo adulto",
                          "Crédito ao VNDB (Open Database License)", "sempre incluído", "IMAGENS", "Por link para o VNDB", "Trocar", "Cancelar", "Exportar",
                      })

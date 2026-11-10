@@ -8,7 +8,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Core.Library;
 
 /// <summary>
-/// Como gerar o catálogo. <paramref name="Privacy"/> decide o que sai escondido (spoiler e conteúdo adulto, como na Biblioteca). <paramref name="IncludeNotes"/> põe as notas de
+/// Como gerar o catálogo. <paramref name="Privacy"/> decide o que sai escondido (spoiler e conteúdo adulto, como na Biblioteca); sem <c>ShowAdult</c>, o jogo marcado como adulto nem entra na página. <paramref name="IncludeNotes"/> põe as notas de
 /// texto que a pessoa escreveu em cada jogo; ficam de fora por padrão, porque o catálogo é feito para ser mostrado. Os outros quatro escolhem o que entra de cada jogo (o diálogo do app):
 /// <paramref name="IncludeSheet"/> é a sinopse, as tags e os personagens, <paramref name="IncludePlayed"/> o estado da lista, as datas e o tempo jogado, <paramref name="IncludeVote"/> a nota e
 /// <paramref name="IncludeTranslation"/> o andamento do projeto de tradução. Entram por padrão; título, capa e o crédito ao VNDB entram sempre.
@@ -21,8 +21,8 @@ public sealed record LibraryCatalogOptions(
     bool IncludeVote = true,
     bool IncludeTranslation = true);
 
-/// <summary>A página gerada. <paramref name="Games"/> são os jogos que entraram; <paramref name="Skipped"/> são os que ficaram de fora por ainda não terem jogo do VNDB confirmado.</summary>
-public sealed record LibraryCatalogResult(string Html, int Games, int Skipped);
+/// <summary>A página gerada. <paramref name="Games"/> são os jogos que entraram; <paramref name="Skipped"/> são os que ficaram de fora por ainda não terem jogo do VNDB confirmado; <paramref name="Adult"/> são os de conteúdo adulto que a privacidade deixou de fora.</summary>
+public sealed record LibraryCatalogResult(string Html, int Games, int Skipped, int Adult = 0);
 
 /// <summary>A duração do jogo como a Biblioteca a escreve, em português.</summary>
 public static class LibraryLength
@@ -107,8 +107,9 @@ public static partial class LibraryCatalog
         options ??= new LibraryCatalogOptions(library.Privacy);
         translation ??= ReadTranslation;
 
-        var games = library.Sorted().Where(g => g.Info is not null).ToList();
-        var skipped = library.Games.Count - games.Count;
+        var matched = library.Sorted().Where(g => g.Info is not null).ToList();
+        var games = matched.Where(g => options.Privacy.ShowAdult || !g.Info!.Adult).ToList();
+        var skipped = library.Games.Count - matched.Count;
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html>\n");
         html.Append("<html lang=\"pt-BR\">\n<head>\n");
@@ -133,7 +134,7 @@ public static partial class LibraryCatalog
         html.Append("</main>\n");
         AppendFooter(html, generatedAt);
         html.Append("</body>\n</html>\n");
-        return new LibraryCatalogResult(html.ToString(), games.Count, skipped);
+        return new LibraryCatalogResult(html.ToString(), games.Count, skipped, matched.Count - games.Count);
     }
 
     /// <summary>
@@ -189,10 +190,6 @@ public static partial class LibraryCatalog
         if (card.CoverUrl is { } cover && VndbImageVisibility.IsAllowedSource(cover))
         {
             AppendImage(html, cover, "Capa de " + card.Title, VndbLink(game));
-        }
-        else if (card.CoverHidden)
-        {
-            html.Append("<span class=\"hidden\">Capa escondida (conteúdo adulto)</span>");
         }
 
         html.Append("</div>\n<div class=\"body\">\n");
@@ -464,7 +461,6 @@ public static partial class LibraryCatalog
         .game { display: flex; gap: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin: 1rem 0; }
         .cover { flex: 0 0 9rem; }
         .cover img { width: 9rem; height: auto; border-radius: 4px; display: block; }
-        .hidden { color: var(--muted); font-size: .85rem; }
         .body { flex: 1; min-width: 0; }
         h2 { margin: 0; font-size: 1.3rem; }
         h3 { margin: 1rem 0 .25rem; font-size: 1rem; }

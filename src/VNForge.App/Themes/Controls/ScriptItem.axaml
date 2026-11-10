@@ -26,27 +26,28 @@
     <Setter Property="CornerRadius" Value="1.5"/>
   </Style>
 
-  <!-- v5: 36px de altura. O nome numa linha só (reticências se passar), o percentual (ou o visto, com a cena pronta) à direita e a barra de 3px embaixo. O id da cena não aparece: vai na dica do mouse (ScriptItemViewModel.Tooltip). -->
+  <!-- Quadro do #546 (".scn > div"): 32 px (7 de cima e de baixo, texto 13/18), o nome em text-secondary e o percentual (ou o visto, com a cena pronta) à direita. A barra de 3 px à esquerda aparece só no item atual,
+       no lugar do recuo interno do quadro (inset 3px accent); o cartão da cena (Border.scene) recorta o canto. O id da cena não aparece: vai na dica do mouse (ScriptItemViewModel.Tooltip). -->
   <Style Selector="c|ScriptItem">
-    <Setter Property="Height" Value="36"/>
-    <Setter Property="Padding" Value="10,0,10,6"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="Padding" Value="10,0"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Grid RowDefinitions="*,Auto" Margin="{TemplateBinding Padding}">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+        <Panel>
+          <Border Name="PART_SelectionBar" Width="3" HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}" IsVisible="False"/>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
             <TextBlock Name="PART_Label" Text="{TemplateBinding Label}" FontSize="13" LineHeight="18" TextWrapping="NoWrap"
-                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Vnf.TextPrimary}"/>
+                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Vnf.TextSecondary}"/>
             <StackPanel Name="PART_Percent" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
               <PathIcon Name="PART_Running" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.ArrowSync}"
                         Foreground="{DynamicResource Vnf.StatusAiFg}" AutomationProperties.Name="IA traduzindo"/>
-              <TextBlock Name="PART_PercentText" Text="{TemplateBinding PercentText}" FontSize="12" LineHeight="18"
+              <TextBlock Name="PART_PercentText" Text="{TemplateBinding PercentText}" FontSize="12" LineHeight="16"
                          Foreground="{DynamicResource Vnf.TextSecondary}"/>
-              <PathIcon Name="PART_Done" Width="14" Height="14" IsVisible="False" Data="{DynamicResource Icon.Check}"
+              <PathIcon Name="PART_Done" Width="16" Height="16" IsVisible="False" Data="{DynamicResource Icon.Check}"
                         Foreground="{DynamicResource Vnf.StatusApprovedFg}" AutomationProperties.Name="Pronta"/>
             </StackPanel>
           </Grid>
-          <ProgressBar Name="PART_Bar" Grid.Row="1" Classes="thin slim" Minimum="0" Maximum="100" Value="{TemplateBinding Percent}" ShowProgressText="False"/>
-        </Grid>
+        </Panel>
       </ControlTemplate>
     </Setter>
   </Style>
@@ -59,9 +60,6 @@
   <Style Selector="c|ScriptItem:running /template/ TextBlock#PART_PercentText">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
   </Style>
-  <Style Selector="c|ScriptItem:complete /template/ ProgressBar#PART_Bar">
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.SegApproved}"/>
-  </Style>
   <!-- Pronta: o visto toma o lugar de "100%" (o nome de acessibilidade do item continua dizendo o percentual). -->
   <Style Selector="c|ScriptItem:complete /template/ TextBlock#PART_PercentText">
     <Setter Property="IsVisible" Value="False"/>
@@ -69,9 +67,16 @@
   <Style Selector="c|ScriptItem:complete /template/ PathIcon#PART_Done">
     <Setter Property="IsVisible" Value="True"/>
   </Style>
-  <!-- O script atual é o item selecionado da lista: accent-soft e nome em 600. -->
+  <!-- O script atual é o item selecionado da lista: accent-soft, nome em accent-text e 600, barra de 3 px à esquerda. -->
   <Style Selector="ListBoxItem:selected c|ScriptItem /template/ TextBlock#PART_Label">
     <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="ListBoxItem:selected c|ScriptItem /template/ TextBlock#PART_PercentText">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="ListBoxItem:selected c|ScriptItem /template/ Border#PART_SelectionBar">
+    <Setter Property="IsVisible" Value="True"/>
   </Style>
 
   <!-- Lista de scripts do Editor: itens de raio sm sem barra lateral, hover em bg-card-hover e atual em accent-soft. -->
@@ -109,8 +114,9 @@
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
   <Style Selector="ListBox.scripts Border.scene">
-    <Setter Property="Margin" Value="6,1"/>
+    <Setter Property="Margin" Value="8,1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+    <Setter Property="ClipToBounds" Value="True"/>
     <Setter Property="Background" Value="Transparent"/>
   </Style>
   <Style Selector="ListBox.scripts > ListBoxItem:pointerover Border.scene">

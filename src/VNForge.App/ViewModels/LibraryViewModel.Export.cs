@@ -16,8 +16,6 @@ public sealed partial class LibraryViewModel
 
     internal IEnumerable<LibraryGame> ShownGames => Cards.Select(c => c.Game);
 
-    internal GameLibrary CatalogLibrary => library;
-
     internal PlayLog Played => played;
 
     internal IFolderPicker FolderPicker => picker;

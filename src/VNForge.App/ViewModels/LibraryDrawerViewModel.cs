@@ -1,3 +1,5 @@
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
@@ -21,7 +23,7 @@ public enum LibraryDrawerChipKind
     Hidden,
 }
 
-public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "")
+public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "") : ObservableObject
 {
     private bool japaneseLocale = card.Game.RequiresJapaneseLocale;
 
@@ -105,6 +107,64 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
 
     public bool CanTranslate => Card.Game.Engine.Translatable;
 
+    private LibraryVersionLabel? VersionLabel => Card.Version is { } version ? LibraryVersionLabel.For(version) : null;
+
+    /// <summary>"Versão do jogo": só para o jogo que tem projeto ligado, que é de onde vêm o patch e o backup.</summary>
+    public bool HasVersion => VersionLabel is not null;
+
+    public string VersionPill => VersionLabel?.Pill ?? string.Empty;
+
+    public string VersionTone => VersionLabel?.Tone ?? "pend";
+
+    public string VersionDetail => VersionLabel?.Detail ?? string.Empty;
+
+    public string? VersionNote => VersionLabel?.Note;
+
+    public bool HasVersionNote => VersionNote is not null;
+
+    /// <summary>"Última troca": quando a injeção que está na pasta foi gravada; só existe com patch no jogo.</summary>
+    public string? LastSwitchText => Card.Version is { Kind: LibraryTranslationKind.Translated, Patch: { } patch }
+        ? patch.AppliedAt.ToLocalTime().ToString("dd/MM/yyyy, HH:mm", CultureInfo.InvariantCulture)
+        : null;
+
+    public bool HasLastSwitch => LastSwitchText is not null;
+
+    /// <summary>"Arquivos alterados": quantos a última injeção gravou e se todos têm cópia de segurança.</summary>
+    public string? FilesText => Card.Version is { Kind: LibraryTranslationKind.Translated, FilesChanged: > 0 } version
+        ? version.FilesWithoutOriginal == 0 ? $"{version.FilesChanged}, todos com cópia" : $"{version.FilesChanged}, {version.FilesWithoutOriginal} criados pelo patch"
+        : null;
+
+    public bool HasFiles => FilesText is not null;
+
+    /// <summary>O Jogar abre o jogo como está na pasta; com a tradução inteira nela, o botão diz isso.</summary>
+    public string PlayText => Card.Version is { } version && LibraryVersionLabel.IsFullTranslation(version) ? "Jogar traduzido" : "Jogar";
+
+    public IReadOnlyList<LibraryVersionItem> Versions { get; } = [new(false, "Original"), new(true, "Traduzido")];
+
+    /// <summary>Estado desconhecido não troca nada: o controle fica desligado e a gaveta diz o motivo.</summary>
+    public bool IsVersionKnown => Card.Version is { } version && LibraryVersionLabel.IsKnown(version);
+
+    /// <summary>O botão marcado: "Original" com o jogo como veio, "Traduzido" com a tradução inteira, nenhum quando a pasta só tem parte dela. Escolher o outro troca.</summary>
+    public LibraryVersionItem? SelectedVersion
+    {
+        get => Card.Version switch
+        {
+            { Kind: LibraryTranslationKind.Original } => Versions[0],
+            { } version when LibraryVersionLabel.IsFullTranslation(version) => Versions[1],
+            _ => null,
+        };
+        set
+        {
+            if (value is not null && value != SelectedVersion && IsVersionKnown && !Library.IsSwitching)
+            {
+                Library.StartSwitch(Card, value.Translated);
+            }
+
+            // O controle já mostra o botão clicado: avisa para ele voltar ao que o estado diz, caso a troca não aconteça.
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>O tempo de jogo em uma linha, vindo do <c>playtime.json</c>.</summary>
     public string PlayedText { get; } = playedText;
 
@@ -122,3 +182,6 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
         }
     }
 }
+
+/// <summary>Um botão do controle "Original / Traduzido" da gaveta.</summary>
+public sealed record LibraryVersionItem(bool Translated, string Label);

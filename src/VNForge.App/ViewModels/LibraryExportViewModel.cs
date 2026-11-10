@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.Core;
 using VNForge.Core.Library;
+using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
 
@@ -48,7 +49,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
     public partial bool IsOpen { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ExportCommand), nameof(ChooseFolderCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand), nameof(ChooseFolderCommand), nameof(CancelCommand))]
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
@@ -92,9 +93,30 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
             Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "VNForge", "Catalogo");
         }
 
+        RefreshDetails();
+        IsOpen = true;
+    }
+
+    partial void OnIncludeSensitiveChanged(bool value) => RefreshDetails();
+
+    private void RefreshDetails()
+    {
         var all = Pick(LibraryExportScope.All);
-        var left = library.AllGames.Count - all.Count;
-        Describe(LibraryExportScope.All).Detail = Games(all.Count) + (left == 0 ? string.Empty : left == 1 ? "; 1 fica de fora por não ter casamento no VNDB" : $"; {left} ficam de fora por não terem casamento no VNDB");
+        var unmatched = library.AllGames.Count(g => g.Info is null);
+        var adult = IncludeSensitive ? 0 : library.AllGames.Count(g => g.Info is { Adult: true });
+        var reasons = new List<string>();
+        if (unmatched > 0)
+        {
+            reasons.Add($"{unmatched} sem casamento no VNDB");
+        }
+
+        if (adult > 0)
+        {
+            reasons.Add(adult == 1 ? "1 adulto" : $"{adult} adultos");
+        }
+
+        var left = unmatched + adult;
+        Describe(LibraryExportScope.All).Detail = Games(all.Count) + (left == 0 ? string.Empty : $"; {string.Join(" e ", reasons)} {(left == 1 ? "fica" : "ficam")} de fora");
         Describe(LibraryExportScope.WithPortuguese).Detail = Games(Pick(LibraryExportScope.WithPortuguese).Count);
         var current = Describe(LibraryExportScope.CurrentFilter);
         current.IsAvailable = library.HasFilter;
@@ -103,8 +125,6 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         {
             Select(LibraryExportScope.All);
         }
-
-        IsOpen = true;
     }
 
     /// <summary>Marca a opção de "Quais jogos"; as outras desmarcam.</summary>
@@ -116,7 +136,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAct))]
     private void Cancel() => IsOpen = false;
 
     [RelayCommand(CanExecute = nameof(CanAct))]
@@ -135,11 +155,16 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         ErrorMessage = null;
         try
         {
-            var path = await Task.Run(WriteCatalog, CancellationToken.None);
-            IsOpen = false;
-            OpenFile(path);
+            var plan = Plan();
+            var path = await Task.Run(() => WriteCatalog(plan), CancellationToken.None);
+            if (IsOpen)
+            {
+                // Esc durante a gravação fecha o diálogo: a pessoa desistiu, o navegador não abre sozinho.
+                IsOpen = false;
+                OpenFile(path);
+            }
         }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             ErrorMessage = e.Message;
         }
@@ -151,16 +176,43 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
 
     private bool CanAct() => !IsBusy;
 
-    private string WriteCatalog()
+    /// <summary>Tudo o que a gravação lê, tirado na thread da tela: a gravação roda em outra e a tela muda sob ela (uma varredura troca as listas).</summary>
+    private sealed record ExportPlan(
+        string Folder,
+        GameLibrary Library,
+        List<LibraryGame> Chosen,
+        LibraryPrivacy Privacy,
+        LibraryCatalogOptions Options,
+        Dictionary<string, StatusCounts?> Translations,
+        PlayLog Played,
+        DateTimeOffset Now,
+        ILibrarySheetSource? Sheets);
+
+    private ExportPlan Plan()
     {
-        if (string.IsNullOrWhiteSpace(Folder))
+        var chosen = Pick(Scope);
+        var privacy = new LibraryPrivacy(ShowSpoilers: IncludeSensitive, ShowAdult: IncludeSensitive);
+        return new ExportPlan(
+            Folder,
+            new GameLibrary([.. library.AllGames]),
+            chosen,
+            privacy,
+            new LibraryCatalogOptions(privacy, IncludeSheet: IncludeSheet, IncludePlayed: IncludePlayed, IncludeVote: IncludeVote, IncludeTranslation: IncludeTranslation),
+            chosen.ToDictionary(g => g.Id, library.TranslationOf, StringComparer.Ordinal),
+            library.Played,
+            library.Clock.GetLocalNow(),
+            library.Sheets);
+    }
+
+    private static string WriteCatalog(ExportPlan plan)
+    {
+        if (string.IsNullOrWhiteSpace(plan.Folder))
         {
             throw new LibraryException("Escolha a pasta onde o catálogo será gravado.");
         }
 
-        var path = Path.GetFullPath(Path.Combine(Folder.Trim(), FileName));
-        var snapshot = library.CatalogLibrary;
-        if (LibraryCatalog.GameHolding(snapshot, path) is { } holder)
+        var path = Path.GetFullPath(Path.Combine(plan.Folder.Trim(), FileName));
+        if (LibraryCatalog.GameHolding(plan.Library, path) is { } holder)
         {
             throw new LibraryException($"A pasta escolhida fica dentro da pasta do jogo \"{holder.Title}\". O VNForge não grava na pasta de um jogo fora do backup; escolha outra.");
         }
@@ -170,13 +222,10 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
             throw new LibraryException($"A pasta já tem um {FileName} que não é um catálogo do VNForge. Escolha outra pasta para não trocá-lo.");
         }
 
-        var chosen = Pick(Scope);
-        var privacy = new LibraryPrivacy(ShowSpoilers: IncludeSensitive, ShowAdult: IncludeSensitive);
-        var options = new LibraryCatalogOptions(privacy, IncludeSheet: IncludeSheet, IncludePlayed: IncludePlayed, IncludeVote: IncludeVote, IncludeTranslation: IncludeTranslation);
-        var result = LibraryCatalog.Render(new GameLibrary(chosen, privacy), library.Played, library.Clock.GetLocalNow(), options, library.Sheets, library.TranslationOf);
+        var result = LibraryCatalog.Render(new GameLibrary(plan.Chosen, plan.Privacy), plan.Played, plan.Now, plan.Options, plan.Sheets, g => plan.Translations.GetValueOrDefault(g.Id));
         if (result.Games == 0)
         {
-            throw new LibraryException("Nenhum jogo com jogo do VNDB confirmado entra com esta escolha, então não há o que exportar.");
+            throw new LibraryException("Nenhum jogo entra com esta escolha: faltam jogos casados com o VNDB, ou eles são de conteúdo adulto e a opção de spoiler e conteúdo adulto está desligada.");
         }
 
         LibraryCatalog.Write(path, result.Html);
@@ -197,7 +246,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
     private List<LibraryGame> Pick(LibraryExportScope scope) =>
     [
         .. (scope == LibraryExportScope.CurrentFilter ? library.ShownGames : library.AllGames)
-            .Where(g => g.Info is not null && (scope != LibraryExportScope.WithPortuguese || !LibraryListing.Matches(g, LibraryFilter.NoPortuguese, library.ReadyPercentOf(g)))),
+            .Where(g => g.Info is not null && (IncludeSensitive || !g.Info.Adult) && (scope != LibraryExportScope.WithPortuguese || !LibraryListing.Matches(g, LibraryFilter.NoPortuguese, library.ReadyPercentOf(g)))),
     ];
 
     private string FilterText()
