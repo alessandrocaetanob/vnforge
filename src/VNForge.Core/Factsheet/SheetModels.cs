@@ -21,6 +21,10 @@ public sealed record SheetAppearance(string VisualNovelId, string Role, int Spoi
     [JsonIgnore]
     public int WorstSpoiler => Editions is { Count: > 0 } editions ? editions.Max(e => e.Spoiler) : MaxSpoilerLevel;
 
+    /// <summary>A ficha traz as edições, então o nível de spoiler é conhecido; a gravada antes disso não traz.</summary>
+    [JsonIgnore]
+    public bool HasEditions => Editions is { Count: > 0 };
+
     /// <summary>O maior nível de spoiler do VNDB.</summary>
     public const int MaxSpoilerLevel = 2;
 }
@@ -46,6 +50,9 @@ public sealed record CharacterSheet(
 {
     /// <summary>A aparição no jogo, ou nula quando o personagem não está nele.</summary>
     public SheetAppearance? In(string visualNovelId) => Appearances.FirstOrDefault(a => a.VisualNovelId == visualNovelId);
+
+    /// <summary>O personagem está no jogo, mas a ficha foi gravada sem as edições: o nível de spoiler é desconhecido e vale o pior caso até a ficha ser buscada de novo.</summary>
+    public bool HasUnknownSpoiler(string visualNovelId) => In(visualNovelId) is { HasEditions: false };
 }
 
 /// <summary>

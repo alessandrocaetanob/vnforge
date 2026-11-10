@@ -29,7 +29,10 @@ public sealed record LibraryCharacterCard(
     IReadOnlyList<LibraryCharacterAppearance> AppearsIn,
     int HiddenAppearances);
 
-/// <summary>Os personagens que a privacidade deixa ver; <paramref name="Hidden"/> conta os que só aparecem em jogos acima do nível de spoiler liberado.</summary>
+/// <summary>
+/// Os personagens que a privacidade deixa ver; <paramref name="Hidden"/> conta os que só aparecem em jogos acima do nível de spoiler liberado e casam com o filtro de traço
+/// e de jogo. Com uma busca de texto vale 0: contar escondidos depois de buscar um nome revelaria que o personagem existe.
+/// </summary>
 public sealed record LibraryCharacterList(IReadOnlyList<LibraryCharacterCard> Characters, int Hidden);
 
 /// <summary>O resultado de procurar um personagem pelo id: o cartão, ou <paramref name="HiddenBySpoiler"/> quando ele existe na biblioteca mas só em jogos escondidos.</summary>
@@ -130,8 +133,9 @@ public static class LibraryCharacters
             var visible = appearances.Where(a => a.Spoiler <= max).ToList();
             if (visible.Count == 0)
             {
-                // O cartão só serve para ver se o filtro o pegaria: o contador de escondidos é o do resultado, não o da biblioteca.
-                hidden += query.Matches(Card(character, appearances, 0, terms, privacy)) ? 1 : 0;
+                // O cartão só serve para ver se o filtro o pegaria: o contador de escondidos é o do resultado, não o da biblioteca. Com busca de texto não se conta nada,
+                // porque "1 escondido" depois de uma busca pelo nome revelaria que o personagem existe.
+                hidden += query.Text is null && query.Matches(Card(character, appearances, 0, terms, privacy)) ? 1 : 0;
                 continue;
             }
 

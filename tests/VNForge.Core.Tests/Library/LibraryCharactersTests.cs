@@ -252,10 +252,23 @@ public sealed class LibraryCharactersTests : IDisposable
         var (library, store) = await PrepareAsync();
 
         Assert.Equal(2, List(library, store, Hidden).Hidden);
-        Assert.Equal(1, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "secret")).Hidden);
+        Assert.Equal(1, List(library, store, Hidden, filter: new LibraryCharacterFilter(Traits: ["i1"])).Hidden);
         Assert.Equal(0, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "hana")).Hidden);
         Assert.Equal(0, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "zzz")).Hidden);
         Assert.Equal(1, List(library, store, Hidden, filter: new LibraryCharacterFilter(GameId: "g2")).Hidden);
+    }
+
+    [Fact]
+    public async Task Busca_de_texto_nao_conta_escondidos_para_nao_revelar_que_o_personagem_existe()
+    {
+        var (library, store) = await PrepareAsync();
+
+        var found = List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "secret"));
+        var withGame = List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "star", GameId: "g2"));
+
+        Assert.Empty(found.Characters);
+        Assert.Equal(0, found.Hidden);
+        Assert.Equal(0, withGame.Hidden);
     }
 
     [Fact]

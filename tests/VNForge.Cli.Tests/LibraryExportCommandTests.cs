@@ -133,6 +133,23 @@ public sealed class LibraryExportCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task Export_avisa_dos_personagens_de_ficha_antiga_deixados_de_fora()
+    {
+        Prepare();
+        var store = new SheetStore(_cli.UserConfigDirectory);
+        store.SaveGame(new GameSheet("v4", "CLANNAD", null, null, null, null, 0, [], ["c1"], false, T0));
+        store.SaveCharacter(new CharacterSheet("c1", "Tomoya Okazaki", null, [], null, null, null, [], [new SheetAppearance("v4", "main", 0)]));
+
+        var result = await Run("library", "export");
+        var json = await Run("library", "export", "--json", "--force");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("1 personagem ficou fora do catálogo: a ficha é antiga", result.Output, StringComparison.Ordinal);
+        Assert.Equal(1, JsonDocument.Parse(json.Output).RootElement.GetProperty("data").GetProperty("staleSheetCharacters").GetInt32());
+        Assert.DoesNotContain("Tomoya Okazaki", await File.ReadAllTextAsync(Target, Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Export_usa_a_ficha_traduzida_quando_existe_e_o_texto_do_VNDB_quando_nao()
     {
         Prepare();

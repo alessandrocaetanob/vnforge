@@ -3,9 +3,10 @@ namespace VNForge.Core.Library;
 /// <summary>
 /// As edições do VNDB (<c>r123</c>) que casam com a pasta de um jogo da biblioteca. <paramref name="VisualNovelId"/> é o jogo do VNDB em que o casamento foi feito: se a
 /// pessoa confirmar outro jogo para a mesma pasta, o registro deixa de valer. <paramref name="ReleaseIds"/> vazio é uma resposta (nenhuma edição se parece com a pasta),
-/// que impede de perguntar ao VNDB de novo a cada vez.
+/// que impede de perguntar ao VNDB de novo a cada vez. <paramref name="Incomplete"/> marca o casamento feito com a lista de edições cortada pelo limite do cliente: a edição certa
+/// pode ter ficado de fora, mas como o casamento só decide o papel (o spoiler é o maior entre todas as edições) ele vale; <c>--again</c> o refaz.
 /// </summary>
-public sealed record GameEdition(string VisualNovelId, IReadOnlyList<string> ReleaseIds, DateTimeOffset MatchedAt);
+public sealed record GameEdition(string VisualNovelId, IReadOnlyList<string> ReleaseIds, DateTimeOffset MatchedAt, bool Incomplete = false);
 
 /// <summary>
 /// Quais edições do VNDB cada jogo da biblioteca é, por id do jogo. O papel e o spoiler de um personagem variam por edição, e a página de personagens usa a edição
@@ -35,12 +36,12 @@ public sealed class GameEditions
         return game.VndbId is not null && Of(game.Id)?.VisualNovelId == game.VndbId;
     }
 
-    public GameEdition Set(string gameId, string visualNovelId, IEnumerable<string> releaseIds, DateTimeOffset now)
+    public GameEdition Set(string gameId, string visualNovelId, IEnumerable<string> releaseIds, DateTimeOffset now, bool incomplete = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameId);
         ArgumentException.ThrowIfNullOrWhiteSpace(visualNovelId);
         ArgumentNullException.ThrowIfNull(releaseIds);
-        var edition = new GameEdition(visualNovelId, [.. releaseIds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)], now);
+        var edition = new GameEdition(visualNovelId, [.. releaseIds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)], now, incomplete);
         _byGame[gameId] = edition;
         return edition;
     }

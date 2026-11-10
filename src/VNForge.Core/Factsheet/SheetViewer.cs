@@ -59,6 +59,7 @@ public sealed record SheetStatusCounts(int Pending, int Machine, int Translated,
 
 /// <summary>
 /// A ficha do jogo depois de esconder o que a <see cref="LibraryPrivacy"/> esconde. <paramref name="HiddenTags"/> e <paramref name="HiddenCharacters"/> contam o que sumiu.
+/// <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, valem como nível 2 e somem até a ficha ser buscada de novo.
 /// </summary>
 public sealed record GameSheetCard(
     string VisualNovelId,
@@ -71,7 +72,8 @@ public sealed record GameSheetCard(
     IReadOnlyList<SheetCharacterCard> Characters,
     int HiddenCharacters,
     bool CharactersTruncated,
-    SheetStatusCounts Counts);
+    SheetStatusCounts Counts,
+    int StaleCharacters = 0);
 
 /// <summary>
 /// Aplica a privacidade da biblioteca à ficha. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): sem <see cref="LibraryPrivacy.ShowSpoilers"/> só
@@ -119,7 +121,8 @@ public static class SheetViewer
             visibleCharacters,
             all.Count - visibleCharacters.Count,
             game.CharactersTruncated,
-            SheetStatusCounts.Of(texts));
+            SheetStatusCounts.Of(texts),
+            all.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
     }
 
     /// <summary>A privacidade esconde o traço: nível de spoiler acima do liberado, mentira sem os spoilers liberados, ou traço sexual (ou sem o campo, de ficha antiga, até a próxima busca) sem o conteúdo adulto liberado.</summary>

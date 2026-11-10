@@ -232,6 +232,7 @@ internal static partial class LibraryCommand
                     cached = result.Cached,
                     characters = result.Characters,
                     editionsMatched = result.EditionsMatched,
+                    editionsIncomplete = result.EditionsIncomplete,
                     failed = result.Failures.Select(f => new { visualNovelId = f.VisualNovelId, error = f.Message }),
                 },
                 exit));
@@ -254,6 +255,11 @@ internal static partial class LibraryCommand
         if (result.Failures.Count > 0)
         {
             output.WriteLine("Rode o comando de novo para tentar outra vez; o que já veio não volta a ser pedido.");
+        }
+
+        if (result.EditionsIncomplete > 0)
+        {
+            output.WriteLine($"Aviso: o VNDB tem mais edições do que o limite trazido em {CliFormat.Count(result.EditionsIncomplete, "pasta", "pastas")}; a edição pode ter ficado de fora e só o papel depende dela (o spoiler não). vnf library characters sync --again refaz.");
         }
 
         output.WriteLine("Traduza as descrições e os traços de cada jogo com vnf library sheet translate; depois veja com vnf library characters list.");

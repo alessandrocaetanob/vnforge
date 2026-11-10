@@ -4,8 +4,11 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Factsheet;
 
-/// <summary>O que a ficha levou para o projeto: os personagens do Glossário, se a bíblia ganhou a sinopse, e quantos textos ficaram de fora por ainda não terem a etapa pedida.</summary>
-public sealed record SheetBridgeResult(VndbApplyResult Characters, bool SynopsisApplied, int NotReady);
+/// <summary>
+/// O que a ficha levou para o projeto: os personagens do Glossário, se a bíblia ganhou a sinopse, e quantos textos ficaram de fora por ainda não terem a etapa pedida.
+/// <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, então a descrição não vai até a ficha ser buscada de novo.
+/// </summary>
+public sealed record SheetBridgeResult(VndbApplyResult Characters, bool SynopsisApplied, int NotReady, int StaleCharacters = 0);
 
 /// <summary>
 /// Leva a ficha para o projeto quando o jogo vira projeto de tradução: a descrição em português dos personagens vai para o <c>characters.json</c> do Glossário (casando
@@ -79,7 +82,7 @@ public static class SheetProjectBridge
             }
         }
 
-        return new SheetBridgeResult(applied, synopsisApplied, notReady);
+        return new SheetBridgeResult(applied, synopsisApplied, notReady, characters.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
     }
 
     private static bool Ready(SheetText text, TranslationStatus minimum) => text.HasTarget && text.Status >= minimum;

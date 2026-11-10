@@ -65,7 +65,7 @@ public sealed class GameEditionsFile
         foreach (var id in editions.GameIds)
         {
             var edition = editions.Of(id)!;
-            games[id] = new EditionEntry(edition.VisualNovelId, [.. edition.ReleaseIds], edition.MatchedAt);
+            games[id] = new EditionEntry(edition.VisualNovelId, [.. edition.ReleaseIds], edition.MatchedAt, edition.Incomplete ? true : null);
         }
 
         return JsonSerializer.Serialize(new Envelope(CurrentVersion, games), Json);
@@ -107,7 +107,7 @@ public sealed class GameEditionsFile
                 throw new LibraryException($"O arquivo '{filePath}': o registro de edição do jogo {gameId} está sem o jogo do VNDB ou com uma edição sem id.");
             }
 
-            editions.Load(gameId, new GameEdition(entry.VisualNovelId, [.. entry.ReleaseIds], entry.MatchedAt));
+            editions.Load(gameId, new GameEdition(entry.VisualNovelId, [.. entry.ReleaseIds], entry.MatchedAt, entry.Incomplete == true));
         }
 
         return editions;
@@ -115,5 +115,5 @@ public sealed class GameEditionsFile
 
     private sealed record Envelope(int Version, SortedDictionary<string, EditionEntry?>? Games);
 
-    private sealed record EditionEntry(string? VisualNovelId, List<string>? ReleaseIds, DateTimeOffset MatchedAt);
+    private sealed record EditionEntry(string? VisualNovelId, List<string>? ReleaseIds, DateTimeOffset MatchedAt, bool? Incomplete = null);
 }

@@ -54,6 +54,20 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         return catalog;
     }
 
+    private sealed class TruncatedReleases(IVndbCatalog inner) : IVndbCatalog
+    {
+        public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default) => inner.SearchVisualNovelsAsync(title, limit, ct);
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default) => inner.GetVisualNovelAsync(id, ct);
+
+        public Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default) => inner.GetCharactersAsync(visualNovelId, ct);
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) => inner.SearchCharactersByTitleAsync(title, ct);
+
+        public async Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) =>
+            (await inner.GetReleasesAsync(visualNovelId, ct)) with { Truncated = true };
+    }
+
     private async Task<RunResult> Run(params string[] args) => await _cli.RunAsync(args, Ct);
 
     private static JsonElement Data(RunResult result) => JsonDocument.Parse(result.Output).RootElement.GetProperty("data");
@@ -179,6 +193,35 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         Assert.Contains("Nenhum personagem da biblioteca combina", byId.Output, StringComparison.Ordinal);
         Assert.Contains("2 personagens na busca:", anyOf.Output, StringComparison.Ordinal);
         Assert.Contains("Nenhum personagem da biblioteca combina", none.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Busca_de_texto_por_personagem_escondido_nao_revela_que_ele_existe()
+    {
+        Prepare();
+        await Ready();
+
+        var result = await Run("library", "characters", "list", "Ghost");
+        var json = await Run("library", "characters", "list", "Ghost", "--json");
+
+        Assert.Contains("Nenhum personagem da biblioteca combina com a busca.", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("escondido", result.Output, StringComparison.Ordinal);
+        Assert.Equal(0, Data(json).GetProperty("hidden").GetInt32());
+    }
+
+    [Fact]
+    public async Task Sync_com_lista_de_edicoes_cortada_avisa_sem_falhar_e_guarda_o_casamento()
+    {
+        var catalog = Prepare();
+        _cli.Cli.VndbCatalogFactory = () => new TruncatedReleases(catalog);
+
+        var result = await Run("library", "characters", "sync");
+        var json = await Run("library", "characters", "sync", "--again", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Aviso: o VNDB tem mais edições do que o limite trazido em 2 pastas", result.Output, StringComparison.Ordinal);
+        Assert.Equal(2, Data(json).GetProperty("editionsIncomplete").GetInt32());
+        Assert.True(new GameEditionsFile(_cli.UserConfigDirectory).Load().Of("g1")!.Incomplete);
     }
 
     [Fact]

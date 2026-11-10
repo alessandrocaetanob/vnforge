@@ -11,9 +11,9 @@ public sealed record LibraryCharacterSyncProgress(int Done, int Total, string Vi
 
 /// <summary>
 /// O que a sincronização fez. <paramref name="Games"/> são os jogos do VNDB distintos da biblioteca; <paramref name="Fetched"/> os que foram ao VNDB e <paramref name="Cached"/> os
-/// que já tinham ficha guardada. <paramref name="Characters"/> conta os personagens trazidos e <paramref name="EditionsMatched"/> os itens da biblioteca cuja edição foi casada agora.
+/// que já tinham ficha guardada. <paramref name="Characters"/> conta os personagens trazidos e <paramref name="EditionsMatched"/> os itens da biblioteca cuja edição foi casada agora. <paramref name="EditionsIncomplete"/> conta os itens cujo casamento foi feito com a lista de edições cortada pelo limite do cliente (vale, mas <c>again</c> o refaz).
 /// </summary>
-public sealed record LibraryCharacterSyncResult(int Games, int Fetched, int Cached, int Characters, int EditionsMatched, IReadOnlyList<LibraryCharacterSyncFailure> Failures);
+public sealed record LibraryCharacterSyncResult(int Games, int Fetched, int Cached, int Characters, int EditionsMatched, IReadOnlyList<LibraryCharacterSyncFailure> Failures, int EditionsIncomplete = 0);
 
 /// <summary>
 /// Enche o registro de personagens da Biblioteca. Para cada jogo do VNDB que a pessoa tem confirmado, traz a ficha (<see cref="SheetFetcher"/>: jogo, personagens com o campo
@@ -39,7 +39,7 @@ public static class LibraryCharacterSync
         ArgumentNullException.ThrowIfNull(editionsFile);
         var clock = time ?? TimeProvider.System;
         var groups = library.Games.Where(g => g.VndbId is not null).GroupBy(g => g.VndbId!, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
-        int fetched = 0, cached = 0, characters = 0, matched = 0, done = 0;
+        int fetched = 0, cached = 0, characters = 0, matched = 0, incomplete = 0, done = 0;
         var failures = new List<LibraryCharacterSyncFailure>();
         foreach (var group in groups)
         {
@@ -68,22 +68,17 @@ public static class LibraryCharacterSync
                 if (pending.Count > 0)
                 {
                     var releases = await catalog.GetReleasesAsync(group.Key, cancellationToken).ConfigureAwait(false);
-                    if (releases.Truncated)
-                    {
-                        // Com a lista cortada a edição certa pode ter ficado de fora: não se grava um casamento que talvez esteja errado.
-                        failures.Add(new LibraryCharacterSyncFailure(group.Key, $"O VNDB tem mais edições de {group.Key} do que o limite trazido; a edição das pastas não foi casada."));
-                        progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
-                        continue;
-                    }
-
+                    var partial = releases.Truncated;
                     var stamp = clock.GetUtcNow();
                     editionsFile.Update(editions =>
                     {
                         foreach (var game in pending)
                         {
                             var found = LibraryEditionMatcher.Match(game, releases.Items);
-                            editions.Set(game.Id, group.Key, found, stamp);
+                            // Com a lista cortada a edição certa pode ter ficado de fora; o casamento só decide o papel, então vale, marcado como incompleto.
+                            editions.Set(game.Id, group.Key, found, stamp, partial);
                             matched += found.Count > 0 ? 1 : 0;
+                            incomplete += partial ? 1 : 0;
                         }
                     });
                 }
@@ -96,7 +91,7 @@ public static class LibraryCharacterSync
             progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
         }
 
-        return new LibraryCharacterSyncResult(groups.Count, fetched, cached, characters, matched, failures);
+        return new LibraryCharacterSyncResult(groups.Count, fetched, cached, characters, matched, failures, incomplete);
     }
 
     /// <summary>A ficha está guardada e todas as aparições dos personagens nela já trazem as edições (as gravadas antes disso só têm o resumo, com o spoiler mais baixo, e precisam ser buscadas de novo).</summary>

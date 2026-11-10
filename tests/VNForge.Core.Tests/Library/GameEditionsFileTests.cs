@@ -18,7 +18,7 @@ public sealed class GameEditionsFileTests : IDisposable
         var editions = new GameEditions();
         editions.Set("g2", Star, ["r3"], Now);
         editions.Set("g1", Moon, ["r2", "r1", "r1"], Now.AddHours(1));
-        editions.Set("g3", Outside, [], Now);
+        editions.Set("g3", Outside, [], Now, incomplete: true);
 
         file.Save(editions);
         var loaded = file.Load();
@@ -28,6 +28,8 @@ public sealed class GameEditionsFileTests : IDisposable
         Assert.Equal(["r1", "r2"], loaded.Of("g1")!.ReleaseIds);
         Assert.Equal(["r3"], loaded.Of("g2")!.ReleaseIds);
         Assert.Empty(loaded.Of("g3")!.ReleaseIds);
+        Assert.Equal((false, true), (loaded.Of("g1")!.Incomplete, loaded.Of("g3")!.Incomplete));
+        Assert.DoesNotContain("incomplete", File.ReadAllText(file.Path).Split("\"g3\"")[0], StringComparison.Ordinal);
         Assert.Equal(GameEditionsFile.Serialize(editions), GameEditionsFile.Serialize(loaded));
         Assert.Equal(Path.Combine(_dir.Path, "library-editions.json"), file.Path);
     }

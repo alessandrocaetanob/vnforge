@@ -11,6 +11,9 @@ public sealed class SheetCatalogSource(SheetStore store) : ILibrarySheetSource
 {
     private SheetTerms? _terms;
 
+    /// <summary>Quantos personagens, entre os jogos lidos até agora, vêm de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido e valem como nível 2 (somem sem os spoilers liberados) até a ficha ser buscada de novo.</summary>
+    public int StaleCharacters { get; private set; }
+
     /// <exception cref="LibraryException">Um arquivo da ficha existe e não pôde ser lido.</exception>
     public LibrarySheet? SheetOf(LibraryGame game)
     {
@@ -21,7 +24,9 @@ public sealed class SheetCatalogSource(SheetStore store) : ILibrarySheetSource
         }
 
         var terms = _terms ??= store.LoadTerms();
-        var characters = store.LoadCharacters(sheet.CharacterIds).Select(c => Character(c, id, terms)).ToList();
+        var loaded = store.LoadCharacters(sheet.CharacterIds);
+        StaleCharacters += loaded.Count(c => c.HasUnknownSpoiler(id));
+        var characters = loaded.Select(c => Character(c, id, terms)).ToList();
         var tagNames = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var tag in sheet.Tags)
         {

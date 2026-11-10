@@ -121,6 +121,7 @@ public sealed class SheetReviewAndViewTests : IDisposable
         var stale = SheetViewer.Card(game, old, Store.LoadTerms(), new LibraryPrivacy());
         var open = SheetViewer.Card(game, old, Store.LoadTerms(), new LibraryPrivacy(ShowSpoilers: true));
 
+        Assert.Equal((0, 1), (fresh.StaleCharacters, stale.StaleCharacters));
         Assert.Equal(["Kenta Aizawa"], fresh.Characters.Select(c => c.Name));
         Assert.Equal(1, fresh.HiddenCharacters);
         Assert.Empty(stale.Characters);

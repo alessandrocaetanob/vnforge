@@ -180,16 +180,33 @@ public sealed class LibraryCharacterSyncTests : IDisposable
     }
 
     [Fact]
-    public async Task Lista_de_edicoes_cortada_nao_grava_o_casamento_e_avisa()
+    public async Task Lista_de_edicoes_cortada_grava_o_casamento_parcial_marcado_como_incompleto_sem_falha()
     {
         var catalog = new TruncatedReleases(Catalog());
 
         var result = await Sync(catalog);
 
-        Assert.Equal([Moon, Star], result.Failures.Select(f => f.VisualNovelId));
-        Assert.Contains("limite", result.Failures[0].Message, StringComparison.Ordinal);
-        Assert.Equal(0, result.EditionsMatched);
-        Assert.Empty(EditionsFile.Load().GameIds);
+        Assert.Empty(result.Failures);
+        Assert.Equal((2, 2), (result.EditionsMatched, result.EditionsIncomplete));
+        var editions = EditionsFile.Load();
+        Assert.Equal(["g1", "g2"], editions.GameIds);
+        Assert.All(editions.GameIds, id => Assert.True(editions.Of(id)!.Incomplete));
+        Assert.Equal(["r1"], editions.Of("g1")!.ReleaseIds);
+    }
+
+    [Fact]
+    public async Task Casamento_incompleto_nao_e_refeito_a_cada_rodada_mas_o_again_o_refaz()
+    {
+        await Sync(new TruncatedReleases(Catalog()));
+        var second = Catalog();
+
+        var plain = await Sync(second);
+        var again = await Sync(Catalog(), again: true);
+
+        Assert.DoesNotContain(second.Calls, c => c.StartsWith("GetReleasesAsync", StringComparison.Ordinal));
+        Assert.Equal(0, plain.EditionsIncomplete);
+        Assert.All(EditionsFile.Load().GameIds, id => Assert.False(EditionsFile.Load().Of(id)!.Incomplete));
+        Assert.Equal(0, again.EditionsIncomplete);
     }
 
     private sealed class Collect(List<LibraryCharacterSyncProgress> reports) : IProgress<LibraryCharacterSyncProgress>

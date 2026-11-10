@@ -87,8 +87,9 @@ public sealed class SheetProjectBridgeTests : IDisposable
         var (game, characters) = await Prepared(characters: [Kenta(), inEdition, Ghost() with { Name = "Gōsuto", Original = "ゴースト" }]);
         var old = characters.Select(c => c.Id == "c1" ? c with { Appearances = [.. c.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] } : c).ToList();
 
-        SheetProjectBridge.Apply(project, game, old);
+        var result = SheetProjectBridge.Apply(project, game, old);
 
+        Assert.Equal(1, result.StaleCharacters);
         var linked = project.LoadCharacters();
         Assert.Null(linked.Single(c => c.Source == "佐倉葵").Description);
         Assert.Null(linked.Single(c => c.Source == "相沢健太").Description);
