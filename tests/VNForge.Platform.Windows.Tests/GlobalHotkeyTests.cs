@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace VNForge.Platform.Windows.Tests;
@@ -23,4 +24,33 @@ public sealed class GlobalHotkeyTests
         using var again = hotkey.Register(() => { });
         Assert.NotNull(again);
     }
+
+    [Fact]
+    public void Excecao_no_aviso_do_atalho_nao_derruba_a_thread_e_o_proximo_aperto_chega()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "O atalho global só existe no Windows.");
+        using var second = new ManualResetEventSlim();
+        var calls = 0;
+        using var registration = new GlobalHotkey(F24).Register(() =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                throw new InvalidOperationException("falha no aviso");
+            }
+
+            second.Set();
+        });
+        var thread = ((GlobalHotkey.Registration)registration!).ThreadId;
+
+        Assert.True(PostThreadMessage(thread, WmHotkey, 1, 0));
+        Assert.True(PostThreadMessage(thread, WmHotkey, 1, 0));
+
+        Assert.True(second.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+    }
+
+    private const uint WmHotkey = 0x0312;
+
+    [DllImport("user32.dll", EntryPoint = "PostThreadMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostThreadMessage(uint threadId, uint message, nuint wParam, nint lParam);
 }

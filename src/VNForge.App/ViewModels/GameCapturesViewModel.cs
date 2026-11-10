@@ -26,6 +26,7 @@ public sealed partial class GameCapturesViewModel : ObservableObject
     private ITimer? ageTimer;
     private DateTimeOffset? savedAt;
     private bool loading;
+    private int capturingNow;
 
     /// <summary>O índice e as imagens das capturas; nulo (os testes do shell) deixa a página sem o que guardar.</summary>
     public GameCapturesFile? CapturesFile { get; set; }
@@ -163,29 +164,44 @@ public sealed partial class GameCapturesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoCaptures));
     }
 
-    private void OnHotkey() => Capturing = CaptureAsync();
+    /// <summary>Uma captura de cada vez: a F9 apertada enquanto uma roda é ignorada, porque duas gravariam o índice ao mesmo tempo.</summary>
+    private void OnHotkey()
+    {
+        if (Interlocked.CompareExchange(ref capturingNow, 1, 0) == 0)
+        {
+            Capturing = CaptureAsync();
+        }
+    }
 
     /// <summary>Captura a janela do jogo e a guarda com a data. Roda fora da thread da tela; o resultado entra na grade pela thread da tela.</summary>
-    public async Task CaptureAsync()
+    private async Task CaptureAsync()
     {
-        if (game is not { } target || CapturesFile is not { } captures || Capturer is not { } capturer)
+        try
         {
-            return;
-        }
+            if (game is not { } target || CapturesFile is not { } captures || Capturer is not { } capturer)
+            {
+                return;
+            }
 
-        var outcome = await Task.Run<CaptureOutcome>(() =>
+            var outcome = await Task.Run<CaptureOutcome>(() =>
+            {
+                try
+                {
+                    var image = capturer.Capture(new WindowTarget(Folder: target.Folder));
+                    return new CaptureOutcome(captures.Save(target.Id, image), IsBlack(image), null);
+                }
+                catch (Exception e)
+                {
+                    // Roda numa thread de fundo que ninguém aguarda: qualquer falha vira o aviso da página.
+                    return new CaptureOutcome(null, false, e is LibraryException ? e.Message : $"A captura falhou: {e.Message}");
+                }
+            });
+            PostToUi(() => Apply(target, captures, outcome.Capture, outcome.Black, outcome.Error));
+        }
+        finally
         {
-            try
-            {
-                var image = capturer.Capture(new WindowTarget(Folder: target.Folder));
-                return new CaptureOutcome(captures.Save(target.Id, image), IsBlack(image), null);
-            }
-            catch (LibraryException e)
-            {
-                return new CaptureOutcome(null, false, e.Message);
-            }
-        });
-        PostToUi(() => Apply(target, captures, outcome.Capture, outcome.Black, outcome.Error));
+            Volatile.Write(ref capturingNow, 0);
+        }
     }
 
     private sealed record CaptureOutcome(GameCapture? Capture, bool Black, string? Error);

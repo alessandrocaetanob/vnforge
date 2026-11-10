@@ -98,7 +98,7 @@
                     <Border Classes="shot" Margin="0,0,12,12">
                       <Panel>
                         <Viewbox Stretch="Uniform"><Border Width="160" Height="100"/></Viewbox>
-                        <Image Stretch="UniformToFill" Source="{Binding Path, Converter={x:Static c:FilePathBitmapConverter.Instance}}" AutomationProperties.AccessibilityView="Raw"/>
+                        <c:FileThumbnail Stretch="UniformToFill" FilePath="{Binding Path}" AutomationProperties.AccessibilityView="Raw"/>
                         <Border Classes="shot-date"><TextBlock Text="{Binding Label}"/></Border>
                       </Panel>
                     </Border>

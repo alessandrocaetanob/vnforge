@@ -42,7 +42,15 @@ public sealed partial class GlobalHotkey(uint virtualKey = GlobalHotkey.VirtualK
                 {
                     if (message.Message == WmHotkey)
                     {
-                        pressed();
+                        try
+                        {
+                            pressed();
+                        }
+                        catch (Exception e)
+                        {
+                            // Uma exceção solta numa thread de fundo derrubaria o app inteiro; quem registra trata os próprios erros.
+                            System.Diagnostics.Debug.WriteLine(e);
+                        }
                     }
                 }
             }
@@ -60,8 +68,10 @@ public sealed partial class GlobalHotkey(uint virtualKey = GlobalHotkey.VirtualK
         return registered ? new Registration(thread, threadId) : null;
     }
 
-    private sealed class Registration(Thread thread, uint threadId) : IDisposable
+    internal sealed class Registration(Thread thread, uint threadId) : IDisposable
     {
+        internal uint ThreadId => threadId;
+
         private int disposed;
 
         public void Dispose()
