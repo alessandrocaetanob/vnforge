@@ -74,8 +74,8 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
     {
         await Abrir(width, height, (window, vm) =>
         {
-            var entry = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.StartReviewCommand);
-            entry.Command!.Execute(null);
+            // O quadro do #546 tira o botão "Modo revisão" da barra: a entrada é o passo Revisão do cabeçalho, que roda o mesmo comando.
+            vm.Editor.StartReviewCommand.Execute(null);
             ScreenRenderer.Settle(window);
             Assert.True(vm.Editor.IsReviewing);
 

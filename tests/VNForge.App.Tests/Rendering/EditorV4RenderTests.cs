@@ -50,15 +50,15 @@ public sealed class EditorV4RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     var colunas = cabecalho.ColumnDefinitions;
                     var titulos = cabecalho.Children.OfType<TextBlock>().ToList();
 
-                    Assert.Equal([92d, 148d, 32d], new[] { colunas[0], colunas[1], colunas[4] }.Select(c => c.Width.Value));
+                    Assert.Equal([72d, 148d, 28d], new[] { colunas[0], colunas[1], colunas[4] }.Select(c => c.Width.Value));
                     Assert.True(colunas[2].Width.IsStar && colunas[3].Width.IsStar);
-                    Assert.Equal(1.2, colunas[3].Width.Value / colunas[2].Width.Value, 3);
+                    Assert.Equal(1.0, colunas[3].Width.Value / colunas[2].Width.Value, 3);
                     Assert.Equal("Quem fala", titulos[1].Text);
 
                     var texto = colunas[2].ActualWidth + colunas[3].ActualWidth;
                     // Antes da v4 as duas somavam uns 194 px de 598 (32%); com o inspetor de volta a 474 px elas passam de 40% da grade.
                     Assert.True(texto >= 245 && texto >= grade.Bounds.Width * 0.40, $"Original e Tradução têm {texto:0} de {grade.Bounds.Width:0} px da grade ({texto / grade.Bounds.Width:P0})");
-                    Assert.True(colunas[3].ActualWidth > colunas[2].ActualWidth, "a tradução leva um pouco mais que o original");
+                    Assert.True(Math.Abs(colunas[3].ActualWidth - colunas[2].ActualWidth) < 1, "o quadro do #546 divide Original e Tradução em partes iguais");
 
                     var linha = linhas.GetVisualDescendants().OfType<LineRow>().First(l => l.IsEffectivelyVisible);
                     foreach (var (nome, indice) in new[] { ("PART_Speaker", 1), ("PART_Original", 2), ("PART_Translation", 3) })

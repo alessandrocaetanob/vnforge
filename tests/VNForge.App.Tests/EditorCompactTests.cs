@@ -145,7 +145,7 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
                 foreach (var width in HeaderWidths)
                 {
                     var window = Show(new EditorView { DataContext = vm }, width);
-                    foreach (var button in window.GetVisualDescendants().OfType<Button>().Where(b => b.Command == vm.ToggleSearchCommand || b.Command == vm.CheckFileCommand))
+                    foreach (var button in window.GetVisualDescendants().OfType<Button>().Where(b => b.Command == vm.ToggleSearchCommand))
                     {
                         var label = button.GetVisualDescendants().OfType<TextBlock>().Single();
                         if (width == 1366)
@@ -163,14 +163,14 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
             },
             CancellationToken.None);
 
-        Assert.Equal(2, compact.Count);
+        Assert.Single(compact);
         Assert.All(compact, b =>
         {
             Assert.False(string.IsNullOrWhiteSpace(b.Name));
             Assert.NotNull(b.Tip);
             Assert.False(b.LabelShown);
         });
-        Assert.Equal([true, true], wide);
+        Assert.Equal([true], wide);
     }
 
     [Fact]

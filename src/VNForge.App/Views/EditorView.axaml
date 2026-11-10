@@ -93,7 +93,7 @@
     </c:PageHeader>
 
     <!-- Barra do Editor, numa linha só: os filtros à esquerda e as ações à direita, com Traduzir com IA como a principal.
-         Buscar, Conferir arquivo e Modo revisão têm o mesmo estilo e tamanho; abaixo de 1400 px largam o texto e ficam como ícones com dica. -->
+         Quadro do #546: Conferir arquivo e Modo revisão saem da barra e viram os passos Conferir e Revisão do cabeçalho do jogo; Buscar e Dúvidas largam o texto abaixo de 1400 px e ficam como ícones com dica. -->
     <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
       <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -139,19 +139,6 @@
           <StackPanel Orientation="Horizontal" Spacing="6">
             <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
             <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
-          </StackPanel>
-        </Button>
-        <Button Classes="tool" Command="{Binding CheckFileCommand}" AutomationProperties.Name="Conferir arquivo" ToolTip.Tip="Conferir arquivo: abre Conferir a tradução">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Shield}"/>
-            <TextBlock Classes="btn-label" Text="Conferir arquivo" TextWrapping="NoWrap"/>
-          </StackPanel>
-        </Button>
-        <Button Classes="tool" Command="{Binding StartReviewCommand}" AutomationProperties.Name="Modo revisão"
-                ToolTip.Tip="Modo revisão: passa pelas linhas traduzidas pela IA, uma a uma, com a caixa do jogo ao lado">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
-            <TextBlock Classes="btn-label" Text="Modo revisão" TextWrapping="NoWrap"/>
           </StackPanel>
         </Button>
         <Button Classes="tool" Command="{Binding StartDoubtReviewCommand}" IsVisible="{Binding HasDoubts}" AutomationProperties.Name="{Binding DoubtLines, StringFormat='Dúvidas ({0}), revisar as linhas com dúvida da IA'}"
@@ -264,14 +251,12 @@
           <c:EmptyState Grid.Row="1" IsVisible="{Binding ShowEmptyState}" Message="{Binding EmptyMessage}"
                         ActionText="{Binding EmptyActionText}" ActionCommand="{Binding ShowAllCommand}"/>
 
-          <!-- Pé da grade: a barra de distribuição do script e a legenda com as porcentagens. -->
-          <Border Grid.Row="2" Classes="divider-top" Padding="12">
+          <!-- Pé da grade (".gfoot" do quadro do #546): o resumo das linhas, a barra de distribuição e a legenda, em coluna com 8 px de vão e recuo de 16 em volta (12 em cima, 14 embaixo). -->
+          <Border Grid.Row="2" Classes="divider-top" Padding="16,12,16,14">
             <StackPanel Spacing="8">
+              <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding LinesSummary}"/>
               <c:DistributionBar Height="8" Value="{Binding Distribution}" AutomationProperties.Name="{Binding DistributionDescription}"/>
-              <WrapPanel ItemSpacing="16" LineSpacing="4">
-                <TextBlock FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding LinesSummary}"/>
-                <c:Legend Value="{Binding Distribution}"/>
-              </WrapPanel>
+              <c:Legend Value="{Binding Distribution}"/>
             </StackPanel>
           </Border>
         </Grid>

@@ -693,8 +693,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                     ScreenRenderer.Settle(window);
 
-                    var entry = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.StartReviewCommand);
-                    entry.Command!.Execute(null);
+                    vm.Editor.StartReviewCommand.Execute(null);
                     ScreenRenderer.Settle(window);
                     Assert.True(vm.Editor.IsReviewing);
                     if (risk)
