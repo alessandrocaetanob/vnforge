@@ -135,6 +135,39 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public async Task Dialogo_de_exportar_catalogo_escolhe_os_jogos_o_que_entra_e_a_pasta(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library =>
+        {
+            library.Export.Folder = "D:\\Catalogo\\minha-estante";
+            library.Export.Open();
+        }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[]
+                     {
+                         "Exportar catálogo", "QUAIS JOGOS", "Todos", "10 jogos; 2 ficam de fora por não terem casamento no VNDB", "Só com português", "3 jogos", "O filtro atual", "Nenhum filtro ligado",
+                         "O QUE ENTRA", "Ficha em português: sinopse, tags e personagens", "O que você jogou e o tempo", "A sua nota", "O que você traduziu", "Spoiler e conteúdo adulto",
+                         "Crédito ao VNDB (Open Database License)", "sempre incluído", "IMAGENS", "Por link para o VNDB", "Trocar", "Cancelar", "Exportar",
+                     })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            var checks = window.GetVisualDescendants().OfType<CheckBox>().Where(c => c.Name is not null && c.Name.EndsWith("Check", StringComparison.Ordinal)).ToDictionary(c => c.Name!, c => c.IsChecked == true);
+            Assert.Equal(6, checks.Count);
+            Assert.False(checks["SensitiveCheck"]);
+            Assert.True(checks["CreditCheck"] && checks["SheetCheck"] && checks["PlayedCheck"] && checks["VoteCheck"] && checks["TranslationCheck"]);
+            Assert.Equal("D:\\Catalogo\\minha-estante",window.GetVisualDescendants().OfType<TextBox>().Single(b => b.Name == "FolderBox").Text);
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-exportar", theme)));
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Primeira_varredura_mostra_a_pasta_o_andamento_a_tabela_e_o_ate_agora(string themeName)
     {
         var theme = ThemeOf(themeName);

@@ -22,7 +22,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:LibraryExportScopeViewModel">
-              <RadioButton Classes="option marked" Margin="0,0,8,0" GroupName="export-scope" IsChecked="{Binding IsSelected, Mode=TwoWay}" IsEnabled="{Binding IsAvailable}"
+              <RadioButton Classes="option marked" Margin="0,0,8,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" GroupName="export-scope" IsChecked="{Binding IsSelected, Mode=TwoWay}" IsEnabled="{Binding IsAvailable}"
                            AutomationProperties.Name="{Binding Title}">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                   <Border Classes="radio-mark" VerticalAlignment="Center"/>
