@@ -510,13 +510,17 @@ public sealed partial class LibraryViewModel : ObservableObject
         catch (LibraryException e)
         {
             ErrorMessage = e.Message;
+            return;
         }
         finally
         {
             SetPlaying(null);
         }
 
+        // A releitura limpa o aviso; o que apareceu durante a partida (a sessão que não gravou) tem de continuar na tela.
+        var problem = ErrorMessage;
         await LoadCoreAsync();
+        ErrorMessage ??= problem;
     }
 
     private bool CanPlay() => PlayingId is null && player is not null;
