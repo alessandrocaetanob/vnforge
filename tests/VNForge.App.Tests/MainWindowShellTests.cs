@@ -330,7 +330,7 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public async Task Ficha_e_Jogar_oferecem_o_caminho_para_a_Traducao()
+    public async Task Jogar_oferece_o_caminho_para_a_Traducao()
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
@@ -342,10 +342,6 @@ public sealed class MainWindowShellTests
         Assert.Same(vm.Build, vm.CurrentPage);
         Assert.Equal(GameTab.Translation, vm.SelectedGameTab?.Tab);
 
-        vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
-        vm.Sheet.ActionCommand.Execute(null);
-
-        Assert.Same(vm.Dashboard, vm.CurrentPage);
     }
 
     [Fact]

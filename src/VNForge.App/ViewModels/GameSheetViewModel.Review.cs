@@ -93,6 +93,9 @@ public sealed partial class SheetReviewViewModel : ObservableObject
 
     public bool HasSpoilerCard => SpoilerTraits.Count > 0;
 
+    /// <summary>Os títulos dos blocos que o filtro deixa na lista, na ordem da revisão.</summary>
+    public IReadOnlyList<string> BlockTitles => [.. shown.Select(b => b.Title)];
+
     public SheetBlock? Current => index >= 0 && index < shown.Count ? shown[index] : null;
 
     public bool HasBlock => Current is not null;
@@ -240,18 +243,26 @@ public sealed partial class SheetReviewViewModel : ObservableObject
         {
             var result = await Task.Run(() => new SheetTranslationRunner(translator, store).RetranslateAsync(id, block.Fields)).ConfigureAwait(true);
             owner.ReportTranslation(result);
+            return true;
         }).ConfigureAwait(true);
     }
 
     [RelayCommand(CanExecute = nameof(CanAct))]
-    private async Task MarkReviewedAsync() => await RunAsync(() => Mark(approve: false)).ConfigureAwait(true);
+    private async Task MarkReviewedAsync()
+    {
+        await RunAsync(() => Mark(approve: false)).ConfigureAwait(true);
+    }
 
     [RelayCommand(CanExecute = nameof(CanAct))]
     private async Task ApproveNextAsync()
     {
         var next = index + 1 < shown.Count ? shown[index + 1].Key : null;
         var last = next is null;
-        await RunAsync(() => Mark(approve: true)).ConfigureAwait(true);
+        if (!await RunAsync(() => Mark(approve: true)).ConfigureAwait(true))
+        {
+            return;
+        }
+
         if (next is not null && Current?.Key != next)
         {
             var target = shown.FindIndex(b => b.Key == next);
@@ -268,11 +279,11 @@ public sealed partial class SheetReviewViewModel : ObservableObject
         }
     }
 
-    private async Task Mark(bool approve)
+    private async Task<bool> Mark(bool approve)
     {
         if (Current is not { } block || owner.Store is not { } store || owner.VisualNovelId is not { } id)
         {
-            return;
+            return false;
         }
 
         var pairs = Pairs.ToList();
@@ -306,6 +317,9 @@ public sealed partial class SheetReviewViewModel : ObservableObject
         {
             owner.Notify?.Invoke("Este bloco ainda não tem tradução. Traduza com a IA ou escreva a sua.", ToastKind.Warning);
         }
+
+        // Com erro (ou sem tradução) a tela fica como está: reler a ficha refaria os campos e apagaria o que a pessoa escreveu.
+        return outcome.errors.Count == 0 && !outcome.Empty;
     }
 
     /// <summary>Grava o que a pessoa escreveu e devolve o erro de cada par que não pôde ser gravado (lista com o número errado de nomes, spoiler perdido).</summary>
@@ -359,12 +373,13 @@ public sealed partial class SheetReviewViewModel : ObservableObject
         ApproveNextCommand.NotifyCanExecuteChanged();
     }
 
-    private async Task RunAsync(Func<Task> action)
+    private async Task<bool> RunAsync(Func<Task<bool>> action)
     {
+        var changed = false;
         owner.SetBusy(true);
         try
         {
-            await action().ConfigureAwait(true);
+            changed = await action().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is LibraryException or InvalidOperationException or HttpRequestException)
         {
@@ -375,7 +390,12 @@ public sealed partial class SheetReviewViewModel : ObservableObject
             owner.SetBusy(false);
         }
 
-        await owner.ReloadAfterChangeAsync().ConfigureAwait(true);
+        if (changed)
+        {
+            await owner.ReloadAfterChangeAsync().ConfigureAwait(true);
+        }
+
+        return changed;
     }
 
     [RelayCommand]

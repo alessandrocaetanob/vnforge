@@ -230,13 +230,24 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     {
         await Translated();
 
-        var traits = Blocks(new SheetVisibility(1))[2].Pairs[1];
+        var traits = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
 
         Assert.True(traits.IsList);
-        Assert.Equal([SheetField.OfTrait("i1"), SheetField.OfTrait("i2")], traits.Fields);
-        Assert.Equal("Long Hair, Amnesia", traits.Original);
-        Assert.Equal("PT: Long Hair, PT: Amnesia", traits.Target);
+        Assert.Equal([SheetField.OfTrait("i1"), SheetField.OfTrait("i104")], traits.Fields);
+        Assert.Equal("Long Hair, Virgin Sex", traits.Original);
+        Assert.Equal("PT: Long Hair, PT: Virgin Sex", traits.Target);
         Assert.Equal(TranslationStatus.Machine, traits.Status);
+    }
+
+    [Fact]
+    public async Task Traco_com_spoiler_ou_mentira_nao_entra_no_par_de_tracos_mesmo_no_nivel_maximo()
+    {
+        await Translated();
+
+        var traits = Blocks(new SheetVisibility(2))[2].Pairs[1];
+
+        Assert.Equal("Long Hair", traits.Original);
+        Assert.Equal([SheetField.OfTrait("i1")], traits.Fields);
     }
 
     [Fact]
@@ -293,21 +304,21 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     public async Task Editar_uma_lista_grava_um_nome_por_item_e_deixa_como_estava_o_que_nao_mudou()
     {
         await Translated();
-        SheetEditor.Review(Store, Game1, [SheetField.OfTrait("i2")]);
-        var pair = Blocks(new SheetVisibility(1))[2].Pairs[1];
+        SheetEditor.Review(Store, Game1, [SheetField.OfTrait("i104")]);
+        var pair = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
 
-        SheetBlocks.EditPair(Store, Game1, pair, "Cabelo longo,  PT: Amnesia");
+        SheetBlocks.EditPair(Store, Game1, pair, "Cabelo longo,  PT: Virgin Sex");
 
         var terms = Store.LoadTerms();
         Assert.Equal(("Cabelo longo", TranslationStatus.Translated), (terms.Find(SheetTermKind.Trait, "i1")!.Text.Target, terms.Find(SheetTermKind.Trait, "i1")!.Text.Status));
-        Assert.Equal(("PT: Amnesia", TranslationStatus.Reviewed), (terms.Find(SheetTermKind.Trait, "i2")!.Text.Target, terms.Find(SheetTermKind.Trait, "i2")!.Text.Status));
+        Assert.Equal(("PT: Virgin Sex", TranslationStatus.Reviewed), (terms.Find(SheetTermKind.Trait, "i104")!.Text.Target, terms.Find(SheetTermKind.Trait, "i104")!.Text.Status));
     }
 
     [Fact]
     public async Task Editar_uma_lista_com_o_numero_errado_de_nomes_recusa_e_nao_grava_nada()
     {
         await Translated();
-        var pair = Blocks(new SheetVisibility(1))[2].Pairs[1];
+        var pair = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
 
         var ex = Assert.Throws<LibraryException>(() => SheetBlocks.EditPair(Store, Game1, pair, "Só um"));
 

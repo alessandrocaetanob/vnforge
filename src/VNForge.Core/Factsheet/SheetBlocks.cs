@@ -43,7 +43,7 @@ public sealed record SheetBlock(SheetBlockKind Kind, string Key, string Title, s
 }
 
 /// <summary>
-/// A revisão da ficha por blocos, como o quadro a desenha: a sinopse, os nomes das tags do jogo e, para cada personagem, a descrição e os nomes dos traços. Os blocos seguem a
+/// A revisão da ficha por blocos, como o quadro a desenha: a sinopse, os nomes das tags do jogo e, para cada personagem, a descrição e os nomes dos traços sem spoiler (os com spoiler só aparecem como etiqueta, no cartão "Traços com spoiler"). Os blocos seguem a
 /// <see cref="SheetVisibility"/>: personagem, tag e traço escondidos por spoiler ou por conteúdo adulto não entram, e voltam quando a pessoa libera o nível.
 /// </summary>
 public static class SheetBlocks
@@ -90,7 +90,7 @@ public static class SheetBlocks
                 pairs.Add(new SheetPair($"Descrição de {character.Name}", [SheetField.OfCharacter(character.Id)], [description], false));
             }
 
-            var traits = character.Traits.Where(t => !SheetViewer.IsTraitHidden(t, visibility)).Select(t => (Field: SheetField.OfTrait(t.Id), t.Name, Term: terms.Find(SheetTermKind.Trait, t.Id))).ToList();
+            var traits = character.Traits.Where(t => t.Spoiler == 0 && !t.Lie && !SheetViewer.IsTraitHidden(t, visibility)).Select(t => (Field: SheetField.OfTrait(t.Id), t.Name, Term: terms.Find(SheetTermKind.Trait, t.Id))).ToList();
             if (traits.Count > 0)
             {
                 pairs.Add(List($"Traços de {character.Name}", traits));
