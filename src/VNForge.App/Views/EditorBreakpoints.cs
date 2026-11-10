@@ -27,6 +27,13 @@ public static class EditorBreakpoints
 
     public const double InspectorTabsWidth = 360;
 
+    /// <summary>Abaixo desta largura de janela a margem lateral do Editor cai de <see cref="WideMargin"/> para <see cref="NarrowMargin"/>, para a barra de filtros e ações caber.</summary>
+    public const double NarrowMarginBelow = 1100;
+
+    public const double WideMargin = 32;
+
+    public const double NarrowMargin = 24;
+
     /// <summary>
     /// O inspetor inteiro (sem abas) tem 384 px no quadro (Vnf.InspectorWidth) e não passa disso: o original japonês quebra em duas linhas e o cartão da passada
     /// fica na altura do quadro. A caixa do jogo encolhe em proporção quando as colunas do perfil não cabem, nunca rola (#392).

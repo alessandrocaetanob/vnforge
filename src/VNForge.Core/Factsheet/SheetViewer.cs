@@ -126,10 +126,16 @@ public static class SheetViewer
     public static bool IsTraitHidden(VndbTrait trait, LibraryPrivacy privacy)
     {
         ArgumentNullException.ThrowIfNull(trait);
+        return IsTraitHidden(trait.Spoiler, trait.Lie, trait.Sexual, privacy);
+    }
+
+    /// <inheritdoc cref="IsTraitHidden(VndbTrait, LibraryPrivacy)"/>
+    public static bool IsTraitHidden(int spoiler, bool lie, bool? sexual, LibraryPrivacy privacy)
+    {
         ArgumentNullException.ThrowIfNull(privacy);
-        return trait.Spoiler > MaxSpoilerLevel(privacy)
-            || (trait.Lie && !privacy.ShowSpoilers)
-            || (trait.Sexual != false && !privacy.ShowAdult);
+        return spoiler > MaxSpoilerLevel(privacy)
+            || (lie && !privacy.ShowSpoilers)
+            || (sexual != false && !privacy.ShowAdult);
     }
 
     /// <summary>O texto que a privacidade deixa ver: a tradução quando há, senão o original; os trechos de spoiler somem sem <see cref="LibraryPrivacy.ShowSpoilers"/>.</summary>

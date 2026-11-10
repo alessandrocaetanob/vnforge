@@ -19,7 +19,7 @@
     <DataTemplate x:Key="NavItemTemplate" x:DataType="vm:NavItemViewModel">
       <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Panel HorizontalAlignment="Center">
-          <PathIcon Width="20" Height="20" Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+          <PathIcon Width="22" Height="22" Data="{Binding IconKey, Converter={x:Static c:IconKeyConverter.Instance}}"/>
           <Border IsVisible="{Binding HasBadge}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-14,0"
                   MinWidth="16" Height="16" Padding="4,0" CornerRadius="8"
                   Background="{DynamicResource Vnf.SignalErrorBg}">
@@ -65,7 +65,7 @@
   <Panel>
     <Border Name="MicaFallback" Background="{DynamicResource Vnf.BgBase}"/>
 
-    <Grid ColumnDefinitions="72,*">
+    <Grid ColumnDefinitions="80,*">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
@@ -74,37 +74,26 @@
 
       <!-- Barra de título própria: selo, nome do app, migalha do projeto e a busca que abre a paleta. Os botões de janela são os do sistema. -->
       <Border Grid.Row="0" Grid.ColumnSpan="2" Height="{StaticResource Vnf.TitlebarHeight}" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
-        <Grid ColumnDefinitions="*,Auto,*" Margin="14,0,0,0">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Viewbox Width="22" Height="22" VerticalAlignment="Center" AutomationProperties.Name="VNForge">
-              <Canvas Width="48" Height="48">
-                <Canvas.RenderTransform>
-                  <RotateTransform Angle="-4"/>
-                </Canvas.RenderTransform>
-                <Border Canvas.Left="5" Canvas.Top="5" Width="38" Height="38" CornerRadius="6"
-                        BorderThickness="3.5" BorderBrush="{DynamicResource Vnf.BrandShu}"/>
-                <Path Data="{StaticResource Brand.Seal}" Fill="{DynamicResource Vnf.BrandShu}" RenderTransformOrigin="0,0">
-                  <Path.RenderTransform>
-                    <TransformGroup>
-                      <TranslateTransform X="-24" Y="-24"/>
-                      <ScaleTransform ScaleX="0.86" ScaleY="0.86"/>
-                      <TranslateTransform X="24" Y="24"/>
-                    </TransformGroup>
-                  </Path.RenderTransform>
-                </Path>
-              </Canvas>
-            </Viewbox>
-            <TextBlock Classes="body-strong" Text="VNForge" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Classes="body-sm secondary" Text="{Binding ProjectTitle}" Margin="16,0,0,0" MaxWidth="220"
+        <Grid ColumnDefinitions="*,Auto,*">
+          <!-- A busca fica no centro da janela (a margem de 14 px é da própria coluna, não da grade) e o caminho corta com reticências antes de chegar nela. -->
+          <Grid ColumnDefinitions="Auto,Auto,*" Margin="14,0,16,0" VerticalAlignment="Center">
+            <!-- O selo do quadro: 18 px, canto de 4 px, 鍛 branco sobre o vermelho da marca. -->
+            <Border Grid.Column="0" Width="18" Height="18" CornerRadius="4" Background="{DynamicResource Vnf.BrandShu}" VerticalAlignment="Center"
+                    AutomationProperties.Name="VNForge">
+              <TextBlock Text="鍛" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="11" FontWeight="Medium" Foreground="White"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Grid.Column="1" Text="VNForge" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="secondary" FontSize="12" Text="{Binding Breadcrumb}" Margin="14,0,0,0" MaxWidth="320" HorizontalAlignment="Left"
                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-          </StackPanel>
+          </Grid>
 
           <Button Grid.Column="1" Classes="palette-trigger" Width="420" Command="{Binding OpenPaletteCommand}"
                   WindowDecorationProperties.ElementRole="User"
-                  AutomationProperties.Name="Buscar linhas, scripts e comandos">
+                  AutomationProperties.Name="Buscar jogos, personagens e comandos">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Search}" Foreground="{DynamicResource Vnf.TextSecondary}"/>
-              <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="Buscar linhas, scripts e comandos" Margin="8,0,0,0"
+              <TextBlock Grid.Column="1" Classes="body-sm secondary" Text="Buscar jogos, personagens e comandos" Margin="8,0,0,0"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
               <Border Grid.Column="2" Classes="kbd" VerticalAlignment="Center"><TextBlock Text="Ctrl+K"/></Border>
             </Grid>
@@ -115,7 +104,7 @@
         </Grid>
       </Border>
 
-      <!-- Trilho: Início, Painel, Editor, Conferir (com o contador do QA) e Testar no alto; Ajustes no pé. O Glossário só aparece com projeto aberto. -->
+      <!-- Trilho: a Biblioteca no alto (marcada também dentro de um jogo) e Ajustes no pé. O jogo aberto, as abas e a tradução ficam na área de conteúdo. -->
       <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,Auto">
         <Grid.Styles>
           <Style Selector="ListBoxItem" x:DataType="vm:NavItemViewModel">
@@ -123,22 +112,31 @@
             <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
           </Style>
         </Grid.Styles>
-        <ListBox Classes="navrail" ItemsSource="{Binding TopNav}" SelectedItem="{Binding SelectedTopNav}"
+        <ListBox Name="TopRail" Classes="navrail" ItemsSource="{Binding TopNav}" SelectedItem="{Binding SelectedTopNav}"
                  ItemTemplate="{StaticResource NavItemTemplate}" AutomationProperties.Name="Seções"/>
         <ListBox Grid.Row="1" Classes="navrail" ItemsSource="{Binding BottomNav}" SelectedItem="{Binding SelectedBottomNav}"
                  ItemTemplate="{StaticResource NavItemTemplate}" AutomationProperties.Name="Ajustes"/>
       </Grid>
 
-      <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. -->
-      <Border Name="PageArea" Grid.Row="1" Grid.Column="1" TextElement.FontSize="{DynamicResource Vnf.FontSize.Body}" Background="{DynamicResource Vnf.BgLayer}"
-              BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
-        <!-- A troca de página entra com fade e 8 px de deslocamento em 150 ms; sem animações no Windows, imediata. -->
-        <TransitioningContentControl Content="{Binding CurrentPage}">
-          <TransitioningContentControl.PageTransition>
-            <c:FadeSlideTransition/>
-          </TransitioningContentControl.PageTransition>
-        </TransitioningContentControl>
-      </Border>
+      <!-- A área de conteúdo é sempre opaca: o Mica aparece só na barra de título, no trilho e na barra de status. Dentro de um jogo, o cabeçalho e as abas ficam
+           acima da página e fora do tamanho de texto do Editor. -->
+      <Panel Grid.Row="1" Grid.Column="1">
+        <Border Background="{DynamicResource Vnf.BgLayer}" CornerRadius="8,0,0,0" ClipToBounds="True">
+          <Grid RowDefinitions="Auto,*">
+            <v:GameHeaderView Name="GameHeader" IsVisible="{Binding ShowGameHeader}"/>
+            <Border Name="PageArea" Grid.Row="1" TextElement.FontSize="{DynamicResource Vnf.FontSize.Body}">
+              <!-- A troca de página entra com fade e 8 px de deslocamento em 150 ms; sem animações no Windows, imediata. -->
+              <TransitioningContentControl Content="{Binding CurrentPage}">
+                <TransitioningContentControl.PageTransition>
+                  <c:FadeSlideTransition/>
+                </TransitioningContentControl.PageTransition>
+              </TransitioningContentControl>
+            </Border>
+          </Grid>
+        </Border>
+        <!-- O contorno fica por cima, fora do conteúdo: o cabeçalho, as abas e a página começam no mesmo x do quadro (112 px) em vez de 1 px adiante. -->
+        <Border IsHitTestVisible="False" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0"/>
+      </Panel>
 
       <!-- Barra de status: a tarefa em andamento e "Tarefas (n)" à esquerda; gravação, acentuação e limites da caixa à direita. -->
       <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="14,0">
@@ -148,8 +146,13 @@
                      IsVisible="{Binding StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <!-- Como no quadro: na Biblioteca e nas páginas de entrada do jogo, a contagem de jogos e o estado do VNDB; nas telas de trabalho, os dados do texto. -->
+            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding !ShowWorkStatus}">
+              <TextBlock Name="LibraryStatus" Classes="caption secondary" Text="{Binding LibraryCountText}"/>
+              <TextBlock Name="VndbStatus" Classes="caption secondary" Text="{Binding VndbStatusText}"/>
+            </StackPanel>
             <TextBlock Classes="caption secondary" Text="{Binding AppVersionText}"/>
-            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding !IsStartPage}">
+            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding ShowWorkStatus}">
             <TextBlock Classes="caption secondary" Text="{Binding SavedAtText}"
                        IsVisible="{Binding SavedAtText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             <TextBlock Classes="caption secondary" Text="{Binding GameStatusText}"
@@ -161,8 +164,9 @@
             </StackPanel>
             <TextBlock Classes="caption secondary" Text="{Binding ApiKeyStatus}" IsVisible="{Binding IsStartPage}"/>
             <StackPanel Name="KeyStatus" Orientation="Horizontal" Background="Transparent" ToolTip.Tip="{Binding ApiKeyStatus}" AutomationProperties.Name="{Binding ApiKeyStatus}">
+              <!-- O visto só aparece na Biblioteca; a chave que falta é um aviso e aparece em toda tela. -->
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.StatusApprovedFg}"
-                        Data="{StaticResource Icon.Check}" IsVisible="{Binding ApiKeyConfigured}"/>
+                        Data="{StaticResource Icon.Check}" IsVisible="{Binding ShowKeyOk}"/>
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.SignalWarningFg}"
                         Data="{StaticResource Icon.Warning}" IsVisible="{Binding !ApiKeyConfigured}"/>
             </StackPanel>

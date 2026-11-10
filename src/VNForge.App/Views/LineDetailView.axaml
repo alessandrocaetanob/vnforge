@@ -74,7 +74,7 @@
     <Panel>
       <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard, com os 350 px do quadro: a rolagem avança 12 px sobre o respiro do cartão e a barra fica nessa folga, fora do texto. -->
       <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled" Margin="0,0,-12,0">
-        <StackPanel x:Name="WideStack" Spacing="16" Margin="0,0,12,20">
+        <StackPanel x:Name="WideStack" Spacing="15" Margin="0,0,12,20">
 
           <!-- Cabeçalho (quadro do #537): retrato de 64 px, o nome do falante na cor dele, o papel e o jeito de falar, e embaixo o id em mono com o tipo da linha; histórico e menu à direita.
                O selo de status fica na grade, como no quadro. -->

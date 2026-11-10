@@ -222,6 +222,10 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial string MapSummary { get; private set; } = string.Empty;
 
+    /// <summary>"38%": a parte pronta do jogo, arredondada para baixo, em número grande no resumo do Painel.</summary>
+    [ObservableProperty]
+    public partial string MapPercentText { get; private set; } = "0%";
+
     /// <summary>A frase com as horas de revisão que faltam no ritmo da pessoa.</summary>
     [ObservableProperty]
     public partial string PaceText { get; private set; } = string.Empty;
@@ -286,7 +290,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     public bool ShowEmptyState => Project is null || (loaded && !IsLoading && ErrorMessage is null && TotalLines == 0);
 
     public string EmptyMessage => Project is null
-        ? "Nenhum projeto aberto. Abra um no Início para ver o painel."
+        ? "Nenhum projeto aberto. Abra um na Biblioteca para ver o painel."
         : "Este projeto ainda não tem texto lido. Leia o texto do jogo para ver o progresso aqui.";
 
     /// <summary>A ação do estado vazio: só existe quando falta o projeto.</summary>
@@ -591,6 +595,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         nextStep = null;
         NextStepLabel = string.Empty;
         ReadyLines = ReviewLines = TotalLines = 0;
+        MapPercentText = "0%";
         MapSummary = PaceText = MoreTodosText = SpentText = SpendHint = GameTitle = GameMessage = NextStepScene = LastTestText = string.Empty;
         Diary = ReviewDiary.Empty;
         SpentBrl = LimitBrl = 0;
@@ -624,6 +629,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         ReviewLines = total.ToReview;
         TotalLines = total.Total;
         MapSummary = $"{ProjectLabels.Number(total.Ready)} de {Lines(total.Total)} prontas";
+        MapPercentText = GameProgress.Percent(total.Ready, total.Total).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
         PaceText = PaceSentence(pace, total.ToReview);
         Diary = ReviewDiary.Compute(dashboard.Sessions, clock.GetUtcNow(), clock.LocalTimeZone);
         MapLegend.Clear();
