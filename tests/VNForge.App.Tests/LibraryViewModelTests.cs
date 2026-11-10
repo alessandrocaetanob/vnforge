@@ -471,9 +471,192 @@ public sealed class LibraryViewModelTests : IDisposable
 
         await vm.RescanCommand.ExecuteAsync(null);
 
-        Assert.Contains("não está acessível", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("Não deu para ler", vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(12, File.Load().Games.Count);
         Assert.False(vm.IsRescanning);
+    }
+
+    [Fact]
+    public async Task Varrer_de_novo_lista_todas_as_pastas_sem_acesso_no_fim_mesmo_com_pasta_boa_no_meio()
+    {
+        Collection();
+        var missing1 = Path.Combine(_games.Path, "Sumiu 1");
+        var missing2 = Path.Combine(_games.Path, "Sumiu 2");
+        File.Update(l =>
+        {
+            l.SetRoot(new LibraryRoot(missing1));
+            l.SetRoot(new LibraryRoot(_games.Path));
+            l.SetRoot(new LibraryRoot(missing2));
+        });
+        var vm = Create();
+        await vm.LoadAsync();
+
+        await vm.RescanCommand.ExecuteAsync(null);
+
+        Assert.Contains(GameLibrary.NormalizeFolder(missing1), vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(GameLibrary.NormalizeFolder(missing2), vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(3, File.Load().Games.Count);
+    }
+
+    [Fact]
+    public async Task Pausar_durante_o_varrer_de_novo_para_o_laco_e_nao_varre_as_outras_pastas()
+    {
+        Collection();
+        using var other = new TempFolder();
+        System.IO.File.WriteAllText(Path.Combine(other.Path, "x.exe"), "x");
+        LibraryViewModel? holder = null;
+        var armed = false;
+        var paused = false;
+        var vm = Create(post: action =>
+        {
+            action();
+            if (armed && !paused && holder!.Scan.Rows.Count > 0)
+            {
+                paused = true;
+                holder.ScanActionCommand.Execute(null);
+            }
+        });
+        holder = vm;
+        await vm.LoadAsync();
+        await vm.ScanFolderAsync(_games.Path);
+        await vm.ScanFolderAsync(other.Path);
+        vm.FinishFirstScan();
+        Touch("Novo Jogo", "data.xp3");
+        Touch("Novo Jogo", "Novo.exe");
+        Directory.CreateDirectory(Path.Combine(other.Path, "Novo B"));
+        System.IO.File.WriteAllText(Path.Combine(other.Path, "Novo B", "b.exe"), "b");
+
+        armed = true;
+        await vm.RescanCommand.ExecuteAsync(null);
+
+        Assert.True(paused);
+        Assert.False(vm.IsScanBusy);
+        Assert.False(vm.IsRescanning);
+        Assert.DoesNotContain(File.Load().Games, g => g.Folder.Contains("Novo B", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Trocar_de_pasta_com_um_varrer_de_novo_rodando_para_o_laco_todo()
+    {
+        Collection();
+        using var second = new TempFolder();
+        using var third = new TempFolder();
+        System.IO.File.WriteAllText(Path.Combine(third.Path, "z.exe"), "z");
+        LibraryViewModel? holder = null;
+        var armed = false;
+        var started = false;
+        Task? change = null;
+        var vm = Create(
+            new FakeFolderPicker(third.Path),
+            post: action =>
+            {
+                action();
+                if (armed && !started && holder!.Scan.Rows.Count > 0)
+                {
+                    started = true;
+                    change = holder.ChangeFolderCommand.ExecuteAsync(null);
+                }
+            });
+        holder = vm;
+        await vm.LoadAsync();
+        await vm.ScanFolderAsync(_games.Path);
+        await vm.ScanFolderAsync(second.Path);
+        vm.FinishFirstScan();
+        Directory.CreateDirectory(Path.Combine(second.Path, "Novo W"));
+        System.IO.File.WriteAllText(Path.Combine(second.Path, "Novo W", "w.exe"), "w");
+
+        armed = true;
+        await vm.RescanCommand.ExecuteAsync(null);
+        await change!;
+        await vm.Scanning;
+
+        Assert.Equal(third.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
+        Assert.False(vm.IsScanBusy);
+        Assert.DoesNotContain(File.Load().Games, g => g.Folder.Contains("Novo W", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Um_erro_inesperado_ao_abrir_vira_aviso_da_biblioteca_e_nao_derruba_o_app()
+    {
+        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
+        var vm = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), clock: Clock, readTranslation: _ => throw new InvalidOperationException("leitura quebrada"));
+
+        await vm.OpenAsync(() => Task.CompletedTask);
+
+        Assert.Contains("leitura quebrada", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.False(vm.IsScanBusy);
+    }
+
+    [Fact]
+    public async Task Um_erro_ao_ler_os_recentes_na_abertura_tambem_vira_aviso()
+    {
+        var vm = Create();
+
+        await vm.OpenAsync(() => throw new IOException("recentes ilegíveis"));
+
+        Assert.Contains("recentes ilegíveis", vm.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Ao_abrir_le_os_recentes_carrega_e_varre_de_novo_as_pastas_marcadas()
+    {
+        Collection();
+        File.Update(l => l.SetRoot(new LibraryRoot(_games.Path, RescanOnOpen: true)));
+        var vm = Create();
+        var order = new List<string>();
+        vm.RecentProjects = () =>
+        {
+            order.Add("recentes");
+            return [];
+        };
+
+        await vm.OpenAsync(() =>
+        {
+            order.Add("antes");
+            return Task.CompletedTask;
+        });
+        await vm.Scanning;
+
+        Assert.Equal(["antes", "recentes"], order.Take(2));
+        Assert.Equal(3, File.Load().Games.Count);
+    }
+
+    [Fact]
+    public async Task Trocar_de_pasta_na_varredura_grava_o_ler_de_novo_ao_abrir_na_pasta_nova_e_nao_na_velha()
+    {
+        Collection();
+        using var other = new TempFolder();
+        var vm = Create();
+        await vm.LoadAsync();
+        await vm.ScanFolderAsync(_games.Path);
+        File.Update(l => l.SetRoot(new LibraryRoot(other.Path, RescanOnOpen: true)));
+        await vm.LoadAsync();
+
+        await vm.ScanFolderAsync(other.Path);
+        await vm.Remembering;
+
+        var roots = File.Load().Roots;
+        Assert.False(roots.Single(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(_games.Path), StringComparison.OrdinalIgnoreCase)).RescanOnOpen);
+        Assert.True(roots.Single(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(other.Path), StringComparison.OrdinalIgnoreCase)).RescanOnOpen);
+        Assert.True(vm.Scan.RescanOnOpen);
+    }
+
+    [Fact]
+    public async Task Duas_escolhas_seguidas_do_ler_de_novo_ao_abrir_gravam_a_ultima()
+    {
+        Collection();
+        var vm = Create();
+        await vm.LoadAsync();
+        await vm.ScanFolderAsync(_games.Path);
+
+        for (var i = 0; i < 6; i++)
+        {
+            vm.Scan.RescanOnOpen = i % 2 == 0;
+        }
+
+        await vm.Remembering;
+
+        Assert.False(File.Load().Roots.Single().RescanOnOpen);
     }
 
     [Fact]
@@ -593,7 +776,7 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Enquanto_uma_varredura_roda_adicionar_pasta_e_varrer_de_novo_esperam()
+    public async Task Enquanto_uma_varredura_roda_adicionar_pasta_e_varrer_de_novo_esperam_e_a_pasta_pedida_entra_na_fila()
     {
         Collection();
         using var other = new TempFolder();
@@ -624,8 +807,8 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.False(canChoose);
         Assert.False(canRescan);
         Assert.Same(vm.Scanning, ignored);
-        Assert.Equal(_games.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
-        Assert.Single(File.Load().Roots);
+        Assert.Equal(other.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
+        Assert.Equal(2, File.Load().Roots.Count);
         Assert.False(vm.IsScanBusy);
         Assert.True(vm.ChooseFolderCommand.CanExecute(null));
     }

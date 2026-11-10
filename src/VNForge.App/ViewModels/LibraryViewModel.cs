@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -62,7 +63,9 @@ public sealed partial class LibraryViewModel : ObservableObject
     private List<LibraryGame> games = [];
     private GameLibrary library = new();
     private UserTags userTags = new();
+    private readonly List<string> waitingFolders = [];
     private CancellationTokenSource? scanning;
+    private bool applyingRoot;
     private long lastReport;
     private int loadGeneration;
 
@@ -104,9 +107,9 @@ public sealed partial class LibraryViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(StatusText));
             }
-            else if (e.PropertyName is nameof(LibraryScanViewModel.RescanOnOpen))
+            else if (e.PropertyName is nameof(LibraryScanViewModel.RescanOnOpen) && !applyingRoot)
             {
-                Remembering = RememberRescanOnOpenAsync();
+                Remembering = RememberRescanOnOpenAsync(Remembering);
             }
         };
     }
@@ -564,22 +567,36 @@ public sealed partial class LibraryViewModel : ObservableObject
     /// <summary>Solta uma pasta ou um drive na biblioteca vazia: o mesmo que escolher a pasta.</summary>
     public Task DropFolderAsync(string path) => ScanFolderAsync(path);
 
-    /// <summary>Varre <paramref name="folder"/>. Devolve quando a varredura termina (ou pausa).</summary>
+    /// <summary>
+    /// Varre <paramref name="folder"/>. Devolve quando a varredura termina (ou pausa). Com outra varredura em curso, a pasta entra na fila e é varrida quando a de agora acaba;
+    /// o que devolve é a varredura em curso, que só termina depois da fila.
+    /// </summary>
     public Task ScanFolderAsync(string folder)
     {
         if (IsScanBusy)
         {
+            var normalized = GameLibrary.NormalizeFolder(folder);
+            if (!waitingFolders.Exists(w => string.Equals(GameLibrary.NormalizeFolder(w), normalized, StringComparison.OrdinalIgnoreCase)))
+            {
+                waitingFolders.Add(folder);
+            }
+
             return Scanning;
         }
 
-        var existing = library.Roots.FirstOrDefault(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(folder), StringComparison.OrdinalIgnoreCase));
-        var root = new LibraryRoot(folder, Scan.IncludeSubfolders, Scan.MatchVndb, existing?.RescanOnOpen ?? Scan.RescanOnOpen);
-        // Pausada ou trocando de pasta, a primeira varredura já tem jogos achados, mas segue sendo a primeira.
-        var firstScan = Mode == LibraryMode.FirstScan || games.Count == 0;
-        return Scanning = RunExclusiveAsync(() => ScanAsync(root, firstScan));
+        return Scanning = RunExclusiveAsync(token => ScanAsync(RootFor(folder), IsFirstScanNow(), token));
     }
 
-    /// <summary>"Trocar pasta" da primeira varredura: para a varredura de agora, pede outra pasta e recomeça.</summary>
+    private LibraryRoot RootFor(string folder)
+    {
+        var existing = library.Roots.FirstOrDefault(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(folder), StringComparison.OrdinalIgnoreCase));
+        return new LibraryRoot(folder, Scan.IncludeSubfolders, Scan.MatchVndb, existing?.RescanOnOpen ?? Scan.RescanOnOpen);
+    }
+
+    // Pausada ou trocando de pasta, a primeira varredura já tem jogos achados, mas segue sendo a primeira.
+    private bool IsFirstScanNow() => Mode == LibraryMode.FirstScan || games.Count == 0;
+
+    /// <summary>"Trocar pasta" da primeira varredura: para a varredura de agora (e a fila dela), pede outra pasta e recomeça.</summary>
     [RelayCommand]
     private async Task ChangeFolderAsync()
     {
@@ -589,32 +606,72 @@ public sealed partial class LibraryViewModel : ObservableObject
             return;
         }
 
-        scanning?.Cancel();
-        await Scanning;
+        if (IsScanBusy)
+        {
+            waitingFolders.Clear();
+            scanning?.Cancel();
+            await Scanning;
+        }
+
         await ScanFolderAsync(folder);
     }
 
     /// <summary>"Varrer de novo": lê de novo cada pasta guardada, em segundo plano, sem trocar a página.</summary>
     [RelayCommand(CanExecute = nameof(CanStartScan))]
-    private Task RescanAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(() => RescanAllAsync([.. library.Roots]));
+    private Task RescanAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(token => RescanAllAsync([.. library.Roots], token));
 
     /// <summary>Lê de novo as pastas que a pessoa marcou com "Ler a pasta toda de novo ao abrir o app". O shell chama ao abrir.</summary>
-    public Task RescanOnOpenAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(() => RescanAllAsync([.. library.Roots.Where(r => r.RescanOnOpen)]));
+    public Task RescanOnOpenAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(token => RescanAllAsync([.. library.Roots.Where(r => r.RescanOnOpen)], token));
 
-    private async Task RunExclusiveAsync(Func<Task> work)
+    /// <summary>
+    /// O que o app faz quando a janela abre: lê os recentes (<paramref name="loadRecents"/>, porque a Biblioteca liga cada projeto ao jogo dele por essa lista), carrega o <c>library.json</c> e
+    /// varre de novo as pastas marcadas. Quem chama é um handler <c>async void</c>, onde uma exceção derruba o app: qualquer erro vira o aviso da Biblioteca e entra no log do app.
+    /// </summary>
+    public async Task OpenAsync(Func<Task> loadRecents)
     {
-        IsScanBusy = true;
         try
         {
-            await work();
+            await loadRecents();
+            await LoadAsync();
+            await RescanOnOpenAsync();
+        }
+        catch (Exception e)
+        {
+            Trace.TraceError("A Biblioteca não abriu: {0}", e);
+            ErrorMessage = $"Não deu para abrir a Biblioteca: {e.Message}";
+        }
+    }
+
+    // Um cancelamento só para a varredura de agora, as pastas que esperam e o resto do laço do "Varrer de novo".
+    private async Task RunExclusiveAsync(Func<CancellationToken, Task> work)
+    {
+        IsScanBusy = true;
+        using var source = new CancellationTokenSource();
+        scanning = source;
+        try
+        {
+            await work(source.Token);
+            while (waitingFolders.Count > 0 && !source.IsCancellationRequested)
+            {
+                var next = waitingFolders[0];
+                waitingFolders.RemoveAt(0);
+                await ScanAsync(RootFor(next), IsFirstScanNow(), source.Token);
+            }
+
+            if (waitingFolders.Count > 0)
+            {
+                ErrorMessage = $"A varredura parou antes de chegar em {string.Join(", ", waitingFolders)}. Escolha a pasta de novo para varrer.";
+            }
         }
         finally
         {
+            scanning = null;
+            waitingFolders.Clear();
             IsScanBusy = false;
         }
     }
 
-    private async Task RescanAllAsync(IReadOnlyList<LibraryRoot> roots)
+    private async Task RescanAllAsync(IReadOnlyList<LibraryRoot> roots, CancellationToken token)
     {
         if (scanService is null || roots.Count == 0)
         {
@@ -624,15 +681,30 @@ public sealed partial class LibraryViewModel : ObservableObject
         IsRescanning = true;
         try
         {
+            List<string> unreachable = [];
+            var scannedAny = false;
             foreach (var root in roots)
             {
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 if (!Directory.Exists(root.Path))
                 {
-                    ErrorMessage = $"A pasta {root.Path} não está acessível. Conecte o drive ou use \"Adicionar pasta\".";
+                    unreachable.Add(root.Path);
                     continue;
                 }
 
-                await ScanAsync(root, firstScan: false);
+                await ScanAsync(root, firstScan: false, token);
+                scannedAny = true;
+            }
+
+            if (unreachable.Count > 0)
+            {
+                // Cada varredura limpa o aviso ao começar: o das pastas sem acesso sai só no fim, junto de qualquer aviso das que rodaram.
+                var unread = $"Não deu para ler {string.Join(", ", unreachable)}. Conecte o drive ou use \"Adicionar pasta\".";
+                ErrorMessage = scannedAny && ErrorMessage is not null ? $"{ErrorMessage} {unread}" : unread;
             }
         }
         finally
@@ -641,7 +713,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private async Task ScanAsync(LibraryRoot root, bool firstScan)
+    private async Task ScanAsync(LibraryRoot root, bool firstScan, CancellationToken token)
     {
         if (scanService is null)
         {
@@ -649,8 +721,6 @@ public sealed partial class LibraryViewModel : ObservableObject
             return;
         }
 
-        scanning?.Cancel();
-        var source = scanning = new CancellationTokenSource();
         ErrorMessage = null;
         if (firstScan)
         {
@@ -659,7 +729,17 @@ public sealed partial class LibraryViewModel : ObservableObject
 
         Scan.IncludeSubfolders = root.IncludeSubfolders;
         Scan.MatchVndb = root.MatchVndb;
-        Scan.RescanOnOpen = root.RescanOnOpen;
+        // Ainda é a pasta de antes em Scan.Folder: sem isto o valor da pasta nova seria gravado na velha.
+        applyingRoot = true;
+        try
+        {
+            Scan.RescanOnOpen = root.RescanOnOpen;
+        }
+        finally
+        {
+            applyingRoot = false;
+        }
+
         Scan.Begin(root.Path);
         OnPropertyChanged(nameof(StatusText));
         try
@@ -669,10 +749,10 @@ public sealed partial class LibraryViewModel : ObservableObject
                 new Reporter<LibraryScanProgress>(OnScanReport),
                 new Reporter<LibraryMatchProgress>(report => post(() => Scan.OnMatch(report))),
                 _ => post(() => Scan.StartMatching()),
-                source.Token);
+                token);
             await LoadCoreAsync();
             Scan.Refresh(games);
-            Scan.Finish(source.IsCancellationRequested, Summary(outcome));
+            Scan.Finish(token.IsCancellationRequested, Summary(outcome));
             if (outcome.Match is { AbortReason: { } reason })
             {
                 ErrorMessage = reason;
@@ -693,8 +773,10 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     /// <summary>"Ler a pasta toda de novo ao abrir o app" vale na hora: a pasta já guardada muda no <c>library.json</c>. Sem a pasta guardada ainda, a escolha entra com a varredura.</summary>
-    private async Task RememberRescanOnOpenAsync()
+    private async Task RememberRescanOnOpenAsync(Task previous)
     {
+        // Uma gravação por vez: cada uma lê a escolha só depois que a anterior acabou, então a última escolha é a que fica no arquivo.
+        await Task.WhenAny(previous);
         if (file is null || Scan.Phase == LibraryScanPhase.Idle || !Scan.HasFolder)
         {
             return;

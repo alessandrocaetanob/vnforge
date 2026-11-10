@@ -1,6 +1,7 @@
 using VNForge.App.ViewModels;
 using VNForge.Core.Library;
 using VNForge.Engines.YuRis;
+using VNForge.Vndb;
 
 namespace VNForge.App.Tests;
 
@@ -18,7 +19,7 @@ public sealed class LibraryCompositionTests
         File.WriteAllText(Path.Combine(games, "[Key] CLANNAD v1.02", "data.xp3"), "x");
         File.WriteAllText(Path.Combine(games, "[Key] CLANNAD v1.02", "CLANNAD.exe"), "x");
 
-        var library = App.CreateLibrary(config, new FakeFolderPicker(games), [new YuRisEngine()], action => action());
+        var library = App.CreateLibrary(config, new FakeFolderPicker(games), [new YuRisEngine()], action => action(), new FakeVndbCatalog([]));
         await library.LoadAsync();
 
         Assert.Equal(LibraryMode.Games, library.Mode);
