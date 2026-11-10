@@ -44,15 +44,20 @@
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     </Style>
 
-    <!-- A densidade da grade é um botão de dois estados com o mesmo tamanho e contorno dos outros; marcado, ganha o accent-soft dos filtros. -->
+    <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
+         dos filtros e o contorno accent, que é o que diz que está ligado. -->
     <Style Selector="ToggleButton.density">
       <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
       <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
       <Setter Property="Padding" Value="10,0"/>
       <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
     <Style Selector="ToggleButton.density:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>

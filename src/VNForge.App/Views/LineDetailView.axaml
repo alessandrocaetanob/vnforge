@@ -63,7 +63,7 @@
     <Panel>
       <!-- Janela larga: tudo numa coluna rolável, na ordem do artboard. A margem direita deixa a barra de rolagem fora do texto. -->
       <ScrollViewer x:Name="WideScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="WideStack" Spacing="15" Margin="0,0,12,20">
+        <StackPanel x:Name="WideStack" Spacing="10" Margin="0,0,12,20">
 
           <!-- Cabeçalho: id em mono, selo de status, tipo da linha, histórico e menu. -->
           <Grid x:Name="HeaderFragment" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
@@ -94,7 +94,7 @@
           </Grid>
 
           <!-- Original em fundo rebaixado, com os marcadores como chips. -->
-          <StackPanel x:Name="OriginalFragment" Spacing="6">
+          <StackPanel x:Name="OriginalFragment" Spacing="4">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
               <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
               <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding HasMemory}"
@@ -189,7 +189,7 @@
           </Border>
 
           <!-- Na cena: a fala anterior e a seguinte. Com o cartão da memória aberto fica recolhido, e o cabeçalho abre. -->
-          <StackPanel x:Name="SceneFragment" Spacing="6" IsVisible="{Binding HasScene}">
+          <StackPanel x:Name="SceneFragment" Spacing="4" IsVisible="{Binding HasScene}">
             <c:OverlineText Classes="overline" Text="Na cena" IsVisible="{Binding !UsesSceneToggle}"/>
             <Button x:Name="SceneToggle" Classes="memory-scene" IsVisible="{Binding UsesSceneToggle}" Command="{Binding ToggleSceneCommand}" AutomationProperties.Name="Na cena">
               <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
@@ -203,7 +203,7 @@
           </StackPanel>
 
           <!-- Tradução: borda inferior de destaque, medidas e estado dos marcadores. -->
-          <StackPanel x:Name="TranslationFragment" Spacing="6">
+          <StackPanel x:Name="TranslationFragment" Spacing="4">
             <Grid ColumnDefinitions="*,Auto">
               <c:OverlineText Classes="overline" Text="Tradução"/>
               <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding IsCompactInspector}"/>

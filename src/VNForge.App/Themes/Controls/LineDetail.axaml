@@ -6,7 +6,7 @@
   <Style Selector="Border.original">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
-    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="Padding" Value="10,7"/>
   </Style>
 
   <!-- Memória de tradução (#537): cartão rebaixado como o do Original, com o percentual em selo (aprovado quando exato, IA quando aproximado). -->

@@ -35,8 +35,8 @@ public sealed partial class LineDetailViewModel
     /// </summary>
     public bool IsCompactInspector => HasMemory || HasEditorSuggestion;
 
-    /// <summary>Altura mínima do campo da tradução: 72 px normalmente e 28 px (44 com a margem) com o cartão da memória aberto, para a caixa do jogo e o "Cabe" ficarem na tela (quadro do #537).</summary>
-    public double TranslationMinHeight => IsCompactInspector ? 28 : 72;
+    /// <summary>Altura mínima do campo da tradução: 44 px normalmente (60 com a margem e o contorno, perto dos 62 da caixa de duas linhas do quadro do Editor) e 28 px (44 com a margem) com o cartão da memória aberto, para a caixa do jogo e o "Cabe" ficarem na tela (quadro do #537).</summary>
+    public double TranslationMinHeight => IsCompactInspector ? 28 : 44;
 
     /// <summary>O aviso do cartão quando o arquivo da memória não pôde ser lido: diz o caminho e que nada foi alterado. Nulo quando a busca correu bem.</summary>
     [ObservableProperty]
