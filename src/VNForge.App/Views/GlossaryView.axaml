@@ -244,7 +244,7 @@
                   </Grid>
                 </Border>
                 <v:CharacterSheetView DataContext="{Binding Sheet}" IsVisible="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).HasSheet}"/>
-                <Border Classes="infobar banner" Classes.warning="{Binding HasMissingGender}" Margin="20,0,20,12" Padding="14,10" IsVisible="{Binding HasVoiceStrip}">
+                <Border Classes="infobar banner" Classes.warning="{Binding HasMissingGender}" Margin="20,0,20,12" Padding="14,10" BorderThickness="1" BorderBrush="Transparent" IsVisible="{Binding HasVoiceStrip}">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                     <PathIcon Width="18" Height="18" VerticalAlignment="Center" Data="{StaticResource Icon.Warning}" IsVisible="{Binding HasMissingGender}"/>
                     <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding VoiceStripText}"/>
