@@ -35,16 +35,6 @@ public static class GameProgress
     public static int Percent(double ready, double total) => total <= 0 ? 0 : (int)Math.Floor(100.0 * ready / total);
 }
 
-/// <summary>Página de uma aba do jogo que ainda não tem tela própria: uma frase e o caminho para o que existe.</summary>
-public sealed class GameTabPlaceholderViewModel(string message, string actionText, Action action)
-{
-    public string Message { get; } = message;
-
-    public string ActionText { get; } = actionText;
-
-    public IRelayCommand ActionCommand { get; } = new RelayCommand(action);
-}
-
 /// <summary>O shell: Biblioteca no trilho, o jogo aberto com o seu cabeçalho e, abaixo dele, as abas Ficha, Tradução e Jogar.</summary>
 public sealed partial class MainWindowViewModel
 {
@@ -69,7 +59,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>A aba Ficha do jogo (d9, #554).</summary>
     public GameSheetViewModel Sheet { get; }
 
-    public GameTabPlaceholderViewModel Play { get; }
+    /// <summary>A aba Jogar do jogo (d3, #549).</summary>
+    public GamePlayViewModel Play { get; }
 
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
     public bool InGame => HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null;
@@ -80,7 +71,7 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
 
-    /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar" (que só existe com a #549); na Tradução é o próximo passo do Painel.</summary>
+    /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar"; na Tradução é o próximo passo do Painel.</summary>
     public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
     /// <summary>O próximo passo do Painel no lugar de "Jogar": na Tradução, e em nenhuma aba durante a revisão da ficha, que não leva botão no cabeçalho.</summary>

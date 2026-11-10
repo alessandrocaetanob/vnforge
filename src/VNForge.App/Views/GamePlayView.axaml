@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:core="using:VNForge.Core.Library"
+             x:Class="VNForge.App.Views.GamePlayView"
+             x:DataType="vm:GamePlayViewModel"
+             AutomationProperties.Name="Jogar">
+
+  <UserControl.Styles>
+    <!-- A barra do gráfico por semana: accent-soft nas semanas de antes e accent na de agora. -->
+    <Style Selector="Border.play-bar">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="CornerRadius" Value="4,4,0,0"/>
+    </Style>
+    <Style Selector="Border.play-bar.current">
+      <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <c:EmptyState IsVisible="{Binding !HasGame}" Message="{Binding NoGameMessage}"/>
+
+    <!-- A aba Jogar do quadro da #549: duas colunas, "Jogando agora", os interruptores e as sessões à esquerda; o tempo de jogo e o último jogado à direita. -->
+    <ScrollViewer IsVisible="{Binding HasGame}" HorizontalScrollBarVisibility="Disabled">
+      <Grid Margin="32,20,32,24" ColumnDefinitions="*,352" ColumnSpacing="24">
+        <StackPanel Spacing="16">
+
+          <Border Classes="sheet-card pad6">
+            <StackPanel Spacing="16">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                <Border Classes="lib-icobox" Background="{DynamicResource Vnf.StatusApprovedBg}" VerticalAlignment="Center">
+                  <PathIcon Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Play}"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Name="CardTitle" Classes="sheet-h3" FontSize="18" LineHeight="24" Text="{Binding CardTitle}"/>
+                  <TextBlock Name="CardDetail" Classes="lib-dim" FontSize="14" LineHeight="20" TextWrapping="Wrap" Text="{Binding CardDetail}"/>
+                </StackPanel>
+                <TextBlock Name="Elapsed" Grid.Column="2" Classes="mono" FontSize="30" LineHeight="36" FontWeight="Bold" VerticalAlignment="Center"
+                           IsVisible="{Binding IsPlaying}" Text="{Binding ElapsedText}"/>
+                <Button Name="PlayButton" Grid.Column="2" Classes="accent" VerticalAlignment="Center" IsVisible="{Binding !IsPlaying}" Command="{Binding PlayCommand}" AutomationProperties.Name="Jogar">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                    <TextBlock Text="Jogar"/>
+                  </StackPanel>
+                </Button>
+              </Grid>
+
+              <Border Classes="lib-hr"/>
+
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <ToggleSwitch Name="LocaleEmulatorSwitch" Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" VerticalAlignment="Center"
+                              IsChecked="{Binding LocaleEmulatorOn}" AutomationProperties.Name="Abrir pelo Locale Emulator"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock FontWeight="SemiBold" Text="Abrir pelo Locale Emulator"/>
+                  <TextBlock Name="LocaleEmulatorNote" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding LocaleEmulatorNote}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Classes="subtle sm" VerticalAlignment="Center" Command="{Binding OpenSettingsCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Settings}"/>
+                    <TextBlock Text="Caminho nos Ajustes"/>
+                  </StackPanel>
+                </Button>
+              </Grid>
+
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Name="OpensLauncherSwitch" Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" VerticalAlignment="Center"
+                              IsChecked="{Binding OpensLauncherOn}" AutomationProperties.Name="Abre um lançador antes do jogo"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock FontWeight="SemiBold" Text="Abre um lançador antes do jogo"/>
+                  <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="Ligue se o exe principal abre outra janela. O app passa a contar pelo processo do jogo."/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="sheet-card" Padding="0">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto" Margin="16">
+                <TextBlock Classes="sheet-h3" Text="Sessões" VerticalAlignment="Center"/>
+                <ListBox Name="SessionsView" Grid.Column="1" Classes="seg" ItemsSource="{Binding ViewOptions}" SelectedIndex="{Binding ViewIndex}" AutomationProperties.Name="Ver as sessões por"/>
+              </Grid>
+              <TextBlock Name="EmptyRows" Classes="lib-dim" Margin="16,0,16,16" TextWrapping="Wrap" IsVisible="{Binding ShowsEmptyRows}" Text="{Binding EmptyRowsText}"/>
+              <ItemsControl Name="Rows" ItemsSource="{Binding Rows}" AutomationProperties.Name="Sessões de jogo">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="core:PlaySessionRow">
+                    <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0" Padding="16,12">
+                      <Grid ColumnDefinitions="*,140,160">
+                        <TextBlock VerticalAlignment="Center" Text="{Binding When}"/>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" FontWeight="Bold" Text="{Binding Duration}"/>
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="lib-dim" Text="{Binding Via}"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Spacing="16">
+          <Border Classes="sheet-card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="sheet-h3" Text="Tempo de jogo"/>
+              <TextBlock Name="TotalText" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="40" LineHeight="44" FontWeight="Bold" Text="{Binding TotalText}"/>
+              <TextBlock Name="AverageText" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding AverageText}"/>
+              <ItemsControl Name="Bars" Height="80" ItemsSource="{Binding Bars}" Margin="-3,0" AutomationProperties.Name="Tempo de jogo por semana">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Rows="1"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WeekBar">
+                    <Border Classes="play-bar" Classes.current="{Binding IsCurrent}" Height="{Binding Height}" Margin="3,0" VerticalAlignment="Bottom" ToolTip.Tip="{Binding Tip}"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="lib-dim" FontSize="11" LineHeight="16" Foreground="{DynamicResource Vnf.TextTertiary}" Text="12 semanas atrás"/>
+                <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="11" LineHeight="16" Foreground="{DynamicResource Vnf.TextTertiary}" Text="esta semana"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="sheet-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="sheet-h3" Text="Último jogado"/>
+              <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="Este jogo fica no topo da Biblioteca, em Continuar jogando, por até 30 dias."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </ScrollViewer>
+  </Panel>
+</UserControl>

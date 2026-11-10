@@ -59,8 +59,8 @@
     <DataTemplate DataType="vm:GameSheetViewModel">
       <views:GameSheetView/>
     </DataTemplate>
-    <DataTemplate DataType="vm:GameTabPlaceholderViewModel">
-      <views:GameTabPlaceholderView/>
+    <DataTemplate DataType="vm:GamePlayViewModel">
+      <views:GamePlayView/>
     </DataTemplate>
     <DataTemplate DataType="vm:ReleaseViewModel">
       <views:ReleaseView/>

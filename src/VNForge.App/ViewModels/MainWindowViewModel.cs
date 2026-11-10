@@ -182,7 +182,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(Breadcrumb));
             }
         };
-        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
+        Play = new GamePlayViewModel(Library);
+        Play.SettingsRequested += (_, _) =>
+        {
+            Settings.SelectedTab = SettingsViewModel.GamesTab;
+            SelectedNav = settingsItem;
+        };
         selectedNav = startItem;
         CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -929,6 +934,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         ReadVndbLink(summary.Root);
+        Play.Open(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)

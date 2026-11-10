@@ -316,6 +316,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         Redraw();
+        OnPropertyChanged(nameof(Played));
     }
 
     private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, PlayLog Played, string? PlayWarning) Read(IReadOnlyList<string> recent)

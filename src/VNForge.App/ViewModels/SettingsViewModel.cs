@@ -415,6 +415,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Índice da aba Dicionários.</summary>
     public const int DictionariesTab = 4;
 
+    /// <summary>Índice da aba Jogos.</summary>
+    public const int GamesTab = 6;
+
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }
 
