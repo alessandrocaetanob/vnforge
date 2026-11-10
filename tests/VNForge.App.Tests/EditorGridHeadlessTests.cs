@@ -43,7 +43,7 @@ public sealed class HeadlessFixture
     private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() => HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry)));
 
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
-    public HeadlessUnitTestSession Session { get; } = Shared.Value;
+    public ResilientHeadlessSession Session { get; } = new(Shared.Value);
 }
 
 /// <summary>
