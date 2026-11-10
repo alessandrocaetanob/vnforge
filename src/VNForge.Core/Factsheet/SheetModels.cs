@@ -1,17 +1,29 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using VNForge.Core.Library;
 using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Factsheet;
 
 /// <summary>
-/// Onde um personagem aparece. Por jogo, o VNDB dá o papel e o nível de spoiler do personagem; quando o mesmo jogo vem de várias edições, vale o maior papel e o menor
-/// spoiler. É o que a página própria dos personagens (#558) lê para o "Aparece em".
+/// Onde um personagem aparece. Por jogo, o VNDB dá o papel e o nível de spoiler do personagem; quando o mesmo jogo vem de várias edições, vale o maior papel e o maior
+/// spoiler (<see cref="WorstSpoiler"/>). É o que a página própria dos personagens (#558) lê para o "Aparece em".
 /// </summary>
 /// <param name="Role"><c>main</c> (protagonista), <c>primary</c> (principal), <c>side</c> (secundário) ou <c>appears</c> (aparece).</param>
 /// <param name="Spoiler">0 (nenhum), 1 (pequeno) ou 2 (grande): o quanto saber que o personagem existe neste jogo conta da história.</param>
-/// <param name="Editions">Papel e spoiler de cada edição que o VNDB lista para o personagem neste jogo; nulo em ficha gravada antes de a Biblioteca guardá-los. A Biblioteca de personagens (<see cref="LibraryCharacters"/>) escolhe entre eles pela edição casada com a pasta.</param>
-public sealed record SheetAppearance(string VisualNovelId, string Role, int Spoiler, IReadOnlyList<SheetAppearanceEdition>? Editions = null);
+/// <param name="Editions">Papel e spoiler de cada edição que o VNDB lista para o personagem neste jogo; nulo em ficha gravada antes de a Biblioteca guardá-los. A Biblioteca de personagens (<see cref="LibraryCharacters"/>) escolhe o papel pela edição casada com a pasta.</param>
+public sealed record SheetAppearance(string VisualNovelId, string Role, int Spoiler, IReadOnlyList<SheetAppearanceEdition>? Editions = null)
+{
+    /// <summary>
+    /// O nível de spoiler que vale para esconder: o maior entre as edições. Ficha gravada antes de guardar as edições só tem o resumo, que era o menor nível, então o nível
+    /// real é desconhecido e vale o pior caso (2): quem esconde por nível esconde o personagem até a ficha ser buscada de novo.
+    /// </summary>
+    [JsonIgnore]
+    public int WorstSpoiler => Editions is { Count: > 0 } editions ? editions.Max(e => e.Spoiler) : MaxSpoilerLevel;
+
+    /// <summary>O maior nível de spoiler do VNDB.</summary>
+    public const int MaxSpoilerLevel = 2;
+}
 
 /// <summary>O papel e o spoiler do personagem numa edição do jogo. <paramref name="ReleaseId"/> nulo vale para toda edição que o VNDB não cita à parte.</summary>
 public sealed record SheetAppearanceEdition(string? ReleaseId, string Role, int Spoiler);

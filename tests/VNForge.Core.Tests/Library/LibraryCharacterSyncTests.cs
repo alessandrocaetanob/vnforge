@@ -158,7 +158,38 @@ public sealed class LibraryCharacterSyncTests : IDisposable
         var hana = Assert.Single(list.Characters, c => c.Id == "c101");
         Assert.Equal([("Moon Flower", "protagonista"), ("Star Garden", "secundário")], hana.AppearsIn.Select(a => (a.GameTitle, a.Role)));
         var mika = Assert.Single(list.Characters, c => c.Id == "c102");
-        Assert.Equal(("main", 0), (mika.AppearsIn[0].RoleCode, mika.AppearsIn[0].Spoiler));
+        Assert.Equal(("main", 2), (mika.AppearsIn[0].RoleCode, mika.AppearsIn[0].Spoiler));
+    }
+
+    [Fact]
+    public async Task Ficha_guardada_sem_as_edicoes_nao_conta_como_guardada_e_e_buscada_de_novo()
+    {
+        await Sync(Catalog());
+        Store.Update(s =>
+        {
+            var hana = s.LoadCharacter("c101")!;
+            s.SaveCharacter(hana with { Appearances = [.. hana.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] });
+        });
+        var catalog = Catalog();
+
+        var result = await Sync(catalog);
+
+        Assert.Equal((2, 1, 1), (result.Games, result.Fetched, result.Cached));
+        Assert.NotNull(Store.LoadCharacter("c101")!.In(Star)!.Editions);
+        Assert.Equal(1, Store.LoadCharacter("c101")!.In(Star)!.WorstSpoiler);
+    }
+
+    [Fact]
+    public async Task Lista_de_edicoes_cortada_nao_grava_o_casamento_e_avisa()
+    {
+        var catalog = new TruncatedReleases(Catalog());
+
+        var result = await Sync(catalog);
+
+        Assert.Equal([Moon, Star], result.Failures.Select(f => f.VisualNovelId));
+        Assert.Contains("limite", result.Failures[0].Message, StringComparison.Ordinal);
+        Assert.Equal(0, result.EditionsMatched);
+        Assert.Empty(EditionsFile.Load().GameIds);
     }
 
     private sealed class Collect(List<LibraryCharacterSyncProgress> reports) : IProgress<LibraryCharacterSyncProgress>
@@ -169,6 +200,20 @@ public sealed class LibraryCharacterSyncTests : IDisposable
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class TruncatedReleases(IVndbCatalog inner) : IVndbCatalog
+    {
+        public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default) => inner.SearchVisualNovelsAsync(title, limit, ct);
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default) => inner.GetVisualNovelAsync(id, ct);
+
+        public Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default) => inner.GetCharactersAsync(visualNovelId, ct);
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) => inner.SearchCharactersByTitleAsync(title, ct);
+
+        public async Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) =>
+            (await inner.GetReleasesAsync(visualNovelId, ct)) with { Truncated = true };
     }
 
     private sealed class FlakyCatalog(IVndbCatalog inner, string failing) : IVndbCatalog

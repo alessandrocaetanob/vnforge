@@ -100,7 +100,7 @@ public static class SheetViewer
         var all = game.CharacterIds.Select(id => byId.GetValueOrDefault(id)).OfType<CharacterSheet>().ToList();
 
         var visibleTags = game.Tags.Where(t => !LibraryVisibility.IsHidden(t, privacy)).Select(t => TagCard(t, terms)).ToList();
-        var visibleCharacters = all.Where(c => (c.In(game.VisualNovelId)?.Spoiler ?? 0) <= max).Select(c => CharacterCard(c, game.VisualNovelId, terms, privacy)).ToList();
+        var visibleCharacters = all.Where(c => (c.In(game.VisualNovelId)?.WorstSpoiler ?? 0) <= max).Select(c => CharacterCard(c, game.VisualNovelId, terms, privacy)).ToList();
 
         var texts = new List<SheetText>();
         texts.AddRange(new[] { game.Synopsis }.OfType<SheetText>());
@@ -166,7 +166,7 @@ public static class SheetViewer
             character.Original,
             SheetLabels.Role(appearance?.Role ?? "appears"),
             appearance?.Role ?? "appears",
-            appearance?.Spoiler ?? 0,
+            appearance?.WorstSpoiler ?? 0,
             imageHidden ? null : character.Image,
             imageHidden,
             character.Description is { } description ? Shown(description, privacy) : null,

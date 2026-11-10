@@ -34,9 +34,9 @@ public sealed class SheetProjectBridgeTests : IDisposable
     private static TextUnit Name(int n, string source) =>
         new($"yst00001:{n:D6}", TextUnitKind.Name, null, source, null, TranslationStatus.Untranslated);
 
-    private async Task<(GameSheet Game, IReadOnlyList<CharacterSheet> Characters)> Prepared(bool review = true)
+    private async Task<(GameSheet Game, IReadOnlyList<CharacterSheet> Characters)> Prepared(bool review = true, VndbCharacter[]? characters = null)
     {
-        var characters = new[] { Kenta(), Aoi(), Ghost() with { Name = "Gōsuto", Original = "ゴースト" } };
+        characters ??= [Kenta(), Aoi(), Ghost() with { Name = "Gōsuto", Original = "ゴースト" }];
         await SheetFetcher.FetchAsync(new VNForge.Vndb.FakeVndbCatalog([Game()], characters), Store, Game1, cancellationToken: Ct);
         await new SheetTranslationRunner(new StubSheetTranslator(), Store).RunAsync(Game1, cancellationToken: Ct);
         if (review)
@@ -77,6 +77,21 @@ public sealed class SheetProjectBridgeTests : IDisposable
 
         var ghost = project.LoadCharacters().Single(c => c.Source == "ゴースト");
         Assert.Null(ghost.Description);
+    }
+
+    [Fact]
+    public async Task Personagem_com_spoiler_so_em_uma_edicao_ou_de_ficha_antiga_nao_leva_a_descricao()
+    {
+        var project = NewProject();
+        var inEdition = Aoi() with { Appearances = [new VndbCharacterAppearance(Game1, "primary", 0, null), new VndbCharacterAppearance(Game1, "primary", 2, "r2")] };
+        var (game, characters) = await Prepared(characters: [Kenta(), inEdition, Ghost() with { Name = "Gōsuto", Original = "ゴースト" }]);
+        var old = characters.Select(c => c.Id == "c1" ? c with { Appearances = [.. c.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] } : c).ToList();
+
+        SheetProjectBridge.Apply(project, game, old);
+
+        var linked = project.LoadCharacters();
+        Assert.Null(linked.Single(c => c.Source == "佐倉葵").Description);
+        Assert.Null(linked.Single(c => c.Source == "相沢健太").Description);
     }
 
     [Fact]

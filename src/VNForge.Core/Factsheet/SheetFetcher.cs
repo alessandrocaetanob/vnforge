@@ -88,13 +88,13 @@ public static class SheetFetcher
             .Select(g => new SheetAppearance(
                 g.Key,
                 g.Select(a => a.Role).MinBy(SheetLabels.RoleRank)!,
-                g.Min(a => a.Spoiler),
+                g.Max(a => a.Spoiler),
                 [.. g.Select(a => new SheetAppearanceEdition(a.ReleaseId, a.Role, a.Spoiler)).DistinctBy(e => e.ReleaseId, StringComparer.Ordinal)]))
             .OrderBy(a => a.VisualNovelId, StringComparer.Ordinal)
             .ToList();
         if (appearances.TrueForAll(a => a.VisualNovelId != visualNovelId))
         {
-            appearances.Add(new SheetAppearance(visualNovelId, "appears", 0));
+            appearances.Add(new SheetAppearance(visualNovelId, "appears", 0, [new SheetAppearanceEdition(null, "appears", 0)]));
         }
 
         return new CharacterSheet(

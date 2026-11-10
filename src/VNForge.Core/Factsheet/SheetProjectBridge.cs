@@ -32,7 +32,7 @@ public static class SheetProjectBridge
         {
             var appearance = character.In(game.VisualNovelId);
             string? description = null;
-            if (character.Description is { } text && (appearance?.Spoiler ?? 0) == 0)
+            if (character.Description is { } text && (appearance?.WorstSpoiler ?? 0) == 0)
             {
                 if (Ready(text, minimum))
                 {

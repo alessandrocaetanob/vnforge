@@ -49,9 +49,10 @@ public sealed record LibraryCharacterFilter(string? Text = null, IReadOnlyList<s
 /// deles. A descrição e os traços vêm da ficha traduzida (d9), então traduzir um personagem uma vez vale para todos os jogos.
 /// </summary>
 /// <remarks>
-/// Papel e spoiler por jogo: o VNDB os dá por edição. Com a edição casada com a pasta (<see cref="GameEditions"/>) vale a dela (ou, se o VNDB só cita outras edições, a entrada
-/// que vale para toda edição); sem edição casada vale o papel mais importante e o maior nível de spoiler entre as edições. O nível de spoiler de cada jogo esconde o jogo da
-/// lista de "Aparece em" e, se todos os jogos do personagem passam do nível liberado, o personagem inteiro.
+/// Papel e spoiler por jogo: o VNDB os dá por edição. O <b>papel</b> vem da edição casada com a pasta (<see cref="GameEditions"/>) ou, se o VNDB só cita outras edições, da
+/// entrada que vale para toda edição; sem edição casada vale o papel mais importante. O <b>spoiler</b> é sempre o maior nível entre todas as edições: o casamento da edição é
+/// uma estimativa pelo título, e errar para baixo mostraria um spoiler, então ele nunca o baixa (<see cref="SheetAppearance.WorstSpoiler"/>; a ficha sem as edições vale 2).
+/// O nível de cada jogo esconde o jogo da lista de "Aparece em" e, se todos os jogos do personagem passam do nível liberado, o personagem inteiro.
 /// </remarks>
 public static class LibraryCharacters
 {
@@ -66,8 +67,8 @@ public static class LibraryCharacters
         ArgumentNullException.ThrowIfNull(editions);
         ArgumentNullException.ThrowIfNull(privacy);
         var query = Query.From(filter);
-        var all = Build(library, characters, terms, editions, privacy, out var hidden);
-        return new LibraryCharacterList([.. all.Where(query.Matches)], hidden);
+        var all = Build(library, characters, terms, editions, privacy, query, out var hidden);
+        return new LibraryCharacterList(all, hidden);
     }
 
     /// <summary>O personagem com esse id. <see cref="LibraryCharacterLookup.Card"/> é nulo se ele não está em nenhum jogo da biblioteca ou se os jogos dele estão escondidos.</summary>
@@ -75,13 +76,13 @@ public static class LibraryCharacters
         GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, string id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        var visible = Build(library, characters.Where(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)), terms, editions, privacy, out var hidden);
+        var visible = Build(library, characters.Where(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)), terms, editions, privacy, Query.From(null), out var hidden);
         return new LibraryCharacterLookup(visible.FirstOrDefault(), hidden > 0);
     }
 
     /// <summary>
-    /// O papel e o spoiler de uma aparição para uma pasta de jogo. <paramref name="matched"/> são as edições casadas com ela. Sem as edições do VNDB na ficha (gravada antes de a
-    /// Biblioteca guardá-las) vale o resumo da ficha.
+    /// O papel e o spoiler de uma aparição para uma pasta de jogo. <paramref name="matched"/> são as edições casadas com ela e só decidem o papel; o spoiler é o maior entre as
+    /// edições, e o de uma ficha sem as edições (gravada antes de a Biblioteca guardá-las) é o pior caso, 2.
     /// </summary>
     public static (string Role, int Spoiler, IReadOnlyList<string> Editions) Resolve(SheetAppearance appearance, IReadOnlyCollection<string> matched)
     {
@@ -89,7 +90,7 @@ public static class LibraryCharacters
         ArgumentNullException.ThrowIfNull(matched);
         if (appearance.Editions is not { Count: > 0 } editions)
         {
-            return (appearance.Role, appearance.Spoiler, []);
+            return (appearance.Role, appearance.WorstSpoiler, []);
         }
 
         IReadOnlyList<SheetAppearanceEdition> chosen = editions;
@@ -108,11 +109,11 @@ public static class LibraryCharacters
         }
 
         var used = chosen.Count == editions.Count ? [] : chosen.Select(e => e.ReleaseId).OfType<string>().Order(StringComparer.Ordinal).ToList();
-        return (chosen.Select(e => e.Role).MinBy(SheetLabels.RoleRank)!, chosen.Max(e => e.Spoiler), used);
+        return (chosen.Select(e => e.Role).MinBy(SheetLabels.RoleRank)!, appearance.WorstSpoiler, used);
     }
 
     private static List<LibraryCharacterCard> Build(
-        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, out int hidden)
+        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, Query query, out int hidden)
     {
         var max = SheetViewer.MaxSpoilerLevel(privacy);
         var byVisualNovel = library.Games.Where(g => g.VndbId is not null).ToLookup(g => g.VndbId!, StringComparer.Ordinal);
@@ -129,11 +130,16 @@ public static class LibraryCharacters
             var visible = appearances.Where(a => a.Spoiler <= max).ToList();
             if (visible.Count == 0)
             {
-                hidden++;
+                // O cartão só serve para ver se o filtro o pegaria: o contador de escondidos é o do resultado, não o da biblioteca.
+                hidden += query.Matches(Card(character, appearances, 0, terms, privacy)) ? 1 : 0;
                 continue;
             }
 
-            cards.Add(Card(character, visible, appearances.Count - visible.Count, terms, privacy));
+            var card = Card(character, visible, appearances.Count - visible.Count, terms, privacy);
+            if (query.Matches(card))
+            {
+                cards.Add(card);
+            }
         }
 
         return [.. cards.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Id, StringComparer.Ordinal)];

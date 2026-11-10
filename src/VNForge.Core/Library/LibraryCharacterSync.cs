@@ -46,7 +46,7 @@ public static class LibraryCharacterSync
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (!again && store.LoadGame(group.Key) is not null)
+                if (!again && HasEditions(store, group.Key))
                 {
                     cached++;
                 }
@@ -68,6 +68,14 @@ public static class LibraryCharacterSync
                 if (pending.Count > 0)
                 {
                     var releases = await catalog.GetReleasesAsync(group.Key, cancellationToken).ConfigureAwait(false);
+                    if (releases.Truncated)
+                    {
+                        // Com a lista cortada a edição certa pode ter ficado de fora: não se grava um casamento que talvez esteja errado.
+                        failures.Add(new LibraryCharacterSyncFailure(group.Key, $"O VNDB tem mais edições de {group.Key} do que o limite trazido; a edição das pastas não foi casada."));
+                        progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
+                        continue;
+                    }
+
                     var stamp = clock.GetUtcNow();
                     editionsFile.Update(editions =>
                     {
@@ -90,4 +98,8 @@ public static class LibraryCharacterSync
 
         return new LibraryCharacterSyncResult(groups.Count, fetched, cached, characters, matched, failures);
     }
+
+    /// <summary>A ficha está guardada e todas as aparições dos personagens nela já trazem as edições (as gravadas antes disso só têm o resumo, com o spoiler mais baixo, e precisam ser buscadas de novo).</summary>
+    private static bool HasEditions(SheetStore store, string visualNovelId) =>
+        store.LoadGame(visualNovelId) is { } sheet && store.LoadCharacters(sheet.CharacterIds).All(c => c.In(visualNovelId)?.Editions is { Count: > 0 });
 }

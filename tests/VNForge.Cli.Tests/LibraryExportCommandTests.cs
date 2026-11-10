@@ -149,7 +149,7 @@ public sealed class LibraryExportCommandTests : IDisposable
             ["c1"],
             false,
             T0));
-        store.SaveCharacter(new CharacterSheet("c1", "Tomoya Okazaki", null, [], null, null, new SheetText("The hero.", "O herói da história.", TranslationStatus.Translated), [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false)], [new SheetAppearance("v4", "main", 0)]));
+        store.SaveCharacter(new CharacterSheet("c1", "Tomoya Okazaki", null, [], null, null, new SheetText("The hero.", "O herói da história.", TranslationStatus.Translated), [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false)], [new SheetAppearance("v4", "main", 0, [new SheetAppearanceEdition(null, "main", 0)])]));
         store.Update(s =>
         {
             var terms = new SheetTerms();
@@ -188,7 +188,7 @@ public sealed class LibraryExportCommandTests : IDisposable
             null,
             null,
             [new VndbTrait("i1", "Long Hair", "i10", "Hair", 0, false, false), new VndbTrait("i2", "Traço adulto", "i20", "Sexual", 0, false, true), new VndbTrait("i3", "Traço antigo", "i20", "Sexual", 0, false, null)],
-            [new SheetAppearance("v4", "main", 0)]));
+            [new SheetAppearance("v4", "main", 0, [new SheetAppearanceEdition(null, "main", 0)])]));
 
         await Run("library", "export");
         var hidden = await File.ReadAllTextAsync(Target, Ct);

@@ -89,7 +89,7 @@ public sealed class SheetFetchAndStoreTests
         await SheetFetcher.FetchAsync(catalog, store, Game2, cancellationToken: Ct);
 
         var kenta = store.LoadCharacter("c1")!;
-        Assert.Equal([(Game1, "main", 0), (Game2, "side", 1)], kenta.Appearances.Select(a => (a.VisualNovelId, a.Role, a.Spoiler)));
+        Assert.Equal([(Game1, "main", 1), (Game2, "side", 1)], kenta.Appearances.Select(a => (a.VisualNovelId, a.Role, a.Spoiler)));
         Assert.Equal([new SheetAppearanceEdition(null, "main", 0), new SheetAppearanceEdition("r2", "side", 1), new SheetAppearanceEdition(null, "side", 1)], kenta.Appearances.SelectMany(a => a.Editions!).Take(3));
         Assert.Equal(["c1"], store.LoadAllCharacters().Select(c => c.Id));
         Assert.Equal(["c1"], store.LoadGame(Game2)!.CharacterIds);

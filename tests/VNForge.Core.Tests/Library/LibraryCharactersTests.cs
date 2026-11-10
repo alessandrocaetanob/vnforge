@@ -56,12 +56,12 @@ public sealed class LibraryCharactersTests : IDisposable
 
         var mika = Assert.Single(List(library, store, All, editions).Characters, c => c.Id == "c102");
 
-        Assert.Equal([("g1", "main", 0), ("g9", "side", 2)], mika.AppearsIn.Select(a => (a.GameId, a.RoleCode, a.Spoiler)));
+        Assert.Equal([("g1", "main", 2), ("g9", "side", 2)], mika.AppearsIn.Select(a => (a.GameId, a.RoleCode, a.Spoiler)));
         Assert.Equal([["r1"], ["r2"]], mika.AppearsIn.Select(a => a.Editions));
     }
 
     [Fact]
-    public void Edicao_casada_decide_o_papel_e_o_spoiler()
+    public void Edicao_casada_decide_o_papel_mas_o_spoiler_e_sempre_o_maior()
     {
         var appearance = Mika().Appearances;
         var sheet = new SheetAppearance(Moon, "main", 0, [.. appearance.Select(a => new SheetAppearanceEdition(a.ReleaseId, a.Role, a.Spoiler))]);
@@ -69,7 +69,7 @@ public sealed class LibraryCharactersTests : IDisposable
         var first = LibraryCharacters.Resolve(sheet, ["r1"]);
         var second = LibraryCharacters.Resolve(sheet, ["r2"]);
 
-        Assert.Equal(("main", 0), (first.Role, first.Spoiler));
+        Assert.Equal(("main", 2), (first.Role, first.Spoiler));
         Assert.Equal(["r1"], first.Editions);
         Assert.Equal(("side", 2), (second.Role, second.Spoiler));
         Assert.Equal(["r2"], second.Editions);
@@ -101,12 +101,29 @@ public sealed class LibraryCharactersTests : IDisposable
     }
 
     [Fact]
-    public void Ficha_antiga_sem_as_edicoes_vale_o_resumo_guardado()
+    public void Ficha_antiga_sem_as_edicoes_tem_papel_do_resumo_e_spoiler_no_pior_caso()
     {
-        var (role, spoiler, used) = LibraryCharacters.Resolve(new SheetAppearance(Moon, "side", 1), ["r1"]);
+        var (role, spoiler, used) = LibraryCharacters.Resolve(new SheetAppearance(Moon, "side", 0), ["r1"]);
 
-        Assert.Equal(("side", 1), (role, spoiler));
+        Assert.Equal(("side", 2), (role, spoiler));
         Assert.Empty(used);
+    }
+
+    [Fact]
+    public async Task Personagem_de_ficha_antiga_sem_as_edicoes_fica_escondido_ate_a_ficha_ser_buscada_de_novo()
+    {
+        var (library, store) = await PrepareAsync();
+        store.Update(s =>
+        {
+            var hana = s.LoadCharacter("c101")!;
+            s.SaveCharacter(hana with { Appearances = [.. hana.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] });
+        });
+
+        var hidden = List(library, store, Hidden);
+        var shown = List(library, store, All);
+
+        Assert.DoesNotContain(hidden.Characters, c => c.Id == "c101");
+        Assert.Contains(shown.Characters, c => c.Id == "c101");
     }
 
     [Fact]
@@ -135,7 +152,7 @@ public sealed class LibraryCharactersTests : IDisposable
     }
 
     [Fact]
-    public async Task Mika_com_edicao_casada_de_spoiler_alto_some_e_com_a_outra_aparece()
+    public async Task Edicao_casada_de_spoiler_baixo_nao_baixa_o_spoiler_que_vale_para_esconder()
     {
         var (_, store) = await PrepareAsync();
         var library = new GameLibrary([Owned("g1", "Moon Flower", Moon, "Moon Flower")]);
@@ -145,8 +162,9 @@ public sealed class LibraryCharactersTests : IDisposable
         safe.Set("g1", Moon, ["r1"], Now);
 
         Assert.DoesNotContain(List(library, store, Hidden, risky).Characters, c => c.Id == "c102");
-        Assert.Contains(List(library, store, Hidden, safe).Characters, c => c.Id == "c102");
+        Assert.DoesNotContain(List(library, store, Hidden, safe).Characters, c => c.Id == "c102");
         Assert.Contains(List(library, store, All, risky).Characters, c => c.Id == "c102");
+        Assert.Contains(List(library, store, All, safe).Characters, c => c.Id == "c102");
     }
 
     [Fact]
@@ -226,6 +244,18 @@ public sealed class LibraryCharactersTests : IDisposable
         var found = List(library, store, Hidden, filter: new LibraryCharacterFilter(Traits: ["ghost"]));
 
         Assert.Empty(found.Characters);
+    }
+
+    [Fact]
+    public async Task O_contador_de_escondidos_e_o_do_filtro_e_nao_o_da_biblioteca()
+    {
+        var (library, store) = await PrepareAsync();
+
+        Assert.Equal(2, List(library, store, Hidden).Hidden);
+        Assert.Equal(1, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "secret")).Hidden);
+        Assert.Equal(0, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "hana")).Hidden);
+        Assert.Equal(0, List(library, store, Hidden, filter: new LibraryCharacterFilter(Text: "zzz")).Hidden);
+        Assert.Equal(1, List(library, store, Hidden, filter: new LibraryCharacterFilter(GameId: "g2")).Hidden);
     }
 
     [Fact]

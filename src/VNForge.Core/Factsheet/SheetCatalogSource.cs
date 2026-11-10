@@ -46,6 +46,6 @@ public sealed class SheetCatalogSource(SheetStore store) : ILibrarySheetSource
             character.Description?.HasTarget == true,
             traits,
             character.Image,
-            appearance?.Spoiler ?? 0);
+            appearance?.WorstSpoiler ?? 0);
     }
 }

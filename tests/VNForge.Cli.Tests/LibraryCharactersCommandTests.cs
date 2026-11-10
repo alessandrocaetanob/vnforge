@@ -134,15 +134,15 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         var result = await Run("library", "characters", "list");
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("2 personagens na biblioteca:", result.Output, StringComparison.Ordinal);
+        Assert.Contains("1 personagem na biblioteca:", result.Output, StringComparison.Ordinal);
         Assert.Contains("c1  Tomoya Okazaki (岡崎 朋也) · CLANNAD (protagonista)", result.Output, StringComparison.Ordinal);
         Assert.Contains("(mais 1 jogo escondido)", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("Little Busters (secundário)", result.Output, StringComparison.Ordinal);
-        Assert.Contains("c3  Kyou Fujibayashi · Little Busters (protagonista)", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Kyou", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("Outside", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("Only Elsewhere", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("Ghost Sister", result.Output, StringComparison.Ordinal);
-        Assert.Contains("1 personagem escondido por spoiler", result.Output, StringComparison.Ordinal);
+        Assert.Contains("2 personagens escondidos por spoiler", result.Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -156,6 +156,7 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         Assert.Contains("3 personagens na biblioteca:", result.Output, StringComparison.Ordinal);
         Assert.Contains("CLANNAD (protagonista), Little Busters (secundário)", result.Output, StringComparison.Ordinal);
         Assert.Contains("Ghost Sister · CLANNAD (secundário)", result.Output, StringComparison.Ordinal);
+        Assert.Contains("c3  Kyou Fujibayashi · Little Busters (protagonista)", result.Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,7 +166,7 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         await Ready(translate: true);
 
         var byName = await Run("library", "characters", "list", "tomo");
-        var byGame = await Run("library", "characters", "list", "--appears-in", "Little");
+        var byGame = await Run("library", "characters", "list", "--appears-in", "Little", "--show-spoilers");
         var byTrait = await Run("library", "characters", "list", "--trait", "cabelo longo");
         var byId = await Run("library", "characters", "list", "--trait", "i1", "--trait", "i2");
         var anyOf = await Run("library", "characters", "list", "--trait", "i1", "--trait", "i2", "--any", "--show-spoilers");
@@ -174,7 +175,7 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         Assert.Contains("1 personagem na busca:", byName.Output, StringComparison.Ordinal);
         Assert.Contains("Tomoya Okazaki", byName.Output, StringComparison.Ordinal);
         Assert.Contains("Kyou Fujibayashi", byGame.Output, StringComparison.Ordinal);
-        Assert.Contains("2 personagens na busca:", byTrait.Output, StringComparison.Ordinal);
+        Assert.Contains("1 personagem na busca:", byTrait.Output, StringComparison.Ordinal);
         Assert.Contains("Nenhum personagem da biblioteca combina", byId.Output, StringComparison.Ordinal);
         Assert.Contains("2 personagens na busca:", anyOf.Output, StringComparison.Ordinal);
         Assert.Contains("Nenhum personagem da biblioteca combina", none.Output, StringComparison.Ordinal);
@@ -202,7 +203,7 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         Assert.DoesNotContain("He is a ghost", result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("Ghost Sister", result.Output, StringComparison.Ordinal);
         var data = Data(result);
-        Assert.Equal(1, data.GetProperty("hidden").GetInt32());
+        Assert.Equal(2, data.GetProperty("hidden").GetInt32());
         var tomoya = data.GetProperty("characters").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "c1");
         Assert.Equal(1, tomoya.GetProperty("appearsIn").GetArrayLength());
         Assert.Equal("main", tomoya.GetProperty("appearsIn")[0].GetProperty("roleCode").GetString());
@@ -266,7 +267,10 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         var hidden = await Run("library", "characters", "show", "c2");
         var outside = await Run("library", "characters", "show", "c9");
         var open = await Run("library", "characters", "show", "c2", "--show-spoilers");
+        var editionDoesNotLower = await Run("library", "characters", "show", "c3");
 
+        Assert.Equal(1, editionDoesNotLower.ExitCode);
+        Assert.Contains("só aparece em jogos escondidos por spoiler", editionDoesNotLower.Error, StringComparison.Ordinal);
         Assert.Equal(1, hidden.ExitCode);
         Assert.Contains("só aparece em jogos escondidos por spoiler", hidden.Error, StringComparison.Ordinal);
         Assert.Equal(1, outside.ExitCode);
