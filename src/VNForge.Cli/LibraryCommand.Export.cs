@@ -77,7 +77,7 @@ internal static partial class LibraryCommand
         var result = LibraryCatalog.Render(library, played, cli.Clock.GetLocalNow(), options, sheets);
         if (result.Games == 0)
         {
-            throw new LibraryException("Nenhum jogo da biblioteca tem jogo do VNDB confirmado, então não há o que exportar. Rode vnf library match para casar os jogos.");
+            throw new LibraryException("Nenhum jogo da biblioteca entra no catálogo: falta jogo do VNDB confirmado (rode vnf library match) ou os jogos são de conteúdo adulto (use --show-adult).");
         }
 
         LibraryCatalog.Write(path, result.Html);
@@ -93,6 +93,11 @@ internal static partial class LibraryCommand
         if (result.Skipped > 0)
         {
             output.WriteLine($"{CliFormat.Count(result.Skipped, "jogo ficou", "jogos ficaram")} de fora por não ter jogo do VNDB confirmado (vnf library match).");
+        }
+
+        if (result.Adult > 0)
+        {
+            output.WriteLine($"{CliFormat.Count(result.Adult, "jogo adulto ficou", "jogos adultos ficaram")} de fora; use --show-adult para incluir.");
         }
 
         if (sheets.StaleCharacters > 0 && !privacy.ShowSpoilers)

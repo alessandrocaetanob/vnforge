@@ -67,10 +67,15 @@ public sealed class LibraryExportCommandTests : IDisposable
     {
         Prepare(adult: true);
 
-        await Run("library", "export");
+        var refused = await Run("library", "export");
+
+        Assert.NotEqual(0, refused.ExitCode);
+        Assert.Contains("--show-adult", refused.Error, StringComparison.Ordinal);
+        Assert.False(File.Exists(Target));
+
+        await Run("library", "export", "--show-adult");
 
         var html = await File.ReadAllTextAsync(Target, Ct);
-        Assert.DoesNotContain("1234.jpg", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Final secreto", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Nota privada", html, StringComparison.Ordinal);
     }
