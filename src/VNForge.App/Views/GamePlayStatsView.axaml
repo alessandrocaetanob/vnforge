@@ -18,7 +18,7 @@
     </Style>
   </UserControl.Styles>
 
-  <StackPanel Spacing="16">
+  <StackPanel Spacing="16" IsVisible="{Binding HasGame}">
     <Border Classes="sheet-card">
       <StackPanel Spacing="12">
         <TextBlock Classes="sheet-h3" Text="Tempo de jogo"/>

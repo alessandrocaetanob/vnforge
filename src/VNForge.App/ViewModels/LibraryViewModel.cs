@@ -640,6 +640,7 @@ public sealed partial class LibraryViewModel : ObservableObject
                 var current = file.Load();
                 return GameLaunchPlanner.Plan(current, current.Find(id));
             }, CancellationToken.None);
+            RecordPlayStart(launch);
             SetPlaying(id);
             await Task.Run(() => player.PlayAsync(id, launch, CancellationToken.None), CancellationToken.None);
         }

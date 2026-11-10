@@ -155,17 +155,10 @@ public sealed partial class GamePlayViewModel : ObservableObject
 
     private void Refresh()
     {
-        var wasPlaying = IsPlaying;
         game = projectRoot is null ? null : library.GameOfProject(projectRoot);
-        if (IsPlaying && !wasPlaying)
-        {
-            startedAt = clock.GetUtcNow();
-            startedViaLocale = game!.RequiresJapaneseLocale;
-        }
-        else if (!IsPlaying)
-        {
-            startedAt = null;
-        }
+        // O começo vem da Biblioteca, que o anotou ao abrir o jogo: abrir a aba com a partida em curso não reinicia o relógio.
+        startedAt = IsPlaying ? library.PlayingSince : null;
+        startedViaLocale = library.PlayingViaLocale;
 
         var sessions = game is null ? [] : library.Played.SessionsOf(game.Id);
         var now = clock.GetUtcNow();

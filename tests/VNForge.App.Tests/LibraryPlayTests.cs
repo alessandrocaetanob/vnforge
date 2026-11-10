@@ -203,6 +203,56 @@ public sealed class LibraryPlayTests : IDisposable
         Assert.True(play.OpensLauncherOn);
     }
 
+    [Fact]
+    public async Task Interruptor_do_lancador_mexido_logo_antes_do_Jogar_vale_na_abertura()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
+        var library = Create(launcher);
+        await library.LoadAsync();
+        var play = new GamePlayViewModel(library, _clock);
+        play.Open(project);
+
+        play.OpensLauncherOn = true;
+        await play.PlayCommand.ExecuteAsync(null);
+
+        Assert.True(launcher.Launched!.OpensLauncher);
+    }
+
+    [Fact]
+    public async Task Abrir_a_aba_com_a_partida_em_curso_nao_reinicia_o_relogio_e_projeto_sem_jogo_nao_joga()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        GamePlayViewModel? play = null;
+        LibraryViewModel? library = null;
+        var shown = new List<string>();
+        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(25), GameProcessState.Running), (TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
+        launcher.OnPoll = () =>
+        {
+            // A aba só abre aos 25 minutos de partida.
+            if (play is null)
+            {
+                play = new GamePlayViewModel(library!, _clock);
+                play.Open(project);
+                shown.Add(play.ElapsedText);
+            }
+        };
+        library = Create(launcher);
+        await library.LoadAsync();
+
+        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
+
+        Assert.Equal(["00:25:00"], shown);
+        var semJogo = new GamePlayViewModel(library, _clock);
+        semJogo.Open(_root.SubFolder("outro-projeto"));
+        Assert.False(semJogo.HasGame);
+        Assert.False(semJogo.PlayCommand.CanExecute(null));
+    }
+
     private sealed class PlayClock(DateTimeOffset wall) : TimeProvider
     {
         private long _ticks;
