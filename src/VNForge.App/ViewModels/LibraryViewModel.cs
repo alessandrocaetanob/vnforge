@@ -655,17 +655,20 @@ public sealed partial class LibraryViewModel : ObservableObject
         var path = GameLibrary.NormalizeFolder(Scan.Folder);
         try
         {
-            file.Update(l =>
-            {
-                if (l.Roots.FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)) is { } root)
-                {
-                    l.SetRoot(root with { RescanOnOpen = Scan.RescanOnOpen });
-                }
-            });
+            file.Update(l => SetRescanOnOpen(l, path));
+            SetRescanOnOpen(library, path);
         }
         catch (LibraryException e)
         {
             ErrorMessage = e.Message;
+        }
+    }
+
+    private void SetRescanOnOpen(GameLibrary target, string path)
+    {
+        if (target.Roots.FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)) is { } root)
+        {
+            target.SetRoot(root with { RescanOnOpen = Scan.RescanOnOpen });
         }
     }
 
