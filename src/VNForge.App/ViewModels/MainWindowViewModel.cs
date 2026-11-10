@@ -206,7 +206,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Palette.PropertyChanged += OnPaletteChanged;
         Editor.PropertyChanged += OnEditorChanged;
-        Editor.CheckRequested += OnEditorCheckRequested;
         Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
@@ -323,14 +322,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // O app troca o Editor no inicializador de objeto, depois do construtor: as escutas passam para o novo.
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
-            editor.CheckRequested -= OnEditorCheckRequested;
             editor.GlossaryTermRequested -= OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
             editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
-            editor.CheckRequested += OnEditorCheckRequested;
             editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested += OnEditorDefineGenderRequested;
             editor.TranslateRequested += OnEditorTranslateRequested;
@@ -407,7 +404,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectTitle), nameof(HasProject), nameof(EncodingText), nameof(BoxLimitsText))]
-    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(CanReturnToGame), nameof(Breadcrumb))]
+    [NotifyPropertyChangedFor(nameof(GameEngineLabel), nameof(GameProgressPercent), nameof(GameProgressLabel), nameof(GameProgressDone), nameof(GameProgressNone), nameof(GameBoardSubtitle), nameof(CanReturnToGame), nameof(Breadcrumb))]
     public partial ProjectSummary? CurrentProject { get; private set; }
 
     /// <summary>Texto da barra de status sobre a chave da Anthropic; nunca contém a chave.</summary>
@@ -955,6 +952,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         ReadVndbLink(summary.Root);
+        ReadGameLanguages(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.
         if (Glossary.Project?.Root == summary.Root)
@@ -1011,8 +1009,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ = RefreshSummaryPageAsync();
         Toasts.Show(BatchHistory.Describe(undone.Result), undone.Result.EditedSince > 0 || undone.Result.Missing > 0 ? ToastKind.Warning : ToastKind.Success, key: "batch-undo");
     }
-
-    private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     /// <summary>"Adicionar ao glossário" no cartão do dicionário: Glossário > Termos com a palavra como está no original, pronta para a tradução.</summary>
     private void OnEditorGlossaryTermRequested(object? sender, string term)
