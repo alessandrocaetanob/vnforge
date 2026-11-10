@@ -49,7 +49,7 @@ public class EditorChaptersTests
         public void Dispose() => temp.Dispose();
     }
 
-    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null, Func<string, ScriptNames>? namesLoader = null, bool unnamed = false)
+    private static async Task<Opened> Open(Func<string, IReadOnlyList<string>, string?, ScriptGroupChange>? grouper = null, Func<string, ScriptNames>? namesLoader = null, bool unnamed = false, bool onePart = false)
     {
         var temp = new TempFolder();
         var folder = ProjectFolder.Create(temp.SubFolder("vn"), new ProjectConfig(
@@ -65,7 +65,10 @@ public class EditorChaptersTests
             folder.SaveText(Keys[i], [new TextUnit($"{Keys[i]}:000001", TextUnitKind.Dialogue, null, "原文", status == TranslationStatus.Untranslated ? null : "tradução", status)]);
         }
 
-        folder.SaveScriptNames(unnamed ? InitialNames().WithDetected(new Dictionary<string, DetectedScript>(InitialNames().Entries.ToDictionary(e => e.Key, e => new DetectedScript(null, e.Folder)))) : InitialNames());
+        var names = onePart
+            ? ScriptNames.Empty.WithDetected(Keys.ToDictionary(k => k, k => new DetectedScript(null, "userscript/01_cap1")))
+            : InitialNames();
+        folder.SaveScriptNames(unnamed ? InitialNames().WithDetected(new Dictionary<string, DetectedScript>(InitialNames().Entries.ToDictionary(e => e.Key, e => new DetectedScript(null, e.Folder)))) : names);
         var summary = Summary("Minha VN", folder.Root);
         var opened = new Opened(temp, folder.Root);
         opened.Editor = new EditorViewModel(postToUi: a => a()) { Grouper = grouper, NamesLoader = namesLoader };
@@ -312,6 +315,31 @@ public class EditorChaptersTests
 
         Assert.Equal([true, false, false], chapter.Scripts.Select(s => s.IsListed));
         Assert.Equal(["yst00001", "yst00004", "yst00006"], open.Editor.SceneList.Where(s => s.IsGroupStart).Select(s => s.Key));
+    }
+
+    [Fact]
+    public async Task Com_um_capitulo_so_a_lista_fica_plana_e_aberta_mesmo_com_o_capitulo_fechado()
+    {
+        using var open = await Open(onePart: true);
+        var chapter = Assert.Single(open.Editor.Chapters);
+
+        Assert.All(open.Editor.SceneList, s => Assert.False(s.ShowsGroupHeader));
+
+        chapter.IsExpanded = false;
+
+        Assert.All(open.Editor.SceneList, s => Assert.True(s.IsListed && s.ShowsScene && !s.ShowsGroupHeader));
+    }
+
+    [Fact]
+    public async Task Com_mais_de_um_capitulo_so_a_primeira_cena_de_cada_um_leva_o_cabecalho()
+    {
+        using var open = await Open();
+
+        Assert.Equal(["yst00001", "yst00004", "yst00006"], open.Editor.SceneList.Where(s => s.ShowsGroupHeader).Select(s => s.Key));
+
+        open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded = false;
+
+        Assert.All(open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").Scripts, s => Assert.False(s.ShowsScene));
     }
 
     [Fact]

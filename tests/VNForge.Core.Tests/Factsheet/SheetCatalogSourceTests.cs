@@ -44,6 +44,19 @@ public sealed class SheetCatalogSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task Personagem_de_ficha_antiga_sem_as_edicoes_e_contado_e_vale_spoiler_2()
+    {
+        await Fetched();
+        Store.Update(s => s.SaveCharacter(s.LoadCharacter("c1")! with { Appearances = [.. s.LoadCharacter("c1")!.Appearances.Select(a => a with { Editions = null, Spoiler = 0 })] }));
+        var source = new SheetCatalogSource(Store);
+
+        var sheet = source.SheetOf(Game())!;
+
+        Assert.Equal(1, source.StaleCharacters);
+        Assert.Equal(2, sheet.Characters.Single(c => c.Name == "Kenta Aizawa").Spoiler);
+    }
+
+    [Fact]
     public async Task Ficha_so_buscada_traz_o_original_e_nenhum_nome_de_tag_traduzido()
     {
         await Fetched();

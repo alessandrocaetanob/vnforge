@@ -158,12 +158,15 @@ public class CharacterSheetTests
         vm.OpenSheetCommand.Execute(vm.Characters.Single(c => c.Source == "美咲"));
         var sheet = vm.Sheet!;
 
-        if (sheet.State == SheetLoadState.Loading)
+        // A leitura roda em segundo plano e pode terminar entre uma linha e outra: lê tudo de uma vez e só confere se ainda estava lendo no fim.
+        var before = sheet.State;
+        var (awaiting, uses, canReview, hasLines) = (sheet.AwaitingReviewText, sheet.UsesText, sheet.ReviewCommand.CanExecute(null), sheet.HasLines);
+        if (before == SheetLoadState.Loading && sheet.State == SheetLoadState.Loading)
         {
-            Assert.Equal("Lendo o texto do projeto…", sheet.AwaitingReviewText);
-            Assert.Equal("…", sheet.UsesText);
-            Assert.False(sheet.ReviewCommand.CanExecute(null));
-            Assert.False(sheet.HasLines);
+            Assert.Equal("Lendo o texto do projeto…", awaiting);
+            Assert.Equal("…", uses);
+            Assert.False(canReview);
+            Assert.False(hasLines);
         }
 
         await vm.SheetLoading;

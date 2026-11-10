@@ -363,13 +363,18 @@ public sealed partial class EditorViewModel
     /// </summary>
     private void RefreshChapterList()
     {
+        // Com um capítulo só não há cabeçalho para abrir ou fechar: a lista fica plana e aberta.
+        var headers = Chapters.Count > 1;
         foreach (var chapter in Chapters)
         {
             var first = chapter.Scripts.FirstOrDefault(s => s.IsShown && !IsHiddenEmpty(s));
+            var open = chapter.IsExpanded || !headers;
             foreach (var script in chapter.Scripts)
             {
                 script.IsGroupStart = ReferenceEquals(script, first);
-                script.IsListed = script.IsShown && !IsHiddenEmpty(script) && (chapter.IsExpanded || script.IsGroupStart);
+                script.ShowsGroupHeader = headers && script.IsGroupStart;
+                script.ShowsScene = open;
+                script.IsListed = script.IsShown && !IsHiddenEmpty(script) && (open || script.IsGroupStart);
             }
         }
 

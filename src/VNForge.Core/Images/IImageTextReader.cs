@@ -9,8 +9,9 @@ public sealed record ImageToRead(string Name, string MediaType, byte[] Data);
 /// <summary>O que o leitor viu numa imagem.</summary>
 /// <param name="Text">O texto em japonês transcrito, com quebra de linha entre as linhas da imagem; vazio quando não há texto.</param>
 /// <param name="Refused">O modelo recusou ler esta imagem; <paramref name="Text"/> não vale.</param>
+/// <param name="Translation">A tradução sugerida do texto, em português do Brasil, curta; vazia quando não há texto ou o leitor não sugere.</param>
 /// <param name="InputTokens">Tokens de entrada que a chamada gastou, para o custo real; zero quando o leitor não os conta.</param>
-public sealed record ImageTextReading(string Text, bool Refused = false, long InputTokens = 0, long OutputTokens = 0);
+public sealed record ImageTextReading(string Text, bool Refused = false, long InputTokens = 0, long OutputTokens = 0, string Translation = "");
 
 /// <summary>
 /// A chamada ao modelo foi feita e cobrada, mas a resposta não serve (cortada, fora do formato). Leva os tokens da chamada para que o gasto entre na conta

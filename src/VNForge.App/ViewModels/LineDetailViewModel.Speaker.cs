@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.Core.Glossary;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
@@ -117,11 +118,26 @@ public sealed partial class LineDetailViewModel
         {
             nameof(Speaker), nameof(HasSpeaker), nameof(SpeakerTarget), nameof(SpeakerColor), nameof(SpeakerPair), nameof(Voice), nameof(HasVoice), nameof(SpeakerName), nameof(VoiceText),
             nameof(GameSpeakerLabel), nameof(IsSpeakerChanged), nameof(SpeakerSummary), nameof(SelectedSpeakerChoice),
+            nameof(HeaderName), nameof(HeaderRoleLine), nameof(HasHeaderRoleLine), nameof(SpeakerImage),
         })
         {
             OnPropertyChanged(name);
         }
     }
+
+    /// <summary>O nome do cabeçalho do inspetor: o falante em português, o original sem cadastro, "Narração" sem falante.</summary>
+    public string HeaderName => Speaker is null ? "Narração" : SpeakerName;
+
+    /// <summary>A linha de baixo do nome no cabeçalho: o papel no jogo e o jeito de falar ("Secundária · Professora, rígida"); vazia sem nenhum dos dois.</summary>
+    public string HeaderRoleLine => string.Join(" · ", new[] { Context?.SpeakerRole, Voice }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    public bool HasHeaderRoleLine => HeaderRoleLine.Length > 0;
+
+    /// <summary>"yst00013:0495 · Diálogo": o id da linha e o tipo, em mono no cabeçalho.</summary>
+    public string HeaderIdLine => $"{FullId} · {KindLabel}";
+
+    /// <summary>A imagem do falante no VNDB; nula sem imagem.</summary>
+    public VndbImageRef? SpeakerImage => Speaker is null ? null : Context?.SpeakerImage;
 
     private List<SpeakerChoice> BuildSpeakerChoices()
     {

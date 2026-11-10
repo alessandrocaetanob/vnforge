@@ -126,6 +126,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.Rate = () => Settings.Rate;
         Bible.Rate = () => Settings.Rate;
         Bible.Limits = () => Settings.Budget;
+        Images.Rate = () => Settings.Rate;
+        Images.Limits = () => Settings.Budget;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         History = new BatchHistory(TaskService);
         History.Undone += (_, undone) => OnBatchUndone(undone);

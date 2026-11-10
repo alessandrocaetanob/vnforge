@@ -55,6 +55,22 @@ public sealed class ImageTextScannerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_traducao_sugerida_pelo_leitor_entra_no_inventario_e_sobrevive_a_uma_nova_execucao()
+    {
+        var format = StandardFormat();
+        var reader = new FakeImageTextReader(TextFor) { Translate = image => image.Data.AsSpan().SequenceEqual(Title) ? "Título" : string.Empty };
+
+        var first = await ScanAsync(format, reader, PlanFor(format), ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal("Título", Assert.Single(first.Entries, e => e.Path == "titulo.png").Translation);
+        Assert.All(first.Entries.Where(e => e.Path != "titulo.png"), e => Assert.Null(e.Translation));
+
+        var second = await ScanAsync(format, new FakeImageTextReader(TextFor), PlanFor(format, first.Entries), ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(first.Entries, second.Entries);
+    }
+
+    [Fact]
     public async Task Entrega_ao_leitor_nome_tipo_de_midia_e_bytes()
     {
         var format = Format(("cg.pak", [("titulo.png", Title)]));

@@ -6,7 +6,7 @@
              x:Class="VNForge.App.Views.EditorSuggestionCardView"
              x:DataType="vm:LineDetailViewModel">
   <!-- A sugestão da passada de editor (#532): cor da IA (status-ai-*), a tradução de hoje riscada e a proposta em verde, o motivo em uma frase e "Aceitar" / "Ignorar".
-       No Modo revisão (IsReview) o título leva o tipo, a etiqueta diz "n de N na cena" e o texto mostra só a proposta, com as palavras que mudaram marcadas. -->
+       No Modo revisão (IsReview) o título leva o tipo, a etiqueta diz "n de N na cena", o texto mostra só a proposta, com as palavras que mudaram marcadas, e os botões são "Aceitar" e "Ignorar". -->
   <UserControl.Styles>
     <Style Selector="v|EditorSuggestionCardView:review TextBlock.editor-only">
       <Setter Property="IsVisible" Value="False"/>
@@ -14,15 +14,29 @@
     <Style Selector="v|EditorSuggestionCardView:not(:review) TextBlock.review-only">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <!-- Quadro: no inspetor o cartão fica em fundo rebaixado (card in) e no Modo revisão em fundo de cartão; a palavra proposta vai em negrito. -->
+    <Style Selector="v|EditorSuggestionCardView Border#Card">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    </Style>
+    <Style Selector="v|EditorSuggestionCardView:not(:review) Border#Card">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    </Style>
+    <Style Selector="v|EditorSuggestionCardView TextBlock Run.ins">
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <!-- O quadro do Modo revisão desenha só "Aceitar" e "Ignorar": "Outra" fica no inspetor. -->
+    <Style Selector="v|EditorSuggestionCardView:review Button#OtherButton">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
   </UserControl.Styles>
-  <Border x:Name="Card" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StatusAiFg}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12"
+  <Border x:Name="Card" BorderBrush="{DynamicResource Vnf.StatusAiFg}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="12"
           IsVisible="{Binding HasEditorSuggestion, FallbackValue=False}" AutomationProperties.Name="Passada de editor">
     <StackPanel Spacing="8">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <PathIcon Width="14" Height="14" VerticalAlignment="Center" Data="{StaticResource Icon.Sparkle}" Foreground="{DynamicResource Vnf.StatusAiFg}"/>
-          <TextBlock Classes="caption editor-only" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionTitle}"/>
-          <TextBlock Classes="caption review-only" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewTitle}"/>
+          <c:OverlineText Classes="overline editor-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionTitle}"/>
+          <c:OverlineText Classes="overline review-only" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusAiFg}" Text="{Binding EditorSuggestionReviewTitle}"/>
         </StackPanel>
         <Border Grid.Column="1" MinHeight="{DynamicResource Vnf.PillHeight}" Padding="8,0" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="{DynamicResource Vnf.StatusAiBg}">
           <Panel>
@@ -35,11 +49,12 @@
       </Grid>
       <TextBlock x:Name="EditorBody" Classes="editor-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.Body}" LineHeight="{DynamicResource Vnf.LineHeight.Body}"
                  c:SuggestionText.ShowRemoved="True" c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
-                 AutomationProperties.Name="Texto proposto pelo editor"/>
-      <TextBlock x:Name="ReviewBody" Classes="review-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.BodyLoose}" LineHeight="{DynamicResource Vnf.LineHeight.BodyLoose}"
+                 ToolTip.Tip="{Binding EditorSuggestionReason}" AutomationProperties.Name="Texto proposto pelo editor"/>
+      <TextBlock x:Name="ReviewBody" Classes="review-only" TextWrapping="Wrap" FontSize="{DynamicResource Vnf.FontSize.ReviewSuggestion}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewSuggestion}"
                  c:SuggestionText.Current="{Binding EditorSuggestionCurrent}" c:SuggestionText.Proposed="{Binding EditorSuggestionProposed}"
                  AutomationProperties.Name="Texto proposto pelo editor"/>
-      <TextBlock x:Name="Reason" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding EditorSuggestionReason}" AutomationProperties.Name="Motivo do ajuste"/>
+      <!-- No Modo revisão o motivo fica sob a proposta, com a frase "Nada muda até você aceitar". No inspetor o quadro não desenha o motivo: ele vai na dica do texto. -->
+      <TextBlock x:Name="Reason" Classes="caption secondary review-only" TextWrapping="Wrap" Text="{Binding EditorSuggestionReviewReason}" AutomationProperties.Name="Motivo do ajuste"/>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button x:Name="AcceptButton" Classes="accent sm" Command="{Binding AcceptEditorSuggestionCommand}" ToolTip.Tip="Troca a tradução pelo texto proposto">
           <StackPanel Orientation="Horizontal" Spacing="6">
