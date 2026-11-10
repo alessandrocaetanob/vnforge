@@ -81,6 +81,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar" (que só existe com a #549); na Tradução é o próximo passo do Painel.</summary>
     public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
+    /// <summary>O próximo passo do Painel no lugar de "Jogar": na Tradução, e em nenhuma aba durante a revisão da ficha, que não leva botão no cabeçalho.</summary>
+    public bool ShowNextStepButton => !ShowPlayButton && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
+
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
@@ -274,6 +277,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ShowGameHeader));
         OnPropertyChanged(nameof(ShowSections));
         OnPropertyChanged(nameof(ShowPlayButton));
+        OnPropertyChanged(nameof(ShowNextStepButton));
         OnPropertyChanged(nameof(Breadcrumb));
         OnPropertyChanged(nameof(SelectedGameTab));
         OnPropertyChanged(nameof(SelectedSection));

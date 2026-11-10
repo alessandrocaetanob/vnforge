@@ -39,6 +39,7 @@
   </Style>
   <Style Selector="Button.sheet-link">
     <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
 
   <!-- Selo de etapa (.v3-pill): 11/18 semibold, 1px de cima e de baixo, 8px dos lados. -->

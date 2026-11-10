@@ -151,19 +151,19 @@
               <StackPanel Spacing="12" Grid.IsSharedSizeScope="True">
                 <TextBlock Classes="sheet-h3" Text="Sobre o jogo"/>
                 <StackPanel Spacing="6">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                  <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Duração"/>
                     <TextBlock Name="Duration" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding DurationText}"/>
                   </Grid>
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" IsVisible="{Binding HasReleased}">
+                  <Grid ColumnSpacing="16" IsVisible="{Binding HasReleased}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Lançado"/>
                     <TextBlock Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding ReleasedText}"/>
                   </Grid>
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" IsVisible="{Binding HasRating}">
+                  <Grid ColumnSpacing="16" IsVisible="{Binding HasRating}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="Nota no VNDB"/>
                     <TextBlock Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding RatingText}"/>
                   </Grid>
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                  <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Key"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <TextBlock Classes="secondary" FontSize="13" LineHeight="20" Text="VNDB"/>
                     <TextBlock Grid.Column="1" Classes="mono" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding VndbIdText}"/>
                   </Grid>

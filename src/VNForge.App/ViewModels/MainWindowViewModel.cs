@@ -156,6 +156,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))
             {
                 OnPropertyChanged(nameof(ShowPlayButton));
+                OnPropertyChanged(nameof(ShowNextStepButton));
                 OnPropertyChanged(nameof(Breadcrumb));
             }
         };
