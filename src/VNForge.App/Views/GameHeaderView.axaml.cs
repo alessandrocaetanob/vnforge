@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using VNForge.App.ViewModels;
 
@@ -12,6 +13,7 @@ namespace VNForge.App.Views;
 public sealed partial class GameHeaderView : UserControl
 {
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsCompact));
+    public static readonly StyledProperty<bool> IsEditorProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsEditor));
 
     /// <summary>A largura da capa, em pixels.</summary>
     public const double CoverWidth = 56;
@@ -32,7 +34,12 @@ public sealed partial class GameHeaderView : UserControl
         InitializeComponent();
         Sections.Tapped += OnSectionsTapped;
         Sections.KeyDown += OnSectionsKeyDown;
-        LayoutUpdated += (_, _) => UpdateSectionsPlacement();
+        LayoutUpdated += (_, _) =>
+        {
+            UpdateSectionsPlacement();
+            UpdateActionsPlacement();
+        };
+        UpdateHeaderLayout();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -41,14 +48,39 @@ public sealed partial class GameHeaderView : UserControl
         if (change.Property == IsCompactProperty)
         {
             Classes.Set("compact", IsCompact);
+            UpdateHeaderLayout();
             UpdateSectionsPlacement();
         }
+        else if (change.Property == IsEditorProperty)
+        {
+            Classes.Set("editor", IsEditor);
+            UpdateHeaderLayout();
+        }
+    }
+
+    /// <summary>Qual das três faces do topo aparece: a do Editor (o quadro do #546, com as ações da grade), a compacta ou a completa das outras páginas.</summary>
+    private void UpdateHeaderLayout()
+    {
+        var editor = IsEditor && !IsCompact;
+        EditorHeader.IsVisible = editor;
+        EditorActions.IsVisible = IsEditor;
+        ReadAsPlayerCompact.IsVisible = IsEditor && IsCompact;
+        PlaceEditorActions(IsCompact ? 0 : 1, VerticalAlignment.Bottom, new Thickness(0, 0, RightMargin, 1));
+        Regular.IsVisible = !editor && !IsCompact;
+        Compact.IsVisible = !editor && IsCompact;
     }
 
     public bool IsCompact
     {
         get => GetValue(IsCompactProperty);
         set => SetValue(IsCompactProperty, value);
+    }
+
+    /// <summary>A página aberta é o Editor: o topo traz o cabeçalho do quadro do #546 em vez do completo das outras páginas. Vale só quando <see cref="IsCompact"/> é falso.</summary>
+    public bool IsEditor
+    {
+        get => GetValue(IsEditorProperty);
+        set => SetValue(IsEditorProperty, value);
     }
 
     /// <summary>
@@ -62,6 +94,41 @@ public sealed partial class GameHeaderView : UserControl
         {
             Classes.Set("sections-below", below);
         }
+    }
+
+    private void PlaceEditorActions(int row, VerticalAlignment alignment, Thickness margin)
+    {
+        if (Grid.GetRow(EditorActions) != row)
+        {
+            Grid.SetRow(EditorActions, row);
+        }
+
+        EditorActions.VerticalAlignment = row == 0 ? VerticalAlignment.Top : alignment;
+        EditorActions.Margin = row == 0 ? new Thickness(0, 6, RightMargin, 0) : margin;
+    }
+
+    /// <summary>
+    /// No cabeçalho completo do Editor as ações (Roteiro, Buscar e Traduzir com IA) dividem a linha do seletor de seções; sem largura para os dois, descem para uma linha sob ele.
+    /// O limite vem das larguras medidas, como o das seções no compacto. No compacto elas ficam na linha do nome, à direita.
+    /// </summary>
+    private void UpdateActionsPlacement()
+    {
+        if (!EditorActions.IsVisible || IsCompact || Bounds.Width <= 0 || EditorActions.DesiredSize.Width <= 0 || Sections.ItemsPanelRoot is not { } panel)
+        {
+            return;
+        }
+
+        var items = panel.Children.Where(c => c.IsVisible).ToList();
+        if (items.Count == 0 || items.Any(c => c.DesiredSize.Width <= 0))
+        {
+            return;
+        }
+
+        // A largura do ListBox já vem limitada pela janela; a natural é a soma dos itens, como no compacto.
+        var sections = items.Sum(c => c.DesiredSize.Width) + ((items.Count - 1) * 4) + Sections.Padding.Left + Sections.Padding.Right;
+        var actions = EditorActions.DesiredSize.Width - EditorActions.Margin.Left - EditorActions.Margin.Right;
+        var below = 2 * RightMargin + sections + SectionsGap + actions > Bounds.Width;
+        PlaceEditorActions(below ? 2 : 1, below ? VerticalAlignment.Top : VerticalAlignment.Bottom, below ? new Thickness(0, 8, RightMargin, 0) : new Thickness(0, 0, RightMargin, 1));
     }
 
     /// <summary>A largura que a segunda linha pede e a que sobra depois das abas; <paramref name="known"/> é falso enquanto os itens ainda não foram medidos.</summary>

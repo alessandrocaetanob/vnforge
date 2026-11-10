@@ -212,7 +212,7 @@ public sealed class EditorScriptRenderTests(HeadlessFixture fixture, DemoFolderF
 
     private static Border Header(Visual window, string name) => window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == name);
 
-    private static string[] Titles(Border header) => header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("overline")).Select(t => t.Text!).ToArray();
+    private static string[] Titles(Border header) => header.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("colhead")).Select(t => t.Text!).ToArray();
 
 
     private static TextBlock Speaker(LineRow row) => row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Speaker");

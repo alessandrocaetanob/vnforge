@@ -139,15 +139,18 @@
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
           <StackPanel x:Name="ExplainFragment" Spacing="6">
-            <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding !IsCompactInspector}"
-                    ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
-                <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
-                <TextBlock Classes="caption secondary" Text="{Binding ExplainPriceText, StringFormat='· {0}'}" VerticalAlignment="Center"
-                           IsVisible="{Binding ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-              </StackPanel>
-            </Button>
+            <!-- Quadro do #546: botão sm com contorno em text-secondary e o preço ao lado, fora do botão, em 12/18. -->
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsCompactInspector}">
+              <Button Classes="sm" HorizontalAlignment="Left" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"
+                      ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+                  <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+              <TextBlock Classes="caption secondary" LineHeight="18" Text="{Binding ExplainPriceText}" VerticalAlignment="Center"
+                         IsVisible="{Binding ExplainPriceText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
             <TextBlock Classes="caption secondary" Text="Pedindo a explicação..." IsVisible="{Binding IsExplaining}"/>
             <c:ExplainCard x:Name="ExplainCard" ItemsSource="{Binding ExplainParts}" Footnote="Só para você ler, não entra na tradução."
                            IsVisible="{Binding ShowExplainCard}" AutomationProperties.Name="Explicação do original"/>
@@ -238,24 +241,15 @@
               <Panel IsVisible="{Binding Preview.HasLayout}">
                 <c:GameTextbox x:Name="GameBox" HorizontalAlignment="Stretch" Flat="True" FontFamily="{DynamicResource Vnf.FontMono}" FitToWidth="True" Layout="{Binding Preview.Layout}" AutomationProperties.Name="Caixa do jogo"/>
               </Panel>
-              <StackPanel IsVisible="{Binding !IsCompactInspector}">
-                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
-                  <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
-                  <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
-                  <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
-                </StackPanel>
-                <StackPanel x:Name="WrapOffRow" Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
-                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
-                  <TextBlock Classes="meta secondary" Text="{Binding FitText}" AutomationProperties.Name="A quebra de linha está desligada no perfil"/>
-                </StackPanel>
-              </StackPanel>
               <StackPanel Spacing="4" DataContext="{Binding Preview}" x:DataType="vm:TextboxPreviewViewModel">
                 <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding HasNotice}"/>
                 <TextBlock Classes="body-sm" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalWarningFg}" Text="{Binding Problem}"
                            IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               </StackPanel>
             </StackPanel>
-            <WrapPanel ItemSpacing="12" LineSpacing="2" AutomationProperties.Name="Medidas da tradução">
+            <!-- Quadro do #546: "Cabe · 2 de 3 linhas" e "49 caracteres" na mesma linha (vão de 14 e 4) e o estado dos marcadores na linha de baixo. -->
+            <StackPanel Spacing="4" AutomationProperties.Name="Medidas da tradução">
+            <WrapPanel ItemSpacing="14" LineSpacing="4">
               <StackPanel IsVisible="{Binding IsCompactInspector}">
                 <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
                   <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
@@ -267,13 +261,25 @@
                   <TextBlock Classes="meta secondary" Text="{Binding FitText}"/>
                 </StackPanel>
               </StackPanel>
+              <StackPanel IsVisible="{Binding !IsCompactInspector}">
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsShown}">
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding !DoesNotFit}" Data="{StaticResource Icon.Check}" IsVisible="{Binding !DoesNotFit}"/>
+                  <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding DoesNotFit}"/>
+                  <TextBlock Classes="meta marker-state" Classes.ok="{Binding !DoesNotFit}" Text="{Binding FitText}" AutomationProperties.Name="Se a tradução cabe na caixa do jogo"/>
+                </StackPanel>
+                <StackPanel x:Name="WrapOffRow" Orientation="Horizontal" Spacing="4" IsVisible="{Binding FitIsNeutral}">
+                  <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
+                  <TextBlock Classes="meta secondary" Text="{Binding FitText}" AutomationProperties.Name="A quebra de linha está desligada no perfil"/>
+                </StackPanel>
+              </StackPanel>
               <TextBlock Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding !IsCompactInspector}"/>
+            </WrapPanel>
               <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
                 <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
                 <TextBlock Classes="meta marker-state" Classes.ok="{Binding MarkersMatch}" Text="{Binding MarkerStateText}"/>
               </StackPanel>
-            </WrapPanel>
+            </StackPanel>
           </StackPanel>
 
           <!-- "Não cabe na caixa do jogo": dividir em páginas ou pedir uma versão mais curta à IA. -->
@@ -283,11 +289,14 @@
 
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !IsCompactInspector}"/>
-            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}" IsVisible="{Binding !IsCompactInspector}"
-                    ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
-              <TextBlock Text="Usar em todos"/>
-            </Button>
+            <!-- Quadro do #546: o aviso e o botão na mesma linha, o aviso em 12/18 text-secondary à esquerda e o botão sm à direita. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding !IsCompactInspector}">
+              <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding SameSourceText}"/>
+              <Button Grid.Column="1" Classes="sm" Command="{Binding UseForAllCommand}"
+                      ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
+                <TextBlock Text="Usar em todos"/>
+              </Button>
+            </Grid>
             <StackPanel Spacing="6" IsVisible="{Binding IsApplyingToAll}" AutomationProperties.Name="Andamento do Usar em todos">
               <ProgressBar Classes="thin" Minimum="0" Maximum="1" Value="{Binding ApplyProgress}"/>
               <TextBlock Classes="body-sm secondary" Text="{Binding ApplyProgressText}"/>

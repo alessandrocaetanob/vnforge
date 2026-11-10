@@ -272,6 +272,11 @@ public sealed class GameTextbox : Control
         {
             context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), null, new RoundedRect(frame, 8));
         }
+        else if (Size == GameTextboxSize.Review)
+        {
+            // Quadro do #546 (".sbox"): uma borda só, no stage-stroke, com o raio lg e sem o aro interno das outras caixas.
+            context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Brush("Vnf.StageStroke", Tint(ink, 0.16)), 1), new RoundedRect(frame.Deflate(0.5), 16));
+        }
         else
         {
             context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), new Pen(Tint(ink, 0.16), 1), new RoundedRect(frame.Deflate(0.5), 12));
@@ -287,7 +292,7 @@ public sealed class GameTextbox : Control
         DrawNext(context, ink, paint.Width, y + m.NextTop, m);
         if (layout.Speaker is { } speaker)
         {
-            DrawPlate(context, speaker, paint.Typeface, layout.SpeakerColor?.DarkBrush ?? ink, m);
+            DrawPlate(context, speaker, paint.Typeface, Size == GameTextboxSize.Review ? Brushes.White : layout.SpeakerColor?.DarkBrush ?? ink, m);
         }
     }
 
@@ -315,7 +320,9 @@ public sealed class GameTextbox : Control
             DrawLine(context, layout.Boxes[row.Page].Lines[n], p.Typeface, isOverflow ? p.Overflow : p.Ink, p.ColumnWidth, new Point(m.PadX, y + ((p.RowHeight - p.TextHeight) / 2)), m);
         }
 
-        if (!p.Flat || isOverflow)
+        // No palco do modo revisão só a vaga sem texto leva a régua pontilhada: as linhas escritas ficam limpas, como no quadro do #546.
+        var ruled = Size == GameTextboxSize.Review ? row.Line is null : !p.Flat || isOverflow;
+        if (ruled)
         {
             var rule = y + p.RowHeight - 0.5;
             var ruleEnd = m.FrameColumn > 0 ? p.Width - m.PadX : m.PadX + (layout.Columns * p.ColumnWidth);
@@ -395,7 +402,8 @@ public sealed class GameTextbox : Control
 
     private void DrawPlate(DrawingContext context, string speaker, Typeface typeface, IBrush ink, Metrics m)
     {
-        var text = Format(speaker, typeface, ink, m.PlateFont);
+        // Só no palco do modo revisão a placa é de texto branco em JetBrains Mono Medium (".nt" e ".pl" do quadro do #546); nas outras caixas segue a cor do personagem.
+        var text = Format(speaker, Size == GameTextboxSize.Review ? new Typeface(typeface.FontFamily, FontStyle.Normal, FontWeight.Medium) : typeface, ink, m.PlateFont);
         var plate = new Rect(m.PlateLeft, 0, text.Width + (m.PlatePadX * 2), m.PlateHeight);
         if (!Flat)
         {
@@ -483,7 +491,7 @@ public sealed class GameTextbox : Control
             GameTextboxSize.Small => new(20, 16, 24, 22, 12, 24, 12, 14, 12, 12, 12, 5),
             GameTextboxSize.Large => new(30, 32, 34, 32, 17, 28, 14, 28, 14, 13, 20, 11),
             GameTextboxSize.Stage => new(34, 40, 38, 40, 24, 34, 17, 36, 18, 17, 28, 14),
-            GameTextboxSize.Review => new(27, 26, 19, 36, 17.6, 28, 14, 25, 15, 14, 22, -5, 0, 5, 14.35),
+            GameTextboxSize.Review => new(27, 26, 19, 36, 17.6, 28, 14, 24, 16, 14, 22, -5, 0, 5, 14.35),
             _ => new(24, 26, 28, 26, 14, 24, 12, 22, 12, 12, 20, 5),
         };
     }
