@@ -104,7 +104,7 @@ public sealed class EditorV3RenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     {
                         Assert.Equal(220, painelCenas.Bounds.Width, 0.5);
                         Assert.Equal(384, inspetor.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("panel")).Bounds.Width, 0.5);
-                        Assert.Equal(104, Frame(window, painelCenas).X, 0.5);
+                        Assert.Equal(112, Frame(window, painelCenas).X, 0.5);
                     }
 
                     // Lista de cenas: linhas de 32 px, a atual com a barra de 3 px.

@@ -68,8 +68,8 @@ public sealed partial class EditorView : UserControl
 
     private const double ColumnsTop = 16;
 
-    /// <summary>O quadro do #546 recua a grade, as cenas e o inspetor 24 px da borda (".eb"), 8 px a menos que o recuo de 32 do resto da tela.</summary>
-    private const double ColumnsBleed = 8;
+    /// <summary>O quadro do #546 recua a grade, as cenas e o inspetor 24 px da borda (".eb"), mas o shell do #544 fixa o conteúdo de toda página em x=112 (32 px); fica 0 até o Alessandro decidir.</summary>
+    private const double ColumnsBleed = 0;
 
     /// <summary>
     /// A lista de cenas na grade: a coluna inteira, a faixa do estado recolhido (#393) ou, abaixo de 1400 px, nenhuma (o flyout do cabeçalho a substitui).

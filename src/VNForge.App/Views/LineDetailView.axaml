@@ -289,11 +289,14 @@
 
           <!-- A mesma fala em outras linhas: usa a tradução do campo em todas elas. -->
           <StackPanel x:Name="SameSourceFragment" Spacing="6" IsVisible="{Binding HasSameSource}">
-            <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding SameSourceText}" IsVisible="{Binding !IsCompactInspector}"/>
-            <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding UseForAllCommand}" IsVisible="{Binding !IsCompactInspector}"
-                    ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
-              <TextBlock Text="Usar em todos"/>
-            </Button>
+            <!-- Quadro do #546: o aviso e o botão na mesma linha, o aviso em 12/18 text-secondary à esquerda e o botão sm à direita. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding !IsCompactInspector}">
+              <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding SameSourceText}"/>
+              <Button Grid.Column="1" Classes="sm" Command="{Binding UseForAllCommand}"
+                      ToolTip.Tip="Grava a tradução desta linha em todas as outras com o mesmo original">
+                <TextBlock Text="Usar em todos"/>
+              </Button>
+            </Grid>
             <StackPanel Spacing="6" IsVisible="{Binding IsApplyingToAll}" AutomationProperties.Name="Andamento do Usar em todos">
               <ProgressBar Classes="thin" Minimum="0" Maximum="1" Value="{Binding ApplyProgress}"/>
               <TextBlock Classes="body-sm secondary" Text="{Binding ApplyProgressText}"/>
