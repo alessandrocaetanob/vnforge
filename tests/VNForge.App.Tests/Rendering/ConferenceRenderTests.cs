@@ -279,10 +279,106 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
     }
 
+    /// <summary>Os dois estados sem erro do quadro: só o aviso de que a fala não cabe na caixa, e a conferência limpa, com o convite para testar no jogo.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Renderiza_Conferir_so_com_aviso_e_com_a_conferencia_limpa(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var withWarning = ArtboardProject.Create(temp.SubFolder("aviso"), ArtboardKind.OnlyBoxWarning);
+        var clean = ArtboardProject.Create(temp.SubFolder("limpo"), ArtboardKind.Clean);
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(withWarning), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Assert.True(vm.Conference.HasOnlyWarnings);
+                    var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+                    Assert.Equal(GameState.Caution, banner.State);
+                    Assert.Equal("Nada trava o teste no jogo", banner.Title);
+                    Assert.Equal("Os avisos não travam nada. Corrija quando puder.", banner.Message);
+                    var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
+                    var refresh = Assert.Single(buttons);
+                    Assert.Equal(vm.Conference.RefreshCommand, refresh.Command);
+                    Assert.DoesNotContain("accent", refresh.Classes);
+                    Save(window, "conferir-v6-so-aviso", theme);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(clean), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Assert.True(vm.Conference.IsClear);
+                    var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+                    Assert.Equal(GameState.Translated, banner.State);
+                    Assert.Equal("Nada trava o teste no jogo", banner.Title);
+                    Assert.StartsWith("A tradução está pronta para testar. ", banner.Message, StringComparison.Ordinal);
+                    Assert.EndsWith(" conferidas.", banner.Message, StringComparison.Ordinal);
+                    var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
+                    var test = Assert.Single(buttons, b => b.Command == vm.Conference.TestCommand);
+                    Assert.Contains("accent", test.Classes);
+                    Assert.DoesNotContain("accent", Assert.Single(buttons, b => b.Command == vm.Conference.RefreshCommand).Classes);
+                    Save(window, "conferir-v6-limpo", theme);
+
+                    test.Command!.Execute(null);
+                    Assert.Equal(NavKey.Build, vm.SelectedNav?.Key);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private enum ArtboardKind
+    {
+        Full,
+        OnlyBoxWarning,
+        Clean,
+    }
+
     /// <summary>As linhas do artboard "Conferir", escritas para ele: nenhum arquivo ou texto de jogo.</summary>
     private static class ArtboardProject
     {
-        public static string Create(string parent)
+        public static string Create(string parent, ArtboardKind kind = ArtboardKind.Full)
         {
             var folder = ProjectFolder.Create(parent, new ProjectConfig(
                 DemoProject.Name,
@@ -292,6 +388,17 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 new EncodingConfig("cp1252"),
                 AiConfig.Default));
             folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3) });
+            if (kind != ArtboardKind.Full)
+            {
+                folder.SaveText("yst00012", [Line("yst00012", 42, @"「本当に、いいの？」\p", @"De verdade, tudo bem?\p")]);
+                folder.SaveText(
+                    "yst00013",
+                    kind == ArtboardKind.Clean
+                        ? [Line("yst00013", 43, @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p")]
+                        : [Line("yst00013", 45, @"担任の先生が腕を組んで立っていた。\p", @"O nosso professor responsável já estava de pé, esperando por nós dois de braços cruzados na frente do portão da escola, debaixo da chuva.\p")]);
+                return folder.Root;
+            }
+
             folder.SaveGlossary([new GlossaryTerm("先輩", "veterano"), new GlossaryTerm("担任の先生", "professor responsável")]);
             folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("yst00013", null, "Manhã de chuva"), new ScriptNameEntry("yst00014", null, "Hora do almoço")]));
             folder.SaveText("yst00012", [Line("yst00012", 42, @"「本当に、いいの？」\p", "De verdade, tudo bem?")]);
