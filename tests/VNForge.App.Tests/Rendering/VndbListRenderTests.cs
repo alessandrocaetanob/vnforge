@@ -2,9 +2,11 @@ using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
+using VNForge.App.Tests.Demo;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core.Demo;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
@@ -16,7 +18,7 @@ namespace VNForge.App.Tests.Rendering;
 /// A lista do VNDB (#550) montada de verdade nos dois temas, a 1440×1000 como o quadro: a aba VNDB de Ajustes com o diálogo "A lista mudou nos dois lados" e o cartão
 /// "Na sua lista do VNDB" na gaveta da Biblioteca. Os PNGs <c>vndb-*</c> seguem <c>VNFORGE_RENDER_DIR</c>.
 /// </summary>
-public sealed class VndbListRenderTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
+public sealed class VndbListRenderTests(HeadlessFixture fixture, DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<DemoFolderFixture>
 {
     private static readonly DateTimeOffset Now = LibrarySamples.Now;
 
@@ -36,9 +38,9 @@ public sealed class VndbListRenderTests(HeadlessFixture fixture) : IClassFixture
     private static List<string> Texts(Window window) =>
         [.. window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? string.Empty).Where(t => t.Length > 0)];
 
-    private static (VndbListService Service, LibraryFile File) Montar(string config, VndbListEntry? remote)
+    private static (VndbListService Service, LibraryFile File) Montar(string config, VndbListEntry? remote, string? vndbId = null)
     {
-        var amaoto = LibrarySamples.Games()[0];
+        var amaoto = LibrarySamples.Games()[0] with { VndbId = vndbId ?? LibrarySamples.Games()[0].VndbId };
         var list = new LibraryListState(amaoto.VndbId!, new LibraryListFields
         {
             Labels = [LibraryListLabels.Named(LibraryListLabels.Playing)],
@@ -57,7 +59,7 @@ public sealed class VndbListRenderTests(HeadlessFixture fixture) : IClassFixture
             SyncedAt = Now.AddMinutes(-3),
             OnVndb = true,
         };
-        var games = LibrarySamples.Games().Select(g => g.Id == amaoto.Id ? g with { List = list } : g);
+        IEnumerable<LibraryGame> games = vndbId is null ? LibrarySamples.Games().Select(g => g.Id == amaoto.Id ? g with { List = list } : g) : [amaoto with { List = list }];
         var file = LibrarySamples.Save(config, LibrarySamples.Library(games));
         var fake = new FakeVndbCatalog(list: remote is null ? [] : [remote], time: new FixedClock(Now));
         return (new VndbListService(new Vault(), fake, file, new FixedClock(Now), _ => null), file);
@@ -112,41 +114,51 @@ public sealed class VndbListRenderTests(HeadlessFixture fixture) : IClassFixture
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Gaveta_mostra_a_lista_do_VNDB_do_jogo(string themeName)
+    public async Task Ficha_mostra_a_lista_do_VNDB_do_jogo_com_voto_e_datas_editaveis(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         await fixture.Session.Dispatch<int>(
             async () =>
             {
                 using var config = new TempFolder();
-                var previous = VndbImages.Source;
-                VndbImages.Source = new LibrarySamples.Images();
-                var (service, file) = Montar(config.Path, null);
-                var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Now), readTranslation: LibrarySamples.Translation, sheets: new LibrarySamples.Sheets()) { ListService = service };
-                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
-                var vm = new MainWindowViewModel(start, library: library);
+                await GameSheetSamples.SeedAsync(config.Path, translate: true);
+                var (service, file) = Montar(config.Path, null, GameSheetSamples.Id);
+                ProjectFolder.Open(demoFolder.Root).SaveVndbLink(new VndbLink(GameSheetSamples.Id, "Amaoto no Hakoniwa", "雨音の箱庭", null, []));
+                var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Now)) { ListService = service };
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demoFolder.Root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, library: library) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
+                vm.Sheet.ConfigDirectory = config.Path;
+                vm.Sheet.CatalogFactory = GameSheetSamples.Catalog;
+                vm.Sheet.TranslatorFactory = GameSheetSamples.Translator;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
                     window.Show();
                     await library.LoadAsync();
-                    library.Select(library.Cards.Single(c => c.Title == "Amaoto no Hakoniwa"));
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    await vm.Sheet.Loading;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Sheet);
                     ScreenRenderer.Settle(window);
 
+                    Assert.NotNull(vm.Sheet.ListCard);
                     var texts = Texts(window);
-                    foreach (var expected in new[] { "Na sua lista do VNDB", "Sincronizada há 3 min", "Jogando", "Terminado", "Abandonado", "Quero jogar", "8 de 10", "03/10/2026", "ainda não terminou", "Marcar como terminado", "Abrir no VNDB" })
+                    foreach (var expected in new[] { "Na sua lista do VNDB", "Sincronizada há 3 min", "Jogando", "Terminado", "Abandonado", "Quero jogar", "Voto", "Início", "Fim", "Marcar como terminado", "Abrir no VNDB" })
                     {
                         Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
                     }
 
+                    var boxes = window.GetVisualDescendants().OfType<TextBox>().Where(t => t.IsEffectivelyVisible && t.Name is "VoteBox" or "StartedBox" or "FinishedBox").ToDictionary(t => t.Name!, t => t.Text);
+                    Assert.Equal("8", boxes["VoteBox"]);
+                    Assert.Equal("03/10/2026", boxes["StartedBox"]);
+                    Assert.Equal(string.Empty, boxes["FinishedBox"]);
                     var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.Label is "Jogando" or "Terminado").ToList();
                     Assert.Equal([true, false], chips.Select(c => c.IsChecked == true));
-                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("vndb-gaveta", theme)));
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("vndb-ficha", theme)));
                 }
                 finally
                 {
                     window.Close();
-                    VndbImages.Source = previous;
                 }
 
                 return 0;

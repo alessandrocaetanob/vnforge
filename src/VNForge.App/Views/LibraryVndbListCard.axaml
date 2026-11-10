@@ -25,14 +25,15 @@
       </ItemsControl>
 
       <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
-        <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Voto"/>
-        <TextBlock Name="VoteText" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding VoteText}"/>
-        <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Início"/>
-        <TextBlock Name="StartedText" Grid.Row="1" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding StartedText}"
-                   Classes.lib-dim="{Binding !HasStarted}"/>
-        <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Fim"/>
-        <TextBlock Name="FinishedText" Grid.Row="2" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding FinishedText}"
-                   Classes.lib-dim="{Binding !HasFinished}"/>
+        <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Voto"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <TextBox Name="VoteBox" Width="72" Text="{Binding VoteInput}" PlaceholderText="sem voto" AutomationProperties.Name="Voto de 1 a 10"/>
+          <TextBlock VerticalAlignment="Center" FontSize="13" Classes="lib-dim" Text="de 10"/>
+        </StackPanel>
+        <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Início"/>
+        <TextBox Name="StartedBox" Grid.Row="1" Grid.Column="1" Width="176" HorizontalAlignment="Left" Text="{Binding StartedInput}" PlaceholderText="ainda não começou" AutomationProperties.Name="Data de início, dia/mês/ano"/>
+        <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Fim"/>
+        <TextBox Name="FinishedBox" Grid.Row="2" Grid.Column="1" Width="176" HorizontalAlignment="Left" Text="{Binding FinishedInput}" PlaceholderText="ainda não terminou" AutomationProperties.Name="Data de fim, dia/mês/ano"/>
       </Grid>
 
       <StackPanel Spacing="4">
@@ -56,8 +57,8 @@
         </Button>
       </WrapPanel>
 
-      <TextBlock Name="ListMessage" Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="{Binding Library.ListMessage}"
-                 IsVisible="{Binding Library.ListMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <TextBlock Name="ListMessage" Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="{Binding Message}"
+                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
     </StackPanel>
   </Border>
 </UserControl>

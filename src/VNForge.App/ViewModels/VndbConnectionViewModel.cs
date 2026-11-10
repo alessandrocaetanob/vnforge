@@ -8,10 +8,28 @@ using VNForge.Vndb;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>Um campo que mudou nos dois lados, como a tabela do diálogo mostra: o valor daqui, o do VNDB e quem vale (o lado mais recente).</summary>
-public sealed record VndbConflictRow(string GameTitle, string Field, string Local, string Remote, bool LocalWins)
+/// <summary>Um campo que mudou nos dois lados, como a tabela do diálogo mostra: o valor daqui e o do VNDB, com a escolha de quem vale (começa no lado mais recente).</summary>
+public sealed partial class VndbConflictRow(string gameId, string gameTitle, string field, string local, string remote, bool localWins) : ObservableObject
 {
-    public bool RemoteWins => !LocalWins;
+    public string GameId { get; } = gameId;
+
+    public string GameTitle { get; } = gameTitle;
+
+    public string Field { get; } = field;
+
+    public string Local { get; } = local;
+
+    public string Remote { get; } = remote;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UseRemote))]
+    public partial bool UseLocal { get; set; } = localWins;
+
+    public bool UseRemote
+    {
+        get => !UseLocal;
+        set => UseLocal = !value;
+    }
 }
 
 /// <summary>
@@ -24,7 +42,6 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
 
     private readonly VndbListService service;
     private readonly TimeProvider clock;
-    private LibrarySyncPlan? pending;
     private string? lastRun;
 
     public VndbConnectionViewModel(VndbListService service, TimeProvider? clock = null)
@@ -90,6 +107,43 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
 
     /// <summary>O VNDB não respondeu ou recusou o token: o selo vermelho com o que ele disse.</summary>
     public bool HasAccountError => !ConnectionOk && AccountText.Length > 0;
+
+    /// <summary>O que a sincronização leva (os quatro campos) e se terminar aqui marca no VNDB; cada mudança vai para <c>vndb-sync.json</c>.</summary>
+    public bool SyncLabels
+    {
+        get => service.Choices.Labels;
+        set => Choose(service.Choices with { Labels = value }, nameof(SyncLabels));
+    }
+
+    public bool SyncVote
+    {
+        get => service.Choices.Vote;
+        set => Choose(service.Choices with { Vote = value }, nameof(SyncVote));
+    }
+
+    public bool SyncDates
+    {
+        get => service.Choices.Dates;
+        set => Choose(service.Choices with { Dates = value }, nameof(SyncDates));
+    }
+
+    public bool SyncNotes
+    {
+        get => service.Choices.Notes;
+        set => Choose(service.Choices with { Notes = value }, nameof(SyncNotes));
+    }
+
+    public bool MarkFinishedOnVndb
+    {
+        get => service.Choices.MarkFinishedOnVndb;
+        set => Choose(service.Choices with { MarkFinishedOnVndb = value }, nameof(MarkFinishedOnVndb));
+    }
+
+    private void Choose(VndbSyncChoices choices, string property)
+    {
+        service.Choices = choices;
+        OnPropertyChanged(property);
+    }
 
     public bool CanRemoveToken => HasToken && !IsFromEnvironment;
 
@@ -182,20 +236,19 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
         try
         {
             var plan = await service.PlanAsync(token, LibrarySyncDirection.Both);
-            var conflicts = plan.Items.SelectMany(i => i.Conflicts.Select(c => new VndbConflictRow(i.Game.Title, c.Field, c.Local, c.Remote, c.Winner == LibrarySyncWinner.Local))).ToList();
+            var conflicts = plan.Items.SelectMany(i => i.Conflicts.Select(c => new VndbConflictRow(i.Game.Id, i.Game.Title, c.Field, c.Local, c.Remote, c.Winner == LibrarySyncWinner.Local))).ToList();
             if (conflicts.Count == 0)
             {
                 await ApplyAsync(plan, token);
                 return;
             }
 
-            pending = plan;
             Conflicts = conflicts;
             OnPropertyChanged(nameof(Conflicts));
             var titles = conflicts.Select(c => c.GameTitle).Distinct().ToList();
             ConflictsIntro = titles.Count == 1
-                ? $"{titles[0]} mudou aqui e no VNDB desde a última sincronização. Vale o lado mais recente de cada campo."
-                : $"{titles.Count} jogos mudaram aqui e no VNDB desde a última sincronização. Vale o lado mais recente de cada campo.";
+                ? $"{titles[0]} foi alterado aqui e no site do VNDB desde a última sincronização. Escolha o que vale para cada campo."
+                : $"{titles.Count} jogos foram alterados aqui e no site do VNDB desde a última sincronização. Escolha o que vale para cada campo.";
             IsConflictsOpen = true;
         }
         catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException)
@@ -211,10 +264,9 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
     [RelayCommand]
     private async Task ApplyConflictsAsync()
     {
-        var plan = pending;
+        var rows = Conflicts;
         IsConflictsOpen = false;
-        pending = null;
-        if (plan is null || service.Token().Token is not { } token)
+        if (service.Token().Token is not { } token)
         {
             return;
         }
@@ -222,6 +274,9 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            // A escolha vai num novo plano: o VNDB pode ter mudado desde o primeiro, e o que a pessoa não decidiu segue a regra de sempre.
+            var chosen = rows.ToDictionary(r => (r.GameId, r.Field), r => r.UseLocal ? LibrarySyncWinner.Local : LibrarySyncWinner.Remote);
+            var plan = await service.PlanAsync(token, LibrarySyncDirection.Both, resolutions: chosen);
             await ApplyAsync(plan, token);
         }
         catch (Exception e) when (e is VndbException or LibraryException or HttpRequestException)
@@ -237,7 +292,6 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
     [RelayCommand]
     private void DecideLater()
     {
-        pending = null;
         IsConflictsOpen = false;
         Message = "Nada foi gravado, nem aqui nem no VNDB.";
     }

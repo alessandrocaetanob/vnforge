@@ -1,4 +1,3 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using VNForge.App.Services;
 using VNForge.Core.Library;
 
@@ -6,37 +5,25 @@ namespace VNForge.App.ViewModels;
 
 public sealed partial class LibraryViewModel
 {
-    private string? listMessageGame;
-
-    /// <summary>A lista do VNDB (token, leitura, gravação e envio). Sem ela a gaveta não mostra o cartão da lista.</summary>
+    /// <summary>A lista do VNDB (token, leitura, gravação e envio). Sem ela a Ficha não mostra o cartão da lista.</summary>
     public VndbListService? ListService { get; set; }
 
-    /// <summary>O que dizer sobre o último envio ou edição da lista do jogo aberto na gaveta (um erro, ou "gravado só aqui").</summary>
-    [ObservableProperty]
-    public partial string? ListMessage { get; private set; }
-
-    /// <summary>O cartão da lista para o jogo da gaveta: só existe com o serviço ligado e o jogo confirmado no VNDB.</summary>
-    internal LibraryVndbListViewModel? ListCardFor(LibraryGame game)
+    /// <summary>
+    /// O cartão da lista do VNDB para a Ficha do projeto aberto: o jogo da Biblioteca ligado à pasta do projeto, ou, sem ligação, o que tem o mesmo jogo do VNDB.
+    /// Nulo sem o serviço da lista ou quando o jogo não está na Biblioteca nem confirmado no VNDB.
+    /// </summary>
+    public LibraryVndbListViewModel? ListCardForProject(string? projectPath, string? vndbId)
     {
-        if (ListService is null || !game.IsConfirmed)
+        var found = games.FirstOrDefault(g => projectPath is not null && string.Equals(g.ProjectPath, projectPath, StringComparison.OrdinalIgnoreCase))
+            ?? games.FirstOrDefault(g => vndbId is not null && g.VndbId == vndbId);
+        if (ListService is null || found is not { IsConfirmed: true })
         {
             return null;
         }
 
-        if (game.Id != listMessageGame)
-        {
-            ListMessage = null;
-        }
-
-        return new LibraryVndbListViewModel(game, ListService, this, clock);
+        return new LibraryVndbListViewModel(found, ListService, this, clock);
     }
 
-    internal void ShowListMessage(string gameId, string? message)
-    {
-        listMessageGame = gameId;
-        ListMessage = message;
-    }
-
-    /// <summary>A lista mudou no arquivo (edição ou sincronização): relê a Biblioteca e refaz a gaveta com o que ficou lá.</summary>
+    /// <summary>A lista mudou no arquivo (edição ou sincronização): relê a Biblioteca para o resto da tela ver o que ficou lá.</summary>
     public Task ReloadListAsync() => LoadCoreAsync();
 }

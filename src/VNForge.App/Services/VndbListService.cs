@@ -8,10 +8,22 @@ namespace VNForge.App.Services;
 /// A lista do VNDB no app: o token no cofre do Windows, a leitura e a gravação do estado da lista de cada jogo no <c>library.json</c> e a sincronização com o VNDB.
 /// Faz o mesmo que <c>vnf library sync</c> e <c>vnf library status</c> (a regra de conflito é a do <see cref="LibraryListSynchronizer"/>); o token só passa pela memória.
 /// </summary>
-public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, LibraryFile file, TimeProvider? time = null, Func<string, string?>? readEnvironment = null)
+public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, LibraryFile file, TimeProvider? time = null, Func<string, string?>? readEnvironment = null, VndbSyncSettingsFile? settings = null)
 {
     private readonly TimeProvider clock = time ?? TimeProvider.System;
     private readonly LibraryListSynchronizer synchronizer = new(vndb, time);
+    private VndbSyncChoices choices = settings?.Load() ?? new VndbSyncChoices();
+
+    /// <summary>O que a sincronização leva e se terminar um jogo aqui o marca no VNDB.</summary>
+    public VndbSyncChoices Choices
+    {
+        get => choices;
+        set
+        {
+            choices = value;
+            settings?.Save(value);
+        }
+    }
 
     /// <summary>O token da variável de ambiente ou do cofre. Um cofre que não abre (outro usuário do Windows, outra máquina) vira "sem token" com o aviso, não uma exceção.</summary>
     public ResolvedVndbToken Token()
@@ -39,8 +51,19 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
 
     public Task<VndbAuthInfo> CheckAsync(string token, CancellationToken ct = default) => vndb.GetAuthInfoAsync(token, ct);
 
-    public Task<LibrarySyncPlan> PlanAsync(string token, LibrarySyncDirection direction, string? gameId = null, CancellationToken ct = default) =>
-        synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = direction, GameId = gameId }, ct);
+    /// <param name="resolutions">Quem vale em cada conflito que a pessoa já decidiu; sem a chave vale o lado mais recente.</param>
+    public Task<LibrarySyncPlan> PlanAsync(string token, LibrarySyncDirection direction, string? gameId = null, IReadOnlyDictionary<(string GameId, string Field), LibrarySyncWinner>? resolutions = null, CancellationToken ct = default) =>
+        synchronizer.PlanAsync(
+            file.Load(),
+            token,
+            new LibrarySyncOptions
+            {
+                Direction = direction,
+                GameId = gameId,
+                Fields = choices.Fields,
+                Resolutions = resolutions ?? new Dictionary<(string GameId, string Field), LibrarySyncWinner>(),
+            },
+            ct);
 
     public Task<LibrarySyncReport> ApplyAsync(LibrarySyncPlan plan, string token, CancellationToken ct = default) =>
         synchronizer.ApplyAsync(plan, token, (game, state) => file.Update(current => LibraryListSynchronizer.Keep(current, game, state)), null, ct);
@@ -61,20 +84,19 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
             return changed;
         });
 
+    public LibraryGame Game(string gameId) => file.Load().Find(gameId);
+
     /// <summary>
-    /// Marca o jogo como terminado: tira o Jogando, põe o Terminado e a data de fim de hoje (se ainda não havia). Sem token, ou sem a permissão de gravar, a marca fica só aqui;
-    /// com ele, a mudança segue para o VNDB. Devolve o que dizer à pessoa quando algo não foi enviado, ou nulo se tudo foi.
+    /// Grava a mudança só aqui e, se ela põe o rótulo Terminado e a pessoa ligou "marcar como terminado no VNDB", envia o jogo ao VNDB na hora. Sem token, ou sem a permissão
+    /// de gravar, a marca fica só aqui. Devolve o que dizer à pessoa quando o envio não foi feito, ou nulo.
     /// </summary>
-    public async Task<string?> MarkFinishedAsync(string gameId, CancellationToken ct = default)
+    public async Task<string?> EditAsync(string gameId, VndbListUpdate update, CancellationToken ct = default)
     {
-        var game = file.Load().Find(gameId);
-        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
-        Edit(gameId, new VndbListUpdate
+        Edit(gameId, update);
+        if (!choices.MarkFinishedOnVndb || !update.LabelsSet.Contains(LibraryListLabels.Finished))
         {
-            LabelsSet = [LibraryListLabels.Finished],
-            LabelsUnset = [LibraryListLabels.Playing],
-            Finished = game.CurrentList?.Fields.Finished is null ? today : default,
-        });
+            return null;
+        }
 
         var token = Token().Token;
         if (token is null)
@@ -84,7 +106,7 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
 
         try
         {
-            var plan = await PlanAsync(token, LibrarySyncDirection.Push, gameId, ct);
+            var plan = await PlanAsync(token, LibrarySyncDirection.Push, gameId, ct: ct);
             if (plan.Items.Any(i => i.RemovedOnSite))
             {
                 return "A entrada foi apagada na sua lista do VNDB; a marca ficou só aqui, para não recriar o que você apagou no site.";
@@ -97,6 +119,21 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
         {
             return "Gravado só aqui. " + e.Message;
         }
+    }
+
+    /// <summary>Tira o Jogando, põe o Terminado e a data de fim de hoje (se ainda não havia), como <see cref="EditAsync"/>.</summary>
+    public Task<string?> MarkFinishedAsync(string gameId, CancellationToken ct = default)
+    {
+        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+        return EditAsync(
+            gameId,
+            new VndbListUpdate
+            {
+                LabelsSet = [LibraryListLabels.Finished],
+                LabelsUnset = [LibraryListLabels.Playing],
+                Finished = Game(gameId).CurrentList?.Fields.Finished is null ? today : default,
+            },
+            ct);
     }
 
     /// <summary>Quantos jogos têm lista guardada e quando foi a última sincronização de qualquer um deles.</summary>

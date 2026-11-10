@@ -10,6 +10,18 @@ public enum LibrarySyncDirection
     Push,
 }
 
+/// <summary>Os campos da lista que a sincronização leva de um lado ao outro; o que fica de fora segue como está nos dois lados.</summary>
+[Flags]
+public enum LibrarySyncFields
+{
+    None = 0,
+    Labels = 1,
+    Vote = 2,
+    Dates = 4,
+    Notes = 8,
+    All = Labels | Vote | Dates | Notes,
+}
+
 public enum LibrarySyncAction
 {
     Unchanged,
@@ -62,6 +74,15 @@ public sealed record LibrarySyncOptions
     /// o que só envia a deixa como está). Não vale com <see cref="LibrarySyncDirection.Pull"/>.
     /// </summary>
     public bool RecreateRemoved { get; init; }
+
+    /// <summary>Os campos que a sincronização leva; o padrão é todos. Um campo de fora não é lido nem enviado e não entra em conflito.</summary>
+    public LibrarySyncFields Fields { get; init; } = LibrarySyncFields.All;
+
+    /// <summary>
+    /// Quem vale em cada conflito que a pessoa já decidiu, por jogo (id da biblioteca) e campo (o nome em <see cref="LibrarySyncConflict.Field"/>). Sem a chave, vale o lado mais recente,
+    /// como sempre.
+    /// </summary>
+    public IReadOnlyDictionary<(string GameId, string Field), LibrarySyncWinner> Resolutions { get; init; } = new Dictionary<(string GameId, string Field), LibrarySyncWinner>();
 }
 
 public sealed record LibrarySyncProgress(int Done, int Total, LibraryGame Game);
@@ -119,10 +140,10 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 {
     private static readonly Scalar[] Scalars =
     [
-        new("voto", f => f.Vote, (f, v) => f with { Vote = (int?)v }, v => v is int vote ? LibraryListRules.FormatVote(vote) : "nenhum"),
-        new("início", f => f.Started, (f, v) => f with { Started = (DateOnly?)v }, ShowDate),
-        new("fim", f => f.Finished, (f, v) => f with { Finished = (DateOnly?)v }, ShowDate),
-        new("notas", f => f.Notes, (f, v) => f with { Notes = (string?)v }, ShowNotes),
+        new("voto", f => f.Vote, (f, v) => f with { Vote = (int?)v }, v => v is int vote ? LibraryListRules.FormatVote(vote) : "nenhum", LibrarySyncFields.Vote),
+        new("início", f => f.Started, (f, v) => f with { Started = (DateOnly?)v }, ShowDate, LibrarySyncFields.Dates),
+        new("fim", f => f.Finished, (f, v) => f with { Finished = (DateOnly?)v }, ShowDate, LibrarySyncFields.Dates),
+        new("notas", f => f.Notes, (f, v) => f with { Notes = (string?)v }, ShowNotes, LibrarySyncFields.Notes),
     ];
 
     private readonly IVndbUserList _vndb = vndb ?? throw new ArgumentNullException(nameof(vndb));
@@ -159,7 +180,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
         var remote = list.Items.ToDictionary(e => e.VisualNovelId, StringComparer.Ordinal);
         var now = _time.GetUtcNow();
-        var steps = games.Select(g => Plan(g, remote.GetValueOrDefault(g.VndbId!), options.Direction, options.RecreateRemoved && options.Direction != LibrarySyncDirection.Pull, now)).ToList();
+        var steps = games.Select(g => Plan(g, remote.GetValueOrDefault(g.VndbId!), options, now)).ToList();
         if (steps.Any(s => s.Update is not null) && !account.Permissions.Contains("listwrite"))
         {
             throw new LibraryException("O token não tem a permissão listwrite, e há mudanças para enviar. Gere outro em vndb.org/u/tokens com a escrita da lista, ou use --pull.");
@@ -278,8 +299,10 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     private static string ShowNotes(object? value) => value is string { Length: > 0 } text ? (text.Length <= 40 ? text : text[..40] + "...") : "nenhuma";
 
-    private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncDirection direction, bool recreate, DateTimeOffset now)
+    private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncOptions options, DateTimeOffset now)
     {
+        var direction = options.Direction;
+        var recreate = options.RecreateRemoved && direction != LibrarySyncDirection.Pull;
         var state = game.CurrentList;
         if (state is null && (entry is null || direction == LibrarySyncDirection.Push))
         {
@@ -308,11 +331,12 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         var newLocal = local;
         var newRemote = remote;
 
-        foreach (var scalar in Scalars)
+        foreach (var scalar in Scalars.Where(s => options.Fields.HasFlag(s.Group)))
         {
             var l = scalar.Get(local);
             var r = scalar.Get(remote);
-            switch (DecideScalar(scalar, l, r, scalar.Get(baseFields), hasBase, direction, localNewer, conflicts))
+            LibrarySyncWinner? chosen = options.Resolutions.TryGetValue((game.Id, scalar.Name), out var decided) ? decided : null;
+            switch (DecideScalar(scalar, l, r, scalar.Get(baseFields), hasBase, direction, localNewer, conflicts, chosen))
             {
                 case Move.Pull:
                     newLocal = scalar.Set(newLocal, r);
@@ -325,7 +349,9 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             }
         }
 
-        var (labelsLocal, labelsRemote, labelsPulled, labelsPushed) = MergeLabels(local, remote, baseFields, hasBase, direction);
+        var (labelsLocal, labelsRemote, labelsPulled, labelsPushed) = options.Fields.HasFlag(LibrarySyncFields.Labels)
+            ? MergeLabels(local, remote, baseFields, hasBase, direction)
+            : (local.Labels, remote.Labels, false, false);
         newLocal = newLocal with { Labels = labelsLocal };
         newRemote = newRemote with { Labels = labelsRemote };
         if (labelsPulled)
@@ -362,7 +388,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         return new LibrarySyncStep(item, newState, changed, update);
     }
 
-    private static Move DecideScalar(Scalar scalar, object? l, object? r, object? b, bool hasBase, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts)
+    private static Move DecideScalar(Scalar scalar, object? l, object? r, object? b, bool hasBase, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts, LibrarySyncWinner? chosen)
     {
         if (Equals(l, r))
         {
@@ -399,10 +425,12 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
         if (conflict)
         {
-            wanted = direction switch
+            wanted = (chosen, direction) switch
             {
-                LibrarySyncDirection.Pull => Move.Pull,
-                LibrarySyncDirection.Push => Move.Push,
+                (LibrarySyncWinner.Local, _) => Move.Push,
+                (LibrarySyncWinner.Remote, _) => Move.Pull,
+                (_, LibrarySyncDirection.Pull) => Move.Pull,
+                (_, LibrarySyncDirection.Push) => Move.Push,
                 _ => localNewer ? Move.Push : Move.Pull,
             };
             conflicts.Add(new LibrarySyncConflict(scalar.Name, scalar.Show(l), scalar.Show(r), wanted == Move.Push ? LibrarySyncWinner.Local : LibrarySyncWinner.Remote));
@@ -521,5 +549,5 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         where T : struct =>
         Equals(before, after) ? default : after is { } value ? VndbChange<T>.Set(value) : VndbChange<T>.Clear;
 
-    private sealed record Scalar(string Name, Func<LibraryListFields, object?> Get, Func<LibraryListFields, object?, LibraryListFields> Set, Func<object?, string> Show);
+    private sealed record Scalar(string Name, Func<LibraryListFields, object?> Get, Func<LibraryListFields, object?, LibraryListFields> Set, Func<object?, string> Show, LibrarySyncFields Group);
 }

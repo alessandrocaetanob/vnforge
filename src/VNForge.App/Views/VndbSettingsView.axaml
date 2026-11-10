@@ -42,11 +42,14 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="lib-card" Padding="24">
-      <StackPanel Spacing="8">
+    <Border Name="WhatSyncs" Classes="lib-card" Padding="24">
+      <StackPanel Spacing="12">
         <TextBlock Classes="lib-h3" Text="O que sincroniza"/>
-        <TextBlock Classes="lib-dim" TextWrapping="Wrap"
-                   Text="Os rótulos (Jogando, Terminado, Abandonado e os outros), o voto, as datas de início e de fim e as notas, nos dois sentidos. Se os dois lados mudaram o mesmo campo, vale o mais recente e o app mostra os dois valores antes de gravar."/>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding SyncLabels}" AutomationProperties.Name="Rótulos"/><TextBlock VerticalAlignment="Center" Text="Rótulos (Jogando, Terminado, Abandonado)"/></StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding SyncVote}" AutomationProperties.Name="Voto"/><TextBlock VerticalAlignment="Center" Text="Voto"/></StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding SyncDates}" AutomationProperties.Name="Datas de início e fim"/><TextBlock VerticalAlignment="Center" Text="Datas de início e fim"/></StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding SyncNotes}" AutomationProperties.Name="Notas"/><TextBlock VerticalAlignment="Center" Text="Notas"/></StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding MarkFinishedOnVndb}" AutomationProperties.Name="Marcar como terminado no VNDB quando eu terminar aqui"/><TextBlock VerticalAlignment="Center" Text="Marcar como terminado no VNDB quando eu terminar aqui"/></StackPanel>
       </StackPanel>
     </Border>
 
@@ -88,8 +91,12 @@
                         <TextBlock FontWeight="SemiBold" Text="{Binding Field}"/>
                         <TextBlock Classes="lib-dim" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding GameTitle}"/>
                       </StackPanel>
-                      <Border Grid.Column="1" Classes="conflict-opt" Classes.on="{Binding LocalWins}"><TextBlock TextWrapping="Wrap" Text="{Binding Local}"/></Border>
-                      <Border Grid.Column="2" Classes="conflict-opt" Classes.on="{Binding RemoteWins}"><TextBlock TextWrapping="Wrap" Text="{Binding Remote}"/></Border>
+                      <RadioButton Grid.Column="1" Classes="option marked" IsChecked="{Binding UseLocal, Mode=TwoWay}" AutomationProperties.Name="Valer o que está no VNForge">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><Border Classes="radio-mark"/><TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Local}"/></StackPanel>
+                      </RadioButton>
+                      <RadioButton Grid.Column="2" Classes="option marked" IsChecked="{Binding UseRemote, Mode=TwoWay}" AutomationProperties.Name="Valer o que está no VNDB">
+                        <StackPanel Orientation="Horizontal" Spacing="8"><Border Classes="radio-mark"/><TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Remote}"/></StackPanel>
+                      </RadioButton>
                     </Grid>
                   </Border>
                 </DataTemplate>
@@ -97,7 +104,7 @@
             </ItemsControl>
           </StackPanel>
         </Border>
-        <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="O lado marcado é o que vale. Nada é gravado até você confirmar."/>
+        <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="Nada é gravado até você confirmar."/>
       </StackPanel>
       <c:ScreenDialog.Footer>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
@@ -105,7 +112,7 @@
           <Button Name="ApplyConflictsButton" Classes="accent lg" Command="{Binding ApplyConflictsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
-              <TextBlock Text="Sincronizar assim"/>
+              <TextBlock Text="Aplicar escolhas"/>
             </StackPanel>
           </Button>
         </StackPanel>

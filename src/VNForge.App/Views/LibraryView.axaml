@@ -324,10 +324,6 @@
                 </ItemsControl>
               </StackPanel>
 
-              <Panel IsVisible="{Binding ListCard, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <v:LibraryVndbListCard DataContext="{Binding ListCard}"/>
-              </Panel>
-
               <StackPanel Spacing="16" IsVisible="{Binding HasTranslation}">
                 <Border Classes="lib-hr"/>
                 <StackPanel>

@@ -9,7 +9,10 @@ public partial class LibraryVndbListCard : UserControl
     public LibraryVndbListCard()
     {
         InitializeComponent();
-        // As notas só vão para o arquivo quando a pessoa sai do campo.
-        this.Get<TextBox>("NotesBox").LostFocus += (_, _) => (DataContext as LibraryVndbListViewModel)?.CommitNotesCommand.Execute(null);
+        // Voto, datas e notas só vão para o arquivo quando a pessoa sai do campo.
+        foreach (var name in new[] { "VoteBox", "StartedBox", "FinishedBox", "NotesBox" })
+        {
+            this.Get<TextBox>(name).LostFocus += (_, _) => (DataContext as LibraryVndbListViewModel)?.CommitCommand.Execute(null);
+        }
     }
 }
