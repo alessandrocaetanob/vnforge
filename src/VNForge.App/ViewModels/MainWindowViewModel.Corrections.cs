@@ -45,7 +45,7 @@ public sealed partial class MainWindowViewModel
         scanningCorrections = true;
         try
         {
-            found = await Task.Run(() => CorrectionLearner.Find(ProjectFolder.Open(root).LoadAllText().SelectMany(script => script.Value.Select(unit => (script.Key, unit)))));
+            found = await Task.Run(() => CorrectionLearner.Find(ProjectFolder.Open(root).LoadAllText().SelectMany(script => script.Value.Select(unit => (script.Key, unit)))), CancellationToken.None);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
         {
