@@ -50,7 +50,7 @@
       <Button Classes="libcard" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}"
               AutomationProperties.Name="{Binding AutomationName}">
         <Grid RowDefinitions="*,Auto">
-          <ContentControl ContentTemplate="{StaticResource CoverTemplate}" Content="{Binding}"/>
+          <ContentControl Classes="libcover" ContentTemplate="{StaticResource CoverTemplate}" Content="{Binding}"/>
           <StackPanel Grid.Row="1" Margin="0,8,0,0">
             <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
             <TextBlock Classes="lib-cs" Text="{Binding Subtitle}"/>

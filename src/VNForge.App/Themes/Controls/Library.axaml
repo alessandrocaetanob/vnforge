@@ -77,6 +77,9 @@
     <Setter Property="Margin" Value="0,-6,-12,-6"/>
   </Style>
   <!-- O contorno da capa escolhida passa da caixa do cartão: nenhum apresentador no caminho pode cortá-lo. -->
+  <Style Selector="ContentControl.libcover /template/ ContentPresenter">
+    <Setter Property="ClipToBounds" Value="False"/>
+  </Style>
   <Style Selector="ItemsControl.libgrid ContentPresenter">
     <Setter Property="ClipToBounds" Value="False"/>
   </Style>

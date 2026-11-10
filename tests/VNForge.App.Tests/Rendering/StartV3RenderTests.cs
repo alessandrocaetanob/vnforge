@@ -35,6 +35,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 start.Detail.Context = () => new DashboardContext(new ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new BudgetLimits(300m, 50m), true);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
@@ -121,6 +122,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 start.Detail.Context = () => new DashboardContext(new ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new BudgetLimits(300m, 50m), true);
                 var window = new MainWindow { Width = 1366, Height = 768, RequestedThemeVariant = theme, DataContext = vm };
                 try
@@ -167,6 +169,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey(null, ApiKeySource.None));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
@@ -218,6 +221,7 @@ public sealed class StartV3RenderTests(HeadlessFixture fixture, DemoFolderFixtur
                 var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
                 var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {

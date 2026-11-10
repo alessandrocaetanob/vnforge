@@ -363,10 +363,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
-    public partial object CurrentPage { get; private set; }
+    public partial object CurrentPage { get; internal set; }
 
     /// <summary>A página é a Biblioteca: a barra de status mostra só a versão e o estado da chave.</summary>
-    public bool IsStartPage => CurrentPage is LibraryViewModel;
+    public bool IsStartPage => CurrentPage is LibraryViewModel or StartViewModel;
 
     /// <summary>"VNForge 0.1.0", a versão do app na barra de status.</summary>
     public string AppVersionText { get; } = $"VNForge {AppVersion()}";
