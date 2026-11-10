@@ -14,8 +14,8 @@
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
             <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="body-strong" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
-              <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+              <SelectableTextBlock Name="PART_Title" Classes="body-strong" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Title}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"/>
+              <SelectableTextBlock Name="PART_Message" Classes="body-sm secondary" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Message}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"
                          IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
@@ -39,8 +39,8 @@
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="20,17">
               <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
               <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock Classes="title-md" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
-                <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+                <SelectableTextBlock Name="PART_Title" Classes="title-md" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Title}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"/>
+                <SelectableTextBlock Name="PART_Message" Classes="body-sm secondary" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Message}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"
                            IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               </StackPanel>
               <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>

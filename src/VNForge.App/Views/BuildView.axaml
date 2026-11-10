@@ -101,7 +101,7 @@
       </c:GameStateBanner>
 
       <!-- O teste que parou: a primeira frase em destaque e o caminho para o registro, que fica em Detalhes técnicos. -->
-      <c:GameStateBanner State="Blocked" Title="{Binding ErrorTitle}" Message="{Binding ErrorDetail}" AutomationProperties.Name="Mensagem de erro"
+      <c:GameStateBanner State="Blocked" Title="{Binding ErrorTitle}" Message="{Binding ErrorDetail}" AutomationProperties.Name="Mensagem de erro" MessageLinkCommand="{Binding OpenLineCommand}"
                          IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Button Classes="subtle sm" Click="OpenTechnical_Click" AutomationProperties.Name="Abrir detalhes técnicos">
           <StackPanel Orientation="Horizontal" Spacing="8">

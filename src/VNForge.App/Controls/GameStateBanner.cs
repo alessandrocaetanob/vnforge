@@ -32,6 +32,10 @@ public sealed class GameStateBanner : ContentControl
     public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<GameStateBanner, string?>(nameof(Title));
     public static readonly StyledProperty<string?> MessageProperty = AvaloniaProperty.Register<GameStateBanner, string?>(nameof(Message));
 
+    /// <summary>Abre a linha citada na frase (<see cref="LineLinks"/>): sem comando, a frase é só texto selecionável.</summary>
+    public static readonly StyledProperty<System.Windows.Input.ICommand?> MessageLinkCommandProperty =
+        AvaloniaProperty.Register<GameStateBanner, System.Windows.Input.ICommand?>(nameof(MessageLinkCommand));
+
     public static readonly StyledProperty<object?> FooterProperty = AvaloniaProperty.Register<GameStateBanner, object?>(nameof(Footer));
 
     public GameStateBanner() => ApplyState();
@@ -52,6 +56,12 @@ public sealed class GameStateBanner : ContentControl
     {
         get => GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
+    }
+
+    public System.Windows.Input.ICommand? MessageLinkCommand
+    {
+        get => GetValue(MessageLinkCommandProperty);
+        set => SetValue(MessageLinkCommandProperty, value);
     }
 
     public string? Message
