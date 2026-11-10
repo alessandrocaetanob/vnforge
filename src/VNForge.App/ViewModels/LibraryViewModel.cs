@@ -53,6 +53,9 @@ public sealed partial class LibraryFilterChipViewModel(LibraryFilter filter, str
 /// </summary>
 public sealed partial class LibraryViewModel : ObservableObject
 {
+    private const int ContinueMax = 3;
+    private static readonly TimeSpan ContinueWindow = TimeSpan.FromDays(30);
+
     private readonly LibraryFile? file;
     private readonly IFolderPicker picker;
     private readonly LibraryScanService? scanService;
@@ -63,11 +66,14 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly ILibrarySheetSource? sheets;
     private readonly UserTagsFile? tagsFile;
     private readonly Action<string> openFolder;
+    private readonly GamePlayer? player;
+    private readonly PlayLogFile? playLog;
     private readonly Action<Action> post;
     private readonly Dictionary<string, StatusCounts?> translations = new(StringComparer.Ordinal);
     private List<LibraryGame> games = [];
     private GameLibrary library = new();
     private UserTags userTags = new();
+    private PlayLog played = new();
     private readonly List<string> waitingFolders = [];
     private CancellationTokenSource? scanning;
     private bool applyingRoot;
@@ -88,7 +94,9 @@ public sealed partial class LibraryViewModel : ObservableObject
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
         Action<string>? openFolder = null,
-        UserTagsFile? tagsFile = null)
+        UserTagsFile? tagsFile = null,
+        GamePlayer? player = null,
+        PlayLogFile? playLog = null)
     {
         this.file = file;
         this.picker = picker;
@@ -100,6 +108,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         readUserTags = userTags ?? (tagsFile is null ? () => new UserTags() : tagsFile.Load);
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
+        this.player = player;
+        this.playLog = playLog;
         this.post = post;
         Filters =
         [
@@ -138,6 +148,16 @@ public sealed partial class LibraryViewModel : ObservableObject
     public IReadOnlyList<LibraryFilterChipViewModel> Filters { get; }
 
     public ObservableCollection<LibraryCardViewModel> Cards { get; } = [];
+
+    /// <summary>"Continuar jogando": até três jogos dos últimos 30 dias, o último jogado primeiro.</summary>
+    public ObservableCollection<LibraryContinueViewModel> Continue { get; } = [];
+
+    public bool HasContinue => Continue.Count > 0;
+
+    /// <summary>O id do jogo que esta janela abriu e ainda está aberto; nulo quando nenhum.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PlayCommand))]
+    public partial string? PlayingId { get; private set; }
 
     public LibraryMatchViewModel Match { get; }
 
@@ -341,16 +361,19 @@ public sealed partial class LibraryViewModel : ObservableObject
         GameLibrary loaded;
         Dictionary<string, StatusCounts?> counts = new(StringComparer.Ordinal);
         UserTags tags;
+        PlayLog playedNow;
         try
         {
             var recent = RecentProjects();
-            (loaded, counts, tags, error) = await Task.Run(() => Read(recent), CancellationToken.None);
+            (loaded, counts, tags, playedNow, var warning) = await Task.Run(() => Read(recent), CancellationToken.None);
+            error = warning;
         }
         catch (LibraryException e)
         {
             error = e.Message;
             loaded = new GameLibrary();
             tags = new UserTags();
+            playedNow = new PlayLog();
         }
 
         if (generation != loadGeneration)
@@ -367,6 +390,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             Tags.Adopt(tags.SavedFilter);
         }
 
+        played = playedNow;
         games = [.. loaded.Sorted()];
         translations.Clear();
         foreach (var pair in counts)
@@ -396,12 +420,12 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, string? Error) Read(IReadOnlyList<string> recent)
+    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, PlayLog Played, string? Warning) Read(IReadOnlyList<string> recent)
     {
         var (tags, tagsError) = ReadTags();
         if (file is null)
         {
-            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), tags, tagsError);
+            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), tags, new PlayLog(), tagsError);
         }
 
         var current = file.Load();
@@ -420,7 +444,19 @@ public sealed partial class LibraryViewModel : ObservableObject
             counts[game.Id] = readTranslation(game);
         }
 
-        return (current, counts, tags, tagsError);
+        // O tempo de jogo ilegível não esconde a Biblioteca: avisa, e o arquivo fica como está até a pessoa resolver.
+        var playedNow = new PlayLog();
+        string? playWarning = null;
+        try
+        {
+            playedNow = playLog?.Load() ?? playedNow;
+        }
+        catch (LibraryException e)
+        {
+            playWarning = e.Message;
+        }
+
+        return (current, counts, tags, playedNow, tagsError ?? playWarning);
     }
 
     private int? PercentOf(LibraryGame game) =>
@@ -440,6 +476,25 @@ public sealed partial class LibraryViewModel : ObservableObject
         Refilter();
     }
 
+    // Sai da lista que a grade mostra (filtro, busca e privacidade), para um jogo que a grade não mostra não aparecer no topo.
+    private void RedrawContinue(IEnumerable<LibraryGame> shown)
+    {
+        var now = clock.GetUtcNow();
+        Continue.Clear();
+        foreach (var game in played.ByLastPlayed([.. shown]))
+        {
+            if (Continue.Count == ContinueMax || played.StatsOf(game.Id) is not { LastPlayedAt: { } last } stats || now - last > ContinueWindow)
+            {
+                break;
+            }
+
+            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))) { IsPlaying = game.Id == PlayingId };
+            Continue.Add(new LibraryContinueViewModel(card, $"{PlayTime.LastPlayed(last, now)} · {PlayTime.Format(stats.Total)}"));
+        }
+
+        OnPropertyChanged(nameof(HasContinue));
+    }
+
     private void Refilter()
     {
         foreach (var chip in Filters)
@@ -452,10 +507,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         Cards.Clear();
         foreach (var game in shown)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), Tags.CardChips(game)));
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
         }
 
         Subtitle = SubtitleText();
+        RedrawContinue(shown);
         HasNoResults = games.Count > 0 && Cards.Count == 0;
         OnPropertyChanged(nameof(HasFilter));
         Select(Cards.FirstOrDefault(c => c.Id == selectedId));
@@ -528,7 +584,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         Drawer = new LibraryDrawerViewModel(
             card,
             LibraryDrawers.Describe(game, library.Privacy, userTags, sheets?.SheetOf(game), translations.GetValueOrDefault(game.Id)),
-            this);
+            this,
+            PlayTime.Summary(played.StatsOf(game.Id), clock.GetUtcNow()));
     }
 
     [RelayCommand]
@@ -541,6 +598,74 @@ public sealed partial class LibraryViewModel : ObservableObject
         if ((card ?? Selected) is { } target)
         {
             GameOpenRequested?.Invoke(this, target.Game);
+        }
+    }
+
+    /// <summary>
+    /// "Jogar": abre o jogo (pelo Locale Emulator se ele pede localidade japonesa) e conta o tempo até o processo e os filhos fecharem. O <c>library.json</c> é relido aqui, para valer
+    /// o que os Ajustes e a gaveta acabaram de gravar. Um jogo por vez nesta janela; quando fecha, "Continuar jogando" é redesenhado com o tempo novo.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanPlay))]
+    private async Task PlayAsync(LibraryCardViewModel? card)
+    {
+        if ((card ?? Selected) is not { } target || player is null || file is null)
+        {
+            return;
+        }
+
+        var id = target.Id;
+        try
+        {
+            var launch = await Task.Run(() =>
+            {
+                var current = file.Load();
+                return GameLaunchPlanner.Plan(current, current.Find(id));
+            }, CancellationToken.None);
+            SetPlaying(id);
+            await Task.Run(() => player.PlayAsync(id, launch, CancellationToken.None), CancellationToken.None);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Um jogo apagado entre o clique e o plano, ou um lançador que falha com outra exceção, aparece como as demais falhas.
+            ErrorMessage = e.Message;
+            return;
+        }
+        finally
+        {
+            SetPlaying(null);
+        }
+
+        // A releitura limpa o aviso; o que apareceu durante a partida (a sessão que não gravou) tem de continuar na tela.
+        var problem = ErrorMessage;
+        await LoadCoreAsync();
+        ErrorMessage ??= problem;
+    }
+
+    private bool CanPlay() => PlayingId is null && player is not null;
+
+    private void SetPlaying(string? id)
+    {
+        PlayingId = id;
+        foreach (var card in Cards.Concat(Continue.Select(c => c.Card)))
+        {
+            card.IsPlaying = id is not null && card.Id == id;
+        }
+    }
+
+    /// <summary>Grava o "pede localidade japonesa" da gaveta; uma gravação por vez, e a lista é relida para o cartão guardar o jogo como ficou.</summary>
+    internal void RememberJapaneseLocale(LibraryCardViewModel card, bool value) =>
+        Remembering = RememberJapaneseLocaleAsync(Remembering, card.Id, value);
+
+    private async Task RememberJapaneseLocaleAsync(Task previous, string id, bool value)
+    {
+        await Task.WhenAny(previous);
+        if (editor is not null)
+        {
+            if (!await RunEditAsync(() => editor.SetJapaneseLocale(id, value), id))
+            {
+                // Não gravou: a gaveta nova volta o interruptor ao valor que está no library.json.
+                Select(Cards.FirstOrDefault(c => c.Id == id));
+            }
         }
     }
 
@@ -590,7 +715,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private async Task RunEditAsync<T>(Func<T> edit, string? keep)
+    private async Task<bool> RunEditAsync<T>(Func<T> edit, string? keep)
     {
         try
         {
@@ -599,7 +724,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         catch (LibraryException e)
         {
             ErrorMessage = e.Message;
-            return;
+            return false;
         }
 
         await LoadCoreAsync();
@@ -607,6 +732,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             Select(Cards.FirstOrDefault(c => c.Id == keep));
         }
+
+        return true;
     }
 
     internal async Task<LibraryGame?> ConfirmMatchAsync(string gameId, string vndbId)

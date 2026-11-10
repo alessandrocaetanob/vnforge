@@ -14,6 +14,7 @@ using VNForge.Core.Library;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
+using VNForge.Platform.Windows;
 
 namespace VNForge.App;
 
@@ -49,6 +50,7 @@ public sealed class App : Application
             var start = new StartViewModel(new RecentProjectsFile(configDirectory), picker, TimeProvider.System);
             var appSettings = new AppSettingsFile(configDirectory);
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), appSettings);
+            settings.LocaleEmulator = new LocaleEmulatorSettingsViewModel(new LibraryFile(configDirectory), picker);
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
@@ -112,9 +114,10 @@ public sealed class App : Application
     }
 
     /// <summary>A Biblioteca do app: o mesmo <c>library.json</c> da CLI e do cache de imagens, a varredura e o casamento com o VNDB pelo cliente com cache que o chamador passa.</summary>
-    internal static LibraryViewModel CreateLibrary(string configDirectory, IFolderPicker picker, IReadOnlyList<VNForge.Core.Engines.IEngine> engines, Action<Action> post, VNForge.Core.Vndb.IVndbCatalog vndb)
+    internal static LibraryViewModel CreateLibrary(string configDirectory, IFolderPicker picker, IReadOnlyList<VNForge.Core.Engines.IEngine> engines, Action<Action> post, VNForge.Core.Vndb.IVndbCatalog vndb, IGameLauncher? launcher = null)
     {
         var file = new LibraryFile(configDirectory);
+        var playLog = new PlayLogFile(configDirectory);
         LibraryViewModel? library = null;
         var scan = new LibraryScanService(
             file,
@@ -129,6 +132,8 @@ public sealed class App : Application
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager,
-            tagsFile: new UserTagsFile(configDirectory));
+            tagsFile: new UserTagsFile(configDirectory),
+            player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
+            playLog: playLog);
     }
 }

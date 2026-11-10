@@ -61,4 +61,16 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>O jogo está aberto agora, aberto por esta janela: a gaveta troca o Jogar por "Jogando".</summary>
+    [ObservableProperty]
+    public partial bool IsPlaying { get; set; }
+}
+
+/// <summary>Um jogo de "Continuar jogando", no topo da Biblioteca: o cartão dele e a linha "Hoje, 21:14 · 27 h 40 min".</summary>
+public sealed record LibraryContinueViewModel(LibraryCardViewModel Card, string Detail)
+{
+    public string Title => Card.Title;
+
+    public string AutomationName => $"{Card.Title}. {Detail}";
 }

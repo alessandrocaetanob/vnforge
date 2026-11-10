@@ -31,8 +31,10 @@ public enum LibraryDrawerChipKind
     Add,
 }
 
-public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library) : ObservableObject
+public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "") : ObservableObject
 {
+    private bool japaneseLocale = card.Game.RequiresJapaneseLocale;
+
     public LibraryCardViewModel Card { get; } = card;
 
     public LibraryViewModel Library { get; } = library;
@@ -187,4 +189,21 @@ public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, Li
     public bool IsMatched => Card.Game.IsConfirmed;
 
     public bool CanTranslate => Card.Game.Engine.Translatable;
+
+    /// <summary>O tempo de jogo em uma linha, vindo do <c>playtime.json</c>.</summary>
+    public string PlayedText { get; } = playedText;
+
+    /// <summary>O jogo pede a localidade japonesa: o Jogar abre pelo Locale Emulator. Mudar grava no <c>library.json</c>.</summary>
+    public bool RequiresJapaneseLocale
+    {
+        get => japaneseLocale;
+        set
+        {
+            if (japaneseLocale != value)
+            {
+                japaneseLocale = value;
+                Library.RememberJapaneseLocale(Card, value);
+            }
+        }
+    }
 }
