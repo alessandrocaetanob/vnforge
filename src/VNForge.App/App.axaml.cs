@@ -56,6 +56,11 @@ public sealed class App : Application
             // Um só cliente: o limite de requisições por segundo do VNDB vale para a Biblioteca e para o assistente de novo projeto juntos.
             var vndb = VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"));
             var library = CreateLibrary(configDirectory, picker, [new YuRisEngine()], a => Avalonia.Threading.Dispatcher.UIThread.Post(a), vndb);
+            // O token do VNDB vai para o cofre do Windows, como a chave da Anthropic; a lista mora no mesmo library.json.
+            var vndbList = new VndbListService(new VNForge.Vndb.DpapiVndbTokenStore(configDirectory), vndb, new LibraryFile(configDirectory));
+            library.ListService = vndbList;
+            settings.Vndb = new VndbConnectionViewModel(vndbList);
+            settings.Vndb.ListChanged += (_, _) => _ = library.ReloadListAsync();
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: vndb) { PersonalGlossary = new PersonalGlossary(configDirectory) },
                 library: library)

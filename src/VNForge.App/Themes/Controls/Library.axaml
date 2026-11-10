@@ -285,4 +285,19 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="0,0,0,1"/>
   </Style>
+  <!-- Uma das duas opções de um campo no diálogo "A lista mudou nos dois lados"; a que vale ganha accent-soft e borda accent. -->
+  <Style Selector="Border.conflict-opt">
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+  </Style>
+  <Style Selector="Border.conflict-opt.on">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="Border.conflict-opt.on > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
 </Styles>

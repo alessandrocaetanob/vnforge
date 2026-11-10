@@ -27,6 +27,9 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
 
     public LibraryViewModel Library { get; } = library;
 
+    /// <summary>O cartão "Na sua lista do VNDB"; nulo sem o serviço da lista ou com o jogo ainda sem confirmação.</summary>
+    public LibraryVndbListViewModel? ListCard { get; } = library.ListCardFor(card.Game);
+
     public string Title => Card.Title;
 
     public string? OriginalTitle => Card.OriginalTitle;

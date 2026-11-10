@@ -402,6 +402,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(PageMaxWidth))]
     public partial int SelectedTab { get; set; }
 
+    /// <summary>A aba VNDB (token e sincronização da lista); nula, a aba fica escondida. O App liga o serviço real ao montar a janela.</summary>
+    [ObservableProperty]
+    public partial VndbConnectionViewModel? Vndb { get; set; }
+
     /// <summary>Largura máxima da página: 960 nas abas de sempre e 1100 na aba Dicionários (#539), que tem o quadro aprovado nessa largura.</summary>
     public double PageMaxWidth => SelectedTab == DictionariesTab ? 1100 : 960;
 

@@ -1,0 +1,97 @@
+using VNForge.Core.Library;
+using VNForge.Core.Vndb;
+using VNForge.Vndb;
+
+namespace VNForge.App.Services;
+
+/// <summary>
+/// A lista do VNDB no app: o token no cofre do Windows, a leitura e a gravação do estado da lista de cada jogo no <c>library.json</c> e a sincronização com o VNDB.
+/// Faz o mesmo que <c>vnf library sync</c> e <c>vnf library status</c> (a regra de conflito é a do <see cref="LibraryListSynchronizer"/>); o token só passa pela memória.
+/// </summary>
+public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, LibraryFile file, TimeProvider? time = null, Func<string, string?>? readEnvironment = null)
+{
+    private readonly TimeProvider clock = time ?? TimeProvider.System;
+    private readonly LibraryListSynchronizer synchronizer = new(vndb, time);
+
+    public ResolvedVndbToken Token() => VndbTokenResolver.Resolve(store, readEnvironment);
+
+    /// <summary>Confere o token no VNDB e, se ele vale, guarda no cofre.</summary>
+    public async Task<VndbAuthInfo> SaveTokenAsync(string token, CancellationToken ct = default)
+    {
+        token = token.Trim();
+        var account = await vndb.GetAuthInfoAsync(token, ct);
+        store.Save(token);
+        return account;
+    }
+
+    public bool RemoveToken() => store.Delete();
+
+    public Task<VndbAuthInfo> CheckAsync(string token, CancellationToken ct = default) => vndb.GetAuthInfoAsync(token, ct);
+
+    public Task<LibrarySyncPlan> PlanAsync(string token, LibrarySyncDirection direction, string? gameId = null, CancellationToken ct = default) =>
+        synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = direction, GameId = gameId }, ct);
+
+    public Task<LibrarySyncReport> ApplyAsync(LibrarySyncPlan plan, string token, CancellationToken ct = default) =>
+        synchronizer.ApplyAsync(plan, token, (game, state) => file.Update(current => LibraryListSynchronizer.Keep(current, game, state)), null, ct);
+
+    /// <summary>Grava a mudança só aqui (como <c>vnf library status</c>): o VNDB só a recebe na próxima sincronização.</summary>
+    /// <exception cref="LibraryException">O jogo não está confirmado no VNDB.</exception>
+    public LibraryGame Edit(string gameId, VndbListUpdate update) =>
+        file.Update(current =>
+        {
+            var game = current.Find(gameId);
+            if (!game.IsConfirmed)
+            {
+                throw new LibraryException($"'{game.Title}' não tem jogo do VNDB confirmado; confirme o jogo antes de mexer na lista.");
+            }
+
+            var changed = game with { List = LibraryListState.Edit(game.CurrentList, game.VndbId!, update, clock.GetUtcNow()) };
+            current.Replace(changed);
+            return changed;
+        });
+
+    /// <summary>
+    /// Marca o jogo como terminado: tira o Jogando, põe o Terminado e a data de fim de hoje (se ainda não havia). Sem token, ou sem a permissão de gravar, a marca fica só aqui;
+    /// com ele, a mudança segue para o VNDB. Devolve o que dizer à pessoa quando algo não foi enviado, ou nulo se tudo foi.
+    /// </summary>
+    public async Task<string?> MarkFinishedAsync(string gameId, CancellationToken ct = default)
+    {
+        var game = file.Load().Find(gameId);
+        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+        Edit(gameId, new VndbListUpdate
+        {
+            LabelsSet = [LibraryListLabels.Finished],
+            LabelsUnset = [LibraryListLabels.Playing],
+            Finished = game.CurrentList?.Fields.Finished is null ? today : default,
+        });
+
+        var token = Token().Token;
+        if (token is null)
+        {
+            return "Gravado só aqui: sem o token do VNDB em Ajustes, nada foi enviado.";
+        }
+
+        try
+        {
+            var plan = await PlanAsync(token, LibrarySyncDirection.Push, gameId, ct);
+            if (plan.Items.Any(i => i.RemovedOnSite))
+            {
+                return "A entrada foi apagada na sua lista do VNDB; a marca ficou só aqui, para não recriar o que você apagou no site.";
+            }
+
+            var report = await ApplyAsync(plan, token, ct);
+            return report.AbortReason ?? report.Items.FirstOrDefault(i => i.Error is not null)?.Error;
+        }
+        catch (Exception e) when (e is VndbException or LibraryException)
+        {
+            return "Gravado só aqui. " + e.Message;
+        }
+    }
+
+    /// <summary>Quantos jogos têm lista guardada e quando foi a última sincronização de qualquer um deles.</summary>
+    public (int Games, DateTimeOffset? LastSync) Summary()
+    {
+        var states = file.Load().Games.Select(g => g.CurrentList).OfType<LibraryListState>().ToList();
+        return (states.Count, states.Max(s => s.SyncedAt));
+    }
+}
