@@ -176,7 +176,7 @@
   <Style Selector="Button.lib-tagbtn, Button.lib-active">
     <Setter Property="Height" Value="{DynamicResource Vnf.ControlMd}"/>
     <Setter Property="MinHeight" Value="0"/>
-    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="Padding" Value="12,0"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
