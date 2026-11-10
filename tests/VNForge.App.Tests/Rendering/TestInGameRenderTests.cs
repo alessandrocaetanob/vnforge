@@ -195,7 +195,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Equal("2 erros travam o teste no jogo", banner.Title);
                 Assert.Equal("Falta ou sobra um marcador (2). Corrija em Conferir. O jogo está como veio.", banner.Message);
                 Assert.Equal("Corrija os erros em Conferir para testar de novo.", caption);
-                AssertIcon(window, steps, theme, "Vnf.SignalErrorFg", cells[0]);
+                AssertIcon(window, steps, theme, "Vnf.TextSecondary", cells[0]);
                 break;
             case Failed:
                 Assert.Equal(
@@ -204,7 +204,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Contains("O jogo não abriu", texts);
                 Assert.Equal("O último teste falhou.", caption);
                 Assert.Equal("O jogo está com a tradução de 08/11", banner.Title);
-                AssertIcon(window, steps, theme, "Vnf.SignalErrorFg", cells[4]);
+                AssertIcon(window, steps, theme, "Vnf.TextSecondary", cells[4]);
                 break;
             case NeverTested:
                 Assert.All(vm.LastTestSteps, r => Assert.True(r.IsPending));
@@ -217,7 +217,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.StartsWith("Último teste · ", caption, StringComparison.Ordinal);
                 Assert.EndsWith("· 3,5 s", caption, StringComparison.Ordinal);
                 Assert.Equal("O jogo está com a tradução de 22/10", banner.Title);
-                AssertIcon(window, steps, theme, "Vnf.StatusApprovedFg", cells[0]);
+                AssertIcon(window, steps, theme, "Vnf.TextSecondary", cells[0]);
                 break;
         }
 

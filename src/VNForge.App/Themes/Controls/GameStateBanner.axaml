@@ -36,7 +36,7 @@
         <Border Name="PART_Root" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
                 BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
           <StackPanel>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="20,18">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="20,17">
               <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
               <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock Classes="title-md" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>

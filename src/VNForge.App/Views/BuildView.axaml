@@ -21,6 +21,9 @@
     <Style Selector="c|ToggleRule /template/ StackPanel">
       <Setter Property="Spacing" Value="2"/>
     </Style>
+    <Style Selector="c|ToggleRule /template/ ToggleSwitch">
+      <Setter Property="Margin" Value="0,0,-12,0"/>
+    </Style>
     <Style Selector="c|ToggleRule /template/ TextBlock.body">
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -77,9 +80,9 @@
                 <DataTemplate x:DataType="vm:TestStepRow">
                   <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" VerticalAlignment="Top">
                     <Panel Width="20" Height="20">
-                      <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
+                      <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Check}" IsVisible="{Binding IsDone}"/>
                       <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.Accent}" Data="{StaticResource Icon.ArrowSync}" IsVisible="{Binding IsRunning}"/>
-                      <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.SignalErrorFg}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsProblem}"/>
+                      <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Error}" IsVisible="{Binding IsProblem}"/>
                       <Ellipse Width="20" Height="20" StrokeThickness="1" Stroke="{DynamicResource Vnf.StrokeControl}" IsVisible="{Binding IsPending}"/>
                     </Panel>
                     <Border Grid.Column="1" Height="1" Margin="8,0,12,0" VerticalAlignment="Center" Background="{DynamicResource Vnf.StrokeControl}"
