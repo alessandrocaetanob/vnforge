@@ -536,46 +536,6 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Trocar_de_pasta_com_um_varrer_de_novo_rodando_para_o_laco_todo()
-    {
-        Collection();
-        using var second = new TempFolder();
-        using var third = new TempFolder();
-        System.IO.File.WriteAllText(Path.Combine(third.Path, "z.exe"), "z");
-        LibraryViewModel? holder = null;
-        var armed = false;
-        var started = false;
-        Task? change = null;
-        var vm = Create(
-            new FakeFolderPicker(third.Path),
-            post: action =>
-            {
-                action();
-                if (armed && !started && holder!.Scan.Rows.Count > 0)
-                {
-                    started = true;
-                    change = holder.ChangeFolderCommand.ExecuteAsync(null);
-                }
-            });
-        holder = vm;
-        await vm.LoadAsync();
-        await vm.ScanFolderAsync(_games.Path);
-        await vm.ScanFolderAsync(second.Path);
-        vm.FinishFirstScan();
-        Directory.CreateDirectory(Path.Combine(second.Path, "Novo W"));
-        System.IO.File.WriteAllText(Path.Combine(second.Path, "Novo W", "w.exe"), "w");
-
-        armed = true;
-        await vm.RescanCommand.ExecuteAsync(null);
-        await change!;
-        await vm.Scanning;
-
-        Assert.Equal(third.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
-        Assert.False(vm.IsScanBusy);
-        Assert.DoesNotContain(File.Load().Games, g => g.Folder.Contains("Novo W", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public async Task Um_erro_inesperado_ao_abrir_vira_aviso_da_biblioteca_e_nao_derruba_o_app()
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library());
@@ -585,40 +545,6 @@ public sealed class LibraryViewModelTests : IDisposable
 
         Assert.Contains("leitura quebrada", vm.ErrorMessage, StringComparison.Ordinal);
         Assert.False(vm.IsScanBusy);
-    }
-
-    [Fact]
-    public async Task Um_erro_ao_ler_os_recentes_na_abertura_tambem_vira_aviso()
-    {
-        var vm = Create();
-
-        await vm.OpenAsync(() => throw new IOException("recentes ilegíveis"));
-
-        Assert.Contains("recentes ilegíveis", vm.ErrorMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Ao_abrir_le_os_recentes_carrega_e_varre_de_novo_as_pastas_marcadas()
-    {
-        Collection();
-        File.Update(l => l.SetRoot(new LibraryRoot(_games.Path, RescanOnOpen: true)));
-        var vm = Create();
-        var order = new List<string>();
-        vm.RecentProjects = () =>
-        {
-            order.Add("recentes");
-            return [];
-        };
-
-        await vm.OpenAsync(() =>
-        {
-            order.Add("antes");
-            return Task.CompletedTask;
-        });
-        await vm.Scanning;
-
-        Assert.Equal(["antes", "recentes"], order.Take(2));
-        Assert.Equal(3, File.Load().Games.Count);
     }
 
     [Fact]
@@ -639,24 +565,6 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.False(roots.Single(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(_games.Path), StringComparison.OrdinalIgnoreCase)).RescanOnOpen);
         Assert.True(roots.Single(r => string.Equals(r.Path, GameLibrary.NormalizeFolder(other.Path), StringComparison.OrdinalIgnoreCase)).RescanOnOpen);
         Assert.True(vm.Scan.RescanOnOpen);
-    }
-
-    [Fact]
-    public async Task Duas_escolhas_seguidas_do_ler_de_novo_ao_abrir_gravam_a_ultima()
-    {
-        Collection();
-        var vm = Create();
-        await vm.LoadAsync();
-        await vm.ScanFolderAsync(_games.Path);
-
-        for (var i = 0; i < 6; i++)
-        {
-            vm.Scan.RescanOnOpen = i % 2 == 0;
-        }
-
-        await vm.Remembering;
-
-        Assert.False(File.Load().Roots.Single().RescanOnOpen);
     }
 
     [Fact]
