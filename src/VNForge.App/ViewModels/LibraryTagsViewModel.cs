@@ -6,8 +6,8 @@ using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
 
-/// <summary>Um termo do filtro por tag como a barra o desenha: o termo do Core (<c>minha:favorito</c>), o nome e de quem é.</summary>
-public sealed record LibraryActiveTag(string Term, string Text, bool Mine);
+/// <summary>Um termo do filtro por tag como a barra o desenha: o termo do Core (<c>minha:favorito</c>), o nome e de quem é. <paramref name="Excluded"/> é o termo de exclusão (<c>--not</c>), que a CLI grava no filtro salvo.</summary>
+public sealed record LibraryActiveTag(string Term, string Text, bool Mine, bool Excluded = false);
 
 /// <summary>Uma linha do popover "Tags": a caixa marcada quando o termo está no filtro, a tag e em quantos jogos ela está.</summary>
 public sealed partial class LibraryTagOptionViewModel(string term, string text, int count, bool mine, bool isChecked) : ObservableObject
@@ -159,7 +159,9 @@ public sealed partial class LibraryTagsViewModel(LibraryViewModel library) : Obs
     {
         if (tag is not null)
         {
-            SetFilter(LibraryTagFilter.Create(Filter.Include.Where(t => t != tag.Term), Filter.Any, Filter.Exclude), save: true);
+            var include = tag.Excluded ? Filter.Include : [.. Filter.Include.Where(t => t != tag.Term)];
+            var exclude = tag.Excluded ? [.. Filter.Exclude.Where(t => t != tag.Term)] : Filter.Exclude;
+            SetFilter(LibraryTagFilter.Create(include, Filter.Any, exclude), save: true);
         }
     }
 
@@ -302,6 +304,11 @@ public sealed partial class LibraryTagsViewModel(LibraryViewModel library) : Obs
             chips.Add(new LibraryDrawerChip(tag.Name, LibraryDrawerChipKind.Vndb));
         }
 
+        if (chips.Count == 0)
+        {
+            return [];
+        }
+
         chips = [.. chips.Take(2)];
         var rest = own.Count + vndb.Count - chips.Count;
         if (rest > 0)
@@ -334,6 +341,12 @@ public sealed partial class LibraryTagsViewModel(LibraryViewModel library) : Obs
             var term = LibraryTagTerm.Parse(text);
             var mine = term.Scope == LibraryTagScope.Own || (term.Scope == LibraryTagScope.Any && library.UserTags.TryGet(term.Name, out _));
             Active.Add(new LibraryActiveTag(text, mine ? term.Name : vndbNames.GetValueOrDefault(term.Name, term.Name), mine));
+        }
+
+        foreach (var text in Filter.Exclude)
+        {
+            var term = LibraryTagTerm.Parse(text);
+            Active.Add(new LibraryActiveTag(text, "sem " + vndbNames.GetValueOrDefault(term.Name, term.Name), false, true));
         }
 
         OnPropertyChanged(nameof(HasActive));

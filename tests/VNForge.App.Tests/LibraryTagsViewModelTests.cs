@@ -143,4 +143,39 @@ public sealed class LibraryTagsViewModelTests : IDisposable
         Assert.Equal(12, vm.Cards.Count);
         Assert.Contains("library-tags.json", vm.ErrorMessage);
     }
+
+    [Fact]
+    public async Task Filtro_salvo_so_com_exclusao_aparece_na_barra_sem_chip_solto_e_sai_pelo_chip()
+    {
+        var vm = await Open(tags =>
+        {
+            Favorites(tags);
+            tags.SavedFilter = LibraryTagFilter.Create([], false, ["minha:favorito"]);
+        });
+
+        Assert.Equal(10, vm.Cards.Count);
+        Assert.True(vm.Tags.HasActive);
+        Assert.Equal(["sem favorito"], vm.Tags.Active.Select(t => t.Text));
+        Assert.All(vm.Cards, c => Assert.Empty(c.Tags));
+
+        vm.Tags.RemoveActiveCommand.Execute(vm.Tags.Active.Single());
+
+        Assert.False(vm.Tags.HasActive);
+        Assert.Equal(12, vm.Cards.Count);
+        Assert.True(TagsFile.Load().SavedFilter.IsEmpty);
+    }
+
+    [Fact]
+    public async Task Falha_de_gravacao_das_tags_vira_aviso_e_o_filtro_continua_coerente()
+    {
+        var vm = await Open(Favorites);
+        File.Delete(TagsFile.Path);
+        Directory.CreateDirectory(TagsFile.Path);
+
+        vm.Tags.ToggleOptionCommand.Execute(vm.Tags.OwnOptions.Single(o => o.Text == "favorito"));
+
+        Assert.Contains("library-tags.json", vm.ErrorMessage);
+        Assert.Equal(["favorito"], vm.Tags.Active.Select(t => t.Text));
+        Assert.Equal(2, vm.Cards.Count);
+    }
 }

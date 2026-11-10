@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
@@ -251,6 +253,31 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
             ScreenRenderer.Settle(window);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-tags-gerenciar", theme)));
+        });
+    }
+
+    [Fact]
+    public async Task Botao_Tags_abre_e_fecha_o_popover_no_clique_e_o_clique_fora_fecha()
+    {
+        await Abrir(ThemeVariant.Dark, _ => { }, (window, vm) =>
+        {
+            var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "TagsButton");
+            var center = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            void Click(Point at)
+            {
+                window.MouseDown(at, MouseButton.Left);
+                window.MouseUp(at, MouseButton.Left);
+                ScreenRenderer.Settle(window);
+            }
+
+            Click(center);
+            Assert.True(vm.Library.Tags.IsOpen);
+            Click(center);
+            Assert.False(vm.Library.Tags.IsOpen);
+            Click(center);
+            Assert.True(vm.Library.Tags.IsOpen);
+            Click(new Point(700, 800));
+            Assert.False(vm.Library.Tags.IsOpen);
         });
     }
 

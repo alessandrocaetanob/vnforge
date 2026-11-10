@@ -295,9 +295,9 @@ public sealed partial class LibraryViewModel : ObservableObject
             userTags = edited!;
             return result;
         }
-        catch (LibraryException e)
+        catch (Exception e) when (e is LibraryException or IOException or UnauthorizedAccessException)
         {
-            Tags.Fail(e.Message);
+            Tags.Fail(e is LibraryException ? e.Message : $"As tags não puderam ser gravadas: {e.Message}");
             return null;
         }
     }
