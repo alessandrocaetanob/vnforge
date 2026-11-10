@@ -10,7 +10,8 @@
   <Style Selector="ListBox.navrail > ListBoxItem">
     <Setter Property="Padding" Value="0"/>
     <Setter Property="Margin" Value="0,3"/>
-    <Setter Property="Width" Value="64"/>
+    <!-- O quadro tem 64 px, mas "Personagens" em 11 semibold mede 70 e o item corta o texto no contorno: 72 cabem no trilho de 80 sem cortar. -->
+    <Setter Property="Width" Value="72"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
     <Setter Property="Height" Value="56"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
@@ -34,8 +35,6 @@
   <!-- Os 72px do trilho deixam 68 por item: "Conferência" em 12px passa disso e perdia a última letra. -->
   <Style Selector="ListBox.navrail > ListBoxItem TextBlock">
     <Setter Property="FontSize" Value="11"/>
-    <!-- "Personagens" em 11 semibold mede 66 px e o item 64: o item corta o texto no raio do contorno, então o rótulo se aperta 0,4 px por letra. -->
-    <Setter Property="LetterSpacing" Value="-0.4"/>
   </Style>
   <Style Selector="ListBox.navrail > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
