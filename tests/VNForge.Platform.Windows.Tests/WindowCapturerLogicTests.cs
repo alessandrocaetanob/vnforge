@@ -413,7 +413,7 @@ public sealed class WindowCapturerLogicTests
 
         public nint Foreground() => ForegroundWindow;
 
-        public nint RootOf(nint window) => Windows.TryGetValue(window, out var found) ? found.Root ?? window : window;
+        public nint RootOf(nint window) => Windows.TryGetValue(window, out var found) ? found.Root ?? window : 0;
 
         public nint WindowAt(int screenX, int screenY) => WindowAtOverride?.Invoke(screenX, screenY) ?? ForegroundWindow;
 

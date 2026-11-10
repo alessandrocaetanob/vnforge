@@ -276,4 +276,17 @@ public class TaskEntriesTests
         var entry = Assert.Single(bar.Entries);
         Assert.Equal(["Injetar no jogo"], entry.Steps.Select(s => s.Title));
     }
+
+    [Fact]
+    public async Task O_custo_fica_ao_lado_do_titulo_so_na_tarefa_de_IA_que_nao_e_lote()
+    {
+        await Done("Traduzir a cena", usesAi: true);
+        await Done("Extrair Jogo");
+
+        Assert.True(bar.Entries.Single(e => e.Title == "Traduzir a cena").ShowsCostBeside);
+        Assert.False(bar.Entries.Single(e => e.Title == "Extrair Jogo").ShowsCostBeside);
+        Assert.False(bar.ShowsNightBatch);
+        Assert.False(bar.HasBatch);
+        Assert.Equal("Tarefas (2)", bar.TasksLabel);
+    }
 }

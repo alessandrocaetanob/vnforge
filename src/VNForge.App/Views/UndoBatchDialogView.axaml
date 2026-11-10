@@ -8,16 +8,17 @@
   <!-- Desfazer o lote noturno: a decisão e o efeito. O Escape e o X mantêm o lote. -->
   <c:ScreenDialog Title="{Binding Title}" DialogWidth="460" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <StackPanel Spacing="16" AutomationProperties.Name="Desfazer o lote">
-      <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Message}"/>
-      <Border Classes="panel" Padding="16">
+      <TextBlock Classes="body secondary" TextWrapping="Wrap" Text="{Binding Message}"/>
+      <!-- ".card.in" do quadro: fundo bg-inset e respiro de 12 por 14. -->
+      <Border Classes="panel" Background="{DynamicResource Vnf.BgInset}" Padding="14,12">
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="caption secondary" Text="Voltam ao estado anterior" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" Text="{Binding RestoreText}"/>
+            <TextBlock Grid.Column="1" Classes="body" FontWeight="Bold" Text="{Binding RestoreText}"/>
           </Grid>
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="caption secondary" Text="Mantidas porque você editou" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Classes="body" FontWeight="SemiBold" Text="{Binding KeptText}"/>
+            <TextBlock Grid.Column="1" Classes="body" FontWeight="Bold" Text="{Binding KeptText}"/>
           </Grid>
         </StackPanel>
       </Border>

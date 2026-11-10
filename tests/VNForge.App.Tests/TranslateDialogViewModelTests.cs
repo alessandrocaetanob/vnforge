@@ -508,6 +508,18 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Durante_a_noite_a_nota_cita_o_resumo_da_cena_na_biblia_quando_o_projeto_tem_um()
+    {
+        var folder = Project();
+        folder.SaveBible(VNForge.Core.Bible.GameBible.From([new VNForge.Core.Bible.BibleScene("yst00001") { Name = "Manhã de chuva", Summary = "Kenta e Ren chegam ao portão." }]));
+        var vm = await OpenAsync(folder, Settings());
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.EndsWith(" e do resumo da cena na bíblia.", vm.ContextText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task O_limite_de_gasto_vale_sobre_a_metade_do_preco_no_lote()
     {
         var folder = Project();

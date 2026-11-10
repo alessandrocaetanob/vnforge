@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- QualityCard (v3.css ".qcards .opt"): o OptionCard com o preço em 20/24 bold na fonte de exibição e o tempo em letra pequena. Sem nome de modelo: a qualidade basta.
-       Marcado, a borda vira accent de 2px. -->
+  <!-- QualityCard (".opt" e ".v3-qc" do quadro): o OptionCard com o círculo de rádio na linha do título (display 15/20 bold), o preço em 17/24 bold e o tempo embaixo, em letra pequena.
+       Sem nome de modelo: a qualidade basta. Marcado, só a borda vira accent de 2px; o fundo fica o do cartão. -->
   <Style Selector="c|QualityCard">
     <Setter Property="Padding" Value="16,14"/>
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -12,19 +12,19 @@
       <ControlTemplate>
         <Border Name="PART_Card" Padding="{TemplateBinding Padding}" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeControl}"
                 BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
-          <StackPanel Spacing="4">
+          <StackPanel Spacing="6">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Border Name="PART_Mark" Classes="radio-mark"/>
-              <TextBlock Grid.Column="1" Classes="body-strong" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <WrapPanel Orientation="Horizontal" ItemSpacing="8" Margin="0,4,0,0" IsVisible="{TemplateBinding ShowPrice}">
-              <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="20" LineHeight="26" FontWeight="Bold"
-                         VerticalAlignment="Bottom"/>
-              <TextBlock Name="PART_Duration" Classes="caption secondary" Text="{TemplateBinding Duration}" VerticalAlignment="Bottom" Margin="0,0,0,2"
+            <StackPanel IsVisible="{TemplateBinding ShowPrice}">
+              <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontSize="17" LineHeight="24" FontWeight="Bold"/>
+              <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro tem 12 com entrelinha de 1,6 (19,2, arredondada para 19 no render), que dá os 158 de altura do cartão. -->
+              <TextBlock Name="PART_Duration" FontSize="12" LineHeight="19" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
                          IsVisible="{TemplateBinding Duration, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            </WrapPanel>
+            </StackPanel>
             <TextBlock Name="PART_RateMark" Classes="caption secondary" Text="(cotação de exemplo)" IsVisible="{TemplateBinding ExampleRate}"/>
           </StackPanel>
         </Border>
@@ -39,7 +39,7 @@
     <Setter Property="BorderThickness" Value="2"/>
     <Setter Property="Padding" Value="15,13"/>
   </Style>
-  <Style Selector="c|QualityCard:checked /template/ Border#PART_Mark">
+  <Style Selector="c|QualityCard:checked /template/ Border.radio-mark">
     <Setter Property="BorderThickness" Value="5"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
   </Style>
