@@ -181,7 +181,7 @@
   <!-- O quadro do #547 abre o Glossário com a frase de apresentação, a linha das abas (busca e ação à direita) e o cartão da aba. A página tem a altura da área visível
        (MinHeight pela rolagem) para o cartão da aba Meu glossário ir até o pé. -->
   <ScrollViewer x:Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
-    <Border Padding="32,20,32,16" MinHeight="{Binding #PageScroll.Viewport.Height}">
+    <Border Padding="32,20,32,14" MinHeight="{Binding #PageScroll.Viewport.Height}">
     <Grid RowDefinitions="Auto,Auto,*">
     <StackPanel Classes="alerts">
 
@@ -215,7 +215,7 @@
       </Border>
 
     </StackPanel>
-      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" Margin="0,0,0,14">
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16" Margin="0,0,0,14" IsVisible="{Binding !IsPersonalTab}">
         <TextBlock Classes="body-sm secondary" LineHeight="20" MaxWidth="630" HorizontalAlignment="Left" TextWrapping="Wrap"
                    Text="Nomes e termos fixos do projeto. A IA os usa em toda tradução, Conferir a tradução os confere e o editor avisa quando um aparece na linha. Tudo é salvo sozinho."/>
         <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Top" Text="{Binding SaveStatus}" AutomationProperties.Name="Estado do salvamento"/>
