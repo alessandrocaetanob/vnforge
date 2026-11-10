@@ -132,7 +132,7 @@ public sealed class App : Application
             new LibraryScanner(new EngineRecognizer(engines), new GameWindowTitleReader()),
             () => new LibraryMatcher(vndb),
             () => library?.RecentProjects() ?? []);
-        return library = new LibraryViewModel(
+        library = new LibraryViewModel(
             file,
             picker,
             post,
@@ -140,9 +140,12 @@ public sealed class App : Application
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager,
+            tagsFile: new UserTagsFile(configDirectory),
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
             playLog: playLog,
             switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
             engines: engines);
+        library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
+        return library;
     }
 }
