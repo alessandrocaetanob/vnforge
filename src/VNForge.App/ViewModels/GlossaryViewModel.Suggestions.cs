@@ -165,6 +165,9 @@ public sealed partial class GlossaryViewModel
         ? string.Empty
         : PriceText(GlossaryCost.Voices(voiceRequests, ClaudeModels.Haiku));
 
+    /// <summary>O rótulo do botão da faixa, com o preço depois de um ponto médio, como no quadro: "Pedir à IA · menos de R$ 0,01".</summary>
+    public string VoiceButtonText => ButtonText("Pedir à IA", VoicePriceText);
+
     public bool CanSuggestVoices => CanEdit && usageLoaded && !IsSuggesting && Suggester is not null && voiceRequests.Count > 0;
 
     /// <summary>Os pares do painel "Termos que você corrigiu": trechos com a mesma tradução da pessoa em várias falas, que ainda não estão no glossário.</summary>
@@ -234,6 +237,11 @@ public sealed partial class GlossaryViewModel
         }
     }
 
+    /// <summary>O rótulo do botão do painel de termos que se repetem, com o preço quando há termos sem tradução.</summary>
+    public string TermsButtonText => ButtonText("Traduzir com IA", TermsPriceText);
+
+    private static string ButtonText(string label, string price) => price.Length == 0 ? label : $"{label} · {price}";
+
     public bool CanSuggestTerms => CanEdit && !IsSuggesting && Suggester is not null && RepeatedTermRows.Any(r => !r.HasSuggestion);
 
     partial void OnSuggesterChanged(IGlossarySuggester? value)
@@ -270,6 +278,7 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(VoiceRequestCount));
         OnPropertyChanged(nameof(HasVoiceRequests));
         OnPropertyChanged(nameof(VoicePriceText));
+        OnPropertyChanged(nameof(VoiceButtonText));
         OnPropertyChanged(nameof(VoiceHint));
         OnPropertyChanged(nameof(HasVoiceStrip));
         OnPropertyChanged(nameof(VoiceStripText));
@@ -322,6 +331,7 @@ public sealed partial class GlossaryViewModel
         OnPropertyChanged(nameof(NoRepeatedTerms));
         OnPropertyChanged(nameof(RepeatedSummary));
         OnPropertyChanged(nameof(TermsPriceText));
+        OnPropertyChanged(nameof(TermsButtonText));
         OnPropertyChanged(nameof(TermsHint));
         NotifySuggestionState();
         RefreshCorrectedTerms(known);
@@ -565,8 +575,10 @@ public sealed partial class GlossaryViewModel
     public void RefreshPrices()
     {
         OnPropertyChanged(nameof(VoicePriceText));
+        OnPropertyChanged(nameof(VoiceButtonText));
         OnPropertyChanged(nameof(VoiceHint));
         OnPropertyChanged(nameof(TermsPriceText));
+        OnPropertyChanged(nameof(TermsButtonText));
         OnPropertyChanged(nameof(TermsHint));
         AddressTerms.RefreshPrices();
     }

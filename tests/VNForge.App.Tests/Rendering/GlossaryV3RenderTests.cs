@@ -1,10 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Glossary;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -43,8 +45,26 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
         units.AddRange(Enumerable.Range(30, 7).Select(n => Line(n, $"生徒会長の命令その{n}")));
         units.AddRange(Enumerable.Range(50, 5).Select(n => Line(n, $"ラムネを買った{n}")));
         folder.SaveText("yst00001", units);
-        folder.SaveGlossary([new GlossaryTerm("先輩", "veterano", "tratamento")]);
-        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "animada"), new CharacterEntry("健太", "Kenta")]);
+        folder.SaveGlossary(
+        [
+            new GlossaryTerm("遅刻", "atraso"),
+            new GlossaryTerm("傘", "guarda-chuva"),
+            new GlossaryTerm("担任の先生", "professor responsável"),
+            new GlossaryTerm("校門", "portão da escola"),
+        ]);
+        folder.SaveCharacters(
+        [
+            new CharacterEntry("美咲", "Misaki", Tone: "fala informal e animada; chama o Kenta", Color: "rose", Description: "Secundária · Professora, rígida"),
+            new CharacterEntry("健太", "Kenta", Tone: "seco e resmungão; frases curtas", Color: "teal"),
+            new CharacterEntry("陽菜", "Hina", Color: "violet"),
+            new CharacterEntry("蓮", "Ren", Color: "orange"),
+            new CharacterEntry("葵", "Aoi", Color: "blue"),
+            new CharacterEntry("先生", "Professor", Tone: "formal; chama os alunos pelo sobrenome", Color: "green"),
+            new CharacterEntry("健太の母", "Mãe do Kenta", Color: "red"),
+            new CharacterEntry("脇役01", "Coadjuvante 01", Color: "teal"),
+            new CharacterEntry("脇役02", "Coadjuvante 02", Color: "violet"),
+            new CharacterEntry("脇役03", "Coadjuvante 03", Color: "blue"),
+        ]);
         return root;
     }
 
@@ -79,13 +99,27 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
                     await vm.Glossary.Loading;
                     ScreenRenderer.Settle(window);
 
-                    var path = RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v3-personagens", theme));
+                    var path = RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v6-personagens", theme));
                     ScreenRenderer.Save(window, path);
                     using (var png = new Bitmap(path))
                     {
                         Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
                         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
                     }
+
+                    AssertTabsRow(window, vm.Glossary, theme);
+                    var characterCard = Card(window);
+                    Assert.Equal(1296, characterCard.Bounds.Width, 1);
+                    var characterRows = Rows(window);
+                    Assert.Equal(10, characterRows.Count);
+                    Assert.All(characterRows, r => Assert.Equal(47, r.Bounds.Height, 0.5));
+                    var genders = Combos(window, "Gênero");
+                    Assert.Equal(10, genders.Count);
+                    Assert.All(genders, c => Assert.Equal(new Size(150, 28), c.Bounds.Size));
+                    var colors = Combos(window, "Cor do personagem");
+                    Assert.All(colors, c => Assert.Equal(new Size(112, 28), c.Bounds.Size));
+                    Assert.Equal(10, window.GetVisualDescendants().OfType<Portrait>().Count(p => p.Size == PortraitSize.Sm && p.IsEffectivelyVisible));
+                    Assert.All(window.GetVisualDescendants().OfType<Portrait>().Where(p => p.IsEffectivelyVisible), p => Assert.Equal(28, p.Bounds.Width));
 
                     var warning = Brush(window, "Vnf.SignalWarningFg", theme);
                     var selectors = window.GetVisualDescendants().OfType<ComboBox>().Where(c => c.IsVisible).ToList();
@@ -104,7 +138,7 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     await vm.Glossary.SuggestVoicesCommand.ExecuteAsync(null);
                     ScreenRenderer.Settle(window);
-                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v5-genero-sugerido", theme)));
+                    ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v6-genero-sugerido", theme)));
 
                     var suggested = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("suggested") && b.IsEffectivelyVisible).ToList();
                     Assert.Equal(vm.Glossary.PendingSuggestionCount, suggested.Count);
@@ -114,6 +148,107 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.False(ask.Classes.Contains("accent"), "com sugestões esperando, o aceite passa a ser o botão principal");
                     var check = Assert.Single(suggested[0].GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.AcceptSuggestionCommand);
                     Assert.True(check.IsEffectivelyVisible && check.Bounds.Right <= suggested[0].Bounds.Width);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private static void Capture(Window window, string name, ThemeVariant theme)
+    {
+        var path = RenderOutput.PathFor(ScreenRenderer.FileName(name, theme));
+        ScreenRenderer.Save(window, path);
+        using var png = new Bitmap(path);
+        Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
+        Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
+    }
+
+    private static List<ComboBox> Combos(Window window, string name) =>
+        [.. window.GetVisualDescendants().OfType<ComboBox>().Where(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == name)];
+
+    private static List<Border> Rows(Window window) =>
+        [.. window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("grow") && b.IsEffectivelyVisible)];
+
+    private static Border Card(Window window) =>
+        window.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("panel") && b.Classes.Contains("card") && b.IsEffectivelyVisible);
+
+    /// <summary>A linha das abas do quadro: busca de 300 x 32 e o botão comum de 32 de altura, os dois alinhados à direita, e as abas de texto com o contador.</summary>
+    private static void AssertTabsRow(Window window, GlossaryViewModel glossary, ThemeVariant theme)
+    {
+        var search = Assert.Single(window.GetVisualDescendants().OfType<TextBox>(), t => t.IsEffectivelyVisible && AutomationProperties.GetName(t) == "Buscar no glossário");
+        Assert.Equal(new Size(300, 32), search.Bounds.Size);
+        var add = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Command == glossary.AddCommand);
+        Assert.Equal(32, add.Bounds.Height);
+        Assert.False(add.Classes.Contains("accent"), "no quadro o Adicionar é o botão comum; a ação principal da tela é a da faixa");
+        Assert.Equal(ScreenRenderer.Width - 32, add.TranslatePoint(new Point(add.Bounds.Width, 0), window)!.Value.X, 1);
+
+        var tabs = window.GetVisualDescendants().OfType<TabItem>().Where(t => t.IsEffectivelyVisible).ToList();
+        Assert.Equal(4, tabs.Count);
+        Assert.All(tabs, t => Assert.Equal(43, t.Bounds.Height));
+        Assert.All(tabs, t => Assert.Equal(15, t.FontSize));
+        var count = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("count") && t.IsEffectivelyVisible);
+        Assert.Equal(Brush(window, "Vnf.TextSecondary", theme), ((ISolidColorBrush)count.Foreground!).Color);
+        Assert.Equal(11, count.FontSize);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Ficha_abre_dentro_do_cartao_com_o_retrato_de_56_e_o_botao_de_revisar(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                using var project = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(CreateProject(project)), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                vm.Glossary.Suggester = new FakeGlossarySuggester();
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Glossary);
+                    await vm.Glossary.Loading;
+                    vm.Glossary.OpenSheetCommand.Execute(vm.Glossary.Characters[0]);
+                    await vm.Glossary.SheetLoading;
+                    ScreenRenderer.Settle(window);
+
+                    var path = RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v6-ficha", theme));
+                    ScreenRenderer.Save(window, path);
+                    using (var png = new Bitmap(path))
+                    {
+                        Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
+                        Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
+                    }
+
+                    var sheet = Assert.Single(window.GetVisualDescendants().OfType<CharacterSheetView>(), s => s.IsEffectivelyVisible);
+                    var card = Card(window);
+                    Assert.True(sheet.Bounds.Width >= card.Bounds.Width - 2, "a ficha ocupa a largura do cartão, sem fundo próprio");
+                    var portrait = Assert.Single(sheet.GetVisualDescendants().OfType<Portrait>());
+                    Assert.Equal(new Size(56, 56), portrait.Bounds.Size);
+                    Assert.Equal(20, portrait.TranslatePoint(default, card)!.Value.X - 1, 1);
+
+                    var title = sheet.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("title-md"));
+                    Assert.Equal(17, title.FontSize);
+                    Assert.Equal(FontWeight.Bold, title.FontWeight);
+                    Assert.Equal(CharacterPalette.Find("rose")!.BrushFor(theme), title.Foreground);
+                    Assert.Contains(sheet.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Secundária · Professora, rígida" && t.FontSize == 12);
+
+                    var review = Assert.Single(sheet.GetVisualDescendants().OfType<Button>(), b => AutomationProperties.GetName(b) == "Revisar este personagem");
+                    Assert.True(review.Classes.Contains("accent") && !review.Classes.Contains("sm") && review.Bounds.Height == 32);
+
+                    var banner = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("infobar") && b.Classes.Contains("warning") && b.IsVisible);
+                    Assert.True(banner.TranslatePoint(default, window)!.Value.Y > sheet.TranslatePoint(new Point(0, sheet.Bounds.Height), window)!.Value.Y - 1, "a faixa de gênero vem depois da ficha");
+                    Assert.Equal(10, Rows(window).Count);
+                    Assert.All(Rows(window), r => Assert.Equal(47, r.Bounds.Height, 0.5));
                 }
                 finally
                 {
@@ -147,16 +282,15 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Glossary);
                     await vm.Glossary.Loading;
                     vm.Glossary.SelectedTab = GlossaryTab.Terms;
+                    ScreenRenderer.Settle(window);
+                    Capture(window, "glossario-v6-termos", theme);
+                    var waiting = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("divider-top") && b.IsEffectivelyVisible && b.Bounds.Width is > 340 and < 380).ToList();
+                    Assert.Equal(4, waiting.Count);
+                    Assert.All(waiting, r => Assert.Equal(49, r.Bounds.Height, 0.5));
+
                     await vm.Glossary.SuggestTermsCommand.ExecuteAsync(null);
                     ScreenRenderer.Settle(window);
-
-                    var path = RenderOutput.PathFor(ScreenRenderer.FileName("glossario-v3-termos", theme));
-                    ScreenRenderer.Save(window, path);
-                    using (var png = new Bitmap(path))
-                    {
-                        Assert.Equal(ScreenRenderer.Width, png.PixelSize.Width);
-                        Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
-                    }
+                    Capture(window, "glossario-v6-termos-traduzidos", theme);
 
                     Assert.Equal(["魔法学院", "命令", "生徒会長", "ラムネ"], vm.Glossary.RepeatedTermRows.Select(r => r.Source));
                     var add = window.GetVisualDescendants().OfType<Button>().Where(b => b.Command == vm.Glossary.AddRepeatedTermCommand && b.IsVisible).ToList();
@@ -169,6 +303,18 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
 
                     var panel = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("panel") && b.Bounds.Width is > 340 and < 380);
                     Assert.True(panel.Bounds.Height > add.Count * 40, "cada termo ocupa a sua linha no painel");
+
+                    AssertTabsRow(window, vm.Glossary, theme);
+                    var table = Card(window);
+                    Assert.Equal(916, table.Bounds.Width, 1);
+                    Assert.Equal(360, panel.Bounds.Width, 1);
+                    Assert.Equal(20, panel.TranslatePoint(default, window)!.Value.X - table.TranslatePoint(new Point(table.Bounds.Width, 0), window)!.Value.X, 1);
+                    var termRows = Rows(window).Where(r => r.Classes.Contains("term")).ToList();
+                    Assert.Equal(4, termRows.Count);
+                    Assert.All(termRows, r => Assert.Equal(48, r.Bounds.Height, 0.5));
+                    var trigger = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Glossary.SuggestTermsCommand);
+                    Assert.True(trigger.Classes.Contains("accent") && trigger.Classes.Contains("sm") && trigger.Bounds.Height == 28);
+                    Assert.All(add, b => Assert.Equal(28, b.Bounds.Height));
                 }
                 finally
                 {

@@ -1,6 +1,7 @@
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -97,7 +98,7 @@ public static class CharacterPalette
 
 /// <summary>
 /// Pinta um controle com a cor de um personagem no tema atual e a refaz quando o tema muda: <c>Foreground</c> num <see cref="TextBlock"/>, <c>Background</c>
-/// num <see cref="Border"/> e <c>Fill</c> numa <see cref="Shape"/>. Sem cor, devolve ao controle a tinta que o estilo dele dá.
+/// num <see cref="Border"/>, <c>Fill</c> numa <see cref="Shape"/> e <c>Foreground</c> num <see cref="TextBox"/>. Sem cor, devolve ao controle a tinta que o estilo dele dá.
 /// </summary>
 public static class SpeakerColorTint
 {
@@ -136,6 +137,9 @@ public static class SpeakerColorTint
         {
             case TextBlock text:
                 Set(text, TextBlock.ForegroundProperty, brush);
+                break;
+            case TextBox box:
+                Set(box, TemplatedControl.ForegroundProperty, brush);
                 break;
             case Border border:
                 Set(border, Border.BackgroundProperty, brush);
