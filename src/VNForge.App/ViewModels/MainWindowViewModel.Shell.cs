@@ -185,7 +185,7 @@ public sealed partial class MainWindowViewModel
     {
         if (game.ProjectPath is { } path)
         {
-            ProjectOpening = OpenLibraryProjectAsync(path);
+            ProjectOpening = OpenLibraryProjectAsync(path, game.VndbId, game.Title);
         }
         else if (game.Engine.Translatable)
         {
@@ -208,12 +208,18 @@ public sealed partial class MainWindowViewModel
         }
     }
 
-    private async Task OpenLibraryProjectAsync(string path)
+    private async Task OpenLibraryProjectAsync(string path, string? vndbId, string title)
     {
         try
         {
             if (await Start.OpenAsync(path) is not null)
             {
+                // Projeto sem vndb.json: a ficha segue o casamento que a Biblioteca guardou para o jogo.
+                if (Sheet.VisualNovelId is null && vndbId is not null)
+                {
+                    Sheet.Open(vndbId, title);
+                }
+
                 SelectedNav = sheetItem;
             }
             else if (Start.ErrorMessage is { Length: > 0 } problem)
