@@ -400,6 +400,9 @@ public sealed class ConferenceIssueRowViewModel
     /// <summary>"Um clique" quando a regra propõe uma correção para a linha; vazio nas outras.</summary>
     public string Tag => HasProposal ? "Um clique" : string.Empty;
 
+    /// <summary>A linha leva o selo de <see cref="Tag"/> à direita; sem ele, o lugar (cena e linha) ocupa o canto.</summary>
+    public bool HasTag => Tag.Length > 0;
+
     /// <summary>Texto do original no detalhe; vazio quando a linha não veio do projeto.</summary>
     public string Original => Unit?.Source ?? string.Empty;
 
@@ -409,6 +412,14 @@ public sealed class ConferenceIssueRowViewModel
     public string Translation => IsScriptSummary ? string.Empty : Unit?.Translation ?? string.Empty;
 
     public bool HasTranslation => Translation.Length > 0;
+
+    /// <summary>A tradução de hoje leva selo de marcador: a linha dela acompanha a altura do selo.</summary>
+    public bool TranslationHasMarkers => HasMarkers(Translation);
+
+    /// <summary>O texto proposto leva selo de marcador.</summary>
+    public bool ProposalHasMarkers => HasMarkers(ProposedText);
+
+    private static bool HasMarkers(string? text) => !string.IsNullOrEmpty(text) && Controls.MarkedText.Split(text).Any(s => s.IsMarker);
 
     private const string MachineDraftNote = "Rascunho da IA, ainda não revisado";
 

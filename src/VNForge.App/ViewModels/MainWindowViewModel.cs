@@ -191,6 +191,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.PropertyChanged += OnDashboardChanged;
         Build.NoticeRaised += (_, notice) => ShowBuildNotice(notice);
         Conference.LineRequested += (_, request) => OpenLineInEditor(request);
+        Conference.TestRequested += (_, _) => SelectedNav = buildItem;
         Conference.CharacterRegistrationRequested += (_, name) => OpenCharacterInGlossary(name);
         Build.LineRequested += (_, request) => OpenLineInEditor(request);
         Build.ErrorsRequested += (_, _) => SelectedNav = conferenceItem;

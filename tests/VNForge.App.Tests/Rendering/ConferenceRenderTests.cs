@@ -58,23 +58,25 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                     ScreenRenderer.Settle(window);
                     var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
                     Assert.True(vm.Conference.HasFixable);
-                    AssertHeader(view, vm.Conference);
-                    AssertBlockingBanner(window, view, vm.Conference, theme);
+                    AssertBanner(window, view, vm.Conference, theme);
                     AssertSceneNamesAndChips(view);
 
                     // O cartão de "mesmo original": as duas ações não são o botão de destaque (esse é um por tela, no cabeçalho).
                     var cardButtons = view.GetVisualDescendants().OfType<Button>()
                         .Where(b => b.IsEffectivelyVisible && (b.Command == vm.Conference.UseVariantCommand || b.Command == vm.Conference.KeepDifferentCommand)).ToList();
-                    Assert.True(cardButtons.Count >= 4, "o cartão mostra Usar em todas por variante e Manter diferentes");
+                    Assert.True(cardButtons.Count >= 3, "o grupo mostra Usar em todas nas variantes que não são a mais usada e Manter diferentes");
                     Assert.All(cardButtons, b => Assert.DoesNotContain("accent", b.Classes));
-                    RawMarkers.AssertCardUsesChips(view.GetVisualDescendants().OfType<ConsistencyCardView>().Single(c => c.IsEffectivelyVisible), minChips: 4);
+                    var group = view.GetVisualDescendants().OfType<ConferenceGroupView>().Single(c => c.IsEffectivelyVisible);
+                    RawMarkers.AssertCardUsesChips(group, minChips: 3);
+                    Assert.Single(group.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("radio") && b.Classes.Contains("on"));
+                    Assert.Equal(2, cardButtons.Count(b => b.Command == vm.Conference.UseVariantCommand));
 
                     // Erro sem correção automática: só "Abrir no editor", em destaque, na barra do pé do painel.
                     var open = ActionButton(view, vm.Conference.OpenLineCommand);
                     Assert.Contains("accent", open.Classes);
                     Assert.DoesNotContain(PanelButtons(view), b => b.Command == vm.Conference.FixAndNextCommand && b.IsEffectivelyVisible);
                     AssertInsidePanelFooter(window, view, open);
-                    Save(window, "conferir-v3-problemas", theme);
+                    Save(window, "conferir-v6-problemas", theme);
 
                     // O espaço duplo da mesma linha traz a correção proposta e o botão "Aplicar correção".
                     vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.RuleId == "espaco-duplo");
@@ -91,7 +93,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                     AssertInsidePanelFooter(window, view, markOk);
                     AssertInsidePanelFooter(window, view, openEditor);
                     Assert.True(fixAndNext.Bounds.Width > openEditor.Bounds.Width, "a ação principal ocupa a largura do painel");
-                    Save(window, "conferir-v3-um-clique", theme);
+                    Save(window, "conferir-v6-um-clique", theme);
                 }
                 finally
                 {
@@ -216,29 +218,26 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.True(box.Bottom <= window.Height, "o botão está na área visível");
     }
 
-    /// <summary>Um só botão de destaque no cabeçalho: "Corrigir N com um clique" quando há correção, e "Conferir de novo" fica neutro.</summary>
-    private static void AssertHeader(ConferenceView view, ConferenceViewModel conference)
+    /// <summary>A faixa do topo é o cartão do quadro (GameStateBanner): título e frase da conferência, "Corrigir N com um clique" é o único botão de destaque e "Conferir de novo" fica neutro.</summary>
+    private static void AssertBanner(Window window, ConferenceView view, ConferenceViewModel conference, ThemeVariant theme)
     {
-        var buttons = view.GetVisualDescendants().OfType<Button>().ToList();
+        var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+        Assert.Equal(GameState.Blocked, banner.State);
+        Assert.Equal($"{conference.BlockingCount} {conference.BlockingRest}".TrimEnd('.'), banner.Title);
+        Assert.Equal("Corrija estes antes de testar. Os avisos não travam nada.", banner.Message);
+        var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
         var fixAll = Assert.Single(buttons, b => b.Command == conference.FixAllCommand);
-        var refresh = Assert.Single(buttons, b => b.Command == conference.RefreshCommand && b.IsEffectivelyVisible);
+        var refresh = Assert.Single(buttons, b => b.Command == conference.RefreshCommand);
         Assert.Contains("accent", fixAll.Classes);
         Assert.DoesNotContain("accent", refresh.Classes);
-        Assert.Single(buttons, b => b.Classes.Contains("accent") && b.Classes.Contains("sm") && b.IsEffectivelyVisible);
-    }
+        Assert.Single(buttons, b => b.Classes.Contains("accent"));
 
-    /// <summary>A faixa do topo é de cartão, com a barra de erro à esquerda e o número em vermelho: nada de fundo vermelho cheio.</summary>
-    private static void AssertBlockingBanner(Window window, ConferenceView view, ConferenceViewModel conference, ThemeVariant theme)
-    {
-        var banner = Assert.Single(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == conference.BlockingMessage);
-        Assert.Equal(conference.BlockingMessage, $"{conference.BlockingCount} {conference.BlockingRest}");
         var errorBg = ColorOf("Vnf.SignalErrorBg", theme);
         var errorFg = ColorOf("Vnf.SignalErrorFg", theme);
         var probe = PixelProbe.Capture(window, banner);
         Assert.True(probe.CountInArea(new Rect(8, 2, probe.Width - 16, probe.Height - 4), errorBg, 4) < probe.Width * probe.Height / 100, "a faixa não tem fundo vermelho");
-        Assert.True(probe.CountInArea(new Rect(0, 4, 3, probe.Height - 8), errorFg, 6) > probe.Height / 2, "a barra de erro desenha a borda esquerda");
-        var number = banner.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines ?? []).OfType<Run>().Single(r => r.Text == conference.BlockingCount);
-        Assert.Equal(errorFg, Assert.IsType<ISolidColorBrush>(number.Foreground, exactMatch: false).Color);
+        Assert.True(probe.CountInArea(new Rect(0, 0, probe.Width, 1), errorFg, 6) > probe.Width / 2, "o contorno de cima é vermelho");
+        Assert.True(probe.CountInArea(new Rect(12, 12, 20, probe.Height - 24), errorFg, 6) > 40, "o ponto de estado é vermelho");
     }
 
     private static Color ColorOf(string key, ThemeVariant theme) =>
@@ -280,10 +279,155 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Equal(ScreenRenderer.Height, png.PixelSize.Height);
     }
 
+    /// <summary>Os dois estados sem erro do quadro: só o aviso de que a fala não cabe na caixa, e a conferência limpa, com o convite para testar no jogo.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Renderiza_Conferir_so_com_aviso_e_com_a_conferencia_limpa(string themeName)
+    {
+        var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var temp = new TempFolder();
+        var withWarning = ArtboardProject.Create(temp.SubFolder("aviso"), ArtboardKind.OnlyBoxWarning);
+        var clean = ArtboardProject.Create(temp.SubFolder("limpo"), ArtboardKind.Clean);
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(withWarning), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Assert.True(vm.Conference.HasOnlyWarnings);
+                    var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+                    Assert.Equal(GameState.Caution, banner.State);
+                    Assert.Equal("Nada trava o teste no jogo", banner.Title);
+                    Assert.Equal("Os avisos não travam nada. Corrija quando puder.", banner.Message);
+                    var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
+                    var refresh = Assert.Single(buttons);
+                    Assert.Equal(vm.Conference.RefreshCommand, refresh.Command);
+                    Assert.DoesNotContain("accent", refresh.Classes);
+                    Save(window, "conferir-v6-so-aviso", theme);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(clean), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start);
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+                    Assert.True(vm.Conference.IsClear);
+                    var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+                    Assert.Equal(GameState.Translated, banner.State);
+                    Assert.Equal("Nada trava o teste no jogo", banner.Title);
+                    Assert.StartsWith("A tradução está pronta para testar. ", banner.Message, StringComparison.Ordinal);
+                    Assert.EndsWith(" conferidas.", banner.Message, StringComparison.Ordinal);
+                    var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
+                    var test = Assert.Single(buttons, b => b.Command == vm.Conference.TestCommand);
+                    Assert.Contains("accent", test.Classes);
+                    Assert.DoesNotContain("accent", Assert.Single(buttons, b => b.Command == vm.Conference.RefreshCommand).Classes);
+                    Save(window, "conferir-v6-limpo", theme);
+
+                    test.Command!.Execute(null);
+                    Assert.Equal(NavKey.Build, vm.SelectedNav?.Key);
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A linha da tradução de hoje com selo de marcador acompanha o selo (Vnf.MarkerLineHeight), a 100% e a 150% do tamanho do texto: o selo não corta nem encosta nas linhas vizinhas.</summary>
+    [Theory]
+    [InlineData(100)]
+    [InlineData(150)]
+    public async Task A_linha_da_traducao_com_selo_acompanha_a_altura_do_selo_em_qualquer_tamanho_de_texto(int percent)
+    {
+        using var temp = new TempFolder();
+        var root = ArtboardProject.Create(temp.SubFolder("projeto"));
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, settings: new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("app")), _ => null));
+                var window = new MainWindow { Width = 1920, Height = 1080, RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.TranslationHasMarkers);
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+
+                    // A janela só aplica o tamanho do texto à página do Editor; aqui a escala vale para a página inteira, como valeria nela.
+                    view.Resources = TextAppearance.Build(percent);
+                    ScreenRenderer.Settle(window);
+                    var field = PanelOf(view).GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Classes.Contains("fieldtext") && t.Classes.Contains("chips"));
+                    var markerHeight = Assert.IsType<double>(view.FindResource("Vnf.MarkerHeight"));
+                    var lineHeight = Assert.IsType<double>(view.FindResource("Vnf.MarkerLineHeight"));
+                    Assert.Equal(percent == 100 ? 22d : 33d, markerHeight);
+                    Assert.Equal(lineHeight, field.LineHeight);
+                    Assert.True(lineHeight >= markerHeight + 4, "a linha tem folga acima e abaixo do selo");
+                    var chips = field.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+                    Assert.NotEmpty(chips);
+                    Assert.All(chips, c => Assert.Equal(markerHeight, c.Bounds.Height));
+                    Assert.True(field.Bounds.Height >= lineHeight, "o campo tem a altura de ao menos uma linha com selo");
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
+    private enum ArtboardKind
+    {
+        Full,
+        OnlyBoxWarning,
+        Clean,
+    }
+
     /// <summary>As linhas do artboard "Conferir", escritas para ele: nenhum arquivo ou texto de jogo.</summary>
     private static class ArtboardProject
     {
-        public static string Create(string parent)
+        public static string Create(string parent, ArtboardKind kind = ArtboardKind.Full)
         {
             var folder = ProjectFolder.Create(parent, new ProjectConfig(
                 DemoProject.Name,
@@ -293,6 +437,17 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                 new EncodingConfig("cp1252"),
                 AiConfig.Default));
             folder.SaveFormatting(FormattingProfile.Default with { Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3) });
+            if (kind != ArtboardKind.Full)
+            {
+                folder.SaveText("yst00012", [Line("yst00012", 42, @"「本当に、いいの？」\p", @"De verdade, tudo bem?\p")]);
+                folder.SaveText(
+                    "yst00013",
+                    kind == ArtboardKind.Clean
+                        ? [Line("yst00013", 43, @"「平気平気！　ほら、行こう！」\p", @"Tranquilo! Vamos, anda!\p")]
+                        : [Line("yst00013", 45, @"担任の先生が腕を組んで立っていた。\p", @"O nosso professor responsável já estava de pé, esperando por nós dois de braços cruzados na frente do portão da escola, debaixo da chuva.\p")]);
+                return folder.Root;
+            }
+
             folder.SaveGlossary([new GlossaryTerm("先輩", "veterano"), new GlossaryTerm("担任の先生", "professor responsável")]);
             folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("yst00013", null, "Manhã de chuva"), new ScriptNameEntry("yst00014", null, "Hora do almoço")]));
             folder.SaveText("yst00012", [Line("yst00012", 42, @"「本当に、いいの？」\p", "De verdade, tudo bem?")]);

@@ -2,23 +2,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- MarkerChip (v3.css ".mk"): pílula de 20px com o nome do marcador em português. O desenho que a abre é o triângulo de virar a página,
+  <!-- MarkerChip (v3.css ".v3-mk"): pílula de 22px, 12/500, com o nome do marcador em português. O desenho que a abre é o chevron de virar a página,
        "↵" na quebra de linha e "✱" na variável. Faltando na tradução (:missing) vira erro. -->
   <Style Selector="c|MarkerChip">
     <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontUi}"/>
-    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Caption}"/>
     <Setter Property="FontWeight" Value="Medium"/>
     <Setter Property="Margin" Value="3,0"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="Focusable" Value="False"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Pill" Height="{DynamicResource Vnf.PillHeight}" Padding="8,0" CornerRadius="10" Background="{TemplateBinding Background}"
+        <Border Name="PART_Pill" Height="{DynamicResource Vnf.MarkerHeight}" Padding="8,0" CornerRadius="11" Background="{TemplateBinding Background}"
                 BorderBrush="Transparent" BorderThickness="1">
-          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-            <Path Name="PART_Triangle" Width="8" Height="6" Data="M0,0 L8,0 L4,6 Z" Fill="{TemplateBinding Foreground}" VerticalAlignment="Center"
+          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <PathIcon Name="PART_Triangle" Width="12" Height="12" Data="{StaticResource Icon.ChevronDown}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"
                   IsVisible="{TemplateBinding Glyph, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
             <TextBlock Name="PART_Glyph" Text="{TemplateBinding Glyph}" FontSize="{DynamicResource Vnf.FontSize.Caption}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"
                        IsVisible="{TemplateBinding Glyph, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
