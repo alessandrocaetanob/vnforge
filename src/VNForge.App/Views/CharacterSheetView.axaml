@@ -13,50 +13,58 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Classes="divider-bottom" Padding="16,12" Background="{DynamicResource Vnf.BgInset}">
-    <StackPanel Spacing="12">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-        <Border Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center" c:SpeakerColorTint.Color="{Binding Color}"/>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <TextBlock Classes="title-md" Text="{Binding Name}" Classes.jp="{Binding NameIsJapanese}" c:SpeakerColorTint.Color="{Binding Color}"/>
-          <TextBlock Classes="jp-row secondary" VerticalAlignment="Center" Text="{Binding SourceName}" IsVisible="{Binding ShowsSourceName}"/>
+  <!-- A ficha do quadro do #547: aberta dentro do cartão, sem fundo próprio, com o retrato de 56 px, 20 de respiro dos lados e 14 entre os blocos. -->
+  <Border Classes="divider-bottom" Padding="20,4,20,16">
+    <StackPanel Spacing="14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <c:Portrait Size="Md" Seed="{Binding Name}" Tint="{Binding Color}" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="title-md" Text="{Binding Name}" Classes.jp="{Binding NameIsJapanese}" c:SpeakerColorTint.Color="{Binding Color}"/>
+            <TextBlock Classes="jp secondary" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" Text="{Binding SourceName}" IsVisible="{Binding ShowsSourceName}"/>
+          </StackPanel>
+          <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"/>
         </StackPanel>
-        <Button Grid.Column="2" Classes="icon subtle sm" Command="{Binding CloseCommand}" ToolTip.Tip="Fechar a ficha" AutomationProperties.Name="Fechar a ficha">
-          <PathIcon Width="12" Height="12" Data="{StaticResource Icon.Dismiss}"/>
+        <Button Grid.Column="2" Classes="icon subtle sm" Foreground="{DynamicResource Vnf.TextSecondary}" VerticalAlignment="Top" Command="{Binding CloseCommand}"
+                ToolTip.Tip="Fechar a ficha" AutomationProperties.Name="Fechar a ficha">
+          <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
         </Button>
       </Grid>
 
-      <Grid ColumnDefinitions="140,120,*,Auto" ColumnSpacing="16">
+      <Grid ColumnDefinitions="150,170,*,90" ColumnSpacing="16">
         <StackPanel Spacing="2">
           <c:OverlineText Classes="overline" Text="Gênero"/>
-          <TextBlock Classes="body-sm" Text="{Binding GenderLabel}"/>
+          <TextBlock Classes="body-strong" Text="{Binding GenderLabel}"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Spacing="2">
           <c:OverlineText Classes="overline" Text="Cor"/>
-          <TextBlock Classes="body-sm" Text="{Binding Color.Label}"/>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center" c:SpeakerColorTint.Color="{Binding Color}"/>
+            <TextBlock Classes="body-strong" Text="{Binding Color.Label}"/>
+          </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="2" Spacing="2">
           <c:OverlineText Classes="overline" Text="Como fala"/>
-          <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ToneText}"/>
+          <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding ToneText}"/>
         </StackPanel>
         <StackPanel Grid.Column="3" Spacing="2">
-          <c:OverlineText Classes="overline" Text="Falas"/>
-          <TextBlock Classes="body-sm" Text="{Binding UsesText}"/>
+          <c:OverlineText Classes="overline" HorizontalAlignment="Right" Text="Falas"/>
+          <TextBlock Classes="body-strong" HorizontalAlignment="Right" Text="{Binding UsesText}"/>
         </StackPanel>
       </Grid>
 
       <StackPanel Spacing="6">
         <c:OverlineText Classes="overline" Text="As falas mais longas"/>
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding HasLines}">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="24" IsVisible="{Binding HasLines}">
           <TextBlock Classes="caption secondary" Text="Original"/>
           <TextBlock Grid.Column="1" Classes="caption secondary" Text="Tradução"/>
         </Grid>
-        <ItemsControl ItemsSource="{Binding Lines}" IsVisible="{Binding HasLines}" AutomationProperties.Name="Falas mais longas">
+        <ItemsControl ItemsSource="{Binding Lines}" Margin="0,-6,0,0" IsVisible="{Binding HasLines}" AutomationProperties.Name="Falas mais longas">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SheetLine">
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,3">
-                <TextBlock Classes="jp-row" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding Source}" ToolTip.Tip="{Binding Source}"/>
-                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding TranslationText}"
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+                <TextBlock Classes="jp body" LineHeight="24" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding Source}" ToolTip.Tip="{Binding Source}"/>
+                <TextBlock Grid.Column="1" Classes="body" LineHeight="24" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding TranslationText}"
                            ToolTip.Tip="{Binding TranslationText}" Classes.secondary="{Binding !HasTranslation}"/>
               </Grid>
             </DataTemplate>
@@ -67,9 +75,9 @@
 
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
         <TextBlock Classes="body-sm" VerticalAlignment="Center" Text="{Binding AwaitingReviewText}"/>
-        <Button Grid.Column="1" Classes="sm accent" Command="{Binding ReviewCommand}" AutomationProperties.Name="Revisar este personagem">
+        <Button Grid.Column="1" Classes="accent" Command="{Binding ReviewCommand}" AutomationProperties.Name="Revisar este personagem">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Checkmark}"/>
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
             <TextBlock Text="Revisar este personagem"/>
           </StackPanel>
         </Button>

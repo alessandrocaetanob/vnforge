@@ -102,12 +102,12 @@ public sealed class CharacterSheetRenderTests(HeadlessFixture fixture) : IClassF
                     Assert.Contains("4 linhas da IA esperando revisão.", texts, StringComparison.Ordinal);
                     Assert.Contains("Original", texts.Split('\n'));
                     Assert.Contains("Tradução", texts.Split('\n'));
-                    Assert.Equal(5, view.GetVisualDescendants().OfType<TextBlock>().Count(t => t.IsEffectivelyVisible && t.Classes.Contains("jp-row") && t.Text?.Length > 1 && t.Text != "美咲"));
+                    Assert.Equal(5, view.GetVisualDescendants().OfType<TextBlock>().Count(t => t.IsEffectivelyVisible && t.Classes.Contains("jp") && t.Classes.Contains("body") && t.Text?.Length > 1));
                     Assert.DoesNotContain('—', texts);
                     Assert.DoesNotContain('–', texts);
 
                     // O ponto de cor tem a tinta do personagem neste tema.
-                    var dot = view.GetVisualDescendants().OfType<Border>().First(b => b.IsEffectivelyVisible && Math.Abs(b.Bounds.Width - 12) < 0.5 && Math.Abs(b.Bounds.Height - 12) < 0.5 && b.CornerRadius.TopLeft == 6);
+                    var dot = view.GetVisualDescendants().OfType<Border>().First(b => b.IsEffectivelyVisible && Math.Abs(b.Bounds.Width - 10) < 0.5 && Math.Abs(b.Bounds.Height - 10) < 0.5 && b.CornerRadius.TopLeft == 5);
                     var ink = CharacterPalette.Find("violet")!.BrushFor(theme) is Avalonia.Media.ISolidColorBrush solid ? solid.Color : default;
                     var probe = PixelProbe.Capture(window, dot);
                     Assert.True(probe.Near(probe.Width / 2, probe.Height / 2, ink, 6), $"ponto de cor: {probe.At(probe.Width / 2, probe.Height / 2)} esperada {ink}");
