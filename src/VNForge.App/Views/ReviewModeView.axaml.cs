@@ -280,22 +280,6 @@ public sealed partial class ReviewModeView : UserControl
         }
     }
 
-    /// <summary>O selo de virar a página do modo revisão leva um chevron contornado em vez do triângulo cheio do tema (o desenho vem do modelo do <c>MarkerChip</c>, que não se troca daqui por estilo).</summary>
-    private static void OnChipTemplateApplied(object? sender, TemplateAppliedEventArgs e)
-    {
-        if (sender is not MarkerChip chip || e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_Triangle") is not { } triangle)
-        {
-            return;
-        }
-
-        triangle.Data = Geometry.Parse("M0.5,1 L4,4.5 L7.5,1");
-        triangle.Fill = null;
-        triangle.StrokeThickness = 1.3;
-        triangle.StrokeLineCap = PenLineCap.Round;
-        triangle.StrokeJoin = PenLineJoin.Round;
-        triangle[!Shape.StrokeProperty] = chip[!TemplatedControl.ForegroundProperty];
-    }
-
     /// <summary>
     /// O original com os marcadores em selos. Os do fim do texto (a virada de página, quase sempre) vão para a fileira de baixo, ao lado de "Entender o japonês", como no
     /// quadro; os do meio ficam no texto, no lugar em que quebram a fala.
@@ -327,7 +311,6 @@ public sealed partial class ReviewModeView : UserControl
 
             var kind = segment.Text.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control;
             var chip = (MarkerChip)MarkerChipGenerator.CreateChip(segment.Text, kind);
-            chip.TemplateApplied += OnChipTemplateApplied;
             if (i >= tail)
             {
                 chip.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;

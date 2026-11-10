@@ -24,7 +24,7 @@ public enum GameState
 
 /// <summary>
 /// A faixa do estado do jogo em "Testar no jogo" (v3.css, <c>.gamestate</c>): um ponto de estado, o título ("O jogo está com a tradução de 22/10"), uma frase
-/// e, em <c>Content</c>, os botões. <c>Footer</c>, quando há, fica sob uma divisória no mesmo cartão (os cinco passos do teste). O estado vira <c>:original</c>, <c>:translated</c> ou <c>:blocked</c> e pinta o ponto.
+/// e, em <c>Content</c>, os botões. <c>Footer</c>, quando há, fica sob uma divisória no mesmo cartão (os cinco passos do teste). O estado vira <c>:original</c>, <c>:translated</c>, <c>:blocked</c>, <c>:warning</c> ou <c>:caution</c> e pinta o ponto. <c>:warning</c> (o jogo não devolve o original) tem ponto e contorno âmbar; <c>:caution</c> (a Conferência só tem avisos) só o ponto âmbar, com o contorno neutro.
 /// </summary>
 public sealed class GameStateBanner : ContentControl
 {

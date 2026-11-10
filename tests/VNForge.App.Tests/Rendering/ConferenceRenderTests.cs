@@ -368,6 +368,55 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
             TestContext.Current.CancellationToken);
     }
 
+    /// <summary>A linha da tradução de hoje com selo de marcador acompanha o selo (Vnf.MarkerLineHeight), a 100% e a 150% do tamanho do texto: o selo não corta nem encosta nas linhas vizinhas.</summary>
+    [Theory]
+    [InlineData(100)]
+    [InlineData(150)]
+    public async Task A_linha_da_traducao_com_selo_acompanha_a_altura_do_selo_em_qualquer_tamanho_de_texto(int percent)
+    {
+        using var temp = new TempFolder();
+        var root = ArtboardProject.Create(temp.SubFolder("projeto"));
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, settings: new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("app")), _ => null));
+                var window = new MainWindow { Width = 1920, Height = 1080, RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+                    await vm.ConferenceLoading;
+                    vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.TranslationHasMarkers);
+                    var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
+
+                    // A janela só aplica o tamanho do texto à página do Editor; aqui a escala vale para a página inteira, como valeria nela.
+                    view.Resources = TextAppearance.Build(percent);
+                    ScreenRenderer.Settle(window);
+                    var field = PanelOf(view).GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Classes.Contains("fieldtext") && t.Classes.Contains("chips"));
+                    var markerHeight = Assert.IsType<double>(view.FindResource("Vnf.MarkerHeight"));
+                    var lineHeight = Assert.IsType<double>(view.FindResource("Vnf.MarkerLineHeight"));
+                    Assert.Equal(percent == 100 ? 22d : 33d, markerHeight);
+                    Assert.Equal(lineHeight, field.LineHeight);
+                    Assert.True(lineHeight >= markerHeight + 4, "a linha tem folga acima e abaixo do selo");
+                    var chips = field.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
+                    Assert.NotEmpty(chips);
+                    Assert.All(chips, c => Assert.Equal(markerHeight, c.Bounds.Height));
+                    Assert.True(field.Bounds.Height >= lineHeight, "o campo tem a altura de ao menos uma linha com selo");
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private enum ArtboardKind
     {
         Full,

@@ -54,9 +54,13 @@
       <Setter Property="Margin" Value="0"/>
       <Setter Property="CornerRadius" Value="0"/>
     </Style>
-    <!-- O selo tem 20px: a linha do detalhe que leva selo cresce para 22 em vez de cortar o texto. -->
-    <Style Selector="TextBlock.body-sm.chips">
-      <Setter Property="LineHeight" Value="22"/>
+    <!-- O selo de marcador tem Vnf.MarkerHeight (22 a 100%): o texto que leva selo usa Vnf.MarkerLineHeight, o selo mais folga, e a linha acompanha o tamanho do texto em vez de cortar ou sobrepor. -->
+    <Style Selector="TextBlock.fieldtext">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="LineHeight" Value="20"/>
+    </Style>
+    <Style Selector="TextBlock.chips">
+      <Setter Property="LineHeight" Value="{DynamicResource Vnf.MarkerLineHeight}"/>
     </Style>
     <!-- Lista dos cartões de "mesmo original": o cartão não é um item selecionável, então o item não muda de cor. -->
     <Style Selector="ListBox.cards">
@@ -208,15 +212,15 @@
                     <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" MinWidth="0">
                       <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Classes="caption secondary" Text="{Binding Where}" TextTrimming="CharacterEllipsis"
-                                 IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                 IsVisible="{Binding HasTag}"/>
                       <TextBlock Classes="caption secondary" Text="{Binding OriginNote}" TextTrimming="CharacterEllipsis"
                                  IsVisible="{Binding IsMachineDraft}"/>
                       <TextBlock Classes="body-sm" Classes.chips="{Binding HasDetailMarkers}" c:MarkedText.Source="{Binding DetailMarked}" TextTrimming="CharacterEllipsis" MaxLines="1"
                                  ToolTip.Tip="{Binding Detail}" AutomationProperties.Name="{Binding Detail}"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding Where}" VerticalAlignment="Top" Margin="0,2,0,0"
-                               IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
-                    <Border Grid.Column="2" Classes="sev ai" VerticalAlignment="Top" IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                               MaxWidth="220" TextTrimming="CharacterEllipsis" IsVisible="{Binding !HasTag}"/>
+                    <Border Grid.Column="2" Classes="sev ai" VerticalAlignment="Top" IsVisible="{Binding HasTag}">
                       <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                     </Border>
                   </Grid>
@@ -274,13 +278,13 @@
                   <StackPanel Spacing="6" IsVisible="{Binding HasTranslation}">
                     <c:OverlineText Classes="overline" Text="{Binding TranslationLabel}"/>
                     <Border Classes="original field">
-                      <TextBlock FontSize="14" LineHeight="20" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
+                      <TextBlock Classes="fieldtext" Classes.chips="{Binding TranslationHasMarkers}" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">
                     <c:OverlineText Classes="overline" Text="Como vai ficar"/>
                     <Border Classes="original field proposal">
-                      <TextBlock FontSize="14" LineHeight="20" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
+                      <TextBlock Classes="fieldtext" Classes.chips="{Binding ProposalHasMarkers}" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
                     </Border>
                   </StackPanel>
                   <!-- Não cabe na caixa: a caixa do jogo com a tradução de hoje e as duas saídas do Editor, dividir em páginas ou encurtar com a IA. -->

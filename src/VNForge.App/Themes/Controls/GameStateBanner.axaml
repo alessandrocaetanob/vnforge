@@ -35,10 +35,7 @@
   <Style Selector="c|GameStateBanner:blocked /template/ Ellipse#PART_Dot">
     <Setter Property="Fill" Value="{DynamicResource Vnf.SignalErrorFg}"/>
   </Style>
-  <Style Selector="c|GameStateBanner:warning /template/ Ellipse#PART_Dot">
-    <Setter Property="Fill" Value="{DynamicResource Vnf.SignalWarningFg}"/>
-  </Style>
-  <Style Selector="c|GameStateBanner:caution /template/ Ellipse#PART_Dot">
+  <Style Selector="c|GameStateBanner:warning /template/ Ellipse#PART_Dot, c|GameStateBanner:caution /template/ Ellipse#PART_Dot">
     <Setter Property="Fill" Value="{DynamicResource Vnf.SignalWarningFg}"/>
   </Style>
   <Style Selector="c|GameStateBanner:warning /template/ Border#PART_Root">
