@@ -184,7 +184,7 @@ public sealed partial class EditorViewModel
         NamesRead read;
         try
         {
-            (change, read) = await Task.Run(() => (WriteGroup(root, keys, group), ReadNames(root)));
+            (change, read) = await Task.Run(() => (WriteGroup(root, keys, group), ReadNames(root)), CancellationToken.None);
         }
         catch (Exception e) when (e is ScriptGroupingException or VNForgeException or IOException or UnauthorizedAccessException)
         {
@@ -251,7 +251,7 @@ public sealed partial class EditorViewModel
         }
 
         var version = loadVersion;
-        var read = await Task.Run(() => ReadNames(root));
+        var read = await Task.Run(() => ReadNames(root), CancellationToken.None);
         if (version != loadVersion)
         {
             return;

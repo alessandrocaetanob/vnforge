@@ -70,7 +70,7 @@ public sealed partial class LibraryViewModel
         {
             try
             {
-                await Task.Run(() => toTranslated ? switcher.ToTranslated(game, steps) : switcher.ToOriginal(game), CancellationToken.None);
+                await Task.Run(() => toTranslated ? switcher.ToTranslated(game, steps, cancellationToken: CancellationToken.None) :switcher.ToOriginal(game), CancellationToken.None);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -103,7 +103,7 @@ public sealed partial class LibraryViewModel
         {
             try
             {
-                var result = await Task.Run(() => ProjectExtractor.Extract(ProjectFolder.Open(projectPath), engines), CancellationToken.None);
+                var result = await Task.Run(() => ProjectExtractor.Extract(ProjectFolder.Open(projectPath), engines, cancellationToken: CancellationToken.None), CancellationToken.None);
                 SwitchProblem = new LibrarySwitchProblem("O texto foi extraído de novo", SummaryOf(result.Reextraction));
             }
             catch (Exception e) when (e is not OperationCanceledException)
