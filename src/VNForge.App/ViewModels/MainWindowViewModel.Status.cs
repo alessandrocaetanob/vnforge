@@ -67,6 +67,7 @@ public sealed partial class MainWindowViewModel
 
         GameOriginalTitle = link?.OriginalTitle ?? string.Empty;
         GameCover = link?.Cover;
+        Sheet.Open(link?.VisualNovelId, link?.Title ?? ProjectTitle);
     }
 
     private void OnWizardVndbChanged(object? sender, PropertyChangedEventArgs e)

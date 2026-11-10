@@ -64,7 +64,8 @@ public sealed partial class MainWindowViewModel
     /// <summary>O item "Mais" da segunda linha; a tela abre o menu em vez de trocar de página quando ele é escolhido.</summary>
     public NavItemViewModel MoreSection => moreItem;
 
-    public GameTabPlaceholderViewModel Sheet { get; }
+    /// <summary>A aba Ficha do jogo (d9, #554).</summary>
+    public GameSheetViewModel Sheet { get; }
 
     public GameTabPlaceholderViewModel Play { get; }
 
@@ -78,13 +79,13 @@ public sealed partial class MainWindowViewModel
     public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
 
     /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar" (que só existe com a #549); na Tradução é o próximo passo do Painel.</summary>
-    public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation;
+    public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
     /// <summary>"Biblioteca › Amaoto no Hakoniwa" dentro do jogo e nos Ajustes de um projeto aberto; "Ajustes" nos Ajustes sem projeto; "Biblioteca" no resto.</summary>
-    public string Breadcrumb => InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : "Biblioteca";
+    public string Breadcrumb => InGame && SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing ? $"Biblioteca › {ProjectTitle} › Revisar a ficha" : InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : "Biblioteca";
 
     /// <summary>Atraso entre gravar uma linha e reler o andamento do jogo para o cabeçalho; várias gravações seguidas fazem uma leitura só.</summary>
     public TimeSpan ProgressRefreshDelay { get; set; } = TimeSpan.FromMilliseconds(1500);
@@ -116,6 +117,12 @@ public sealed partial class MainWindowViewModel
         get => InGame && selectedNav is { } item ? Tabs.Single(t => t.Tab == GameTabOf(item.Key)) : null;
         set
         {
+            if (value is { Tab: GameTab.Sheet } && Sheet.IsReviewing)
+            {
+                // A aba Ficha já está marcada durante a revisão: clicar nela volta para a ficha.
+                Sheet.ExitReviewCommand.Execute(null);
+            }
+
             if (value is not null && HasProject)
             {
                 SelectedNav = value.Tab switch
