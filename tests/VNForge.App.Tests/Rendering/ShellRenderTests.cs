@@ -123,10 +123,10 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Em_1366_por_768_o_cabecalho_cabe_numa_linha_e_o_Editor_ganha_a_altura(string themeName)
+    public async Task Em_1366_por_768_o_cabecalho_cabe_numa_linha_e_o_Conferir_ganha_a_altura(string themeName)
     {
         var theme = ThemeOf(themeName);
-        await Abrir(theme, 1366, 768, NavKey.Editor, (window, vm) =>
+        await Abrir(theme, 1366, 768, NavKey.Conference, (window, vm) =>
         {
             var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
             Assert.True(header.IsCompact);
@@ -138,14 +138,14 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             var title = Assert.Single(header.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Classes.Contains("title-md"));
             Assert.False(string.IsNullOrEmpty(title.Text));
             ScreenRenderer.Settle(window);
-            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-editor-1366", theme)));
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-conferir-1366", theme)));
         });
     }
 
-    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo e a de onde a página começa (com a segunda linha), completo e compacto. O completo vale em todas as páginas menos nas quatro de trabalho, em qualquer altura de janela; o compacto, no Editor, no Conferir, no Testar e no Glossário. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
+    /// <summary>O que o shell tira da página: a altura do cabeçalho do jogo e a de onde a página começa (com a segunda linha), completo e compacto. O completo vale em todas as páginas menos nas três de trabalho, em qualquer altura de janela (o do Editor é o do quadro do #546, de outra altura); o compacto, no Conferir, no Testar e no Glossário. Mudar estes números muda o espaço de todas as telas do jogo.</summary>
     [Theory]
     [InlineData(1000, false, 179, 229, NavKey.Dashboard)]
-    [InlineData(1000, true, 80, 80, NavKey.Editor)]
+    [InlineData(1000, true, 80, 80, NavKey.Conference)]
     [InlineData(768, false, 179, 229, NavKey.Dashboard)]
     [InlineData(768, true, 80, 80, NavKey.Glossary)]
     public async Task O_cabecalho_do_jogo_ocupa_a_altura_combinada(int height, bool compact, int expectedHeader, int expectedWithSections, NavKey page)
@@ -162,14 +162,14 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     }
 
     /// <summary>
-    /// A decisão do #544 (opção C): o cabeçalho completo na entrada do jogo (Ficha, Painel, Jogar, Lançar, Bíblia e Imagens) e o compacto, de 80 px, no Editor, no Conferir, no Testar e no Glossário. A troca
+    /// A decisão do #544 (opção C): o cabeçalho completo na entrada do jogo (Ficha, Painel, Jogar, Lançar, Bíblia e Imagens) e o compacto, de 80 px, no Conferir, no Testar e no Glossário (o Editor ganhou o do quadro do #546). A troca
     /// acontece ao entrar e ao sair, uma tela de trabalho depois da outra e voltando a cada uma das telas de entrada.
     /// </summary>
     [Theory]
     [MemberData(nameof(Themes))]
     public async Task O_cabecalho_completo_da_entrada_vira_compacto_nas_telas_de_trabalho_e_volta_ao_sair(string themeName)
     {
-        NavKey[] work = [NavKey.Editor, NavKey.Conference, NavKey.Build, NavKey.Glossary];
+        NavKey[] work = [NavKey.Conference, NavKey.Build, NavKey.Glossary];
         NavKey[] entry = [NavKey.Sheet, NavKey.Dashboard, NavKey.Play, NavKey.Release, NavKey.Bible, NavKey.Images];
         await Abrir(ThemeOf(themeName), ScreenRenderer.Width, ScreenRenderer.Height, NavKey.Sheet, (window, vm) =>
         {
@@ -196,7 +196,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             }
 
             // Entre duas telas de trabalho o compacto continua; sair pelas abas do jogo também devolve o completo.
-            Go(vm, window, NavKey.Editor);
+            Go(vm, window, NavKey.Conference);
             Go(vm, window, NavKey.Glossary);
             Assert.True(header.IsCompact);
             vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
@@ -212,7 +212,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     {
         (NavKey Key, string Name, bool Compact)[] pages =
         [
-            (NavKey.Sheet, "ficha", false), (NavKey.Dashboard, "painel", false), (NavKey.Editor, "editor", true), (NavKey.Conference, "conferir", true),
+            (NavKey.Sheet, "ficha", false), (NavKey.Dashboard, "painel", false), (NavKey.Editor, "editor", false), (NavKey.Conference, "conferir", true),
             (NavKey.Build, "testar", true), (NavKey.Release, "lancar", false), (NavKey.Glossary, "glossario", true), (NavKey.Bible, "biblia", false),
             (NavKey.Images, "imagens", false), (NavKey.Play, "jogar", false),
         ];
@@ -254,7 +254,7 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
     public async Task A_segunda_linha_do_compacto_nunca_cobre_as_abas_e_desce_quando_nao_cabe(string themeName, int width)
     {
         var theme = ThemeOf(themeName);
-        await Abrir(theme, width, 800, NavKey.Editor, (window, _) =>
+        await Abrir(theme, width, 800, NavKey.Conference, (window, _) =>
         {
             var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
             Assert.True(header.IsCompact);

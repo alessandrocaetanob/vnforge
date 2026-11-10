@@ -294,10 +294,16 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             ui.Show(list);
             Assert.Equal("100%", done.PercentText);
             Assert.Contains(":complete", done.Classes);
-            Assert.Equal(Token(done, "Vnf.SegApproved"), ColorOf(Part<ProgressBar>(done, "PART_Bar").Foreground));
-            Assert.Equal(Token(current, "Vnf.Accent"), ColorOf(Part<ProgressBar>(current, "PART_Bar").Foreground));
-            Assert.Equal(3, Part<ProgressBar>(current, "PART_Bar").Bounds.Height);
-            Assert.Equal(36, current.Bounds.Height);
+            Assert.Equal(32, current.Bounds.Height);
+
+            // Quadro do #546: o item atual leva a barra de 3 px em accent à esquerda e o nome em accent-text; os outros, o nome em text-secondary.
+            var bar = Part<Border>(current, "PART_SelectionBar");
+            Assert.True(bar.IsVisible);
+            Assert.Equal(3, bar.Bounds.Width);
+            Assert.Equal(Token(current, "Vnf.Accent"), ColorOf(bar.Background));
+            Assert.False(Part<Border>(done, "PART_SelectionBar").IsVisible);
+            Assert.Equal(Token(current, "Vnf.AccentText"), ColorOf(Part<TextBlock>(current, "PART_Label").Foreground));
+            Assert.Equal(Token(done, "Vnf.TextSecondary"), ColorOf(Part<TextBlock>(done, "PART_Label").Foreground));
 
             // Cena pronta: um visto no lugar de "100%"; o texto continua no nome de acessibilidade.
             Assert.True(Part<PathIcon>(done, "PART_Done").IsVisible);

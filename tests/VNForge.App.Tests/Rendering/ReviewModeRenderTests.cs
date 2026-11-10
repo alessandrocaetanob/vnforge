@@ -181,7 +181,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task O_palco_e_16_por_9_maior_que_o_roteiro_e_guarda_a_caixa_na_metade_de_baixo(string themeName)
+    public async Task O_palco_e_16_por_9_maior_que_o_roteiro_e_centra_a_caixa(string themeName)
     {
         var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
         using var temp = new TempFolder();
@@ -201,7 +201,9 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var box = Assert.Single(stage.GetVisualDescendants().OfType<GameTextbox>());
             var boxFrame = Frame(window, box);
             Assert.True(stageFrame.Contains(boxFrame.TopLeft) && stageFrame.Contains(boxFrame.BottomRight), "a caixa do jogo está dentro do palco");
-            Assert.True(boxFrame.Top > stageFrame.Top + (stageFrame.Height / 2) - 60 && boxFrame.Bottom > stageFrame.Bottom - 40, "a caixa está encostada na base do palco");
+            // Quadro do #546 (".stagebox"): a caixa fica no centro do palco, e não na base.
+            var gap = Math.Abs(((boxFrame.Top + boxFrame.Bottom) / 2) - ((stageFrame.Top + stageFrame.Bottom) / 2));
+            Assert.True(gap <= 12, $"a caixa está centrada no palco (centros a {gap:0} px)");
             Assert.True(boxFrame.Width > stageFrame.Width * 0.6, $"a caixa ocupa a largura útil do palco ({boxFrame.Width} de {stageFrame.Width})");
             Salvar(window, "modo-revisao-palco", theme);
         });
@@ -221,10 +223,14 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var stage = Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>());
             var probe = PixelProbe.Capture(window, stage);
 
-            // Faixa do alto, à direita do cartão de capítulo e longe da caixa: só o degradê do quadro (azul-acinzentado #2A3655 em cima, #293452 aos 20%), igual nos dois temas e sem vinheta.
+            // Faixa do alto, à direita do cartão da cena e longe da caixa: o degradê de stage-top a stage-bottom do quadro do #546, igual nos dois temas. A 14% da altura
+            // a cor é 86% do topo e 14% da base; a vinheta ali é quase nula.
             var area = new Rect(probe.Width * 0.45, probe.Height * 0.08, probe.Width * 0.3, probe.Height * 0.12);
-            var expected = Color.FromRgb(0x29, 0x35, 0x53);
-            Assert.True(probe.CountInArea(area, expected, 14) > area.Width * area.Height * 0.9, "o alto do palco é o degradê escuro do tema");
+            var top = Token(stage, "Vnf.StageTop");
+            var bottom = Token(stage, "Vnf.StageBottom");
+            byte Mix(byte a, byte b) => (byte)Math.Round((a * 0.86) + (b * 0.14));
+            var expected = Color.FromRgb(Mix(top.R, bottom.R), Mix(top.G, bottom.G), Mix(top.B, bottom.B));
+            Assert.True(probe.CountInArea(area, expected, 14) > area.Width * area.Height * 0.9, $"o alto do palco é o degradê do quadro (esperava {expected})");
             Assert.True(((0.2126 * expected.R) + (0.7152 * expected.G) + (0.0722 * expected.B)) / 255 < 0.3, "o palco é escuro mesmo no tema claro");
         });
     }
@@ -693,8 +699,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
                     ScreenRenderer.Settle(window);
 
-                    var entry = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.StartReviewCommand);
-                    entry.Command!.Execute(null);
+                    vm.Editor.StartReviewCommand.Execute(null);
                     ScreenRenderer.Settle(window);
                     Assert.True(vm.Editor.IsReviewing);
                     if (risk)
