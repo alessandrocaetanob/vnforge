@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.GameSheetView"
              x:DataType="vm:GameSheetViewModel"
              AutomationProperties.Name="Ficha do jogo">
@@ -146,6 +147,10 @@
           </StackPanel>
 
           <StackPanel Grid.Column="1" Spacing="16">
+
+            <Panel IsVisible="{Binding ListCard, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <v:LibraryVndbListCard DataContext="{Binding ListCard}"/>
+            </Panel>
 
             <Border Classes="sheet-card">
               <StackPanel Spacing="12" Grid.IsSharedSizeScope="True">
