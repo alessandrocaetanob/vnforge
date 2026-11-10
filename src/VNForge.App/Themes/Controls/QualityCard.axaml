@@ -17,9 +17,9 @@
               <Border Name="PART_Mark" Classes="radio-mark"/>
               <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
-            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
+            <TextBlock Name="PART_Description" Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <StackPanel IsVisible="{TemplateBinding ShowPrice}">
+            <StackPanel Name="PART_PriceRow" IsVisible="{TemplateBinding ShowPrice}">
               <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontSize="17" LineHeight="24" FontWeight="Bold"/>
               <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro tem 12 com entrelinha de 1,6 (19,2, arredondada para 19 no render), que dá os 158 de altura do cartão. -->
               <TextBlock Name="PART_Duration" FontSize="12" LineHeight="19" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
@@ -30,6 +30,18 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Variante "inline" (Ajustes, v6): o preço e o tempo na mesma linha, de 4 em 4px, e a descrição em 12/20. -->
+  <Style Selector="c|QualityCard.inline /template/ StackPanel#PART_PriceRow">
+    <Setter Property="Orientation" Value="Horizontal"/>
+    <Setter Property="Spacing" Value="4"/>
+  </Style>
+  <Style Selector="c|QualityCard.inline /template/ TextBlock#PART_Description">
+    <Setter Property="LineHeight" Value="20"/>
+  </Style>
+  <Style Selector="c|QualityCard.inline /template/ TextBlock#PART_Duration">
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="VerticalAlignment" Value="Bottom"/>
   </Style>
   <Style Selector="c|QualityCard:pointerover /template/ Border#PART_Card">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
