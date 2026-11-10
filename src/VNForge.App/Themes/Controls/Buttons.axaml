@@ -56,17 +56,14 @@
   </Style>
 
   <!-- O subtle do quadro (v3-btn.subtle) é o botão comum sem caixa: o rótulo herda o semibold e fica em text-secondary, e vira text-primary no hover.
-       A linha inteira (evalrow do Eval, capítulo do Painel) e o código mono dentro de um subtle (linhas de regra da aba Dicionários) não são rótulo: o texto fica regular e em text-primary. -->
+       A linha inteira (evalrow do Eval, chapter do Painel, row das linhas de regra da aba Dicionários) não é rótulo: o texto fica regular e em text-primary.
+       A regra de linha exige a classe subtle junto e põe a cor no botão, nunca no TextBlock, para que o hover e o disabled do botão continuem valendo. -->
   <Style Selector="Button.subtle">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
-  <Style Selector="Button.subtle.evalrow, Button.subtle.chapter">
-    <Setter Property="FontWeight" Value="Normal"/>
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
-  </Style>
-  <Style Selector="Button.subtle TextBlock.mono">
+  <Style Selector="Button.subtle.evalrow, Button.subtle.chapter, Button.subtle.row">
     <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
   </Style>
@@ -143,10 +140,11 @@
   </Style>
 
   <!-- kbd do quadro: retângulo de raio 4, sem preenchimento, contorno de 1px na cor do texto (currentColor) e opacidade .85; mono 500 de 11/14.
-       O Border não tem Foreground; o contorno lê o que o texto de dentro herda. -->
+       O Border não tem Foreground; o contorno é um binding compilado no Foreground herdado (TextElement), a mesma fonte do TextBlock de dentro, que não põe cor própria.
+       Assim ele acompanha repouso, hover e disabled do botão que o carrega. Não há como fazer isso só com pincéis de recurso, porque a cor do texto muda por estado. -->
   <Style Selector="Border.kbd">
     <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="BorderBrush" Value="{ReflectionBinding $self.(TextElement.Foreground)}"/>
+    <Setter Property="BorderBrush" Value="{Binding $self.(TextElement.Foreground), x:DataType=Border}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="4"/>
     <Setter Property="Padding" Value="5,1"/>

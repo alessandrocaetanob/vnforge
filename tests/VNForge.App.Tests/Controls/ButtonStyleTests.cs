@@ -163,6 +163,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
     [Theory]
     [InlineData("subtle evalrow")]
     [InlineData("subtle chapter")]
+    [InlineData("subtle row")]
     [InlineData("link")]
     [InlineData("word-source")]
     public async Task Texto_dentro_de_linha_inteira_ou_link_fica_regular(string classes)
@@ -187,6 +188,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
     [Theory]
     [InlineData("subtle evalrow")]
     [InlineData("subtle chapter")]
+    [InlineData("subtle row")]
     public async Task Linha_inteira_subtle_fica_em_text_primary_no_repouso(string classes)
     {
         await OnUi(window =>
@@ -203,16 +205,45 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         });
     }
 
-    [Fact]
-    public async Task Codigo_mono_dentro_de_botao_subtle_fica_regular_e_em_text_primary()
+    [Theory]
+    [InlineData("subtle evalrow")]
+    [InlineData("subtle chapter")]
+    [InlineData("subtle row")]
+    public async Task Linha_inteira_subtle_segue_o_hover_e_o_disabled_do_botao(string classes)
     {
         await OnUi(window =>
         {
-            var button = new Button { Content = new TextBlock { Classes = { "mono" }, Text = "さん" }, Classes = { "subtle" } };
+            var button = new Button { Content = new TextBlock { Classes = { "mono" }, Text = "regra" } };
+            foreach (var name in classes.Split(' '))
+            {
+                button.Classes.Add(name);
+            }
+
+            Show(window, button);
+            Hover(button, true);
+            ScreenRenderer.Settle(window);
+
+            Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "regra"));
+            Assert.Equal(Brush(window, "Vnf.BgCardHover"), Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).Background).Color);
+
+            Hover(button, false);
+            button.IsEnabled = false;
+            ScreenRenderer.Settle(window);
+
+            Assert.Equal(Brush(window, "Vnf.TextTertiary"), ForegroundOf(button, "regra"));
+            Assert.Equal(FontWeight.Normal, Text(button, "regra").FontWeight);
+        });
+    }
+
+    [Fact]
+    public async Task Rotulo_do_botao_subtle_desabilitado_fica_em_text_tertiary()
+    {
+        await OnUi(window =>
+        {
+            var button = new Button { Content = "Pular", Classes = { "subtle" }, IsEnabled = false };
             Show(window, button);
 
-            Assert.Equal(FontWeight.Normal, Text(button, "さん").FontWeight);
-            Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "さん"));
+            Assert.Equal(Brush(window, "Vnf.TextTertiary"), ForegroundOf(button, "Pular"));
         });
     }
 
@@ -310,10 +341,19 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData("subtle")]
-    [InlineData("danger")]
-    public async Task Kbd_tem_o_contorno_na_cor_do_texto_do_botao_que_o_carrega(string classes)
+    [InlineData("", "rest")]
+    [InlineData("", "hover")]
+    [InlineData("", "disabled")]
+    [InlineData("subtle", "rest")]
+    [InlineData("subtle", "hover")]
+    [InlineData("subtle", "disabled")]
+    [InlineData("subtle row", "rest")]
+    [InlineData("subtle row", "hover")]
+    [InlineData("subtle row", "disabled")]
+    [InlineData("danger", "rest")]
+    [InlineData("danger", "hover")]
+    [InlineData("danger", "disabled")]
+    public async Task Kbd_tem_o_contorno_na_cor_do_texto_do_botao_que_o_carrega(string classes, string state)
     {
         await OnUi(window =>
         {
@@ -325,9 +365,17 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             }
 
             Show(window, button);
+            Hover(button, state == "hover");
+            button.IsEnabled = state != "disabled";
+            ScreenRenderer.Settle(window);
 
-            Assert.Equal(ForegroundOf(button, "M"), Assert.IsAssignableFrom<ISolidColorBrush>(kbd.BorderBrush).Color);
-            Assert.Equal(ForegroundOf(button, "Depois"), ForegroundOf(button, "M"));
+            var text = ForegroundOf(button, "M");
+            Assert.Equal(text, Assert.IsAssignableFrom<ISolidColorBrush>(kbd.BorderBrush).Color);
+            Assert.Equal(ForegroundOf(button, "Depois"), text);
+            if (state == "disabled")
+            {
+                Assert.Equal(Brush(window, "Vnf.TextTertiary"), text);
+            }
         });
     }
 
