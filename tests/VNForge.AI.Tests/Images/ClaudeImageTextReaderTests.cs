@@ -50,6 +50,34 @@ public sealed class ClaudeImageTextReaderTests
         Assert.False(reading.Refused);
     }
 
+    [Fact]
+    public async Task Devolve_a_traducao_sugerida_e_o_pedido_a_exige_no_schema()
+    {
+        var client = new StubClient(_ => Ok("""{"hasText":true,"text":"桜ヶ丘高校 校門","translation":" Colégio Sakuragaoka, portão "}"""));
+
+        var reading = await new ClaudeImageTextReader(client).ReadAsync(Image, Token);
+
+        Assert.Equal("Colégio Sakuragaoka, portão", reading.Translation);
+        Assert.Contains("\"translation\"", Assert.Single(client.Requests).JsonSchema);
+    }
+
+    [Fact]
+    public async Task Resposta_sem_o_campo_de_traducao_ainda_vale_e_a_sugestao_fica_vazia()
+    {
+        var reading = await new ClaudeImageTextReader(new StubClient(_ => Ok("""{"hasText":true,"text":"はじめから"}"""))).ReadAsync(Image, Token);
+
+        Assert.Equal("はじめから", reading.Text);
+        Assert.Equal(string.Empty, reading.Translation);
+    }
+
+    [Fact]
+    public async Task Imagem_sem_texto_nao_traz_sugestao()
+    {
+        var reading = await new ClaudeImageTextReader(new StubClient(_ => Ok("""{"hasText":false,"text":"","translation":"ruído"}"""))).ReadAsync(Image, Token);
+
+        Assert.Equal(string.Empty, reading.Translation);
+    }
+
     [Theory]
     [InlineData("""{"hasText":false,"text":""}""")]
     [InlineData("""{"hasText":false,"text":"ruído que o modelo não devia mandar"}""")]

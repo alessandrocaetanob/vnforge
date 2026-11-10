@@ -254,6 +254,15 @@ O item **Lançar** do trilho fica ao lado de Testar e abre a tela do `vnf releas
 
 O que o projeto não guarda e a tela deixa de fora: o número da versão do jogo ("versão 1.01" na linha Pasta e "(1.00)" em "O que fazer" no quadro). Nenhum arquivo do projeto registra a versão do jogo; sem essa fonte o app mostra a pasta e o checksum.
 
+### 11. Imagens com texto (#535)
+
+A página **Imagens** (no segmentado de Tradução) edita o texto que o jogo desenha dentro de imagens, a partir do inventário `images.json` (#534). De cima para baixo: os filtros (Todas, Com japonês, Editadas, Sem tradução, Sem texto) e **Abrir inventário**; a faixa de miniaturas com um ponto de estado (marcada para o build, em edição, pendente); a barra **Selecionar área**, **Apagar**, **Texto** e **Desfazer**, com o nome, o tamanho e o pacote da imagem à direita; **Original** e **Traduzida** lado a lado; o cartão "O que muda no build"; e, à direita, as propriedades.
+
+- **Área**: arrastar sobre o original marca a área do texto (moldura tracejada com quatro alças; arrastar uma alça redimensiona). **Apagar** e **Texto** levam ao campo de como apagar a área e ao do texto.
+- **Propriedades**: o texto lido pela IA com a tradução sugerida (`translation` do inventário, quando existe), o texto na imagem, a fonte, o tamanho (`18 px`), a cor entre três amostras, o contorno (`Nenhum` ou uma cor `#rrggbb`), como apagar a área (Fundo ao redor ou Cor lisa) e o aviso "Cabe na placa · 166 de 188 px de largura". **Marcar para o build** grava a imagem pronta; **Desfazer**, no pé do painel, tira a imagem do build sem perder a edição.
+- **Regravar**: o botão do cartão "O que muda no build" abre o diálogo "Regravar N imagens no YPF?", com cada imagem (pacote e tamanho antes e depois), os arquivos tocados, as entradas que ficam byte a byte iguais e a cópia de segurança. Confirmar pede o build, que troca só essas imagens (reescrita mínima, com o teste de ida e volta).
+- **Sem inventário**: a página oferece **Ler as imagens com a IA**, que lista as imagens do jogo, mostra o custo estimado e só chama a IA depois do OK; respeita o limite de gasto dos Ajustes e grava o `images.json`. É a mesma leitura do `vnf images scan`.
+
 ## Como fica rodando no dia a dia
 
 1. Você abre o projeto; o app lembra o último script e a última linha.

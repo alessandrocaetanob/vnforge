@@ -10,13 +10,15 @@ namespace VNForge.Core.Images;
 /// <param name="Path">Caminho da imagem dentro do pacote, com <c>/</c>.</param>
 /// <param name="Hash">SHA-256 do conteúdo descomprimido, em hexadecimal minúsculo. Duas entradas com o mesmo hash são a mesma imagem e dividem a leitura.</param>
 /// <param name="Text">O texto lido; vazio quando a imagem não tem texto em japonês.</param>
+/// <param name="Translation">A tradução sugerida para o português do Brasil, que o modelo deu junto com a leitura; nula quando não há texto ou o inventário é de antes da sugestão (o campo nem aparece no arquivo).</param>
 public sealed record ImageTextEntry(
     [property: JsonRequired] string Archive,
     [property: JsonRequired] string Path,
     [property: JsonRequired] string Hash,
     [property: JsonRequired] int Width,
     [property: JsonRequired] int Height,
-    [property: JsonRequired] string Text)
+    [property: JsonRequired] string Text,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Translation = null)
 {
     [JsonIgnore]
     public bool HasText => Text.Length > 0;
