@@ -18,6 +18,12 @@ public sealed partial class AdultModeItem(AdultMode mode, string name, string de
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    public bool IsShowMode => Mode == AdultMode.Show;
+
+    public bool IsBlurMode => Mode == AdultMode.Blur;
+
+    public bool IsHideMode => Mode == AdultMode.Hide;
+
     /// <summary>"Padrão": o modo de quem nunca escolheu.</summary>
     public bool IsDefault => Mode == AdultMode.Blur;
 
@@ -73,17 +79,19 @@ public sealed partial class LibraryViewModel
     private void SetAdultMode(AdultModeItem? item)
     {
         IsAdultPopoverOpen = false;
-        if (item is null || item.Mode == library.Privacy.Adult)
+        if (item is not null)
         {
-            return;
+            ChooseAdultMode(item.Mode);
         }
+    }
 
-        if (!WriteAdultMode(item.Mode))
+    /// <summary>Escolhe o modo (o atalho dos filtros e a aba Privacidade dos Ajustes chamam este).</summary>
+    public void ChooseAdultMode(AdultMode mode)
+    {
+        if (mode != library.Privacy.Adult && WriteAdultMode(mode))
         {
-            return;
+            Redraw();
         }
-
-        Redraw();
     }
 
     /// <summary>Grava o modo no arquivo e passa a usá-lo; falso quando o arquivo não gravou (o aviso já foi dado).</summary>

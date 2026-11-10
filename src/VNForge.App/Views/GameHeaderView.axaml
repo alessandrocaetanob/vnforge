@@ -94,7 +94,7 @@
             <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                     Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
               <Panel ClipToBounds="True">
-                <c:Cover Width="56" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+                <c:Cover Width="56" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding ProjectTitle}"/>
                 <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}">
                   <Border HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}"
                           Width="{Binding GameProgressPercent, Converter={x:Static v:GameHeaderView.CoverBarWidth}}"/>
@@ -157,7 +157,7 @@
           <Border Width="44" Height="58.67" CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                   Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
             <Panel ClipToBounds="True">
-              <c:Cover Width="44" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+              <c:Cover Width="44" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding ProjectTitle}"/>
             </Panel>
           </Border>
           <StackPanel Grid.Column="1" VerticalAlignment="Center">

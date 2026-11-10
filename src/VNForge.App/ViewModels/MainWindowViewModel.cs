@@ -180,7 +180,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
-        Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet"), Reveals = Library.Reveal };
+        Library.Reveal.Changed += (_, _) => OnPropertyChanged(nameof(GameCoverRevealed));
+        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode);
+        Library.AdultModeChanged += (_, _) => Settings.Privacy?.Refresh();
         // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
         Library.GamesLoaded += (_, _) =>
         {
@@ -538,6 +541,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
                     DashboardRefresh = Dashboard.ReloadAsync();
+                }
+
+                if (value.Key is not (NavKey.Start or NavKey.Sheet))
+                {
+                    // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca e da Ficha.
+                    Library.Reveal.Clear();
                 }
 
                 if (value.Key == NavKey.Start)
