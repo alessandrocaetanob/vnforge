@@ -261,7 +261,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         try
         {
             var recent = RecentProjects();
-            (loaded, counts, tags) = await Task.Run(() => Read(recent));
+            (loaded, counts, tags) = await Task.Run(() => Read(recent), CancellationToken.None);
         }
         catch (LibraryException e)
         {
@@ -478,7 +478,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     {
         try
         {
-            await Task.Run(edit);
+            await Task.Run(edit, CancellationToken.None);
         }
         catch (LibraryException e)
         {
@@ -500,7 +500,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             return null;
         }
 
-        var confirmed = await editor.ConfirmAsync(gameId, vndbId);
+        var confirmed = await editor.ConfirmAsync(gameId, vndbId, CancellationToken.None);
         await LoadCoreAsync();
         Select(Cards.FirstOrDefault(c => c.Id == gameId));
         return confirmed;
@@ -510,7 +510,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     {
         if (editor is not null)
         {
-            await Task.Run(() => editor.DismissCandidates(gameId));
+            await Task.Run(() => editor.DismissCandidates(gameId), CancellationToken.None);
             await LoadCoreAsync();
         }
     }
@@ -522,7 +522,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             return null;
         }
 
-        var searched = await editor.SearchAgainAsync(gameId);
+        var searched = await editor.SearchAgainAsync(gameId, CancellationToken.None);
         await LoadCoreAsync();
         return searched;
     }
@@ -787,7 +787,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         try
         {
             // A trava do arquivo espera até 15 s por outro processo: fora da thread da tela.
-            await Task.Run(() => file.Update(l => SetRescanOnOpen(l, path, value)));
+            await Task.Run(() => file.Update(l => SetRescanOnOpen(l, path, value)), CancellationToken.None);
             SetRescanOnOpen(library, path, value);
         }
         catch (LibraryException e)
