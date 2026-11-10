@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Roda as suítes de tests/*.Tests em paralelo, cada uma num processo, e grava um JUnit por processo
-# em test-results/ (o CircleCI lê essa pasta no store_test_results). A suíte do App, que sozinha
+# em test-results/ (o CircleCI lê essa pasta no store_test_results) e um TRX por processo em test-results/trx/ (o
+# Sonar lê esses arquivos em sonar.cs.vstest.reportsPaths, para publicar tests, test_failures, skipped_tests e
+# test_execution_time; o CircleCI só lê .xml e ignora os .trx). A suíte do App, que sozinha
 # levava 18 dos 23 minutos do job, é dividida em VNFORGE_APP_SHARDS processos (padrão 3), com as classes
 # repartidas pelo tempo de .circleci/tempos-app.txt (ver docs/02-arquitetura.md, "Testes no CI (#578)").
 #
@@ -22,12 +24,13 @@ shards="${VNFORGE_APP_SHARDS:-3}"
 small_parallel="${VNFORGE_SMALL_PARALLEL:-2}"
 results=test-results
 logs="$results/logs"
+trx="$results/trx"
 app=VNForge.App.Tests
 timings_file="${VNFORGE_TIMINGS_FILE:-.circleci/tempos-app.txt}"
 
 # O runner é reaproveitado entre jobs: um XML de outra rodada contaria testes que esta não rodou.
 rm -rf "$results"
-mkdir -p "$logs"
+mkdir -p "$logs" "$trx"
 
 # Sem testes rodados, o coverage.xml sai vazio e o Sonar end não pode publicá-lo por cima da análise anterior.
 abort() {
@@ -207,7 +210,7 @@ for ((i = 0; i < shards; i++)); do
   while IFS= read -r class; do
     [ -n "$class" ] && class_args+=(-class "$class")
   done < "$logs/$app-$i.classes"
-  launch "$app-$i" dotnet "${dlls[$app]}" -noLogo "${class_args[@]}" -result-junit "$results/$app-$i.xml"
+  launch "$app-$i" dotnet "${dlls[$app]}" -noLogo "${class_args[@]}" -result-junit "$results/$app-$i.xml" -result-trx "$trx/$app-$i.trx"
 done
 
 # Os demais projetos entram numa fila e rodam no máximo VNFORGE_SMALL_PARALLEL de cada vez. O container do job tem
@@ -252,7 +255,7 @@ while :; do
   done
   while ((next_small < ${#small[@]} && running_small < small_parallel)); do
     name="${small[$next_small]}"
-    launch "$name" dotnet "${dlls[$name]}" -noLogo -result-junit "$results/$name.xml"
+    launch "$name" dotnet "${dlls[$name]}" -noLogo -result-junit "$results/$name.xml" -result-trx "$trx/$name.trx"
     running+=("$name")
     running_small=$((running_small + 1))
     next_small=$((next_small + 1))
