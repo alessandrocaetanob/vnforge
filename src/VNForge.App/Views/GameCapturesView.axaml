@@ -74,11 +74,11 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel>
                   <TextBlock Classes="lib-h2" Text="Capturas"/>
-                  <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap">
-                    <Run Text="Tecle "/>
-                    <InlineUIContainer BaselineAlignment="Center"><Border Classes="kbd"><TextBlock Text="F9"/></Border></InlineUIContainer>
-                    <Run Text=" com o jogo aberto. A imagem vai para a pasta Capturas do jogo, com a data."/>
-                  </TextBlock>
+                  <WrapPanel>
+                    <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Tecle "/>
+                    <Border Classes="kbd" Margin="0,0,4,0" VerticalAlignment="Center"><TextBlock Text="F9"/></Border>
+                    <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="com o jogo aberto. A imagem vai para a pasta Capturas do jogo, com a data."/>
+                  </WrapPanel>
                 </StackPanel>
                 <Button Grid.Column="1" Name="OpenFolderButton" VerticalAlignment="Top" Command="{Binding OpenCapturesFolderCommand}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
