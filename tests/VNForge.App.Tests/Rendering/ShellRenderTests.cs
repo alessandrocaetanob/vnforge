@@ -115,7 +115,8 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
 
             vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Play);
             ScreenRenderer.Settle(window);
-            Assert.Single(window.GetVisualDescendants().OfType<GameTabPlaceholderView>(), v => v.IsEffectivelyVisible);
+            // O projeto de demonstração não está na Biblioteca: a aba Jogar só avisa.
+            Assert.Single(window.GetVisualDescendants().OfType<GameCapturesView>(), v => v.IsEffectivelyVisible);
             Assert.Equal(GameTab.Play, Assert.IsType<GameTabItem>(tabs.SelectedItem).Tab);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-jogar", theme)));
         });

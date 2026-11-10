@@ -78,6 +78,14 @@ public sealed class App : Application
                         ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                         new ClaudeOptions { Model = LineSuggester.ReadModel(configDirectory), Effort = ClaudeEffort.Medium }),
                 },
+                Play =
+                {
+                    CapturesFile = new GameCapturesFile(GameCapturesFile.DefaultDirectory()),
+                    NotesFile = new GameNotesFile(configDirectory),
+                    Capturer = new VNForge.Platform.Windows.WindowCapturer(),
+                    Hotkey = OperatingSystem.IsWindows() ? new VNForge.Platform.Windows.GlobalHotkey() : null,
+                    PostToUi = a => Avalonia.Threading.Dispatcher.UIThread.Post(a),
+                },
                 Images =
                 {
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(
@@ -124,7 +132,7 @@ public sealed class App : Application
             new LibraryScanner(new EngineRecognizer(engines), new GameWindowTitleReader()),
             () => new LibraryMatcher(vndb),
             () => library?.RecentProjects() ?? []);
-        return library = new LibraryViewModel(
+        library = new LibraryViewModel(
             file,
             picker,
             post,
@@ -132,10 +140,13 @@ public sealed class App : Application
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager,
+            tagsFile: new UserTagsFile(configDirectory),
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
             playLog: playLog,
             switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
             engines: engines,
             portugueseChecker: () => new PortugueseTranslationChecker(vndb));
+        library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
+        return library;
     }
 }
