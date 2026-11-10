@@ -59,6 +59,11 @@ public sealed partial class CharacterSheetViewModel : ObservableObject, IDisposa
 
     public bool ShowsSourceName => SourceName.Length > 0 && !string.Equals(Name, SourceName, StringComparison.Ordinal);
 
+    /// <summary>Quem é o personagem, do cadastro (VNDB), numa linha só; vazio quando o cadastro não traz a descrição.</summary>
+    public string Subtitle => Row.Description is { } text ? string.Join(' ', text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) : string.Empty;
+
+    public bool HasSubtitle => Subtitle.Length > 0;
+
     public string GenderLabel => ProjectLabels.Gender(Row.Gender);
 
     public string ToneText => string.IsNullOrWhiteSpace(Row.Tone) ? "Ainda sem descrição. Escreva em Como fala." : Row.Tone.Trim();
