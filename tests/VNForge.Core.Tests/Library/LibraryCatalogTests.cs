@@ -110,6 +110,22 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
+    public void Cada_parte_desligada_some_da_pagina_e_o_credito_ao_VNDB_fica()
+    {
+        var game = Clannad();
+        var options = new LibraryCatalogOptions(new LibraryPrivacy(), IncludeSheet: false, IncludePlayed: false, IncludeVote: false, IncludeTranslation: false);
+
+        var html = Render([game], options, played: Played(game), translation: _ => Counts(untranslated: 25, machine: 25, approved: 50)).Html;
+
+        Assert.Contains("CLANNAD", html, StringComparison.Ordinal);
+        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
+        foreach (var gone in new[] { "Sinopse", "Uma história de família", "Drama", "Sua nota", "Terminado", "Jogado", "2026-03-04", "Tradução para o português" })
+        {
+            Assert.DoesNotContain(gone, html, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void Jogo_sem_tempo_de_jogo_nem_projeto_nao_inventa_linhas()
     {
         var result = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));

@@ -9,9 +9,17 @@ namespace VNForge.Core.Library;
 
 /// <summary>
 /// Como gerar o catálogo. <paramref name="Privacy"/> decide o que sai escondido (spoiler e conteúdo adulto, como na Biblioteca). <paramref name="IncludeNotes"/> põe as notas de
-/// texto que a pessoa escreveu em cada jogo; ficam de fora por padrão, porque o catálogo é feito para ser mostrado.
+/// texto que a pessoa escreveu em cada jogo; ficam de fora por padrão, porque o catálogo é feito para ser mostrado. Os outros quatro escolhem o que entra de cada jogo (o diálogo do app):
+/// <paramref name="IncludeSheet"/> é a sinopse, as tags e os personagens, <paramref name="IncludePlayed"/> o estado da lista, as datas e o tempo jogado, <paramref name="IncludeVote"/> a nota e
+/// <paramref name="IncludeTranslation"/> o andamento do projeto de tradução. Entram por padrão; título, capa e o crédito ao VNDB entram sempre.
 /// </summary>
-public sealed record LibraryCatalogOptions(LibraryPrivacy Privacy, bool IncludeNotes = false);
+public sealed record LibraryCatalogOptions(
+    LibraryPrivacy Privacy,
+    bool IncludeNotes = false,
+    bool IncludeSheet = true,
+    bool IncludePlayed = true,
+    bool IncludeVote = true,
+    bool IncludeTranslation = true);
 
 /// <summary>A página gerada. <paramref name="Games"/> são os jogos que entraram; <paramref name="Skipped"/> são os que ficaram de fora por ainda não terem jogo do VNDB confirmado.</summary>
 public sealed record LibraryCatalogResult(string Html, int Games, int Skipped);
@@ -75,6 +83,9 @@ public static class LibraryLength
 /// </summary>
 public static partial class LibraryCatalog
 {
+    /// <summary>O título da página; o app o usa para reconhecer um catálogo antigo antes de trocá-lo.</summary>
+    public const string PageTitle = "Catálogo de VNs";
+
     private const string VndbHome = "https://vndb.org/";
     private const string OdblUrl = "https://opendatacommons.org/licenses/odbl/1-0/";
     private const string DatabaseLicenseUrl = "https://vndb.org/d17";
@@ -105,8 +116,8 @@ public static partial class LibraryCatalog
         html.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n");
         html.Append("<meta name=\"referrer\" content=\"no-referrer\" />\n");
         html.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src https://vndb.org https://*.vndb.org; style-src 'unsafe-inline'\" />\n");
-        html.Append("<title>Catálogo de VNs</title>\n<style>").Append(Style).Append("</style>\n</head>\n<body>\n");
-        html.Append("<header>\n<h1>Catálogo de VNs</h1>\n");
+        html.Append("<title>").Append(PageTitle).Append("</title>\n<style>").Append(Style).Append("</style>\n</head>\n<body>\n");
+        html.Append("<header>\n<h1>").Append(PageTitle).Append("</h1>\n");
         html.Append("<p class=\"count\">").Append(games.Count == 1 ? "1 VN" : $"{games.Count} VNs").Append("</p>\n</header>\n<main>\n");
 
         if (games.Count == 0)
@@ -214,9 +225,13 @@ public static partial class LibraryCatalog
 
         AppendLine(html, "facts", facts);
         AppendMine(html, game, options, stats, counts, offset);
-        AppendSynopsis(html, game, privacy, sheet);
-        AppendTags(html, card, sheet);
-        AppendCharacters(html, privacy, sheet);
+        if (options.IncludeSheet)
+        {
+            AppendSynopsis(html, game, privacy, sheet);
+            AppendTags(html, card, sheet);
+            AppendCharacters(html, privacy, sheet);
+        }
+
         html.Append("</div>\n</article>\n");
     }
 
@@ -226,22 +241,22 @@ public static partial class LibraryCatalog
         if (game.CurrentList is { } state)
         {
             var fields = state.Fields;
-            if (fields.Vote is { } vote)
+            if (options.IncludeVote && fields.Vote is { } vote)
             {
                 mine.Add("Sua nota: " + E(LibraryListRules.FormatVote(vote, PortugueseBrazil)));
             }
 
-            if (fields.Labels.Count > 0)
+            if (options.IncludePlayed && fields.Labels.Count > 0)
             {
                 mine.Add(E(string.Join(", ", fields.Labels.Select(LibraryListLabels.Display))));
             }
 
-            if (fields.Started is { } started)
+            if (options.IncludePlayed && fields.Started is { } started)
             {
                 mine.Add("começou em " + Iso(started));
             }
 
-            if (fields.Finished is { } finished)
+            if (options.IncludePlayed && fields.Finished is { } finished)
             {
                 mine.Add("terminou em " + Iso(finished));
             }
@@ -249,14 +264,14 @@ public static partial class LibraryCatalog
 
         AppendLine(html, "mine", mine);
 
-        if (stats.Sessions > 0)
+        if (options.IncludePlayed && stats.Sessions > 0)
         {
             var sessions = stats.Sessions == 1 ? "1 sessão" : $"{stats.Sessions} sessões";
             var last = stats.LastPlayedAt is { } at ? $", a última em {at.ToOffset(offset).ToString("d", PortugueseBrazil)}" : string.Empty;
             AppendLine(html, "played", [$"Jogado: {E(PlayTime.Format(stats.Total))} em {sessions}{E(last)}"]);
         }
 
-        if (counts is { Total: > 0 })
+        if (options.IncludeTranslation && counts is { Total: > 0 })
         {
             var ready = Math.Floor(1000.0 * counts.Ready / counts.Total) / 10;
             AppendLine(html, "translated", [$"Tradução para o português: {Percent(counts.Percent)} das linhas, {Percent(ready)} revisadas"]);

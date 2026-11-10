@@ -121,7 +121,7 @@ public sealed class App : Application
             new LibraryScanner(new EngineRecognizer(engines), new GameWindowTitleReader()),
             () => new LibraryMatcher(vndb),
             () => library?.RecentProjects() ?? []);
-        return library = new LibraryViewModel(
+        library = new LibraryViewModel(
             file,
             picker,
             post,
@@ -129,5 +129,8 @@ public sealed class App : Application
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager);
+        library.Export.ReadPlayLog = () => new PlayLogFile(configDirectory).Load();
+        library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
+        return library;
     }
 }
