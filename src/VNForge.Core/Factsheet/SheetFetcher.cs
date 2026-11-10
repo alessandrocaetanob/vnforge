@@ -85,7 +85,11 @@ public static class SheetFetcher
         var description = source is null ? null : existing?.Description?.WithSource(source) ?? SheetText.Pending(source);
         var appearances = vndb.Appearances
             .GroupBy(a => a.VisualNovelId, StringComparer.Ordinal)
-            .Select(g => new SheetAppearance(g.Key, g.Select(a => a.Role).MinBy(SheetLabels.RoleRank)!, g.Min(a => a.Spoiler)))
+            .Select(g => new SheetAppearance(
+                g.Key,
+                g.Select(a => a.Role).MinBy(SheetLabels.RoleRank)!,
+                g.Min(a => a.Spoiler),
+                [.. g.Select(a => new SheetAppearanceEdition(a.ReleaseId, a.Role, a.Spoiler)).DistinctBy(e => e.ReleaseId, StringComparer.Ordinal)]))
             .OrderBy(a => a.VisualNovelId, StringComparer.Ordinal)
             .ToList();
         if (appearances.TrueForAll(a => a.VisualNovelId != visualNovelId))

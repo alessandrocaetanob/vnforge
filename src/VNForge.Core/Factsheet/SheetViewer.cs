@@ -176,7 +176,7 @@ public static class SheetViewer
             character.Traits.Count - traits.Count);
     }
 
-    private static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
+    internal static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
     {
         var term = terms.Find(SheetTermKind.Trait, trait.Id);
         return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, trait.GroupName, trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated);

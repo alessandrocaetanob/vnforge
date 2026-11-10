@@ -10,7 +10,11 @@ namespace VNForge.Core.Factsheet;
 /// </summary>
 /// <param name="Role"><c>main</c> (protagonista), <c>primary</c> (principal), <c>side</c> (secundário) ou <c>appears</c> (aparece).</param>
 /// <param name="Spoiler">0 (nenhum), 1 (pequeno) ou 2 (grande): o quanto saber que o personagem existe neste jogo conta da história.</param>
-public sealed record SheetAppearance(string VisualNovelId, string Role, int Spoiler);
+/// <param name="Editions">Papel e spoiler de cada edição que o VNDB lista para o personagem neste jogo; nulo em ficha gravada antes de a Biblioteca guardá-los. A Biblioteca de personagens (<see cref="LibraryCharacters"/>) escolhe entre eles pela edição casada com a pasta.</param>
+public sealed record SheetAppearance(string VisualNovelId, string Role, int Spoiler, IReadOnlyList<SheetAppearanceEdition>? Editions = null);
+
+/// <summary>O papel e o spoiler do personagem numa edição do jogo. <paramref name="ReleaseId"/> nulo vale para toda edição que o VNDB não cita à parte.</summary>
+public sealed record SheetAppearanceEdition(string? ReleaseId, string Role, int Spoiler);
 
 /// <summary>
 /// Um personagem do VNDB com a descrição traduzida. Não depende de um jogo: o mesmo personagem em dois jogos é um registro só (<see cref="Appearances"/> lista os jogos),
