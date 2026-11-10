@@ -68,6 +68,14 @@ public sealed class App : Application
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),
                 },
                 Release = { Picker = picker },
+                Play =
+                {
+                    CapturesFile = new GameCapturesFile(GameCapturesFile.DefaultDirectory()),
+                    NotesFile = new GameNotesFile(configDirectory),
+                    Capturer = new VNForge.Platform.Windows.WindowCapturer(),
+                    Hotkey = OperatingSystem.IsWindows() ? new VNForge.Platform.Windows.GlobalHotkey() : null,
+                    PostToUi = a => Avalonia.Threading.Dispatcher.UIThread.Post(a),
+                },
                 Images =
                 {
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(
