@@ -220,16 +220,23 @@
 
               <StackPanel IsVisible="{Binding HasTags}">
                 <c:OverlineText Classes="overline" Text="Tags" Margin="0,0,0,6"/>
-                <WrapPanel Name="TagsPanel">
-                  <ItemsControl ItemsSource="{Binding Tags}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="core:LibraryDrawerTag">
-                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" Margin="0,0,6,6"><TextBlock Text="{Binding Text}"/></Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </WrapPanel>
+                <ItemsControl Name="TagsPanel" ItemsSource="{Binding Chips}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:LibraryDrawerChip">
+                      <Panel Margin="0,0,6,6">
+                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsPlain}"><TextBlock Text="{Binding Text}"/></Border>
+                        <Panel IsVisible="{Binding IsHidden}" Height="24">
+                          <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" Fill="Transparent"/>
+                          <StackPanel Orientation="Horizontal" Spacing="4" Margin="10,0" VerticalAlignment="Center">
+                            <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
+                            <TextBlock FontSize="12" LineHeight="16" Classes="lib-dim" Text="{Binding Text}"/>
+                          </StackPanel>
+                        </Panel>
+                      </Panel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </StackPanel>
 
               <StackPanel Spacing="16" IsVisible="{Binding HasTranslation}">

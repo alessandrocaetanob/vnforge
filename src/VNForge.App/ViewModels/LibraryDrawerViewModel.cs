@@ -3,6 +3,24 @@ using VNForge.Core.Library;
 namespace VNForge.App.ViewModels;
 
 /// <summary>A gaveta do jogo escolhido: o que o <see cref="LibraryDrawer"/> do Core diz, mais o que a tela precisa para ligar os botões.</summary>
+/// <summary>Uma tag da gaveta como a tela a desenha: do VNDB, da pessoa, o "+N" ou o marcador de tag escondida (tracejado, com o olho riscado).</summary>
+public sealed record LibraryDrawerChip(string Text, LibraryDrawerChipKind Kind)
+{
+    public bool Mine => Kind == LibraryDrawerChipKind.Mine;
+
+    public bool IsHidden => Kind == LibraryDrawerChipKind.Hidden;
+
+    public bool IsPlain => Kind != LibraryDrawerChipKind.Hidden;
+}
+
+public enum LibraryDrawerChipKind
+{
+    Vndb,
+    Mine,
+    More,
+    Hidden,
+}
+
 public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library)
 {
     public LibraryCardViewModel Card { get; } = card;
@@ -32,6 +50,32 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
     public bool SynopsisReviewed => drawer.SynopsisReviewed;
 
     public IReadOnlyList<LibraryDrawerTag> Tags => drawer.Tags;
+
+    /// <summary>As tags na ordem do quadro: as do VNDB, as da pessoa, o "+N" e, por último, o que a privacidade escondeu.</summary>
+    public IReadOnlyList<LibraryDrawerChip> Chips { get; } = BuildChips(drawer);
+
+    private static List<LibraryDrawerChip> BuildChips(LibraryDrawer drawer)
+    {
+        var chips = new List<LibraryDrawerChip>();
+        chips.AddRange(drawer.Tags.Where(t => !t.Mine).Select(t => new LibraryDrawerChip(t.Text, LibraryDrawerChipKind.Vndb)));
+        chips.AddRange(drawer.Tags.Where(t => t.Mine).Select(t => new LibraryDrawerChip(t.Text, LibraryDrawerChipKind.Mine)));
+        if (drawer.MoreTags > 0)
+        {
+            chips.Add(new LibraryDrawerChip("+" + drawer.MoreTags, LibraryDrawerChipKind.More));
+        }
+
+        if (drawer.SpoilerTagsHidden)
+        {
+            chips.Add(new LibraryDrawerChip("Spoiler escondido", LibraryDrawerChipKind.Hidden));
+        }
+
+        if (drawer.AdultTagsHidden)
+        {
+            chips.Add(new LibraryDrawerChip("Adulto escondido", LibraryDrawerChipKind.Hidden));
+        }
+
+        return chips;
+    }
 
     public bool HasTags => drawer.Tags.Count > 0 || drawer.MoreTags > 0 || ShowSpoilerMarker || ShowAdultMarker;
 

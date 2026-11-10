@@ -127,7 +127,7 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(IsFirstScan), nameof(HasGames), nameof(StatusText))]
-    public partial LibraryMode Mode { get; private set; }
+    public partial LibraryMode Mode { get; internal set; }
 
     public bool IsEmpty => Mode == LibraryMode.Empty;
 

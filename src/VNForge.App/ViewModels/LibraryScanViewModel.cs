@@ -152,7 +152,7 @@ public sealed partial class LibraryScanViewModel : ObservableObject
 
     partial void OnPhaseChanged(LibraryScanPhase value) => OnPropertyChanged(nameof(StatusText));
 
-    internal void Begin(string folder)
+    public void Begin(string folder)
     {
         Folder = folder;
         found.Clear();
@@ -163,7 +163,7 @@ public sealed partial class LibraryScanViewModel : ObservableObject
         Phase = LibraryScanPhase.Scanning;
     }
 
-    internal void OnFolder(LibraryScanProgress report)
+    public void OnFolder(LibraryScanProgress report)
     {
         if (report.Found is { } game)
         {
@@ -184,7 +184,7 @@ public sealed partial class LibraryScanViewModel : ObservableObject
             : $"{report.Directories} de {estimate} pastas · {report.Current}";
     }
 
-    internal void OnMatch(LibraryMatchProgress report)
+    public void OnMatch(LibraryMatchProgress report)
     {
         Phase = LibraryScanPhase.Matching;
         Progress = report.Total == 0 ? 1 : (double)report.Done / report.Total;
@@ -207,7 +207,7 @@ public sealed partial class LibraryScanViewModel : ObservableObject
         }
     }
 
-    internal void StartMatching()
+    public void StartMatching()
     {
         Phase = LibraryScanPhase.Matching;
         Progress = 0;
@@ -218,7 +218,7 @@ public sealed partial class LibraryScanViewModel : ObservableObject
         }
     }
 
-    internal void Finish(bool paused, string summary)
+    public void Finish(bool paused, string summary)
     {
         Phase = paused ? LibraryScanPhase.Paused : LibraryScanPhase.Done;
         Detail = summary;
@@ -233,10 +233,10 @@ public sealed partial class LibraryScanViewModel : ObservableObject
         }
     }
 
-    internal void Reset() => Phase = LibraryScanPhase.Idle;
+    public void Reset() => Phase = LibraryScanPhase.Idle;
 
     /// <summary>Atualiza a tabela e o "Até agora" com os jogos como estão na biblioteca depois da varredura.</summary>
-    internal void Refresh(IEnumerable<LibraryGame> games)
+    public void Refresh(IEnumerable<LibraryGame> games)
     {
         var byId = games.ToDictionary(g => g.Id);
         for (var i = 0; i < found.Count; i++)
