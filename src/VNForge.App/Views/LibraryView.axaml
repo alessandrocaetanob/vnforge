@@ -46,6 +46,19 @@
       </Panel>
     </DataTemplate>
 
+    <!-- Uma linha do popover de tags: a caixa, a tag (a sua em accent-soft) e a contagem de jogos. -->
+    <DataTemplate x:Key="TagOptionTemplate" x:DataType="vm:LibraryTagOptionViewModel">
+      <Button Classes="lib-opt" AutomationProperties.Name="{Binding Text}" Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).ToggleOptionCommand}" CommandParameter="{Binding}">
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+          <Border Classes="lib-ck" Classes.on="{Binding IsChecked}" VerticalAlignment="Center">
+            <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.OnAccent}" IsVisible="{Binding IsChecked}" Data="{StaticResource Icon.Checkmark}"/>
+          </Border>
+          <Border Grid.Column="1" Classes="lib-tag" Classes.mine="{Binding Mine}"><TextBlock Text="{Binding Text}"/></Border>
+          <TextBlock Grid.Column="2" Classes="lib-dim" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding CountText}"/>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
     <DataTemplate x:Key="GridCardTemplate" x:DataType="vm:LibraryCardViewModel">
       <Button Classes="libcard" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}"
               AutomationProperties.Name="{Binding AutomationName}">
@@ -54,6 +67,15 @@
           <StackPanel Grid.Row="1" Margin="0,8,0,0">
             <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
             <TextBlock Classes="lib-cs" Text="{Binding Subtitle}"/>
+            <Border Classes="lib-pill" Tag="{Binding VersionTone}" Margin="0,8,0,0" IsVisible="{Binding HasVersionTag}"><TextBlock Text="{Binding VersionTag}"/></Border>
+            <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Tags}" IsVisible="{Binding HasTags}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryDrawerChip">
+                  <Border Classes="lib-tag" Classes.mine="{Binding Mine}" Margin="0,0,4,4"><TextBlock Text="{Binding Text}"/></Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
         </Grid>
       </Button>
@@ -84,18 +106,24 @@
     <Grid Name="GamesPage" ColumnDefinitions="*,Auto" IsVisible="{Binding HasGames}">
       <Grid RowDefinitions="Auto,Auto,*" Margin="32,24,32,0" RowSpacing="20">
         <StackPanel Spacing="20">
-          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="16">
             <StackPanel>
               <TextBlock Classes="lib-h1" Text="Biblioteca"/>
               <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
             </StackPanel>
-            <Button Grid.Column="1" Name="RescanButton" Command="{Binding RescanCommand}" VerticalAlignment="Top">
+            <Button Grid.Column="1" Name="ExportButton" Command="{Binding Export.OpenCommand}" VerticalAlignment="Top">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
+                <TextBlock Text="Exportar catálogo"/>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2" Name="RescanButton" Command="{Binding RescanCommand}" VerticalAlignment="Top">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
                 <TextBlock Text="Varrer de novo"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="2" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
+            <Button Grid.Column="3" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
                 <TextBlock Text="Adicionar pasta"/>
@@ -143,7 +171,7 @@
 
         <Grid Grid.Row="1" Name="FilterRow" ColumnSpacing="8" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1000*" MinWidth="160" MaxWidth="320"/>
+            <ColumnDefinition Width="1000*" MinWidth="120" MaxWidth="320"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
@@ -154,20 +182,76 @@
               <TextBox Grid.Column="1" Name="SearchBox" Classes="bare" Text="{Binding SearchText}" PlaceholderText="Buscar por título, original ou tag" AutomationProperties.Name="Buscar por título, original ou tag"/>
             </Grid>
           </Border>
-          <ItemsControl Grid.Column="1" ItemsSource="{Binding Filters}">
-            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:LibraryFilterChipViewModel">
-                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
-                              Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleFilterCommand}" CommandParameter="{Binding}"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <ListBox Grid.Column="3" Classes="libseg" Name="LayoutSwitch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout}" AutomationProperties.Name="Aparência dos jogos">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:LibraryLayoutItem"><TextBlock Text="{Binding Label}"/></DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <ItemsControl ItemsSource="{Binding Filters}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryFilterChipViewModel">
+                  <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}" IsVisible="{Binding IsShown}" Padding="12,0"
+                                Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleFilterCommand}" CommandParameter="{Binding}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl Name="ActiveTags" ItemsSource="{Binding Tags.Active}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryActiveTag">
+                  <Button Classes="lib-active" AutomationProperties.Name="{Binding Text, StringFormat='Tirar a tag {0} do filtro'}"
+                          Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).Tags.RemoveActiveCommand}" CommandParameter="{Binding}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="{Binding Text}" VerticalAlignment="Center"/>
+                      <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Dismiss}"/>
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Name="TagsButton" Classes="lib-tagbtn" Command="{Binding Tags.ToggleOpenCommand}" AutomationProperties.Name="Filtrar por tag">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Filter}"/>
+                <TextBlock Text="Tags"/>
+              </StackPanel>
+            </Button>
+            <!-- O popover "Tags": as suas tags e as do VNDB, com a contagem de jogos e a caixa que liga o termo no filtro. -->
+            <Popup Name="TagsPopup" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsButton}"
+                   Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsButton}">
+              <Border Classes="lib-pop">
+                <StackPanel Spacing="12">
+                  <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+                      <TextBox Grid.Column="1" Name="TagSearch" Classes="bare" Text="{Binding Search}" PlaceholderText="Buscar tag" AutomationProperties.Name="Buscar tag"/>
+                    </Grid>
+                  </Border>
+                  <StackPanel IsVisible="{Binding HasOwn}">
+                    <c:OverlineText Classes="overline" Text="Suas tags" Margin="0,0,0,4"/>
+                    <ItemsControl Name="OwnTags" ItemsSource="{Binding OwnOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                  </StackPanel>
+                  <StackPanel IsVisible="{Binding HasVndb}">
+                    <c:OverlineText Classes="overline" Text="Tags do VNDB" Margin="0,0,0,4"/>
+                    <ItemsControl Name="VndbTags" ItemsSource="{Binding VndbOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                  </StackPanel>
+                  <Border Classes="lib-hr"/>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <Button Name="ManageTagsButton" Classes="subtle sm" HorizontalAlignment="Left" Padding="0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Command="{Binding OpenManageCommand}" Content="Gerenciar suas tags"/>
+                    <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding ShownText}"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </Popup>
+          </StackPanel>
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="12">
+            <Button Name="TagModeButton" Classes="subtle sm" VerticalAlignment="Center" IsVisible="{Binding Tags.HasMode}" Command="{Binding Tags.ToggleModeCommand}" Content="{Binding Tags.ModeText}"/>
+            <StackPanel Name="TagsSaved" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding Tags.HasActive}">
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Check}"/>
+              <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextSecondary}" Text="Filtro salvo"/>
+            </StackPanel>
+            <ListBox Classes="libseg" Name="LayoutSwitch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout}" AutomationProperties.Name="Aparência dos jogos">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryLayoutItem"><TextBlock Text="{Binding Label}"/></DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
         </Grid>
 
         <!-- O ScrollViewer vai 8 px além da folga da página para o contorno da capa escolhida não ser cortado; o Border devolve os 8. -->
@@ -218,6 +302,24 @@
                 </StackPanel>
               </Grid>
 
+              <!-- "Versão do jogo": original ou traduzido pela injeção e pelo backup do Core. O controle some do jogo sem projeto e fica desligado enquanto troca ou quando o estado é desconhecido. -->
+              <Border Name="VersionCard" Classes="lib-card" IsVisible="{Binding HasVersion}">
+                <StackPanel Spacing="12" IsEnabled="{Binding !Library.IsSwitching}">
+                  <c:OverlineText Classes="overline" Text="Versão do jogo"/>
+                  <ListBox Name="VersionSwitch" Classes="libseg" HorizontalAlignment="Stretch" IsEnabled="{Binding IsVersionKnown}" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}"
+                           AutomationProperties.Name="Versão do jogo">
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" Columns="2"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LibraryVersionItem"><TextBlock HorizontalAlignment="Center" Text="{Binding Label}"/></DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <Border Name="VersionPill" Classes="lib-pill" Tag="{Binding VersionTone}"><TextBlock Text="{Binding VersionPill}"/></Border>
+                  <TextBlock Name="VersionDetail" Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="{Binding VersionDetail}"/>
+                  <TextBlock Name="VersionNote" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding VersionNote}" IsVisible="{Binding HasVersionNote}"/>
+                  <TextBlock Name="VersionStatus" Classes="lib-dim" FontSize="13" LineHeight="20" Text="{Binding Library.SwitchStatus}" IsVisible="{Binding Library.IsSwitching}"/>
+                </StackPanel>
+              </Border>
+
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Name="OpenGameButton" Classes="accent" Command="{Binding Library.OpenGameCommand}" CommandParameter="{Binding Card}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
@@ -228,7 +330,7 @@
                 <Button Name="PlayButton" Command="{Binding Library.PlayCommand}" CommandParameter="{Binding Card}" IsVisible="{Binding !Card.IsPlaying}" AutomationProperties.Name="Jogar">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                    <TextBlock Text="Jogar"/>
+                    <TextBlock Text="{Binding PlayText}"/>
                   </StackPanel>
                 </Button>
                 <Button Name="PlayingButton" IsEnabled="False" IsVisible="{Binding Card.IsPlaying}" AutomationProperties.Name="Jogando">
@@ -251,6 +353,13 @@
               </StackPanel>
               <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
                       Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
+
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6" IsVisible="{Binding HasLastSwitch}">
+                <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Arquivos alterados" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Name="FilesChanged" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding FilesText}" IsVisible="{Binding HasFiles}"/>
+                <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Última troca"/>
+                <TextBlock Name="LastSwitch" Grid.Row="1" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding LastSwitchText}"/>
+              </Grid>
 
               <Border Classes="lib-hr"/>
 
@@ -277,14 +386,29 @@
                 <TextBlock Name="Synopsis" Margin="0,6,0,0" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding Synopsis}"/>
               </StackPanel>
 
-              <StackPanel IsVisible="{Binding HasTags}">
+              <StackPanel>
                 <c:OverlineText Classes="overline" Text="Tags" Margin="0,0,0,6"/>
                 <ItemsControl Name="TagsPanel" ItemsSource="{Binding Chips}">
                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:LibraryDrawerChip">
                       <Panel Margin="0,0,6,6">
-                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsPlain}"><TextBlock Text="{Binding Text}"/></Border>
+                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsTag}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding Text}"/>
+                            <Button Classes="lib-tagx" IsVisible="{Binding Mine}" AutomationProperties.Name="{Binding Text, StringFormat='Tirar a tag {0} do jogo'}"
+                                    Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).RemoveTagCommand}" CommandParameter="{Binding}">
+                              <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
+                            </Button>
+                          </StackPanel>
+                        </Border>
+                        <Button Name="AddTagChip" Classes="lib-addtag" IsVisible="{Binding IsAdd}" AutomationProperties.Name="Pôr uma tag sua neste jogo"
+                                Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).TogglePickerCommand}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Add}"/>
+                            <TextBlock Text="{Binding Text}"/>
+                          </StackPanel>
+                        </Button>
                         <Panel IsVisible="{Binding IsHidden}" Height="24">
                           <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" Fill="Transparent"/>
                           <StackPanel Orientation="Horizontal" Spacing="4" Margin="10,0" VerticalAlignment="Center">
@@ -296,6 +420,39 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <!-- O escolhedor do "+ tag": as suas tags com a caixa marcada nas que o jogo tem, e o campo que cria uma tag nova já posta no jogo. -->
+                <Popup Name="GameTagsPopup" IsOpen="{Binding IsPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsPanel}" Placement="BottomEdgeAlignedLeft" VerticalOffset="4"
+                       IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsPanel}">
+                  <Border Classes="lib-pop">
+                    <StackPanel Spacing="12">
+                      <c:OverlineText Classes="overline" Text="Suas tags"/>
+                      <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" IsVisible="{Binding HasNoOwnTags}" Text="Você ainda não tem tags. Crie a primeira aqui embaixo."/>
+                      <ItemsControl Name="GameTagOptions" ItemsSource="{Binding PickerOptions}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LibraryTagOptionViewModel">
+                            <Button Classes="lib-opt" AutomationProperties.Name="{Binding Text}" Command="{Binding $parent[ItemsControl].((vm:LibraryDrawerViewModel)DataContext).ToggleTagCommand}" CommandParameter="{Binding}">
+                              <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="lib-ck" Classes.on="{Binding IsChecked}" VerticalAlignment="Center">
+                                  <PathIcon Width="12" Height="12" Foreground="{DynamicResource Vnf.OnAccent}" IsVisible="{Binding IsChecked}" Data="{StaticResource Icon.Checkmark}"/>
+                                </Border>
+                                <Border Grid.Column="1" Classes="lib-tag mine"><TextBlock Text="{Binding Text}"/></Border>
+                                <TextBlock Grid.Column="2" Classes="lib-dim" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding CountText}"/>
+                              </Grid>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+                          <TextBox Name="GameNewTag" Classes="bare" Text="{Binding NewTagName}" MaxLength="40" PlaceholderText="Nova tag" AutomationProperties.Name="Nova tag">
+                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateTagCommand}"/></TextBox.KeyBindings>
+                          </TextBox>
+                        </Border>
+                        <Button Grid.Column="1" Name="GameCreateTag" Classes="accent sm" Content="Criar" Command="{Binding CreateTagCommand}"/>
+                      </Grid>
+                    </StackPanel>
+                  </Border>
+                </Popup>
               </StackPanel>
 
               <StackPanel Spacing="16" IsVisible="{Binding HasTranslation}">
@@ -435,7 +592,105 @@
       <TextBlock Classes="lib-dim" FontSize="13" HorizontalAlignment="Center" Text="O VNForge só lê. Antes de mexer num jogo, ele sempre faz uma cópia de segurança."/>
     </StackPanel>
 
+    <!-- O diálogo da troca recusada (".v3-dialog" de 560): o aviso, o que o injetor achou e Fechar. -->
+    <c:ScreenDialog DialogWidth="560" IsOpen="{Binding HasSwitchProblem, Mode=TwoWay}">
+      <StackPanel Spacing="16" Margin="0,-16,0,0" DataContext="{Binding SwitchProblem}" x:DataType="vm:LibrarySwitchProblem" AutomationProperties.Name="{Binding Title}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <Border Classes="lib-icobox" Background="{DynamicResource Vnf.SignalWarningBg}"><PathIcon Foreground="{DynamicResource Vnf.SignalWarningFg}" Data="{StaticResource Icon.Warning}"/></Border>
+          <StackPanel Grid.Column="1">
+            <TextBlock Name="SwitchProblemTitle" Classes="lib-h2" TextWrapping="Wrap" Text="{Binding Title}"/>
+            <TextBlock Name="SwitchProblemMessage" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding Message}"/>
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" IsVisible="{Binding HasDiffering}">
+          <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Arquivos diferentes"/>
+          <TextBlock Name="SwitchProblemDiffering" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding Differing}"/>
+        </Grid>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Name="SwitchProblemClose" Content="Fechar" Command="{Binding CloseSwitchProblemCommand}"/>
+          <Button Name="ExtractAgainButton" Classes="accent" Command="{Binding ExtractAgainCommand}" IsVisible="{Binding SwitchProblem.CanExtract}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+              <TextBlock Text="Extrair de novo"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+
     <!-- O diálogo do casamento com o VNDB (".v3-dialog" de 720). O título é o do conteúdo, em 20/28, como no quadro. -->
+    <!-- O diálogo "Suas tags": criar, renomear e apagar; renomear e apagar valem para todos os jogos que usam a tag. -->
+    <c:ScreenDialog DialogWidth="620" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsManaging, Mode=TwoWay}">
+      <StackPanel Spacing="16" Margin="0,-16,0,0" AutomationProperties.Name="Suas tags">
+        <StackPanel>
+          <TextBlock Classes="lib-h2" Text="Suas tags"/>
+          <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextSecondary}"
+                     Text="Ficam só neste computador e não sobem para o VNDB. Valem para jogos, não para personagens."/>
+        </StackPanel>
+        <Border Name="TagsMessage" Classes="infobar" IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding Message}"/>
+        </Border>
+        <Border Classes="lib-card" Padding="0" ClipToBounds="True">
+          <ItemsControl Name="TagRows" ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LibraryTagRowViewModel">
+                <Border Classes="lib-tagrow" Classes.danger="{Binding IsConfirmingDelete}">
+                  <Panel>
+                    <Grid ColumnDefinitions="*,90,Auto" ColumnSpacing="12" IsVisible="{Binding IsIdle}">
+                      <Border Classes="lib-tag mine" HorizontalAlignment="Left"><TextBlock Text="{Binding Name}"/></Border>
+                      <TextBlock Grid.Column="1" Classes="lib-dim" VerticalAlignment="Center" Text="{Binding GamesText}"/>
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
+                        <Button Classes="subtle icon sm" AutomationProperties.Name="{Binding Name, StringFormat='Renomear {0}'}"
+                                Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).StartRenameCommand}" CommandParameter="{Binding}">
+                          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+                        </Button>
+                        <Button Classes="subtle icon sm" AutomationProperties.Name="{Binding Name, StringFormat='Apagar {0}'}"
+                                Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).AskDeleteCommand}" CommandParameter="{Binding}">
+                          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Dismiss}"/>
+                        </Button>
+                      </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12" IsVisible="{Binding IsEditing}">
+                      <TextBox Text="{Binding EditText}" MaxLength="40" AutomationProperties.Name="Novo nome da tag"/>
+                      <TextBlock Grid.Column="1" Classes="lib-dim" VerticalAlignment="Center" Text="{Binding GamesText}"/>
+                      <Button Grid.Column="2" Classes="subtle sm" Content="Cancelar" Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).CancelRenameCommand}" CommandParameter="{Binding}"/>
+                      <Button Grid.Column="3" Classes="accent sm" Content="Salvar" Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).SaveRenameCommand}" CommandParameter="{Binding}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsConfirmingDelete}">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding DeleteTitle}"/>
+                        <TextBlock FontSize="13" TextWrapping="Wrap" Text="{Binding DeleteText}"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="sm" Content="Cancelar" Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).CancelDeleteCommand}" CommandParameter="{Binding}"/>
+                        <Button Classes="sm danger" Content="Apagar tag" Command="{Binding $parent[ItemsControl].((vm:LibraryTagsViewModel)DataContext).ConfirmDeleteCommand}" CommandParameter="{Binding}"/>
+                      </StackPanel>
+                    </Grid>
+                  </Panel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Border>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <Border Classes="lib-input">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Add}"/>
+              <TextBox Grid.Column="1" Name="NewTagBox" Classes="bare" Text="{Binding NewName}" MaxLength="40" PlaceholderText="Nova tag" AutomationProperties.Name="Nova tag">
+                <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding AddTagCommand}"/></TextBox.KeyBindings>
+              </TextBox>
+            </Grid>
+          </Border>
+          <Button Grid.Column="1" Name="AddTagButton" Classes="accent" Content="Adicionar" Command="{Binding AddTagCommand}"/>
+        </Grid>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <Button HorizontalAlignment="Right" Content="Fechar" Command="{Binding CloseManageCommand}"/>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+
     <c:ScreenDialog DialogWidth="720" DataContext="{Binding Match}" x:DataType="vm:LibraryMatchViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}">
       <StackPanel Spacing="16" Margin="0,-16,0,0" AutomationProperties.Name="Qual é este jogo no VNDB?">
         <StackPanel>
@@ -495,5 +750,7 @@
         </Grid>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>
+
+    <v:LibraryExportDialog DataContext="{Binding Export}"/>
   </Panel>
 </UserControl>

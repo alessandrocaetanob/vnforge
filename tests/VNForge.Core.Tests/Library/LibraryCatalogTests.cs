@@ -110,6 +110,22 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
+    public void Cada_parte_desligada_some_da_pagina_e_o_credito_ao_VNDB_fica()
+    {
+        var game = Clannad();
+        var options = new LibraryCatalogOptions(new LibraryPrivacy(), IncludeSheet: false, IncludePlayed: false, IncludeVote: false, IncludeTranslation: false);
+
+        var html = Render([game], options, played: Played(game), translation: _ => Counts(untranslated: 25, machine: 25, approved: 50)).Html;
+
+        Assert.Contains("CLANNAD", html, StringComparison.Ordinal);
+        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
+        foreach (var gone in new[] { "Sinopse", "Uma história de família", "Drama", "Sua nota", "Terminado", "Jogado", "2026-03-04", "Tradução para o português" })
+        {
+            Assert.DoesNotContain(gone, html, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void Jogo_sem_tempo_de_jogo_nem_projeto_nao_inventa_linhas()
     {
         var result = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));
@@ -159,14 +175,18 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void A_capa_adulta_fica_escondida_ate_a_privacidade_liberar()
+    public void O_jogo_adulto_nem_entra_na_pagina_ate_a_privacidade_liberar()
     {
-        var hidden = Render([Adult()]).Html;
-        var shown = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true))).Html;
+        var hidden = Render([Clannad(), Adult()]);
+        var shown = Render([Clannad(), Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));
 
-        Assert.DoesNotContain("9999.jpg", hidden, StringComparison.Ordinal);
-        Assert.Contains("Capa escondida", hidden, StringComparison.Ordinal);
-        Assert.Contains("9999.jpg", shown, StringComparison.Ordinal);
+        Assert.Equal(1, hidden.Games);
+        Assert.Equal(1, hidden.Adult);
+        Assert.DoesNotContain("Jogo Adulto", hidden.Html, StringComparison.Ordinal);
+        Assert.DoesNotContain("9999.jpg", hidden.Html, StringComparison.Ordinal);
+        Assert.Equal(2, shown.Games);
+        Assert.Equal(0, shown.Adult);
+        Assert.Contains("9999.jpg", shown.Html, StringComparison.Ordinal);
     }
 
     [Fact]

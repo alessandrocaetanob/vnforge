@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.LibraryExportDialog"
+             x:DataType="vm:LibraryExportViewModel">
+
+  <!-- O diálogo "Exportar catálogo" (".v3-dialog" de 680, quadro do #555). O crédito ao VNDB e as imagens por link ficam marcados e sem escolha. -->
+  <c:ScreenDialog DialogWidth="680" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+    <StackPanel Spacing="16" Margin="0,-16,0,0" AutomationProperties.Name="Exportar catálogo">
+      <StackPanel>
+        <TextBlock Classes="lib-h2" Text="Exportar catálogo"/>
+        <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextSecondary}"
+                   Text="Gera uma página HTML com as suas VNs em português. Ela abre em qualquer navegador, sem o VNForge."/>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="lib-lbl" Text="QUAIS JOGOS"/>
+        <ItemsControl Name="Scopes" ItemsSource="{Binding Scopes}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LibraryExportScopeViewModel">
+              <RadioButton Classes="option marked" Margin="0,0,8,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" GroupName="export-scope" IsChecked="{Binding IsSelected, Mode=TwoWay}" IsEnabled="{Binding IsAvailable}"
+                           AutomationProperties.Name="{Binding Title}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                  <Border Classes="radio-mark" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Title}"/>
+                    <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                  </StackPanel>
+                </Grid>
+              </RadioButton>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="lib-lbl" Text="O QUE ENTRA"/>
+        <CheckBox Name="SheetCheck" CornerRadius="5" IsChecked="{Binding IncludeSheet}" Content="Ficha em português: sinopse, tags e personagens"/>
+        <CheckBox Name="PlayedCheck" CornerRadius="5" IsChecked="{Binding IncludePlayed}" Content="O que você jogou e o tempo"/>
+        <CheckBox Name="VoteCheck" CornerRadius="5" IsChecked="{Binding IncludeVote}" Content="A sua nota"/>
+        <CheckBox Name="TranslationCheck" CornerRadius="5" IsChecked="{Binding IncludeTranslation}" Content="O que você traduziu"/>
+        <CheckBox Name="SensitiveCheck" CornerRadius="5" IsChecked="{Binding IncludeSensitive}" Content="Spoiler e conteúdo adulto"/>
+        <Grid ColumnDefinitions="*,Auto">
+          <CheckBox Name="CreditCheck" CornerRadius="5" IsChecked="True" IsHitTestVisible="False" Focusable="False" AutomationProperties.Name="Crédito ao VNDB (Open Database License), sempre incluído">
+            <TextBlock FontWeight="SemiBold" Text="Crédito ao VNDB (Open Database License)"/>
+          </CheckBox>
+          <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" LineHeight="16" VerticalAlignment="Center" Text="sempre incluído"/>
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="lib-lbl" Text="IMAGENS"/>
+        <RadioButton Name="ImagesOption" Classes="option marked" Margin="0" GroupName="export-images" IsChecked="True" IsHitTestVisible="False" Focusable="False"
+                     AutomationProperties.Name="Por link para o VNDB">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Border Classes="radio-mark" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1">
+              <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextPrimary}" Text="Por link para o VNDB"/>
+              <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="Não copia as capas e fotos. Sem internet, elas não carregam."/>
+            </StackPanel>
+          </Grid>
+        </RadioButton>
+      </StackPanel>
+
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Name="ExportError" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+      </Border>
+
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <Border Classes="lib-input">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+            <TextBox Name="FolderBox" Grid.Column="1" Classes="bare" FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding Folder}" AutomationProperties.Name="Pasta do catálogo"/>
+          </Grid>
+        </Border>
+        <Button Name="ChooseFolderButton" Grid.Column="1" Command="{Binding ChooseFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+            <TextBlock Text="Trocar"/>
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+    <c:ScreenDialog.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Name="CancelButton" Content="Cancelar" Command="{Binding CancelCommand}"/>
+        <Button Name="ExportButton" Classes="accent" Command="{Binding ExportCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
+            <TextBlock Text="Exportar"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </c:ScreenDialog.Footer>
+  </c:ScreenDialog>
+</UserControl>
