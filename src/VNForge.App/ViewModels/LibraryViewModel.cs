@@ -39,6 +39,10 @@ public sealed partial class LibraryFilterChipViewModel(LibraryFilter filter, str
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    /// <summary>Com tags no filtro a barra só tem lugar para o chip escolhido (o quadro mostra só "Todos"); os outros voltam quando as tags saem.</summary>
+    [ObservableProperty]
+    public partial bool IsShown { get; set; } = true;
+
     public string CountText => Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"));
 
     partial void OnCountChanged(int value) => OnPropertyChanged(nameof(CountText));
@@ -61,6 +65,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly Func<LibraryGame, StatusCounts?> readTranslation;
     private readonly Func<UserTags> readUserTags;
     private readonly ILibrarySheetSource? sheets;
+    private readonly UserTagsFile? tagsFile;
     private readonly Action<string> openFolder;
     private readonly GamePlayer? player;
     private readonly PlayLogFile? playLog;
@@ -78,6 +83,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private bool applyingRoot;
     private long lastReport;
     private int loadGeneration;
+    private bool tagFilterAdopted;
 
     /// <param name="file">O <c>library.json</c>; nulo é a Biblioteca sem arquivo (só os testes do shell), que fica vazia e não grava nada.</param>
     /// <param name="post">Leva uma ação à thread da tela: o progresso da varredura chega de outras threads e mexe em coleções ligadas à tela. A interface passa <c>Dispatcher.UIThread.Post</c>.</param>
@@ -92,6 +98,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
         Action<string>? openFolder = null,
+        UserTagsFile? tagsFile = null,
         GamePlayer? player = null,
         PlayLogFile? playLog = null,
         LibraryTranslationSwitcher? switcher = null,
@@ -103,7 +110,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         this.editor = editor;
         this.clock = clock ?? TimeProvider.System;
         this.readTranslation = readTranslation ?? LibraryCatalog.ReadTranslation;
-        readUserTags = userTags ?? (() => new UserTags());
+        this.tagsFile = tagsFile;
+        readUserTags = userTags ?? (tagsFile is null ? () => new UserTags() : tagsFile.Load);
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
         this.switcher = switcher;
@@ -119,6 +127,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             new LibraryFilterChipViewModel(LibraryFilter.Unsupported, "Sem suporte"),
         ];
         Match = new LibraryMatchViewModel(this);
+        Tags = new LibraryTagsViewModel(this);
         Scan.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(LibraryScanViewModel.StatusText))
@@ -159,6 +168,9 @@ public sealed partial class LibraryViewModel : ObservableObject
     public partial string? PlayingId { get; private set; }
 
     public LibraryMatchViewModel Match { get; }
+
+    /// <summary>O filtro por tag, o popover "Tags" e o diálogo "Suas tags".</summary>
+    public LibraryTagsViewModel Tags { get; }
 
     public LibraryScanViewModel Scan { get; } = new();
 
@@ -231,7 +243,11 @@ public sealed partial class LibraryViewModel : ObservableObject
     public partial bool IsRescanning { get; private set; }
 
     /// <summary>O jogo está sendo mostrado quando a busca ou o filtro estão ligados.</summary>
-    public bool HasFilter => SelectedFilter != LibraryFilter.All || !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasFilter => SelectedFilter != LibraryFilter.All || !string.IsNullOrWhiteSpace(SearchText) || !Tags.Filter.IsEmpty;
+
+    internal IReadOnlyList<LibraryGame> Games => games;
+
+    internal UserTags UserTags => userTags;
 
     public LibraryFilter SelectedFilter => Filters.First(f => f.IsSelected).Filter;
 
@@ -273,6 +289,73 @@ public sealed partial class LibraryViewModel : ObservableObject
         Refilter();
     }
 
+    /// <summary>O filtro por tag mudou: a grade e o subtítulo se refazem.</summary>
+    internal void TagFilterChanged() => Refilter();
+
+    /// <summary>Grava o filtro por tag como o filtro salvo; a falha vira aviso e o filtro continua valendo nesta sessão.</summary>
+    internal void SaveTagFilter(LibraryTagFilter filter) => EditTags(t =>
+    {
+        t.SavedFilter = filter;
+        return t;
+    });
+
+    /// <summary>
+    /// Edita as tags próprias e grava: com o arquivo, relê, aplica <paramref name="change"/> e grava sob trava, e a Biblioteca passa a usar essa cópia. Devolve nulo
+    /// quando a edição não valeu (nome ruim, arquivo ilegível), com o motivo no aviso do diálogo.
+    /// </summary>
+    internal T? EditTags<T>(Func<UserTags, T> change)
+        where T : class
+    {
+        try
+        {
+            if (tagsFile is null)
+            {
+                return change(userTags);
+            }
+
+            UserTags? edited = null;
+            var result = tagsFile.Update(t =>
+            {
+                var value = change(t);
+                edited = t;
+                return value;
+            });
+            userTags = edited!;
+            return result;
+        }
+        catch (Exception e) when (e is LibraryException or IOException or UnauthorizedAccessException)
+        {
+            Tags.Fail(e is LibraryException ? e.Message : $"As tags não puderam ser gravadas: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Põe a tag no jogo (criando-a se for nova) ou a tira, grava e redesenha a grade, a gaveta e as contagens. Falso quando a edição não valeu (o aviso já foi dado).</summary>
+    internal bool SetGameTag(string gameId, string name, bool on)
+    {
+        var done = EditTags(t =>
+        {
+            if (on)
+            {
+                t.Add(gameId, name);
+            }
+            else if (t.TryGet(name, out _))
+            {
+                t.Remove(gameId, name);
+            }
+
+            return t;
+        });
+        if (done is null)
+        {
+            return false;
+        }
+
+        Tags.Refresh();
+        Refilter();
+        return true;
+    }
+
     [RelayCommand]
     private void ToggleFilter(LibraryFilterChipViewModel? chip) => SelectFilter(chip?.Filter ?? LibraryFilter.All);
 
@@ -291,8 +374,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         try
         {
             var recent = RecentProjects();
-            (loaded, counts, tags, states, playedNow, var playWarning) = await Task.Run(() => Read(recent), CancellationToken.None);
-            error = playWarning;
+            (loaded, counts, tags, states, playedNow, var warning) = await Task.Run(() => Read(recent), CancellationToken.None);
+            error = warning;
         }
         catch (LibraryException e)
         {
@@ -310,6 +393,12 @@ public sealed partial class LibraryViewModel : ObservableObject
 
         library = loaded;
         userTags = tags;
+        if (!tagFilterAdopted)
+        {
+            tagFilterAdopted = true;
+            Tags.Adopt(tags.SavedFilter);
+        }
+
         played = playedNow;
         games = [.. loaded.Sorted()];
         translations.Clear();
@@ -333,11 +422,25 @@ public sealed partial class LibraryViewModel : ObservableObject
         Redraw();
     }
 
-    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, Dictionary<string, LibraryTranslationState> Versions, PlayLog Played, string? PlayWarning) Read(IReadOnlyList<string> recent)
+    /// <summary>As tags próprias num arquivo ilegível não escondem os jogos: a biblioteca abre sem elas e o erro aparece no aviso.</summary>
+    private (UserTags Tags, string? Error) ReadTags()
     {
+        try
+        {
+            return (readUserTags(), null);
+        }
+        catch (LibraryException e)
+        {
+            return (new UserTags(), e.Message);
+        }
+    }
+
+    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, Dictionary<string, LibraryTranslationState> Versions, PlayLog Played, string? Warning) Read(IReadOnlyList<string> recent)
+    {
+        var (tags, tagsError) = ReadTags();
         if (file is null)
         {
-            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), readUserTags(), new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal), new PlayLog(), null);
+            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), tags, new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal), new PlayLog(), tagsError);
         }
 
         var current = file.Load();
@@ -370,7 +473,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             playWarning = e.Message;
         }
 
-        return (current, counts, readUserTags(), states, playedNow, playWarning);
+        return (current, counts, tags, states, playedNow, tagsError ?? playWarning);
     }
 
     private int? PercentOf(LibraryGame game) =>
@@ -384,7 +487,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             chip.Count = counts.Of(chip.Filter);
         }
 
-        Subtitle = SubtitleText();
+        Tags.Refresh();
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(Privacy));
         Refilter();
@@ -411,14 +514,20 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private void Refilter()
     {
-        var shown = LibraryListing.Filter(games, SelectedFilter, SearchText, PercentOf, userTags, library.Privacy);
+        foreach (var chip in Filters)
+        {
+            chip.IsShown = chip.IsSelected || Tags.Active.Count == 0;
+        }
+
+        var shown = Tags.Filter.Apply(LibraryListing.Filter(games, SelectedFilter, SearchText, PercentOf, userTags, library.Privacy), userTags, library.Privacy);
         var selectedId = Selected?.Id;
         Cards.Clear();
         foreach (var game in shown)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id)) { IsPlaying = game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
         }
 
+        Subtitle = SubtitleText();
         RedrawContinue(shown);
         HasNoResults = games.Count > 0 && Cards.Count == 0;
         OnPropertyChanged(nameof(HasFilter));
@@ -427,6 +536,13 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private string SubtitleText()
     {
+        if (Tags.Active.Count > 0)
+        {
+            var names = Tags.Active.Select(t => t.Text).ToList();
+            var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
+            return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {games.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
+        }
+
         var folders = library.Roots.Count;
         var total = games.Count;
         var left = total == 1 ? "1 jogo" : $"{total.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos";

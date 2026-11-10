@@ -1,5 +1,7 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
@@ -13,6 +15,12 @@ public sealed record LibraryDrawerChip(string Text, LibraryDrawerChipKind Kind)
     public bool IsHidden => Kind == LibraryDrawerChipKind.Hidden;
 
     public bool IsPlain => Kind != LibraryDrawerChipKind.Hidden;
+
+    /// <summary>O chip "+ tag" que abre a escolha das suas tags.</summary>
+    public bool IsAdd => Kind == LibraryDrawerChipKind.Add;
+
+    /// <summary>Uma tag de verdade: nem o marcador de escondida nem o "+ tag".</summary>
+    public bool IsTag => Kind is LibraryDrawerChipKind.Vndb or LibraryDrawerChipKind.Mine or LibraryDrawerChipKind.More;
 }
 
 public enum LibraryDrawerChipKind
@@ -21,9 +29,10 @@ public enum LibraryDrawerChipKind
     Mine,
     More,
     Hidden,
+    Add,
 }
 
-public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "") : ObservableObject
+public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDrawer drawer, LibraryViewModel library, string playedText = "") : ObservableObject
 {
     private bool japaneseLocale = card.Game.RequiresJapaneseLocale;
 
@@ -78,7 +87,82 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
             chips.Add(new LibraryDrawerChip("Adulto escondido", LibraryDrawerChipKind.Hidden));
         }
 
+        chips.Add(new LibraryDrawerChip("tag", LibraryDrawerChipKind.Add));
         return chips;
+    }
+
+    /// <summary>As suas tags (todas as do registro) com a caixa marcada nas que este jogo tem, para o "+ tag".</summary>
+    public ObservableCollection<LibraryTagOptionViewModel> PickerOptions { get; } = [];
+
+    [ObservableProperty]
+    public partial bool IsPickerOpen { get; set; }
+
+    [ObservableProperty]
+    public partial string NewTagName { get; set; } = string.Empty;
+
+    public bool HasNoOwnTags => PickerOptions.Count == 0;
+
+    partial void OnIsPickerOpenChanged(bool value)
+    {
+        if (value)
+        {
+            NewTagName = string.Empty;
+            LoadPicker();
+        }
+    }
+
+    private void LoadPicker()
+    {
+        PickerOptions.Clear();
+        var tags = Library.UserTags;
+        foreach (var tag in tags.Tags)
+        {
+            PickerOptions.Add(new LibraryTagOptionViewModel(tag.Name, tag.Name, tags.GamesWith(tag.Name).Count, true, tags.Has(Card.Id, tag.Name)));
+        }
+
+        OnPropertyChanged(nameof(HasNoOwnTags));
+    }
+
+    [RelayCommand]
+    private void TogglePicker() => IsPickerOpen = !IsPickerOpen;
+
+    /// <summary>Marca ou desmarca a tag no jogo; a gaveta se refaz e o escolhedor continua aberto para a próxima.</summary>
+    [RelayCommand]
+    private void ToggleTag(LibraryTagOptionViewModel? option)
+    {
+        if (option is not null)
+        {
+            Apply(option.Text, !option.IsChecked);
+        }
+    }
+
+    /// <summary>O x do chip de uma tag sua.</summary>
+    [RelayCommand]
+    private void RemoveTag(LibraryDrawerChip? chip)
+    {
+        if (chip is { Mine: true })
+        {
+            Apply(chip.Text, false);
+        }
+    }
+
+    /// <summary>Cria a tag com o nome digitado e já a põe no jogo.</summary>
+    [RelayCommand]
+    private void CreateTag()
+    {
+        if (!string.IsNullOrWhiteSpace(NewTagName))
+        {
+            Apply(NewTagName, true);
+        }
+    }
+
+    private void Apply(string name, bool on)
+    {
+        var open = IsPickerOpen;
+        if (Library.SetGameTag(Card.Id, name, on) && Library.Drawer is { } fresh)
+        {
+            fresh.IsPickerOpen = open;
+        }
     }
 
     public bool HasTags => drawer.Tags.Count > 0 || drawer.MoreTags > 0 || ShowSpoilerMarker || ShowAdultMarker;

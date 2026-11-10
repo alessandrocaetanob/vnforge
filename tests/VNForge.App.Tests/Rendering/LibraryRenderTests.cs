@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
@@ -103,6 +105,9 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         var theme = ThemeOf(themeName);
         await Abrir(theme, library => library.Select(library.Cards.Single(c => c.Title == "Amaoto no Hakoniwa")), (window, vm) =>
         {
+            var switchBox = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LayoutSwitch");
+            var drawerHost = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "DrawerHost");
+            Assert.True(switchBox.TranslatePoint(new Point(switchBox.Bounds.Width, 0), window)!.Value.X <= drawerHost.TranslatePoint(default, window)!.Value.X, "Grade e Lista passam do começo da gaveta");
             var texts = Texts(window);
             foreach (var expected in new[]
                      {
@@ -229,6 +234,83 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         }, empty: true);
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Filtro_por_tag_junta_a_sua_e_a_do_VNDB_com_o_popover_das_tags(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library =>
+        {
+            library.Tags.ToggleOptionCommand.Execute(library.Tags.OwnOptions.Single(o => o.Text == "favorito"));
+            library.Tags.ToggleOptionCommand.Execute(library.Tags.VndbOptions.Single(o => o.Text == "Escola"));
+            library.Tags.IsOpen = true;
+        }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[] { "4 de 12 jogos · favorito e Escola", "Filtro salvo", "Tem as duas tags", "Tags", "favorito", "Escola", "+8" })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            Assert.Equal(2, window.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("lib-active")));
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-tags", theme)));
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Dialogo_das_tags_lista_renomeia_e_apaga(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library =>
+        {
+            library.Tags.OpenManageCommand.Execute(null);
+            library.Tags.StartRenameCommand.Execute(library.Tags.Rows.Single(r => r.Name == "rejogar"));
+            library.Tags.Rows.Single(r => r.Name == "rejogar").EditText = "rejogar mais tarde";
+            library.Tags.AskDeleteCommand.Execute(library.Tags.Rows.Single(r => r.Name == "pra traduzir"));
+        }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[]
+                     {
+                         "Suas tags", "Ficam só neste computador e não sobem para o VNDB. Valem para jogos, não para personagens.", "favorito", "5 jogos", "3 jogos", "emprestado", "1 jogo",
+                         "Apagar “pra traduzir”?", "A tag sai dos 6 jogos que a usam. As tags do VNDB não mudam.", "Cancelar", "Salvar", "Apagar tag", "Adicionar", "Fechar",
+                     })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-tags-gerenciar", theme)));
+        });
+    }
+
+    [Fact]
+    public async Task Botao_Tags_abre_e_fecha_o_popover_no_clique_e_o_clique_fora_fecha()
+    {
+        await Abrir(ThemeVariant.Dark, _ => { }, (window, vm) =>
+        {
+            var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "TagsButton");
+            var center = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            void Click(Point at)
+            {
+                window.MouseDown(at, MouseButton.Left);
+                window.MouseUp(at, MouseButton.Left);
+                ScreenRenderer.Settle(window);
+            }
+
+            Click(center);
+            Assert.True(vm.Library.Tags.IsOpen);
+            Click(center);
+            Assert.False(vm.Library.Tags.IsOpen);
+            Click(center);
+            Assert.True(vm.Library.Tags.IsOpen);
+            Click(new Point(700, 800));
+            Assert.False(vm.Library.Tags.IsOpen);
+        });
+    }
+
     private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false)
     {
         await fixture.Session.Dispatch<int>(
@@ -285,8 +367,24 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     private static UserTags Tags()
     {
+        var ids = LibrarySamples.Games().Select(g => g.Id).ToList();
         var tags = new UserTags();
-        tags.Add(LibrarySamples.Games()[0].Id, "favorito");
+        foreach (var index in new[] { 0, 3, 5, 8, 10 })
+        {
+            tags.Add(ids[index], "favorito");
+        }
+
+        foreach (var index in new[] { 1, 4, 9 })
+        {
+            tags.Add(ids[index], "rejogar");
+        }
+
+        foreach (var index in new[] { 1, 2, 4, 6, 9, 11 })
+        {
+            tags.Add(ids[index], "pra traduzir");
+        }
+
+        tags.Add(ids[7], "emprestado");
         return tags;
     }
 }
