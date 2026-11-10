@@ -19,6 +19,19 @@ public sealed class WindowCapturerTests
     private static string OwnFolder => Path.GetDirectoryName(Environment.ProcessPath)!;
 
     [Fact]
+    public void Lista_as_janelas_de_nivel_mais_alto_sem_repetir_nenhuma()
+    {
+        RequireWindows();
+        using var window = new TestWindow(Red, Green, Blue);
+
+        var windows = NativeWindows.TopLevelWindows();
+
+        Assert.NotEmpty(windows);
+        Assert.Contains(window.Handle, windows);
+        Assert.Equal(windows.Count, windows.Distinct().Count());
+    }
+
+    [Fact]
     public void Captura_a_janela_pelo_identificador_com_o_tamanho_e_a_cor_dela()
     {
         RequireWindows();
