@@ -100,7 +100,51 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
         string visualNovelId, SheetTranslationOptions? options = null, IProgress<SheetTranslationProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         options ??= new SheetTranslationOptions();
-        var plan = Plan(visualNovelId, options.Force);
+        return await RunPlanAsync(visualNovelId, Plan(visualNovelId, options.Force), options, overwrite: false, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Traduz de novo só os textos pedidos, mesmo os que a pessoa já revisou ou aprovou: é o que "Traduzir de novo" num bloco da revisão faz, depois de a pessoa pedir. O texto volta como
+    /// <see cref="TranslationStatus.Machine"/>. Quem chama confirma antes, porque a tradução anterior se perde.
+    /// </summary>
+    /// <exception cref="LibraryException">O jogo ainda não tem ficha, ou um dos textos não é dela.</exception>
+    /// <exception cref="OperationCanceledException">Cancelado; o que já voltou está gravado.</exception>
+    public async Task<SheetTranslationResult> RetranslateAsync(
+        string visualNovelId, IReadOnlyList<SheetField> fields, SheetTranslationOptions? options = null, IProgress<SheetTranslationProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+        return await RunPlanAsync(visualNovelId, PlanFields(store, visualNovelId, fields), options ?? new SheetTranslationOptions(), overwrite: true, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Os itens de <paramref name="fields"/>, que o <see cref="RetranslateAsync"/> pede à IA sem olhar a etapa em que estão.</summary>
+    /// <exception cref="LibraryException">O jogo ainda não tem ficha, ou um dos textos não é dela.</exception>
+    public static SheetTranslationPlan PlanFields(SheetStore store, string visualNovelId, IReadOnlyList<SheetField> fields)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(fields);
+        var game = store.LoadGame(visualNovelId) ?? throw new LibraryException($"O jogo {visualNovelId} ainda não tem ficha. Busque-a com vnf library sheet fetch.");
+        var terms = store.LoadTerms();
+        List<SheetTranslationItem> items = [];
+        foreach (var field in fields.Distinct())
+        {
+            var item = field.Kind switch
+            {
+                SheetFieldKind.Synopsis when game.Synopsis is { } synopsis => new SheetTranslationItem(field.Key, SheetItemKind.Synopsis, synopsis.Source, null),
+                SheetFieldKind.Character when game.CharacterIds.Contains(field.Id!) && store.LoadCharacter(field.Id!) is { Description: { } description } character =>
+                    new SheetTranslationItem(field.Key, SheetItemKind.CharacterDescription, description.Source, character.Name),
+                SheetFieldKind.Tag when terms.Find(SheetTermKind.Tag, field.Id!) is { } term => new SheetTranslationItem(field.Key, SheetItemKind.TagName, term.Text.Source, term.Context),
+                SheetFieldKind.Trait when terms.Find(SheetTermKind.Trait, field.Id!) is { } term => new SheetTranslationItem(field.Key, SheetItemKind.TraitName, term.Text.Source, term.Context),
+                _ => null,
+            };
+            items.Add(item ?? throw new LibraryException($"{field.Key} não está na ficha deste jogo."));
+        }
+
+        return new SheetTranslationPlan(game.Title, items);
+    }
+
+    private async Task<SheetTranslationResult> RunPlanAsync(
+        string visualNovelId, SheetTranslationPlan plan, SheetTranslationOptions options, bool overwrite, IProgress<SheetTranslationProgress>? progress, CancellationToken cancellationToken)
+    {
         var translated = 0;
         var calls = 0;
         var done = 0;
@@ -125,7 +169,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
 
             var (accepted, rejected) = Check(batch, reply);
             failures.AddRange(rejected);
-            translated += Save(visualNovelId, accepted, options.Force);
+            translated += Save(visualNovelId, accepted, options.Force, overwrite);
             done += batch.Count;
             progress?.Report(new SheetTranslationProgress(done, plan.Items.Count));
         }
@@ -208,7 +252,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
     }
 
     /// <summary>Grava o lote relendo cada texto sob a trava: só entra o que ainda tem o mesmo original e ainda precisa de tradução (a pessoa pode ter mexido no meio).</summary>
-    private int Save(string visualNovelId, List<(SheetTranslationItem Item, string Text)> accepted, bool force) =>
+    private int Save(string visualNovelId, List<(SheetTranslationItem Item, string Text)> accepted, bool force, bool overwrite) =>
         accepted.Count == 0
             ? 0
             : store.Update(s =>
@@ -221,19 +265,19 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                     var field = SheetField.Parse(item.Key);
                     switch (field.Kind)
                     {
-                        case SheetFieldKind.Synopsis when game.Synopsis is { } synopsis && Fresh(synopsis, item, force):
+                        case SheetFieldKind.Synopsis when game.Synopsis is { } synopsis && Fresh(synopsis, item, force, overwrite):
                             game = game with { Synopsis = synopsis.TranslatedByAi(target) };
                             s.SaveGame(game);
                             saved++;
                             break;
-                        case SheetFieldKind.Character when s.LoadCharacter(field.Id!) is { Description: { } description } character && Fresh(description, item, force):
+                        case SheetFieldKind.Character when s.LoadCharacter(field.Id!) is { Description: { } description } character && Fresh(description, item, force, overwrite):
                             s.SaveCharacter(character with { Description = description.TranslatedByAi(target) });
                             saved++;
                             break;
                         case SheetFieldKind.Tag or SheetFieldKind.Trait:
                         {
                             var kind = field.Kind == SheetFieldKind.Tag ? SheetTermKind.Tag : SheetTermKind.Trait;
-                            if (terms.Find(kind, field.Id!) is { } term && Fresh(term.Text, item, force))
+                            if (terms.Find(kind, field.Id!) is { } term && Fresh(term.Text, item, force, overwrite))
                             {
                                 terms.Replace(kind, field.Id!, term.Text.TranslatedByAi(target));
                                 saved++;
@@ -248,6 +292,6 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                 return saved;
             });
 
-    private static bool Fresh(SheetText current, SheetTranslationItem item, bool force) =>
-        string.Equals(current.Source, item.Source, StringComparison.Ordinal) && Needs(current, force);
+    private static bool Fresh(SheetText current, SheetTranslationItem item, bool force, bool overwrite) =>
+        string.Equals(current.Source, item.Source, StringComparison.Ordinal) && (overwrite || Needs(current, force));
 }

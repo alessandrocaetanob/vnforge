@@ -73,7 +73,10 @@ public static class SheetFetcher
                 .ThenBy(c => c.Name, StringComparer.Ordinal)
                 .Select(c => c.Id)],
             characters.Truncated,
-            now);
+            now,
+            vn.Released,
+            vn.OriginalLanguage,
+            vn.Rating);
         store.SaveGame(sheet);
         store.SaveTerms(terms);
         return new SheetFetchResult(sheet, merged.Count, newTerms);
