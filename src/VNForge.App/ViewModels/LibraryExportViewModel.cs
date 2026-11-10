@@ -41,9 +41,6 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
 
     private static readonly CultureInfo Portuguese = CultureInfo.GetCultureInfo("pt-BR");
 
-    /// <summary>As sessões de jogo, para "o que você jogou e o tempo"; o app liga ao <c>playtime.json</c>.</summary>
-    public Func<PlayLog> ReadPlayLog { get; set; } = () => new PlayLog();
-
     /// <summary>Abre a página gravada no navegador; o app liga ao abridor do sistema.</summary>
     public Action<string> OpenFile { get; set; } = _ => { };
 
@@ -176,7 +173,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         var chosen = Pick(Scope);
         var privacy = new LibraryPrivacy(ShowSpoilers: IncludeSensitive, ShowAdult: IncludeSensitive);
         var options = new LibraryCatalogOptions(privacy, IncludeSheet: IncludeSheet, IncludePlayed: IncludePlayed, IncludeVote: IncludeVote, IncludeTranslation: IncludeTranslation);
-        var result = LibraryCatalog.Render(new GameLibrary(chosen, privacy), ReadPlayLog(), library.Clock.GetLocalNow(), options, library.Sheets, library.TranslationOf);
+        var result = LibraryCatalog.Render(new GameLibrary(chosen, privacy), library.Played, library.Clock.GetLocalNow(), options, library.Sheets, library.TranslationOf);
         if (result.Games == 0)
         {
             throw new LibraryException("Nenhum jogo com jogo do VNDB confirmado entra com esta escolha, então não há o que exportar.");

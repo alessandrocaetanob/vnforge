@@ -18,6 +18,8 @@ public sealed partial class LibraryViewModel
 
     internal GameLibrary CatalogLibrary => library;
 
+    internal PlayLog Played => played;
+
     internal IFolderPicker FolderPicker => picker;
 
     internal ILibrarySheetSource? Sheets => sheets;
