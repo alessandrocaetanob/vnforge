@@ -47,7 +47,8 @@ public sealed record CharacterSheet(
     SheetText? Description,
     IReadOnlyList<VndbTrait> Traits,
     IReadOnlyList<SheetAppearance> Appearances,
-    int? Age = null)
+    int? Age = null,
+    bool AgeFetched = false)
 {
     /// <summary>A aparição no jogo, ou nula quando o personagem não está nele.</summary>
     public SheetAppearance? In(string visualNovelId) => Appearances.FirstOrDefault(a => a.VisualNovelId == visualNovelId);

@@ -41,6 +41,7 @@ public sealed partial class CharactersViewModel : ObservableObject
     private (string Id, bool RevealSpoilers)? pending;
     private string? openId;
     private int generation;
+    private Extras? extras;
     private int allTraitCount;
     private bool applying;
 
@@ -147,9 +148,13 @@ public sealed partial class CharactersViewModel : ObservableObject
     /// </summary>
     public void Open(string id, bool revealSpoilers = false) => pending = (id, revealSpoilers);
 
+    /// <summary>A leitura do que a página do personagem busca nos projetos (cartão "Na tradução" e andamento); os testes a aguardam.</summary>
+    public Task ExtrasLoading { get; private set; } = Task.CompletedTask;
+
     public Task LoadAsync() => Loading = LoadCoreAsync();
 
-    private async Task LoadCoreAsync()
+    /// <param name="keepState">Relê os arquivos sem mexer no que a pessoa fez na tela (página aberta, busca, filtros e spoiler), como depois de buscar no VNDB.</param>
+    private async Task LoadCoreAsync(bool keepState = false)
     {
         var wanted = ++generation;
         if (ConfigDirectory is not { } directory)
@@ -171,17 +176,22 @@ public sealed partial class CharactersViewModel : ObservableObject
 
             snapshot = loaded;
             ErrorMessage = null;
-            Notice = null;
-            openId = null;
             // Cada propriedade refaz a grade ao mudar; aqui o estado volta ao de entrada e a grade se refaz uma vez só, no fim.
             applying = true;
-            selectedRoles.Clear();
-            selectedTraits.Clear();
-            traitNames.Clear();
-            SearchText = string.Empty;
-            TraitSearch = string.Empty;
-            ShowAllTraits = false;
-            ShowSpoilers = loaded.Library.Privacy.ShowSpoilers;
+            if (!keepState)
+            {
+                Notice = null;
+                openId = null;
+                extras = null;
+                selectedRoles.Clear();
+                selectedTraits.Clear();
+                traitNames.Clear();
+                SearchText = string.Empty;
+                TraitSearch = string.Empty;
+                ShowAllTraits = false;
+                ShowSpoilers = loaded.Library.Privacy.ShowSpoilers;
+            }
+
             if (pending is { } request)
             {
                 pending = null;
@@ -211,6 +221,10 @@ public sealed partial class CharactersViewModel : ObservableObject
         }
 
         Rebuild();
+        if (openId is { } open)
+        {
+            await LoadExtrasAsync(open).ConfigureAwait(true);
+        }
     }
 
     private static Snapshot Read(string directory)
@@ -251,19 +265,33 @@ public sealed partial class CharactersViewModel : ObservableObject
             return;
         }
 
-        var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.ShowAdult);
-        var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
-        LibraryCharacterList all, basis, shown;
         try
         {
-            all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+            RebuildFrom(data);
+        }
+        catch (LibraryException ex)
+        {
+            // Um arquivo da Biblioteca que o Core recusa não derruba a tela: ela mostra o erro, como as outras falhas de leitura.
+            snapshot = null;
+            ErrorMessage = ex.Message;
+            Rebuild();
+        }
+    }
+
+    private void RebuildFrom(Snapshot data)
+    {
+        var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.ShowAdult);
+        var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+        var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+        LibraryCharacterList basis, shown;
+        try
+        {
             basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text));
             shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]));
         }
         catch (LibraryException)
         {
             // Uma busca só de pontuação não casa com nada: a grade fica vazia em vez de explodir.
-            all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
             basis = shown = new LibraryCharacterList([], 0);
         }
 
@@ -377,7 +405,8 @@ public sealed partial class CharactersViewModel : ObservableObject
 
         var description = card.Description;
         var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
-        var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a)).ToList();
+        var known = extras is { } read && string.Equals(read.Id, id, StringComparison.OrdinalIgnoreCase) ? read : null;
+        var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a, known?.Counts.GetValueOrDefault(a.GameId))).ToList();
         return new CharacterPage(
             card.Id,
             card.Name,
@@ -391,33 +420,51 @@ public sealed partial class CharactersViewModel : ObservableObject
             games,
             $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
             notes.Count > 0 ? string.Join(' ', notes) : null,
-            TranslationOf(data, card));
+            known?.Translation);
     }
 
-    /// <summary>O cartão "Na tradução": só existe quando um dos jogos do personagem tem projeto e o Glossário dele tem o personagem (casado pelo id do VNDB).</summary>
-    private static CharacterTranslation? TranslationOf(Snapshot data, LibraryCharacterCard card)
-    {
-        foreach (var appearance in card.AppearsIn)
-        {
-            var game = data.Library.Games.First(g => g.Id == appearance.GameId);
-            if (game.ProjectPath is not { } path)
-            {
-                continue;
-            }
+    /// <summary>O que a página do personagem lê dos projetos: o andamento de cada jogo dele e o cartão "Na tradução". Lê-se uma vez ao abrir a página, fora da thread da tela, e a página reaproveita enquanto aberta.</summary>
+    private sealed record Extras(string Id, IReadOnlyDictionary<string, StatusCounts?> Counts, CharacterTranslation? Translation);
 
+    private async Task LoadExtrasAsync(string id)
+    {
+        var data = snapshot;
+        if (data is null || (extras is { } known && string.Equals(known.Id, id, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var read = await Task.Run(() => ReadExtras(data, id)).ConfigureAwait(true);
+        if (ReferenceEquals(snapshot, data) && string.Equals(openId, id, StringComparison.OrdinalIgnoreCase))
+        {
+            extras = read;
+            Rebuild();
+        }
+    }
+
+    /// <summary>O cartão "Na tradução" só existe quando um dos jogos do personagem tem projeto e o Glossário dele tem o personagem (casado pelo id do VNDB).</summary>
+    private static Extras ReadExtras(Snapshot data, string id)
+    {
+        var visualNovels = data.Characters.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase))?.Appearances.Select(a => a.VisualNovelId).ToHashSet(StringComparer.Ordinal) ?? [];
+        var games = data.Library.Games.Where(g => g.ProjectPath is not null && g.VndbId is not null && visualNovels.Contains(g.VndbId)).ToList();
+        var counts = games.ToDictionary(g => g.Id, LibraryCatalog.ReadTranslation, StringComparer.Ordinal);
+        CharacterTranslation? translation = null;
+        foreach (var game in games)
+        {
             try
             {
-                var project = ProjectFolder.Open(path);
-                if (project.LoadCharacters().FirstOrDefault(c => string.Equals(c.VndbId, card.Id, StringComparison.OrdinalIgnoreCase)) is not { } entry)
+                var project = ProjectFolder.Open(game.ProjectPath!);
+                if (project.LoadCharacters().FirstOrDefault(c => string.Equals(c.VndbId, id, StringComparison.OrdinalIgnoreCase)) is not { } entry)
                 {
                     continue;
                 }
 
                 var lines = project.LoadAllText().Values.SelectMany(units => units).Count(u => string.Equals(u.Speaker, entry.Source, StringComparison.Ordinal));
-                return new CharacterTranslation(
+                translation = new CharacterTranslation(
                     entry.Gender switch { CharacterGender.Male => "Masculino", CharacterGender.Female => "Feminino", CharacterGender.Other => "Outro", _ => "Sem gênero" },
                     entry.Source,
                     $"{lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {game.Title}");
+                break;
             }
             catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or JsonException)
             {
@@ -425,13 +472,13 @@ public sealed partial class CharactersViewModel : ObservableObject
             }
         }
 
-        return null;
+        return new Extras(id, counts, translation);
     }
 
-    private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance)
+    private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance, StatusCounts? translation)
     {
         var game = data.Library.Games.First(g => g.Id == appearance.GameId);
-        var described = LibraryCards.Describe(game, privacy, LibraryCatalog.ReadTranslation(game));
+        var described = LibraryCards.Describe(game, privacy, translation);
         var origin = appearance.Editions.Count > 0 ? "Edição casada com a sua pasta" : "Papel mais importante";
         return new CharacterGameRow(
             game.Id,
@@ -525,7 +572,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             SyncText = string.Empty;
         }
 
-        await LoadAsync().ConfigureAwait(true);
+        await (Loading = LoadCoreAsync(keepState: true)).ConfigureAwait(true);
     }
 
     private bool CanSync() => !IsSyncing && ConfigDirectory is not null;
@@ -537,6 +584,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         {
             openId = item.Id;
             Rebuild();
+            ExtrasLoading = LoadExtrasAsync(item.Id);
         }
     }
 

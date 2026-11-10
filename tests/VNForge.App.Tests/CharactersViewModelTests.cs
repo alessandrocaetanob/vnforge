@@ -194,5 +194,35 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Moon Flower"), page.Translation);
         Assert.Equal(0.5, page.Games[0].Progress);
         Assert.False(page.Games[1].HasProgress);
+
+        // O cartão e o andamento são lidos uma vez ao abrir a página: mexer no filtro não volta ao disco.
+        File.Delete(project.CharactersPath);
+        vm.ShowSpoilers = true;
+        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Moon Flower"), vm.Page!.Translation);
+    }
+
+    [Fact]
+    public async Task Buscar_do_VNDB_refaz_as_fichas_de_antes_da_idade_e_mantem_a_pagina_aberta_os_filtros_e_o_spoiler()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        var store = new SheetStore(_config.Path);
+        foreach (var character in store.LoadAllCharacters())
+        {
+            store.SaveCharacter(character with { Age = null, AgeFetched = false });
+        }
+
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, CatalogFactory = CharactersSamples.Catalog, Clock = new FixedClock(CharactersSamples.Now) };
+        await vm.LoadAsync();
+        vm.ShowSpoilers = true;
+        vm.SearchText = "hana";
+        vm.OpenCharacterCommand.Execute(vm.Items.Single());
+        await vm.ExtrasLoading;
+        Assert.DoesNotContain(vm.Page!.Tags, c => c.Text == "17 anos");
+
+        await vm.SyncCommand.ExecuteAsync(null);
+
+        Assert.Contains(vm.Page!.Tags, c => c.Text == "17 anos");
+        Assert.Equal("hana", vm.SearchText);
+        Assert.True(vm.ShowSpoilers);
     }
 }

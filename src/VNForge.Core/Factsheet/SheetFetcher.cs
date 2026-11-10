@@ -110,6 +110,7 @@ public static class SheetFetcher
             description,
             vndb.Traits,
             appearances,
-            vndb.Age);
+            vndb.Age,
+            true);
     }
 }
