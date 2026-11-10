@@ -58,6 +58,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly Func<UserTags> readUserTags;
     private readonly ILibrarySheetSource? sheets;
     private readonly Action<string> openFolder;
+    private readonly Func<PortugueseTranslationChecker>? portugueseChecker;
     private readonly Action<Action> post;
     private readonly Dictionary<string, StatusCounts?> translations = new(StringComparer.Ordinal);
     private List<LibraryGame> games = [];
@@ -81,7 +82,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         Func<LibraryGame, StatusCounts?>? readTranslation = null,
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
-        Action<string>? openFolder = null)
+        Action<string>? openFolder = null,
+        Func<PortugueseTranslationChecker>? portugueseChecker = null)
     {
         this.file = file;
         this.picker = picker;
@@ -92,6 +94,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         readUserTags = userTags ?? (() => new UserTags());
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
+        this.portugueseChecker = portugueseChecker;
         this.post = post;
         Filters =
         [
@@ -342,10 +345,13 @@ public sealed partial class LibraryViewModel : ObservableObject
         var shown = LibraryListing.Filter(games, SelectedFilter, SearchText, PercentOf, userTags, library.Privacy);
         var selectedId = Selected?.Id;
         Cards.Clear();
-        foreach (var game in shown)
+        var entries = Arrange(shown);
+        foreach (var entry in entries)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))));
+            Cards.Add(new LibraryCardViewModel(entry.Game, LibraryCards.Describe(entry.Game, library.Privacy, translations.GetValueOrDefault(entry.Game.Id))));
         }
+
+        RebuildRows(entries);
 
         HasNoResults = games.Count > 0 && Cards.Count == 0;
         OnPropertyChanged(nameof(HasFilter));
@@ -634,6 +640,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             await loadRecents();
             await LoadAsync();
             await RescanOnOpenAsync();
+            StartPortugueseCheck();
         }
         catch (Exception e)
         {
@@ -662,6 +669,8 @@ public sealed partial class LibraryViewModel : ObservableObject
             {
                 ErrorMessage = $"A varredura parou antes de chegar em {string.Join(", ", waitingFolders)}. Escolha a pasta de novo para varrer.";
             }
+
+            StartPortugueseCheck();
         }
         finally
         {
