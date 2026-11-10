@@ -11,7 +11,7 @@
             <ToggleButton Name="PART_Header" Classes="disclosure" Height="40" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}">
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <PathIcon Name="PART_Chevron" Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{DynamicResource Icon.ChevronRight}"/>
-                <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" FontSize="13" FontWeight="SemiBold"
+                <ContentPresenter Name="PART_HeaderText" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" FontSize="13" FontWeight="SemiBold"
                                   VerticalAlignment="Center"/>
               </StackPanel>
             </ToggleButton>
@@ -22,6 +22,22 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Variante "stage" (quadro e4c, "Testar no jogo"): cartão de raio 16 com 20px de margem, cabeçalho de 44px em 14/600 e chevron de 14. -->
+  <Style Selector="c|TechnicalDetails.stage /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="Padding" Value="20,0"/>
+  </Style>
+  <Style Selector="c|TechnicalDetails.stage /template/ ToggleButton#PART_Header">
+    <Setter Property="Height" Value="44"/>
+  </Style>
+  <Style Selector="c|TechnicalDetails.stage /template/ ContentPresenter#PART_HeaderText">
+    <Setter Property="FontSize" Value="14"/>
+  </Style>
+  <Style Selector="c|TechnicalDetails.stage /template/ PathIcon#PART_Chevron">
+    <Setter Property="Width" Value="14"/>
+    <Setter Property="Height" Value="14"/>
   </Style>
   <Style Selector="c|TechnicalDetails:expanded /template/ PathIcon#PART_Chevron">
     <Setter Property="Data" Value="{DynamicResource Icon.ChevronDown}"/>

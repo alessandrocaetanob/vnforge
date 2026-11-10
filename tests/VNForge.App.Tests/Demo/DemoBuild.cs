@@ -25,8 +25,8 @@ internal static class DemoBuild
         "yst00100", "yst00101", "yst00102", "yst00103", "yst00104", "yst00105",
     };
 
-    /// <summary>Grava a pasta do projeto, a do jogo e os backups em <paramref name="root"/> e devolve a pasta do projeto.</summary>
-    public static string Create(string root)
+    /// <summary>Grava a pasta do projeto, a do jogo e os backups em <paramref name="root"/> e devolve a pasta do projeto. Com <paramref name="injected"/> falso o jogo fica como veio, sem backup.</summary>
+    public static string Create(string root, bool injected = true)
     {
         var game = Directory.CreateDirectory(Path.Combine(root, "jogo")).FullName;
         File.WriteAllBytes(Path.Combine(game, Archive), Payload(OriginalBytes, 1));
@@ -38,6 +38,11 @@ internal static class DemoBuild
         for (var n = 1; n <= DemoProject.ScriptCount; n++)
         {
             File.WriteAllText(Path.Combine(scripts, $"yst{n:D5}.ybn"), $"script {n}");
+        }
+
+        if (!injected)
+        {
+            return projectRoot;
         }
 
         // Duas injeções antigas: a pasta do jogo termina com o build da segunda, e cada backup guarda o original.

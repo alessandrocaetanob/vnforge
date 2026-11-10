@@ -137,7 +137,22 @@ public sealed partial class BuildViewModel : ObservableObject
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ErrorTitle))]
+    [NotifyPropertyChangedFor(nameof(ErrorDetail))]
     public partial string? ErrorMessage { get; private set; }
+
+    /// <summary>A primeira frase da mensagem de erro, que a faixa vermelha mostra em destaque.</summary>
+    public string ErrorTitle => SplitError().Title;
+
+    /// <summary>O resto da mensagem de erro, sob o título; vazio quando a mensagem tem uma frase só.</summary>
+    public string ErrorDetail => SplitError().Detail;
+
+    private (string Title, string Detail) SplitError()
+    {
+        var message = ErrorMessage ?? string.Empty;
+        var end = message.IndexOf(". ", StringComparison.Ordinal);
+        return end < 0 ? (message, string.Empty) : (message[..(end + 1)], message[(end + 2)..].TrimStart());
+    }
 
     [ObservableProperty]
     public partial string GameFolder { get; private set; } = string.Empty;
@@ -1535,13 +1550,13 @@ public sealed partial class BuildViewModel : ObservableObject
         }
     }
 
-    /// <summary>"Tradução vazia (1), Não cabe na caixa (2). Corrija em Conferir a tradução.": o que a faixa diz que trava o teste.</summary>
+    /// <summary>"Tradução vazia (1), Não cabe na caixa (2). Corrija em Conferir.": o que a faixa diz que trava o teste.</summary>
     private static string DescribeErrorKinds(QaReport report)
     {
         var kinds = report.Errors
             .GroupBy(i => i.RuleId, StringComparer.Ordinal)
             .Select(g => $"{ConferenceRuleTexts.Title(g.Key)} ({ProjectLabels.Number(g.Count())})");
-        return report.Errors.Count == 0 ? string.Empty : $"{string.Join(", ", kinds)}. Corrija em Conferir a tradução.";
+        return report.Errors.Count == 0 ? string.Empty : $"{string.Join(", ", kinds)}. Corrija em Conferir.";
     }
 
     private static string DescribePlan(InjectionPlan plan)
