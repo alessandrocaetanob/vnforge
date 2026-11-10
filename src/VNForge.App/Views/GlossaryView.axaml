@@ -266,7 +266,8 @@
                     </StackPanel>
                   </Grid>
                 </Border>
-                <Grid ColumnDefinitions="*,*,150,130,1.36*,70,28" ColumnSpacing="12" Margin="20,0" Height="31">
+                <Grid ColumnSpacing="12" Margin="20,0" Height="31">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="112"/><ColumnDefinition Width="*" MinWidth="112"/><ColumnDefinition Width="150"/><ColumnDefinition Width="130"/><ColumnDefinition Width="1.36*"/><ColumnDefinition Width="70"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
                   <TextBlock Classes="column-head" Text="Nome no jogo"/>
                   <TextBlock Grid.Column="1" Classes="column-head" Text="Nome na tradução"/>
                   <TextBlock Grid.Column="2" Classes="column-head" Text="Gênero"/>
@@ -278,7 +279,8 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:CharacterRow">
                       <Border Classes="grow" Background="Transparent">
-                      <Grid ColumnDefinitions="*,*,150,130,1.36*,70,28" ColumnSpacing="12">
+                      <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="112"/><ColumnDefinition Width="*" MinWidth="112"/><ColumnDefinition Width="150"/><ColumnDefinition Width="130"/><ColumnDefinition Width="1.36*"/><ColumnDefinition Width="70"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2">
                           <Button Classes="portrait" IsEnabled="{Binding !IsBlank}"
                                   Command="{Binding $parent[UserControl].((vm:GlossaryViewModel)DataContext).OpenSheetCommand}" CommandParameter="{Binding}"
