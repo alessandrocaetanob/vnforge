@@ -292,7 +292,7 @@ public sealed class GameTextbox : Control
         DrawNext(context, ink, paint.Width, y + m.NextTop, m);
         if (layout.Speaker is { } speaker)
         {
-            DrawPlate(context, speaker, paint.Typeface, Brushes.White, m);
+            DrawPlate(context, speaker, paint.Typeface, Size == GameTextboxSize.Review ? Brushes.White : layout.SpeakerColor?.DarkBrush ?? ink, m);
         }
     }
 
@@ -402,8 +402,8 @@ public sealed class GameTextbox : Control
 
     private void DrawPlate(DrawingContext context, string speaker, Typeface typeface, IBrush ink, Metrics m)
     {
-        // A placa é de texto branco em JetBrains Mono Medium nos dois temas (".nt" e ".pl" do quadro do #546); a cor do personagem fica no nome da grade e do inspetor.
-        var text = Format(speaker, new Typeface(typeface.FontFamily, FontStyle.Normal, FontWeight.Medium), ink, m.PlateFont);
+        // Só no palco do modo revisão a placa é de texto branco em JetBrains Mono Medium (".nt" e ".pl" do quadro do #546); nas outras caixas segue a cor do personagem.
+        var text = Format(speaker, Size == GameTextboxSize.Review ? new Typeface(typeface.FontFamily, FontStyle.Normal, FontWeight.Medium) : typeface, ink, m.PlateFont);
         var plate = new Rect(m.PlateLeft, 0, text.Width + (m.PlatePadX * 2), m.PlateHeight);
         if (!Flat)
         {

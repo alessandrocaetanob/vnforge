@@ -17,6 +17,11 @@ public sealed partial class MainWindow : Window
             {
                 UpdateMicaFallback();
             }
+
+            if (e.Property == ClientSizeProperty)
+            {
+                UpdateCompactHeader();
+            }
         };
         UpdateMicaFallback();
         UpdateCompactHeader();
@@ -42,12 +47,14 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// O cabeçalho completo do jogo no Painel, na Ficha, no Jogar e no Editor (que ganha o desenho do quadro do #546, com as ações da grade) e o compacto, de uma linha de 80 px
-    /// (a opção C do #544), só no Conferir, no Testar e no Glossário, onde a página precisa da altura. A altura da janela não entra na conta.
+    /// (a opção C do #544), no Conferir, no Testar e no Glossário, onde a página precisa da altura. O Editor também cai para o compacto em janela baixa (<see cref="EditorBreakpoints.FullHeaderMinHeight"/>),
+    /// para a caixa do jogo aparecer inteira sem rolar.
     /// </summary>
     private void UpdateCompactHeader()
     {
         var page = (DataContext as ViewModels.MainWindowViewModel)?.CurrentPage;
-        GameHeader.IsCompact = HeaderCompactOverride ?? page is ViewModels.ConferenceViewModel or ViewModels.BuildViewModel or ViewModels.GlossaryViewModel;
+        var shortEditor = page is ViewModels.EditorViewModel && !EditorBreakpoints.UsesFullHeader(ClientSize.Height);
+        GameHeader.IsCompact = HeaderCompactOverride ?? (shortEditor || page is ViewModels.ConferenceViewModel or ViewModels.BuildViewModel or ViewModels.GlossaryViewModel);
         GameHeader.IsEditor = page is ViewModels.EditorViewModel;
     }
 

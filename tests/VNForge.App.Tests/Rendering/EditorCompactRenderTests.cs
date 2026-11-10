@@ -112,8 +112,7 @@ public sealed class EditorCompactRenderTests(HeadlessFixture fixture, DemoFolder
         var suggester = new LineSuggester(() => new FakeTranslationProvider(u => (u.Translation ?? u.Source).Replace("Os dois", "Vocês dois")));
         var editor = new EditorViewModel(scriptLabel: DemoProject.Label, suggester: suggester) { Explanations = new ExplicacaoDeExemplo() };
         var vm = new MainWindowViewModel(start) { Editor = editor };
-        // O cabeçalho do jogo do Editor (o do quadro do #546) leva 163 px e a 768 de altura a caixa do jogo não cabe sem rolar: este teste mede o inspetor em abas, com o compacto.
-        var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm, HeaderCompactOverride = height < ScreenRenderer.Height };
+        var window = new MainWindow { Width = width, Height = height, RequestedThemeVariant = theme, DataContext = vm };
         window.Show();
         await start.OpenFolderCommand.ExecuteAsync(null);
         await vm.ProjectOpening;

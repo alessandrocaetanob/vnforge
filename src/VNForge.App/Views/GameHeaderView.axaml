@@ -37,11 +37,12 @@
     <Style Selector="v|GameHeaderView.editor ListBox#Sections">
       <Setter Property="Margin" Value="32,12,32,0"/>
     </Style>
-    <!-- Sem largura para o seletor e as ações lado a lado, as ações descem para a própria linha, à direita, sob o seletor. -->
-    <Style Selector="v|GameHeaderView.editor.actions-below StackPanel#EditorActions">
-      <Setter Property="Grid.Row" Value="2"/>
-      <Setter Property="VerticalAlignment" Value="Top"/>
-      <Setter Property="Margin" Value="0,8,32,0"/>
+    <!-- No compacto as ações sobem para a linha do nome e largam o texto (o nome acessível e a dica ficam); só Traduzir com IA mantém o rótulo. -->
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions TextBlock.btn-label">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions Button, v|GameHeaderView.compact StackPanel#EditorActions ToggleButton">
+      <Setter Property="Padding" Value="10,0"/>
     </Style>
     <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
          dos filtros e o contorno accent, que é o que diz que está ligado. -->
@@ -188,17 +189,25 @@
     <!-- A segunda linha da Tradução. O Editor e a Revisão são a mesma página; Conferir leva o contador de erros. -->
     <!-- Roteiro, Buscar e Traduzir com IA do Editor, na linha do seletor de seções (o quadro do #546). Buscar abre o painel de busca, que fica na página. -->
     <StackPanel Name="EditorActions" Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,1" IsVisible="False">
+      <Button Name="ReadAsPlayerCompact" Padding="16,0" Height="32" FontSize="14" Command="{Binding Editor.StartReadingCommand}" IsEnabled="{Binding Editor.IsGridShown}" IsVisible="False"
+              AutomationProperties.Name="Ler como jogador"
+              ToolTip.Tip="Ler como jogador: a cena inteira em tela cheia, uma fala por vez na caixa do jogo, sem nada para aprovar">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+          <TextBlock Classes="btn-label" Text="Ler como jogador" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
       <ToggleButton Name="DensityToggle" Classes="density" VerticalContentAlignment="Center" IsChecked="{Binding Editor.IsScriptDensity}" ToolTip.Tip="{Binding Editor.DensityTip}" AutomationProperties.Name="Linhas como roteiro">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Script}"/>
-          <TextBlock Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+          <TextBlock Classes="btn-label" Text="Roteiro" TextWrapping="NoWrap" VerticalAlignment="Center"/>
         </StackPanel>
       </ToggleButton>
       <Button Name="SearchButton" Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding Editor.ToggleSearchCommand}" AutomationProperties.Name="Buscar e substituir"
               ToolTip.Tip="Buscar e substituir no projeto (Ctrl+F, Ctrl+H)">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
-          <TextBlock Text="Buscar" TextWrapping="NoWrap"/>
+          <TextBlock Classes="btn-label" Text="Buscar" TextWrapping="NoWrap"/>
         </StackPanel>
       </Button>
       <Button Name="TranslateButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" Command="{Binding Editor.TranslatePendingCommand}" AutomationProperties.Name="Traduzir com IA"

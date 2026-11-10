@@ -179,7 +179,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
         Palette.PropertyChanged += OnPaletteChanged;
         Editor.PropertyChanged += OnEditorChanged;
-        Editor.CheckRequested += OnEditorCheckRequested;
         Editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
         Editor.DefineGenderRequested += OnEditorDefineGenderRequested;
         Editor.TranslateRequested += OnEditorTranslateRequested;
@@ -293,14 +292,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // O app troca o Editor no inicializador de objeto, depois do construtor: as escutas passam para o novo.
             DetachEditor(editor);
             editor.PropertyChanged -= OnEditorChanged;
-            editor.CheckRequested -= OnEditorCheckRequested;
             editor.GlossaryTermRequested -= OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested -= OnEditorDefineGenderRequested;
             editor.TranslateRequested -= OnEditorTranslateRequested;
             editor = value;
             AttachEditor(editor);
             editor.PropertyChanged += OnEditorChanged;
-            editor.CheckRequested += OnEditorCheckRequested;
             editor.GlossaryTermRequested += OnEditorGlossaryTermRequested;
             editor.DefineGenderRequested += OnEditorDefineGenderRequested;
             editor.TranslateRequested += OnEditorTranslateRequested;
@@ -977,8 +974,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ = RefreshSummaryPageAsync();
         Toasts.Show(BatchHistory.Describe(undone.Result), undone.Result.EditedSince > 0 || undone.Result.Missing > 0 ? ToastKind.Warning : ToastKind.Success, key: "batch-undo");
     }
-
-    private void OnEditorCheckRequested(object? sender, string scriptKey) => SelectedNav = conferenceItem;
 
     /// <summary>"Adicionar ao glossário" no cartão do dicionário: Glossário > Termos com a palavra como está no original, pronta para a tradução.</summary>
     private void OnEditorGlossaryTermRequested(object? sender, string term)
