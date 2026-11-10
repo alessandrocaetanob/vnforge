@@ -32,7 +32,7 @@
 
     <!-- Uma linha do filtro: a caixa, o nome e quantos personagens ela pega. -->
     <DataTemplate x:Key="Facet" x:DataType="vm:CharacterFacet">
-      <CheckBox IsChecked="{Binding IsSelected}" MinHeight="28" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Label}">
+      <CheckBox IsChecked="{Binding IsSelected}" CornerRadius="5" MinHeight="28" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Label}">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
           <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
           <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" Text="{Binding CountText}" VerticalAlignment="Center"/>
@@ -42,7 +42,7 @@
 
     <!-- O personagem da grade: retrato quadrado, nome, original, papel e quantos jogos. -->
     <DataTemplate x:Key="CardTemplate" x:DataType="vm:CharacterListItem">
-      <Button Classes="libcard" Width="160" Margin="0,0,16,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
+      <Button Classes="libcard" Width="160" Margin="0,0,20,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
               CommandParameter="{Binding}" AutomationProperties.Name="{Binding AutomationName}">
         <StackPanel Spacing="8">
           <c:Portrait Size="Lg" FixedSide="160" Image="{Binding Image}" Seed="{Binding Name}" LoadOnlyInViewport="True" HorizontalAlignment="Left"/>

@@ -372,7 +372,7 @@ public sealed partial class CharactersViewModel : ObservableObject
     {
         var game = data.Library.Games.First(g => g.Id == appearance.GameId);
         var described = LibraryCards.Describe(game, privacy);
-        var origin = appearance.Editions.Count > 0 ? "Edição casada com a sua pasta" : "Papel mais importante entre as edições";
+        var origin = appearance.Editions.Count > 0 ? "Edição casada com a sua pasta" : "Papel mais importante";
         return new CharacterGameRow(
             game.Id,
             game.Title,

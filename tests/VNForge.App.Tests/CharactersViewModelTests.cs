@@ -14,59 +14,15 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class CharactersViewModelTests : IDisposable
 {
-    private const string Moon = "v900101";
-    private const string Star = "v900102";
-    private const string Outside = "v900103";
-
-    private static readonly DateTimeOffset Now = new(2026, 11, 9, 20, 0, 0, TimeSpan.Zero);
-
     private readonly TempFolder _config = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     public void Dispose() => _config.Dispose();
 
-    private static VndbTrait LongHair => new("i1", "Long Hair", "i10", "Hair", 0, false, Sexual: false);
-
-    private static VndbTrait Ghost => new("i2", "Ghost", "i20", "Personality", 2, false, Sexual: false);
-
-    private static VndbVisualNovel Game(string id, string title) =>
-        new(id, title, null, [], [], "ja", 2, "2020-01-01", ["ja"], ["win"], null, 3, 1200, 10, "Texto.", []);
-
-    private static VndbCharacter Character(string id, string name, string? original, string? gender, VndbCharacterAppearance[] appearances, VndbTrait[] traits) =>
-        new(id, name, original, name == "Hana Tsukino" ? ["Hanako"] : [], $"{name}.", null, gender is null ? null : new VndbGender(gender, gender), appearances, traits);
-
-    private static FakeVndbCatalog Catalog() => new(
-        [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
-        [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost]),
-            Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
-            Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
-            Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),
-            Character("c105", "Fantasma", null, null, [new(Star, "side", 2, null)], []),
-        ]);
-
-    private static LibraryGame Owned(string id, string folder, string vndbId, string title) =>
-        new(id, $"C:\\Jogos\\{folder}", null, LibraryEngine.Unknown, title, null, Now) { VndbId = vndbId, Confirmation = LibraryConfirmation.Manual };
-
-    /// <summary>Grava as fichas dos três jogos e uma Biblioteca com os dois primeiros; <paramref name="matched"/> casa a edição r1 com a pasta do jogo 1.</summary>
     private async Task<CharactersViewModel> OpenAsync(bool matched = false, bool showSpoilers = false)
     {
-        var store = new SheetStore(_config.Path);
-        foreach (var id in new[] { Moon, Star, Outside })
-        {
-            await SheetFetcher.FetchAsync(Catalog(), store, id, new FixedClock(Now), Ct);
-        }
-
-        new LibraryFile(_config.Path).Save(new GameLibrary([Owned("g1", "Moon Flower", Moon, "Moon Flower"), Owned("g2", "Star Garden", Star, "Star Garden")])
-        {
-            Privacy = new LibraryPrivacy(ShowSpoilers: showSpoilers),
-        });
-        if (matched)
-        {
-            new GameEditionsFile(_config.Path).Update(e => e.Set("g1", Moon, ["r1"], Now));
-        }
-
+        await CharactersSamples.SeedAsync(_config.Path, matched, showSpoilers, Ct);
         var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
         await vm.LoadAsync();
         return vm;
@@ -125,7 +81,7 @@ public sealed class CharactersViewModelTests : IDisposable
         var game = Assert.Single(vm.Page!.Games);
 
         Assert.Equal("Protagonista", game.Role.Text);
-        Assert.Equal("Papel mais importante entre as edições · spoiler nível 2", game.Detail);
+        Assert.Equal("Papel mais importante · spoiler nível 2", game.Detail);
     }
 
     [Fact]
@@ -166,7 +122,7 @@ public sealed class CharactersViewModelTests : IDisposable
     {
         await OpenAsync();
         using var temp = new TempFolder();
-        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(temp.SubFolder("vn")), new FixedClock(Now)));
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(temp.SubFolder("vn")), new FixedClock(CharactersSamples.Now)));
         main.Characters.ConfigDirectory = _config.Path;
 
         main.Sheet.OpenCharacterCommand.Execute(new CharacterTile("c101", TileKind.Portrait, "Hana Tsukino", null, null, null, null, string.Empty, string.Empty, 0));
