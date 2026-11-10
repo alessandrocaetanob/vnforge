@@ -153,18 +153,18 @@
 
         <Grid Grid.Row="1" Name="FilterRow" RowDefinitions="Auto,Auto" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1000*" MinWidth="120" MaxWidth="320"/>
+            <ColumnDefinition Width="1000*" MinWidth="72" MaxWidth="320"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
-          <Border Classes="lib-input" Margin="0,0,8,0">
+          <Border Classes="lib-input" ClipToBounds="True">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
               <TextBox Grid.Column="1" Name="SearchBox" Classes="bare" Text="{Binding SearchText}" PlaceholderText="Buscar por título, original ou tag" AutomationProperties.Name="Buscar por título, original ou tag"/>
             </Grid>
           </Border>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <StackPanel Grid.Column="1" Name="FilterChips" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
             <ItemsControl ItemsSource="{Binding Filters}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
@@ -174,7 +174,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <ItemsControl Name="ActiveTags" ItemsSource="{Binding Tags.Active}">
+            <ItemsControl Name="ActiveTags" ItemsSource="{Binding Tags.Active}" IsVisible="{Binding Tags.HasActive}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:LibraryActiveTag">
@@ -194,35 +194,8 @@
                 <TextBlock Text="Tags"/>
               </StackPanel>
             </Button>
-            <!-- O popover "Tags": as suas tags e as do VNDB, com a contagem de jogos e a caixa que liga o termo no filtro. -->
-            <Popup Name="TagsPopup" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsButton}"
-                   Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsButton}">
-              <Border Classes="lib-pop">
-                <StackPanel Spacing="12">
-                  <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                      <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
-                      <TextBox Grid.Column="1" Name="TagSearch" Classes="bare" Text="{Binding Search}" PlaceholderText="Buscar tag" AutomationProperties.Name="Buscar tag"/>
-                    </Grid>
-                  </Border>
-                  <StackPanel IsVisible="{Binding HasOwn}">
-                    <c:OverlineText Classes="overline" Text="Suas tags" Margin="0,0,0,4"/>
-                    <ItemsControl Name="OwnTags" ItemsSource="{Binding OwnOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
-                  </StackPanel>
-                  <StackPanel IsVisible="{Binding HasVndb}">
-                    <c:OverlineText Classes="overline" Text="Tags do VNDB" Margin="0,0,0,4"/>
-                    <ItemsControl Name="VndbTags" ItemsSource="{Binding VndbOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
-                  </StackPanel>
-                  <Border Classes="lib-hr"/>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <Button Name="ManageTagsButton" Classes="subtle sm" HorizontalAlignment="Left" Padding="0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Command="{Binding OpenManageCommand}" Content="Gerenciar suas tags"/>
-                    <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding ShownText}"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-            </Popup>
           </StackPanel>
-          <WrapPanel Classes="sortbar" Orientation="Horizontal" ItemSpacing="12" LineSpacing="8">
+          <WrapPanel Name="SortBar" Classes="sortbar" Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
             <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="Ordenar por"/>
             <ListBox Classes="libseg" Name="SortSwitch" ItemsSource="{Binding Sorts}" SelectedItem="{Binding SelectedSort}" AutomationProperties.Name="Ordem dos jogos">
               <ListBox.ItemTemplate>
@@ -240,6 +213,33 @@
               </ListBox.ItemTemplate>
             </ListBox>
           </WrapPanel>
+          <!-- O popover "Tags": as suas tags e as do VNDB, com a contagem de jogos e a caixa que liga o termo no filtro. -->
+          <Popup Name="TagsPopup" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsButton}"
+                 Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsButton}">
+            <Border Classes="lib-pop">
+              <StackPanel Spacing="12">
+                <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+                    <TextBox Grid.Column="1" Name="TagSearch" Classes="bare" Text="{Binding Search}" PlaceholderText="Buscar tag" AutomationProperties.Name="Buscar tag"/>
+                  </Grid>
+                </Border>
+                <StackPanel IsVisible="{Binding HasOwn}">
+                  <c:OverlineText Classes="overline" Text="Suas tags" Margin="0,0,0,4"/>
+                  <ItemsControl Name="OwnTags" ItemsSource="{Binding OwnOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                </StackPanel>
+                <StackPanel IsVisible="{Binding HasVndb}">
+                  <c:OverlineText Classes="overline" Text="Tags do VNDB" Margin="0,0,0,4"/>
+                  <ItemsControl Name="VndbTags" ItemsSource="{Binding VndbOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                </StackPanel>
+                <Border Classes="lib-hr"/>
+                <Grid ColumnDefinitions="*,Auto">
+                  <Button Name="ManageTagsButton" Classes="subtle sm" HorizontalAlignment="Left" Padding="0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Command="{Binding OpenManageCommand}" Content="Gerenciar suas tags"/>
+                  <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding ShownText}"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Popup>
         </Grid>
 
         <!-- O ScrollViewer vai 8 px além da folga da página para o contorno da capa escolhida não ser cortado; o Border devolve os 8. -->

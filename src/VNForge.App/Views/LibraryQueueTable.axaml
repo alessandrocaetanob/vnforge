@@ -14,11 +14,11 @@
   </UserControl.Styles>
 
   <!-- A lista (d5, #551): uma tabela dentro de um cartão sem folga, uma linha por jogo, e o aviso de que "Traduzir este jogo" já cria o projeto preenchido. -->
-  <!-- O cartão fica no alto e a lista rola dentro dele, com as linhas virtualizadas: com centenas de jogos só as que aparecem têm capa. O aviso fica no pé. -->
+  <!-- O cartão fica no alto e a lista rola dentro dele, com as linhas virtualizadas: com centenas de jogos só as que aparecem têm capa. O aviso vem logo abaixo do cartão; a altura da lista é limitada no código (LibraryQueueTable.axaml.cs). -->
   <Border Padding="8,8,8,24" IsVisible="{Binding !HasNoResults}">
-    <Grid RowDefinitions="*,Auto" RowSpacing="16">
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
       <Border Classes="lib-card" Padding="0" ClipToBounds="True" VerticalAlignment="Top">
-        <Grid RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,Auto">
           <StackPanel>
             <Grid Name="QueueHeader" Height="38" Margin="16,0" ColumnSpacing="12">
               <Grid.ColumnDefinitions>
@@ -28,7 +28,7 @@
                 <ColumnDefinition Width="1.4*" MinWidth="140"/>
                 <ColumnDefinition Width="1.1*" MinWidth="108"/>
                 <ColumnDefinition Width="*" MinWidth="96"/>
-                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="170"/>
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Jogo"/>
               <TextBlock Grid.Column="2" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Português no VNDB"/>
@@ -53,23 +53,19 @@
                           <ColumnDefinition Width="1.4*" MinWidth="140"/>
                           <ColumnDefinition Width="1.1*" MinWidth="108"/>
                           <ColumnDefinition Width="*" MinWidth="96"/>
-                          <ColumnDefinition Width="150"/>
+                          <ColumnDefinition Width="170"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Classes="lib-dim" VerticalAlignment="Center" Text="{Binding PositionText}"/>
+                        <TextBlock Classes="lib-dim" FontWeight="Normal" VerticalAlignment="Center" Text="{Binding PositionText}"/>
                         <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
-                          <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="58" Background="{DynamicResource Vnf.BgInset}">
+                          <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="59" Background="{DynamicResource Vnf.BgInset}">
                             <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
                           </Border>
-                          <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Classes="lib-ct" Text="{Binding Card.Title}" ToolTip.Tip="{Binding Card.Title}"/>
-                            <TextBlock Classes="jp-row secondary" Text="{Binding Card.OriginalTitle}" IsVisible="{Binding Card.HasOriginalTitle}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Classes="lib-cs" Text="{Binding Card.Subtitle}"/>
-                          </StackPanel>
+                          <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" Text="{Binding Card.Title}" ToolTip.Tip="{Binding Card.Title}"/>
                         </Grid>
                         <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding PortugueseTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding PortugueseText}"/></Border>
                         <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding EngineTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding EngineText}"/></Border>
                         <TextBlock Grid.Column="4" FontWeight="Normal" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding TextEstimate}"/>
-                        <TextBlock Grid.Column="5" Classes="lib-dim" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Duration}"/>
+                        <TextBlock Grid.Column="5" Classes="lib-dim" FontWeight="Normal" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Duration}"/>
                         <Button Grid.Column="6" Classes="sm" Classes.accent="{Binding IsTranslate}" HorizontalAlignment="Right" VerticalAlignment="Center" IsEnabled="{Binding CanAct}"
                                 Command="{Binding $parent[v:LibraryQueueTable].((vm:LibraryViewModel)DataContext).OpenGameCommand}" CommandParameter="{Binding Card}" Content="{Binding ActionText}"/>
                       </Grid>
@@ -82,7 +78,13 @@
         </Grid>
       </Border>
 
-      <Border Grid.Row="1" Name="QueueNote" Classes="lib-card" Padding="16,12" MaxWidth="760" HorizontalAlignment="Left">
+      <!-- O aviso do quadro tem 760 de largura (a coluna encolhe com a gaveta) e vem logo abaixo do cartão. -->
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1000*" MaxWidth="760"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Name="QueueNote" Classes="lib-card" Padding="16,12">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
             <Ellipse Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.Accent}"/>
             <StackPanel Grid.Column="1">
@@ -90,7 +92,8 @@
               <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="Personagens, gêneros e sinopse vêm do VNDB. Você só confirma o jogo e escolhe os idiomas."/>
             </StackPanel>
           </Grid>
-      </Border>
+        </Border>
+      </Grid>
     </Grid>
   </Border>
 </UserControl>

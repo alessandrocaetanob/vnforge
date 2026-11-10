@@ -291,7 +291,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Pill" Padding="16,5" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+        <Border Name="PART_Pill" Padding="15,4" CornerRadius="{DynamicResource Vnf.RadiusPill}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
           <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Foreground="{TemplateBinding Foreground}"/>
         </Border>
       </ControlTemplate>
@@ -305,7 +305,6 @@
   <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ Border#PART_Pill">
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
-    <Setter Property="Padding" Value="15,4"/>
   </Style>
   <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.libseg > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent"/>
@@ -317,12 +316,17 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
   </Style>
 
-  <!-- Com os cinco chips, a busca e os filtros já ocupam a linha toda a 1440: "Ordenar por" e a aparência ficam numa linha própria, à direita. -->
+  <!-- "Ordenar por" e a aparência ficam na linha dos chips, à direita, como no quadro; a busca encolhe para dar o lugar. Quando a linha não comporta (a gaveta aberta, ou todos os chips e as tags), eles descem para uma linha própria: quem decide é LibraryView.axaml.cs. -->
   <Style Selector="WrapPanel.sortbar">
+    <Setter Property="Grid.Row" Value="0"/>
+    <Setter Property="Grid.Column" Value="3"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="Margin" Value="8,0,0,0"/>
+  </Style>
+  <Style Selector="WrapPanel.sortbar.below">
     <Setter Property="Grid.Row" Value="1"/>
     <Setter Property="Grid.Column" Value="0"/>
     <Setter Property="Grid.ColumnSpan" Value="4"/>
-    <Setter Property="HorizontalAlignment" Value="Right"/>
     <Setter Property="Margin" Value="0,8,0,0"/>
   </Style>
 
@@ -343,6 +347,7 @@
     <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="Padding" Value="0"/>
     <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="MinWidth" Value="0"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="FontSize" Value="14"/>

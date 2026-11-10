@@ -49,7 +49,8 @@ public sealed class LibraryQueueTests : IDisposable
         vm.SelectedSort = vm.Sorts[0];
 
         Assert.Equal(["Tsukiyo no Hanabi", "Nanairo Ressha", "Akatsuki no Kōro"], vm.Rows.Take(3).Select(r => r.Card.Title));
-        Assert.Equal(["1", "2", "3", "", ""], vm.Rows.Take(5).Select(r => r.PositionText));
+        Assert.Equal(["1", "2", "3", "4", "5"], vm.Rows.Take(5).Select(r => r.PositionText));
+        Assert.Equal("12", vm.Rows[^1].PositionText);
         Assert.Equal(vm.Rows.Select(r => r.Card.Title), vm.Cards.Select(c => c.Title));
         Assert.Equal("Hoshikuzu Diary", vm.Rows[3].Card.Title);
         Assert.Equal("Tōge no Kaji", vm.Rows[^1].Card.Title);

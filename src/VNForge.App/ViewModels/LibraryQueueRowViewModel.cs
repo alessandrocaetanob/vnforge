@@ -13,7 +13,7 @@ public sealed class LibraryQueueRowViewModel(LibraryCardViewModel card, Translat
 
     public TranslationQueueEntry Entry { get; } = entry;
 
-    /// <summary>O lugar na fila; vazio para o jogo que a fila não traduz e quando a lista não está na ordem da fila.</summary>
+    /// <summary>O lugar na fila, de todas as linhas (as de engine sem suporte também); vazio quando a lista não está na ordem da fila.</summary>
     public string PositionText { get; } = position?.ToString(CultureInfo.GetCultureInfo("pt-BR")) ?? string.Empty;
 
     public string PortugueseText => Entry.Portuguese switch

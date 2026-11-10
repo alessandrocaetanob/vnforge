@@ -225,7 +225,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     [ObservableProperty]
     public partial LibraryCardViewModel? Selected { get; private set; }
 
-    /// <summary>"12 jogos em 2 pastas · varredura há 2 horas".</summary>
+    /// <summary>"12 jogos em 2 pastas · varredura há 2 horas"; na lista, ordenada pela fila, diz o que é a fila.</summary>
     [ObservableProperty]
     public partial string Subtitle { get; private set; } = string.Empty;
 
@@ -283,6 +283,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(SelectedLayout));
         RebuildRows();
+        Subtitle = SubtitleText();
     }
 
     /// <summary>Escolhe o chip de filtro; os outros desmarcam.</summary>
@@ -552,6 +553,11 @@ public sealed partial class LibraryViewModel : ObservableObject
             var names = Tags.Active.Select(t => t.Text).ToList();
             var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
             return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {games.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
+        }
+
+        if (IsList && Sort == LibrarySort.Queue)
+        {
+            return "Fila de tradução · o que você tem e ainda não existe em português";
         }
 
         var folders = library.Roots.Count;

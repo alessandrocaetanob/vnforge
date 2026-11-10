@@ -82,8 +82,7 @@ public sealed partial class LibraryViewModel
         var place = 0;
         for (var i = 0; i < arranged.Count; i++)
         {
-            var queued = Sort == LibrarySort.Queue && arranged[i].State == TranslationQueueState.Queued;
-            Rows.Add(new LibraryQueueRowViewModel(Cards[i], arranged[i], queued ? ++place : null));
+            Rows.Add(new LibraryQueueRowViewModel(Cards[i], arranged[i], Sort == LibrarySort.Queue ? ++place : null));
         }
     }
 
