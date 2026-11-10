@@ -8,6 +8,9 @@ public sealed partial class DashboardView : UserControl
     /// <summary>Abaixo desta largura a coluna da direita ("Precisa de você", gasto, jogo) passa para baixo do mapa, que precisa de umas 640 px para as colunas dos capítulos.</summary>
     private const double StackBelow = 1100;
 
+    /// <summary>A largura da coluna da direita do quadro da #544; o DashboardView.axaml tem a mesma medida na grade de duas colunas.</summary>
+    public const double SideWidth = 384;
+
     public DashboardView()
     {
         InitializeComponent();
@@ -32,7 +35,7 @@ public sealed partial class DashboardView : UserControl
             return;
         }
 
-        body.ColumnDefinitions = ColumnDefinitions.Parse(narrow ? "*" : "*,440");
+        body.ColumnDefinitions = ColumnDefinitions.Parse(narrow ? "*" : FormattableString.Invariant($"*,{SideWidth}"));
         body.RowDefinitions = RowDefinitions.Parse(narrow ? "Auto,Auto" : "Auto");
         Grid.SetRow(side, wanted);
         Grid.SetColumn(side, narrow ? 0 : 1);

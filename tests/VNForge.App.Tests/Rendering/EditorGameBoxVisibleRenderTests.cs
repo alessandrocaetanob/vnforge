@@ -13,8 +13,8 @@ namespace VNForge.App.Tests.Rendering;
 /// <summary>
 /// O Editor com uma linha selecionada nos dois cabeçalhos do jogo (o completo do quadro e o compacto de uma linha) em 1366×768 e 1440×1000, nos dois temas:
 /// <c>editor-{completo|compacto}-{1366|1440}-{escuro|claro}.png</c> em <c>VNFORGE_RENDER_DIR</c>. A medida é a da tela como ela abre, com a explicação fechada
-/// e sem rolar: a caixa do jogo tem de estar inteira dentro da área visível do inspetor. O que a tela entrega de verdade é o cabeçalho compacto a 1440×1000;
-/// nos outros três casos a caixa passa da área visível e o teste fica ignorado com a medida, sem esconder o corte.
+/// e sem rolar: a caixa do jogo tem de estar inteira dentro da área visível do inspetor, e o teste falha com a medida do corte quando não está. O cabeçalho completo
+/// só entra a 1440×1000, a medida do quadro; a 1366×768 o app mostra o compacto.
 /// </summary>
 public sealed class EditorGameBoxVisibleRenderTests(HeadlessFixture fixture, DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<DemoFolderFixture>
 {
@@ -25,14 +25,12 @@ public sealed class EditorGameBoxVisibleRenderTests(HeadlessFixture fixture, Dem
         get
         {
             var data = new TheoryData<string, int, string>();
-            foreach (var header in new[] { "completo", "compacto" })
+            // O cabeçalho completo a 1366×768 não existe no app: o Editor usa o compacto em qualquer janela. O completo a 1440×1000 entra para o quadro do shell.
+            foreach (var (header, width) in new[] { ("completo", 1440), ("compacto", 1366), ("compacto", 1440) })
             {
-                foreach (var width in new[] { 1366, 1440 })
+                foreach (var theme in new[] { "escuro", "claro" })
                 {
-                    foreach (var theme in new[] { "escuro", "claro" })
-                    {
-                        data.Add(header, width, theme);
-                    }
+                    data.Add(header, width, theme);
                 }
             }
 
@@ -78,17 +76,6 @@ public sealed class EditorGameBoxVisibleRenderTests(HeadlessFixture fixture, Dem
             },
             TestContext.Current.CancellationToken);
 
-        var detail = $"{header} a {width}x{height}, cabeçalho de {measure.Height:0} px: {measure.Item1}";
-        if (measure.Item1.IsFullyVisible)
-        {
-            return;
-        }
-
-        if (header == "compacto" && width == 1440)
-        {
-            Assert.Fail($"A caixa do jogo tem de aparecer inteira sem rolar. {detail}");
-        }
-
-        Assert.Skip($"A caixa do jogo passa da área visível do inspetor e precisa de rolagem. {detail}");
+        Assert.True(measure.Item1.IsFullyVisible, $"A caixa do jogo tem de aparecer inteira sem rolar. {header} a {width}x{height}, cabeçalho de {measure.Height:0} px: {measure.Item1}");
     }
 }
