@@ -424,7 +424,15 @@
         </Grid>
       </StackPanel>
       <c:ScreenDialog.Footer>
-        <Button Name="SwitchProblemClose" HorizontalAlignment="Right" Content="Fechar" Command="{Binding CloseSwitchProblemCommand}"/>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Name="SwitchProblemClose" Content="Fechar" Command="{Binding CloseSwitchProblemCommand}"/>
+          <Button Name="ExtractAgainButton" Classes="accent" Command="{Binding ExtractAgainCommand}" IsVisible="{Binding SwitchProblem.CanExtract}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+              <TextBlock Text="Extrair de novo"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>
 

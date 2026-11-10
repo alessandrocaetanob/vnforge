@@ -121,6 +121,7 @@ public sealed class App : Application
             new LibraryEditor(file, () => new LibraryMatcher(vndb)),
             sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
             openFolder: MainWindowViewModel.OpenInFileManager,
-            switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())));
+            switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+            engines: engines);
     }
 }

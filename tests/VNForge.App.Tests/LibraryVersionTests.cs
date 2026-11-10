@@ -40,7 +40,7 @@ public sealed class LibraryVersionTests : IDisposable
     {
         LibrarySamples.Save(_config, new GameLibrary([game]));
         var switcher = new LibraryTranslationSwitcher(new GameTester([new DemoBuildEngine()], new NoStarter(), new QaEngine([]), _clock));
-        var vm = new LibraryViewModel(new LibraryFile(_config), new FakeFolderPicker(null), action => action(), readTranslation: _ => null, switcher: switcher);
+        var vm = new LibraryViewModel(new LibraryFile(_config), new FakeFolderPicker(null), action => action(), readTranslation: _ => null, switcher: switcher, engines: [new DemoBuildEngine()]);
         await vm.LoadAsync();
         vm.Select(vm.Cards.Single());
         return vm;
@@ -106,6 +106,26 @@ public sealed class LibraryVersionTests : IDisposable
         vm.HasSwitchProblem = false;
 
         Assert.Null(vm.SwitchProblem);
+    }
+
+    [Fact]
+    public async Task Extrair_de_novo_no_dialogo_do_jogo_que_mudou_refaz_a_extracao_e_mostra_o_resumo()
+    {
+        var project = ProjectFolder.Open(_project);
+        project.SaveState(new PipelineState([new OriginalFile(DemoBuild.Archive, 1, "extraido-antes")], new Dictionary<string, StageState>()));
+        await File.WriteAllBytesAsync(Archive, DemoBuild.Payload(1000, 9), Ct);
+        var vm = await LoadedAsync(Game(_project));
+        await SwitchToAsync(vm, translated: true);
+        Assert.Equal("O jogo mudou depois da extração", vm.SwitchProblem!.Title);
+        Assert.True(vm.ExtractAgainCommand.CanExecute(null));
+
+        await vm.ExtractAgainCommand.ExecuteAsync(null);
+
+        Assert.True("O texto foi extraído de novo" == vm.SwitchProblem!.Title, vm.SwitchProblem.Message);
+        Assert.Contains(" mantidas, ", vm.SwitchProblem.Message, StringComparison.Ordinal);
+        Assert.Empty(project.LoadState().Originals);
+        Assert.False(vm.IsSwitching);
+        Assert.False(vm.ExtractAgainCommand.CanExecute(null));
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Engines;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
@@ -62,6 +63,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly Dictionary<string, StatusCounts?> translations = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LibraryTranslationState> versions = new(StringComparer.Ordinal);
     private readonly LibraryTranslationSwitcher? switcher;
+    private readonly IReadOnlyList<IEngine> engines;
     private List<LibraryGame> games = [];
     private GameLibrary library = new();
     private UserTags userTags = new();
@@ -84,7 +86,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
         Action<string>? openFolder = null,
-        LibraryTranslationSwitcher? switcher = null)
+        LibraryTranslationSwitcher? switcher = null,
+        IReadOnlyList<IEngine>? engines = null)
     {
         this.file = file;
         this.picker = picker;
@@ -96,6 +99,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
         this.switcher = switcher;
+        this.engines = engines ?? [];
         this.post = post;
         Filters =
         [
