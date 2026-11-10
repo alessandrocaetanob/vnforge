@@ -1,0 +1,473 @@
+using System.Globalization;
+using System.Text.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VNForge.Core.Factsheet;
+using VNForge.Core.Library;
+using VNForge.Core.Text;
+
+namespace VNForge.App.ViewModels;
+
+/// <summary>Como a grade de personagens se ordena.</summary>
+public enum CharacterSort
+{
+    Name,
+    MostGames,
+    Role,
+}
+
+public sealed record CharacterSortOption(CharacterSort Sort, string Label);
+
+/// <summary>
+/// A área Personagens (d11, #558): todos os personagens dos jogos da Biblioteca, com busca e filtro por papel e por traço, e a página de cada um com o "Aparece em". Quem decide o que
+/// entra e o que fica escondido é o Core (<see cref="LibraryCharacters"/>: jogos que a pessoa tem, edição casada com a pasta, spoiler por jogo e por traço); aqui só se liga isso à tela.
+/// </summary>
+public sealed partial class CharactersViewModel : ObservableObject
+{
+    private const int FirstTraits = 6;
+
+    private static readonly CharacterSortOption[] Sorts = [new(CharacterSort.Name, "Nome"), new(CharacterSort.MostGames, "Mais jogos"), new(CharacterSort.Role, "Papel")];
+    private static readonly string[] RoleCodes = ["main", "primary", "side", "appears"];
+
+    private readonly HashSet<string> selectedRoles = new(StringComparer.Ordinal);
+    private readonly HashSet<string> selectedTraits = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> traitNames = new(StringComparer.Ordinal);
+    private Snapshot? snapshot;
+    private (string Id, bool RevealSpoilers)? pending;
+    private string? openId;
+    private int generation;
+    private int allTraitCount;
+    private bool applying;
+
+    /// <summary>A pasta de configuração do usuário, onde ficam <c>sheets/</c>, o <c>library.json</c> e as edições casadas. Sem ela a área não abre.</summary>
+    public string? ConfigDirectory { get; set; }
+
+    /// <summary>"Abrir jogo" da página do personagem: o shell leva ao jogo, ou começa o projeto dele, como a gaveta da Biblioteca.</summary>
+    public event EventHandler<LibraryGame>? GameOpenRequested;
+
+    /// <summary>A leitura em andamento (ao entrar na área); os testes a aguardam.</summary>
+    public Task Loading { get; private set; } = Task.CompletedTask;
+
+    [ObservableProperty]
+    public partial bool IsLoading { get; private set; }
+
+    [ObservableProperty]
+    public partial string? ErrorMessage { get; private set; }
+
+    /// <summary>Um aviso sobre o que não abriu: o personagem que só aparece em jogos com spoiler escondido, ou que saiu da Biblioteca.</summary>
+    [ObservableProperty]
+    public partial string? Notice { get; private set; }
+
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string TraitSearch { get; set; } = string.Empty;
+
+    /// <summary>O interruptor "Mostrar spoiler" da barra de filtros. Começa no que a Biblioteca guarda (escondido por padrão) e vale só enquanto a área está aberta.</summary>
+    [ObservableProperty]
+    public partial bool ShowSpoilers { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowAllTraits { get; set; }
+
+    public IReadOnlyList<CharacterSortOption> SortOptions => Sorts;
+
+    [ObservableProperty]
+    public partial CharacterSortOption SelectedSort { get; set; } = Sorts[0];
+
+    public IReadOnlyList<CharacterListItem> Items { get; private set; } = [];
+
+    public IReadOnlyList<CharacterFacet> RoleFacets { get; private set; } = [];
+
+    /// <summary>Os traços que a barra mostra: os marcados primeiro e depois os mais comuns; todos com "Ver os N traços" ou com a busca de traço.</summary>
+    public IReadOnlyList<CharacterFacet> TraitFacets { get; private set; } = [];
+
+    public IReadOnlyList<CharacterFacet> ActiveTraits { get; private set; } = [];
+
+    public CharacterPage? Page { get; private set; }
+
+    public bool IsPage => Page is not null;
+
+    public bool IsList => Page is null;
+
+    public bool HasItems => Items.Count > 0;
+
+    public bool HasActiveTraits => ActiveTraits.Count > 0;
+
+    public bool HasFilter => selectedRoles.Count > 0 || selectedTraits.Count > 0 || !string.IsNullOrWhiteSpace(SearchText);
+
+    public bool CanShowAllTraits => allTraitCount > TraitFacets.Count || ShowAllTraits;
+
+    public string ShowAllTraitsText => ShowAllTraits ? "Ver menos" : $"Ver os {allTraitCount.ToString(CultureInfo.InvariantCulture)} traços";
+
+    public string Subtitle { get; private set; } = string.Empty;
+
+    /// <summary>"58 personagens de 12 jogos", a barra de status da área.</summary>
+    public string StatusText { get; private set; } = "Personagens";
+
+    /// <summary>O que dizer no lugar da grade: a pasta que falta, nenhum personagem ainda ou nenhum resultado para o filtro.</summary>
+    public string EmptyMessage { get; private set; } = string.Empty;
+
+    public bool ShowEmpty => !HasItems && EmptyMessage.Length > 0;
+
+    public bool CanClearFilter => HasFilter && snapshot is not null;
+
+    /// <summary>O nome do personagem aberto, para o caminho da barra de título; nulo na lista.</summary>
+    public string? OpenName => Page?.Name;
+
+    /// <summary>
+    /// Abre a página do personagem <paramref name="id"/> na próxima leitura (a que o shell pede ao entrar na área). <paramref name="revealSpoilers"/> vem da ficha do jogo que o mostrou
+    /// com spoiler à vista: sem isso a página recusaria um personagem que a ficha acabou de mostrar.
+    /// </summary>
+    public void Open(string id, bool revealSpoilers = false) => pending = (id, revealSpoilers);
+
+    public Task LoadAsync() => Loading = LoadCoreAsync();
+
+    private async Task LoadCoreAsync()
+    {
+        var wanted = ++generation;
+        if (ConfigDirectory is not { } directory)
+        {
+            snapshot = null;
+            ErrorMessage = "A pasta de configuração do VNForge não está disponível, então os personagens não podem ser lidos.";
+            Rebuild();
+            return;
+        }
+
+        IsLoading = true;
+        try
+        {
+            var loaded = await Task.Run(() => Read(directory)).ConfigureAwait(true);
+            if (wanted != generation)
+            {
+                return;
+            }
+
+            snapshot = loaded;
+            ErrorMessage = null;
+            Notice = null;
+            openId = null;
+            // Cada propriedade refaz a grade ao mudar; aqui o estado volta ao de entrada e a grade se refaz uma vez só, no fim.
+            applying = true;
+            selectedRoles.Clear();
+            selectedTraits.Clear();
+            traitNames.Clear();
+            SearchText = string.Empty;
+            TraitSearch = string.Empty;
+            ShowAllTraits = false;
+            ShowSpoilers = loaded.Library.Privacy.ShowSpoilers;
+            if (pending is { } request)
+            {
+                pending = null;
+                ShowSpoilers |= request.RevealSpoilers;
+                openId = request.Id;
+            }
+
+            applying = false;
+        }
+        catch (Exception ex) when (ex is LibraryException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            if (wanted != generation)
+            {
+                return;
+            }
+
+            snapshot = null;
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            applying = false;
+            if (wanted == generation)
+            {
+                IsLoading = false;
+            }
+        }
+
+        Rebuild();
+    }
+
+    private static Snapshot Read(string directory)
+    {
+        var store = new SheetStore(directory);
+        return new Snapshot(new LibraryFile(directory).Load(), store.LoadAllCharacters(), store.LoadTerms(), new GameEditionsFile(directory).Load());
+    }
+
+    partial void OnSearchTextChanged(string value) => Rebuild();
+
+    partial void OnTraitSearchChanged(string value) => Rebuild();
+
+    partial void OnShowSpoilersChanged(bool value) => Rebuild();
+
+    partial void OnShowAllTraitsChanged(bool value) => Rebuild();
+
+    partial void OnSelectedSortChanged(CharacterSortOption value) => Rebuild();
+
+    private void Rebuild()
+    {
+        if (applying)
+        {
+            return;
+        }
+
+        if (snapshot is not { } data)
+        {
+            Items = [];
+            RoleFacets = [];
+            TraitFacets = [];
+            ActiveTraits = [];
+            Page = null;
+            Subtitle = string.Empty;
+            StatusText = "Personagens";
+            EmptyMessage = ErrorMessage ?? string.Empty;
+            allTraitCount = 0;
+            OnPropertyChanged(string.Empty);
+            return;
+        }
+
+        var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.ShowAdult);
+        var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+        LibraryCharacterList all, basis, shown;
+        try
+        {
+            all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+            basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text));
+            shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]));
+        }
+        catch (LibraryException)
+        {
+            // Uma busca só de pontuação não casa com nada: a grade fica vazia em vez de explodir.
+            all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+            basis = shown = new LibraryCharacterList([], 0);
+        }
+
+        var cards = shown.Characters.Where(c => selectedRoles.Count == 0 || c.AppearsIn.Any(a => selectedRoles.Contains(a.RoleCode))).ToList();
+        cards = Sort(cards);
+        Items = [.. cards.Select(c => ItemOf(c))];
+        BuildFacets(basis.Characters);
+        var games = all.Characters.SelectMany(c => c.AppearsIn).Select(a => a.GameId).Distinct(StringComparer.Ordinal).Count();
+        StatusText = $"{GameSheetViewModel.Count(all.Characters.Count, "personagem", "personagens")} de {GameSheetViewModel.Count(games, "jogo", "jogos")}";
+        Subtitle = $"{Items.Count.ToString(CultureInfo.InvariantCulture)} de {all.Characters.Count.ToString(CultureInfo.InvariantCulture)} · só os dos jogos da sua Biblioteca"
+            + (shown.Hidden > 0 ? $" · {GameSheetViewModel.Count(shown.Hidden, "escondido", "escondidos")} por spoiler" : string.Empty);
+        EmptyMessage = all.Characters.Count == 0
+            ? all.Hidden > 0
+                ? "Os personagens dos seus jogos têm spoiler e estão escondidos. Ligue \"Mostrar spoiler\" para vê-los."
+                : "Nenhum personagem ainda. Eles chegam com a ficha dos jogos da Biblioteca: busque a ficha de um jogo ligado ao VNDB, ou rode vnf library characters sync."
+            : Items.Count == 0 ? "Nenhum personagem com esse filtro." : string.Empty;
+        Page = openId is { } id ? BuildPage(data, privacy, id) : null;
+        OnPropertyChanged(string.Empty);
+    }
+
+    private List<LibraryCharacterCard> Sort(List<LibraryCharacterCard> cards) => SelectedSort.Sort switch
+    {
+        CharacterSort.MostGames => [.. cards.OrderByDescending(c => c.AppearsIn.Count).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)],
+        CharacterSort.Role => [.. cards.OrderBy(c => SheetLabels.RoleRank(c.AppearsIn[0].RoleCode)).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)],
+        _ => cards,
+    };
+
+    private static SheetPill RolePill(string roleCode, string gender) => new(SheetLabels.RoleBadge(roleCode, gender), roleCode == "main" ? SheetTone.Approved : SheetTone.Pending);
+
+    private static CharacterListItem ItemOf(LibraryCharacterCard card) =>
+        new(card.Id, card.Name, card.Original, card.Image, RolePill(card.AppearsIn[0].RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"));
+
+    private void BuildFacets(IReadOnlyList<LibraryCharacterCard> basis)
+    {
+        RoleFacets =
+        [
+            .. RoleCodes.Select(code => NewFacet(
+                code,
+                SheetLabels.RoleBadge(code, null),
+                basis.Count(c => c.AppearsIn.Any(a => a.RoleCode == code)),
+                selectedRoles))
+        ];
+
+        var counts = basis.SelectMany(c => c.Traits.DistinctBy(t => t.Id)).GroupBy(t => t.Id).ToDictionary(g => g.Key, g => (Name: g.First().Name, Count: g.Count()), StringComparer.Ordinal);
+        foreach (var pair in counts)
+        {
+            traitNames[pair.Key] = pair.Value.Name;
+        }
+
+        // Um traço marcado fica na lista mesmo quando a busca de texto o deixou sem personagens.
+        foreach (var key in selectedTraits.Where(k => !counts.ContainsKey(k)))
+        {
+            counts[key] = (traitNames.GetValueOrDefault(key, key), 0);
+        }
+
+        var search = TitleSimilarity.Normalize(TraitSearch ?? string.Empty);
+        var facets = counts
+            .Where(p => search.Length == 0 || selectedTraits.Contains(p.Key) || TitleSimilarity.Normalize(p.Value.Name).Contains(search, StringComparison.Ordinal))
+            .OrderByDescending(p => selectedTraits.Contains(p.Key))
+            .ThenByDescending(p => p.Value.Count)
+            .ThenBy(p => p.Value.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(p => NewFacet(p.Key, p.Value.Name, p.Value.Count, selectedTraits))
+            .ToList();
+        allTraitCount = facets.Count;
+        TraitFacets = ShowAllTraits || search.Length > 0 ? facets : [.. facets.Take(FirstTraits)];
+        ActiveTraits = [.. facets.Where(f => f.IsSelected)];
+    }
+
+    private CharacterFacet NewFacet(string key, string label, int count, HashSet<string> selection)
+    {
+        var facet = new CharacterFacet(key, label, count) { IsSelected = selection.Contains(key) };
+        facet.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CharacterFacet.IsSelected))
+            {
+                _ = facet.IsSelected ? selection.Add(key) : selection.Remove(key);
+                Rebuild();
+            }
+        };
+        return facet;
+    }
+
+    // --- Página do personagem ---
+
+    private CharacterPage? BuildPage(Snapshot data, LibraryPrivacy privacy, string id)
+    {
+        var lookup = LibraryCharacters.Find(data.Library, data.Characters, data.Terms, data.Editions, privacy, id);
+        if (lookup.Card is not { } card)
+        {
+            openId = null;
+            Notice = lookup.HiddenBySpoiler
+                ? "Esse personagem só aparece em jogos com spoiler escondido. Ligue \"Mostrar spoiler\" para vê-lo."
+                : "Esse personagem não está em nenhum jogo da sua Biblioteca.";
+            return null;
+        }
+
+        Notice = null;
+        var raw = data.Characters.First(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+        var owned = data.Library.Games.Where(g => g.VndbId is not null).Select(g => g.VndbId!).ToHashSet(StringComparer.Ordinal);
+        var outside = raw.Appearances.Select(a => a.VisualNovelId).Distinct(StringComparer.Ordinal).Count(v => !owned.Contains(v));
+        var notes = new List<string>();
+        if (card.HiddenAppearances > 0)
+        {
+            notes.Add($"{GameSheetViewModel.Count(card.HiddenAppearances, "jogo da sua Biblioteca fica escondido", "jogos da sua Biblioteca ficam escondidos")} por spoiler.");
+        }
+
+        if (outside > 0)
+        {
+            notes.Add($"Este personagem também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Ele não entra" : "Eles não entram")} na lista.");
+        }
+
+        var description = card.Description;
+        var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
+        var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a)).ToList();
+        return new CharacterPage(
+            card.Id,
+            card.Name,
+            card.Original is { Length: > 0 } original ? $"{original} · {card.Name}" : null,
+            card.Aliases.Count > 0 ? $"Também chamado de {string.Join(", ", card.Aliases)}" : null,
+            card.Image,
+            new SheetPill($"Descrição {SheetLabels.Status(status)}", SheetPill.ToneOf(status)),
+            description?.Text ?? "Este personagem não tem descrição no VNDB.",
+            Tags(card),
+            Groups(card),
+            games,
+            $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
+            notes.Count > 0 ? string.Join(' ', notes) : null);
+    }
+
+    private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance)
+    {
+        var game = data.Library.Games.First(g => g.Id == appearance.GameId);
+        var described = LibraryCards.Describe(game, privacy);
+        var origin = appearance.Editions.Count > 0 ? "Edição casada com a sua pasta" : "Papel mais importante entre as edições";
+        return new CharacterGameRow(
+            game.Id,
+            game.Title,
+            described.Cover == LibraryCoverKind.Image ? described.Image : null,
+            described.Subtitle,
+            RolePill(appearance.RoleCode, card.Gender),
+            $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}");
+    }
+
+    private static List<SheetChip> Tags(LibraryCharacterCard card)
+    {
+        var chips = new List<SheetChip>();
+        if (card.Gender != SheetLabels.Gender(null))
+        {
+            chips.Add(new SheetChip(char.ToUpper(card.Gender[0], CultureInfo.GetCultureInfo("pt-BR")) + card.Gender[1..]));
+        }
+
+        if (card.RealGender is { } real)
+        {
+            chips.Add(new SheetChip($"Gênero real: {real}", IsWarning: true));
+        }
+
+        chips.AddRange(card.Traits.Take(FirstTraits).Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0)));
+        if (card.HiddenTraits > 0)
+        {
+            chips.Add(new SheetChip(GameSheetViewModel.Count(card.HiddenTraits, "traço escondido", "traços escondidos"), IsHidden: true));
+        }
+
+        return chips;
+    }
+
+    private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card)
+    {
+        var groups = card.Traits.GroupBy(t => t.Group).Select(g => new CharacterTraitGroup(g.Key, [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))])).ToList();
+        if (card.HiddenTraits > 0)
+        {
+            groups.Add(new CharacterTraitGroup("Escondidos", [new SheetChip(GameSheetViewModel.Count(card.HiddenTraits, "traço com spoiler ou conteúdo adulto", "traços com spoiler ou conteúdo adulto"), IsHidden: true)]));
+        }
+
+        return groups;
+    }
+
+    // --- Ações ---
+
+    [RelayCommand]
+    private void OpenCharacter(CharacterListItem? item)
+    {
+        if (item is not null)
+        {
+            openId = item.Id;
+            Rebuild();
+        }
+    }
+
+    /// <summary>Volta da página do personagem para a lista, com a busca e os filtros que estavam.</summary>
+    [RelayCommand]
+    private void Back()
+    {
+        openId = null;
+        Notice = null;
+        Rebuild();
+    }
+
+    [RelayCommand]
+    private void OpenGame(CharacterGameRow? row)
+    {
+        if (row is not null && snapshot?.Library.Games.FirstOrDefault(g => g.Id == row.GameId) is { } game)
+        {
+            GameOpenRequested?.Invoke(this, game);
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveTrait(CharacterFacet? facet)
+    {
+        if (facet is not null && selectedTraits.Remove(facet.Key))
+        {
+            Rebuild();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleAllTraits() => ShowAllTraits = !ShowAllTraits;
+
+    [RelayCommand]
+    private void ClearFilter()
+    {
+        applying = true;
+        selectedRoles.Clear();
+        selectedTraits.Clear();
+        TraitSearch = string.Empty;
+        SearchText = string.Empty;
+        applying = false;
+        Rebuild();
+    }
+
+    private sealed record Snapshot(GameLibrary Library, IReadOnlyList<CharacterSheet> Characters, SheetTerms Terms, GameEditions Editions);
+}

@@ -16,6 +16,9 @@ namespace VNForge.App.ViewModels;
 public enum NavKey
 {
     Start,
+
+    /// <summary>A área Personagens da Biblioteca.</summary>
+    Characters,
     Dashboard,
     Editor,
     Conference,
@@ -90,6 +93,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly NavItemViewModel imagesItem = new(NavKey.Images, "Imagens", "Icon.Image", isEnabled: false) { IsVisible = false };
     private readonly NavItemViewModel buildItem = new(NavKey.Build, "Testar", "Icon.Box", isEnabled: false);
     private readonly NavItemViewModel releaseItem = new(NavKey.Release, "Lançar", "Icon.Open", isEnabled: false);
+    private readonly NavItemViewModel charactersItem = new(NavKey.Characters, "Personagens", "Icon.Person", isEnabled: true);
     private readonly NavItemViewModel settingsItem = new(NavKey.Settings, "Ajustes", "Icon.Settings", isEnabled: true);
     private readonly NavItemViewModel sheetItem = new(NavKey.Sheet, "Ficha", "Icon.Book", isEnabled: false);
     private readonly NavItemViewModel playItem = new(NavKey.Play, "Jogar", "Icon.Play", isEnabled: false);
@@ -122,6 +126,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         };
         Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Characters.PropertyChanged += (_, e) =>
+        {
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(CharactersViewModel.OpenName) or nameof(CharactersViewModel.StatusText))
+            {
+                OnPropertyChanged(nameof(Breadcrumb));
+                OnPropertyChanged(nameof(LibraryCountText));
+            }
+        };
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
         start.PropertyChanged += (_, e) =>
         {
@@ -166,13 +179,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var key = apiKey ?? new ResolvedApiKey(null, ApiKeySource.None);
         ShowKeyStatus(key, Services.ApiKeyStatus.Describe(key));
         var startItem = new NavItemViewModel(NavKey.Start, "Biblioteca", "Icon.Library", isEnabled: true);
-        Nav = [startItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
-        TopNav = [startItem];
+        Nav = [startItem, charactersItem, sheetItem, dashboardItem, editorItem, conferenceItem, buildItem, releaseItem, glossaryItem, bibleItem, imagesItem, playItem, settingsItem];
+        TopNav = [startItem, charactersItem];
         BottomNav = [settingsItem];
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        Sheet.CharacterRequested += (_, request) =>
+        {
+            Characters.Open(request.Id, request.RevealSpoilers);
+            SelectedNav = charactersItem;
+        };
         Sheet.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))
@@ -275,6 +293,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Biblioteca de VNs, a tela inicial. O <see cref="Start"/> segue como quem abre e lembra os projetos de tradução.</summary>
     public LibraryViewModel Library { get; }
 
+    /// <summary>A área Personagens da Biblioteca (d11, #558).</summary>
+    public CharactersViewModel Characters { get; } = new();
+
     private IReadOnlyList<string> recentProjects = [];
 
     /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
@@ -372,7 +393,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk))]
+    [NotifyPropertyChangedFor(nameof(IsStartPage), nameof(ShowWorkStatus), nameof(ShowKeyOk), nameof(LibraryCountText))]
     public partial object CurrentPage { get; internal set; }
 
     /// <summary>A página é a Biblioteca: a barra de status mostra só a versão e o estado da chave.</summary>
@@ -440,7 +461,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public NavItemViewModel? SelectedTopNav
     {
         // Dentro de um jogo a Biblioteca continua marcada: o jogo é um item dela.
-        get => selectedNav is { } item && (TopNav.Contains(item) || InGame) ? TopNav[0] : null;
+        get => selectedNav is { } item && TopNav.Contains(item) ? item : InGame ? TopNav[0] : null;
         set => SelectFromRail(value);
     }
 
@@ -515,6 +536,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     NavKey.Images => Images,
                     NavKey.Build => Build,
                     NavKey.Release => Release,
+                    NavKey.Characters => Characters,
                     _ => Library,
                 };
                 if (value.Key == NavKey.Dashboard)
@@ -532,6 +554,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     // O andamento de cada jogo vem da pasta do projeto, que o Editor e a Conferência mudam; a lista de recentes também.
                     _ = Start.LoadAsync();
                     _ = Library.LoadAsync();
+                }
+                else if (value.Key == NavKey.Characters)
+                {
+                    _ = Characters.LoadAsync();
                 }
                 else if (value.Key == NavKey.Build)
                 {

@@ -217,6 +217,18 @@ public sealed partial class GameSheetViewModel : ObservableObject
     [RelayCommand]
     private void ToggleAllCharacters() => ShowAllCharacters = !ShowAllCharacters;
 
+    /// <summary>O nome de um personagem da ficha foi escolhido: o shell leva à página dele na área Personagens.</summary>
+    public event EventHandler<CharacterRequest>? CharacterRequested;
+
+    [RelayCommand]
+    private void OpenCharacter(CharacterTile? tile)
+    {
+        if (tile is { ShowsHidden: false })
+        {
+            CharacterRequested?.Invoke(this, new CharacterRequest(tile.Id, SpoilerLevel >= SheetVisibility.MaxSpoilerLevel));
+        }
+    }
+
     // --- Sobre o jogo ---
 
     public string DurationText => card?.LengthDetail ?? string.Empty;

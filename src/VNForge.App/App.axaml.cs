@@ -68,6 +68,7 @@ public sealed class App : Application
                     SuggestionPrice = unit => LineSuggester.PriceText(unit, LineSuggester.ReadModel(configDirectory), settings.Rate),
                 },
                 Release = { Picker = picker },
+                Characters = { ConfigDirectory = configDirectory },
                 Sheet =
                 {
                     ConfigDirectory = configDirectory,

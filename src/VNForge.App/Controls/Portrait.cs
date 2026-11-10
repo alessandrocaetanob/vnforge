@@ -26,6 +26,7 @@ public sealed class Portrait : VndbImageControl
     public static readonly StyledProperty<PortraitSize> SizeProperty = AvaloniaProperty.Register<Portrait, PortraitSize>(nameof(Size), PortraitSize.Sm);
     public static readonly StyledProperty<bool> IsNarratorProperty = AvaloniaProperty.Register<Portrait, bool>(nameof(IsNarrator));
     public static readonly StyledProperty<CharacterColor?> TintProperty = AvaloniaProperty.Register<Portrait, CharacterColor?>(nameof(Tint));
+    public static readonly StyledProperty<double> FixedSideProperty = AvaloniaProperty.Register<Portrait, double>(nameof(FixedSide), double.NaN);
 
     private const double Artboard = 64;
 
@@ -38,7 +39,7 @@ public sealed class Portrait : VndbImageControl
     static Portrait()
     {
         AffectsRender<Portrait>(IsNarratorProperty, TintProperty);
-        AffectsMeasure<Portrait>(SizeProperty);
+        AffectsMeasure<Portrait>(SizeProperty, FixedSideProperty);
         AffectsRender<Portrait>(SizeProperty);
     }
 
@@ -64,8 +65,15 @@ public sealed class Portrait : VndbImageControl
 
     protected override string DefaultAutomationName => IsNarrator ? "Narração" : Seed is { Length: > 0 } name ? $"Retrato de {name}" : "Retrato";
 
-    /// <summary>O lado do retrato, do token do tamanho.</summary>
-    public double Side => Size switch
+    /// <summary>Um lado em px que vale no lugar do token do tamanho: a lista e a página de personagens passam de 64 px. Sem valor (NaN), vale o token.</summary>
+    public double FixedSide
+    {
+        get => GetValue(FixedSideProperty);
+        set => SetValue(FixedSideProperty, value);
+    }
+
+    /// <summary>O lado do retrato, do token do tamanho ou do <see cref="FixedSide"/>.</summary>
+    public double Side => !double.IsNaN(FixedSide) ? FixedSide : Size switch
     {
         PortraitSize.Md => Token("Vnf.PortraitMd", 56),
         PortraitSize.Lg => Token("Vnf.PortraitLg", 64),

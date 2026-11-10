@@ -26,6 +26,9 @@
     <DataTemplate DataType="vm:LibraryViewModel">
       <views:LibraryView/>
     </DataTemplate>
+    <DataTemplate DataType="vm:CharactersViewModel">
+      <views:CharactersView/>
+    </DataTemplate>
     <DataTemplate DataType="vm:NewProjectWizardViewModel">
       <views:NewProjectWizardView/>
     </DataTemplate>

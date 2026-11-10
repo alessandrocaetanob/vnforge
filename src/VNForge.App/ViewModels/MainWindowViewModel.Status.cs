@@ -23,7 +23,7 @@ public sealed partial class MainWindowViewModel
     public bool ShowKeyOk => ApiKeyConfigured && IsStartPage;
 
     /// <summary>"12 jogos na Biblioteca", "Nenhum jogo ainda" ou "Varrendo D:\Jogos\VN": o que a Biblioteca diz de si.</summary>
-    public string LibraryCountText => Library.StatusText;
+    public string LibraryCountText => CurrentPage is CharactersViewModel ? Characters.StatusText : Library.StatusText;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VndbStatusText))]

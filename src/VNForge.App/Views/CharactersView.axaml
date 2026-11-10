@@ -1,0 +1,231 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:v="using:VNForge.App.Views"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.CharactersView"
+             x:DataType="vm:CharactersViewModel"
+             AutomationProperties.Name="Personagens">
+
+  <UserControl.Resources>
+    <!-- O selo (.v3-pill) do papel e da descrição. -->
+    <DataTemplate x:Key="Pill" x:DataType="vm:SheetPill">
+      <Border Classes="sheet-pill" Classes.ai="{Binding IsAi}" Classes.tr="{Binding IsTranslated}" Classes.rev="{Binding IsReviewed}"
+              Classes.ok="{Binding IsApproved}" Classes.warn="{Binding IsWarning}">
+        <TextBlock Text="{Binding Text}"/>
+      </Border>
+    </DataTemplate>
+
+    <!-- A etiqueta (.v3-tag): comum, de spoiler (.warn) ou o aviso tracejado das escondidas (.hid). -->
+    <DataTemplate x:Key="Chip" x:DataType="vm:SheetChip">
+      <Panel>
+        <Border Classes="sheet-tag" Classes.warn="{Binding IsWarning}" Classes.hid="{Binding IsHidden}">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <PathIcon IsVisible="{Binding IsHidden}" Data="{StaticResource Icon.EyeOff}"/>
+            <TextBlock Text="{Binding Text}"/>
+          </StackPanel>
+        </Border>
+        <Rectangle IsVisible="{Binding IsHidden}" IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}"
+                   StrokeThickness="1" StrokeDashArray="3,3" RadiusX="12" RadiusY="12"/>
+      </Panel>
+    </DataTemplate>
+
+    <!-- Uma linha do filtro: a caixa, o nome e quantos personagens ela pega. -->
+    <DataTemplate x:Key="Facet" x:DataType="vm:CharacterFacet">
+      <CheckBox IsChecked="{Binding IsSelected}" MinHeight="28" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Label}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" Text="{Binding CountText}" VerticalAlignment="Center"/>
+        </Grid>
+      </CheckBox>
+    </DataTemplate>
+
+    <!-- O personagem da grade: retrato quadrado, nome, original, papel e quantos jogos. -->
+    <DataTemplate x:Key="CardTemplate" x:DataType="vm:CharacterListItem">
+      <Button Classes="libcard" Width="160" Margin="0,0,16,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
+              CommandParameter="{Binding}" AutomationProperties.Name="{Binding AutomationName}">
+        <StackPanel Spacing="8">
+          <c:Portrait Size="Lg" FixedSide="160" Image="{Binding Image}" Seed="{Binding Name}" LoadOnlyInViewport="True" HorizontalAlignment="Left"/>
+          <StackPanel Spacing="2">
+            <TextBlock Classes="lib-ct" Text="{Binding Name}"/>
+            <TextBlock Classes="jp-row secondary" FontSize="12" Text="{Binding Original}" IsVisible="{Binding HasOriginal}" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ContentControl Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
+            <TextBlock Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding GamesText}"/>
+          </StackPanel>
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+
+    <!-- O traço marcado (.v3-chip.on): clicar o tira do filtro. -->
+    <DataTemplate x:Key="ActiveTrait" x:DataType="vm:CharacterFacet">
+      <Button Classes="subtle sm" Margin="0,0,8,0" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RemoveTraitCommand}"
+              CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label, StringFormat='Tirar o traço {0} do filtro'}">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="{Binding Label}"/>
+          <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+
+    <!-- Um jogo da Biblioteca em que o personagem aparece: a capa, o título, o papel nele e de onde o papel saiu. -->
+    <DataTemplate x:Key="GameRowTemplate" x:DataType="vm:CharacterGameRow">
+      <Button Classes="libcard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+              Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenGameCommand}" CommandParameter="{Binding}"
+              AutomationProperties.Name="{Binding AutomationName}">
+        <Grid ColumnDefinitions="44,*,150,*" ColumnSpacing="16" Margin="16,10">
+          <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
+            <c:Cover Width="44" Image="{Binding Cover}" Seed="{Binding Title}" IsVisible="{Binding HasCover}"/>
+          </Border>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+            <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Title}"/>
+            <TextBlock Classes="lib-dim" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}"/>
+          </StackPanel>
+          <ContentControl Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
+          <TextBlock Grid.Column="3" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Detail}"/>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <DataTemplate x:Key="TraitGroupTemplate" x:DataType="vm:CharacterTraitGroup">
+      <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+        <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Top" Margin="0,4,0,0" Text="{Binding Name}"/>
+        <ItemsControl Grid.Column="1" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource Chip}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Panel>
+    <!-- A lista: à esquerda a barra de filtros (papel, traço e spoiler), à direita o título, a busca e a grade. -->
+    <Grid Name="ListPage" ColumnDefinitions="248,*" ColumnSpacing="32" Margin="32,24,32,0" IsVisible="{Binding IsList}">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Stretch">
+        <StackPanel Spacing="16" Margin="0,0,8,24">
+          <TextBlock Classes="lib-h3" Text="Filtrar"/>
+          <StackPanel Spacing="8">
+            <TextBlock Classes="lib-lbl" Text="PAPEL"/>
+            <ItemsControl Name="RoleFilters" ItemsSource="{Binding RoleFacets}" ItemTemplate="{StaticResource Facet}"/>
+          </StackPanel>
+          <Border Height="1" Background="{DynamicResource Vnf.StrokeSubtle}"/>
+          <StackPanel Spacing="8">
+            <TextBlock Classes="lib-lbl" Text="TRAÇO"/>
+            <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+                <TextBox Grid.Column="1" Name="TraitSearchBox" Classes="bare" Text="{Binding TraitSearch}" PlaceholderText="Buscar traço" AutomationProperties.Name="Buscar traço"/>
+              </Grid>
+            </Border>
+            <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitFacets}" ItemTemplate="{StaticResource Facet}"/>
+            <Button Name="MoreTraits" Classes="subtle sm sheet-link" HorizontalAlignment="Left" Command="{Binding ToggleAllTraitsCommand}"
+                    IsVisible="{Binding CanShowAllTraits}" Content="{Binding ShowAllTraitsText}"/>
+          </StackPanel>
+          <Border Height="1" Background="{DynamicResource Vnf.StrokeSubtle}"/>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ToggleSwitch Name="SpoilerSwitch" Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding ShowSpoilers}" AutomationProperties.Name="Mostrar spoiler"/>
+            <TextBlock VerticalAlignment="Center" Text="Mostrar spoiler"/>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="16">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel>
+            <TextBlock Classes="lib-h1" Text="Personagens"/>
+            <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+          </StackPanel>
+          <Border Grid.Column="1" Classes="lib-input" Width="340" VerticalAlignment="Top">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+              <TextBox Grid.Column="1" Name="SearchBox" Classes="bare" Text="{Binding SearchText}" PlaceholderText="Buscar por nome, original, apelido ou jogo"
+                       AutomationProperties.Name="Buscar personagens"/>
+            </Grid>
+          </Border>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <ItemsControl Name="ActiveTraits" ItemsSource="{Binding ActiveTraits}" ItemTemplate="{StaticResource ActiveTrait}" IsVisible="{Binding HasActiveTraits}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          </ItemsControl>
+          <ListBox Grid.Column="1" Classes="libseg" Name="SortSwitch" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}" AutomationProperties.Name="Ordem dos personagens">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:CharacterSortOption"><TextBlock Text="{Binding Label}"/></DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+
+        <Border Grid.Row="2" Name="NoticeBar" Classes="infobar warning" IsVisible="{Binding Notice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Warning}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding Notice}"/>
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="3" Name="CardsScroll" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasItems}">
+          <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource CardTemplate}" Margin="0,4,0,0" AutomationProperties.Name="Personagens">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="3" Name="EmptyBox" Spacing="12" Margin="0,48,0,0" HorizontalAlignment="Center" MaxWidth="480" IsVisible="{Binding ShowEmpty}">
+          <TextBlock Name="EmptyText" Classes="lib-sub" TextWrapping="Wrap" TextAlignment="Center" Text="{Binding EmptyMessage}"/>
+          <Button Name="ClearFilterButton" HorizontalAlignment="Center" Content="Limpar o filtro" Command="{Binding ClearFilterCommand}" IsVisible="{Binding CanClearFilter}"/>
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <!-- A página do personagem: o retrato, o nome, a descrição, "Aparece em" e os traços. -->
+    <ScrollViewer Name="PageScroll" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsPage}">
+      <StackPanel Margin="32,20,32,24" Spacing="20" DataContext="{Binding Page}" x:DataType="vm:CharacterPage">
+        <Button Name="BackButton" Classes="subtle sm" HorizontalAlignment="Left"
+                Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).BackCommand}" AutomationProperties.Name="Voltar para os personagens">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowLeft}"/>
+            <TextBlock Text="Personagens"/>
+          </StackPanel>
+        </Button>
+
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="32">
+          <c:Portrait Size="Lg" FixedSide="220" Image="{Binding Image}" Seed="{Binding Name}" VerticalAlignment="Top"/>
+          <StackPanel Grid.Column="1" Spacing="16">
+            <StackPanel Spacing="2">
+              <TextBlock Name="PageName" Classes="lib-h1" Text="{Binding Name}"/>
+              <TextBlock Classes="lib-sub" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="16" Text="{Binding NamesLine}" IsVisible="{Binding HasNames}"/>
+              <TextBlock Name="PageAliases" Classes="lib-dim" FontSize="13" Margin="0,2,0,0" Text="{Binding AliasesLine}" IsVisible="{Binding HasAliases}"/>
+            </StackPanel>
+            <WrapPanel>
+              <ContentControl Margin="0,0,6,6" Content="{Binding DescriptionPill}" ContentTemplate="{StaticResource Pill}"/>
+              <ItemsControl ItemsSource="{Binding Tags}" ItemTemplate="{StaticResource Chip}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              </ItemsControl>
+            </WrapPanel>
+            <TextBlock Name="PageDescription" Classes="sheet-prose" Text="{Binding Description}"/>
+
+            <Border Name="AppearsIn" Classes="sheet-card" Padding="0">
+              <StackPanel>
+                <Grid ColumnDefinitions="*,Auto" Margin="16">
+                  <TextBlock Classes="sheet-h2" Text="Aparece em"/>
+                  <TextBlock Grid.Column="1" Name="GamesCount" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="{Binding GamesCount}"/>
+                </Grid>
+                <ItemsControl Name="Games" ItemsSource="{Binding Games}" ItemTemplate="{StaticResource GameRowTemplate}"/>
+                <Border Name="NoteBand" IsVisible="{Binding HasNote}" Padding="16,12" Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
+                  <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="{Binding Note}"/>
+                </Border>
+              </StackPanel>
+            </Border>
+
+            <Border Name="TraitsCard" Classes="sheet-card" IsVisible="{Binding HasGroups}">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" Text="Traços"/>
+                <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource TraitGroupTemplate}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+  </Panel>
+</UserControl>

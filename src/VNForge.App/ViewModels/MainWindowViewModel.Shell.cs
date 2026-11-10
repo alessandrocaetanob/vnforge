@@ -90,7 +90,7 @@ public sealed partial class MainWindowViewModel
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
     /// <summary>"Biblioteca › Amaoto no Hakoniwa" dentro do jogo e nos Ajustes de um projeto aberto; "Ajustes" nos Ajustes sem projeto; "Biblioteca" no resto.</summary>
-    public string Breadcrumb => InGame && SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing ? $"Biblioteca › {ProjectTitle} › Revisar a ficha" : InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : "Biblioteca";
+    public string Breadcrumb => InGame && SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing ? $"Biblioteca › {ProjectTitle} › Revisar a ficha" : InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : selectedNav?.Key == NavKey.Characters ? (Characters.OpenName is { } name ? $"Personagens › {name}" : "Personagens") : "Biblioteca";
 
     /// <summary>Atraso entre gravar uma linha e reler o andamento do jogo para o cabeçalho; várias gravações seguidas fazem uma leitura só.</summary>
     public TimeSpan ProgressRefreshDelay { get; set; } = TimeSpan.FromMilliseconds(1500);
@@ -99,7 +99,7 @@ public sealed partial class MainWindowViewModel
     public Task DashboardRefresh { get; private set; } = Task.CompletedTask;
 
     /// <summary>Há um jogo aberto antes e a página de agora é a Biblioteca ou os Ajustes: o botão da barra de título volta a ele.</summary>
-    public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Settings;
+    public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Characters or NavKey.Settings;
 
     /// <summary>Verde quando o jogo está todo pronto, neutro quando nada foi feito, azul no meio.</summary>
     public bool GameProgressDone => GameProgress.Percent(ReadyLines, TotalLines) >= 100;
