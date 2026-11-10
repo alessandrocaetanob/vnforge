@@ -173,7 +173,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameTabPlaceholderViewModel("A ficha do jogo, com sinopse, gêneros e personagens, ainda não existe. Por enquanto, o Painel mostra onde a tradução está.", "Abrir o Painel", () => SelectedNav = dashboardItem);
-        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
+        Play = new GameCapturesViewModel { OpenFolder = this.openFolder, ShowEditor = () => SelectedNav = editorItem };
         selectedNav = startItem;
         CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -797,6 +797,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
+        if (target == NavKey.Play)
+        {
+            Play.Enter(CurrentProject is { } project ? Library.GameOfProject(project.Root) : null);
+        }
+        else
+        {
+            Play.Leave();
+        }
+
         if (target == NavKey.Editor)
         {
             Editor.DropChangedSinceTestIfOutdated();

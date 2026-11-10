@@ -68,7 +68,8 @@ public sealed partial class MainWindowViewModel
 
     public GameTabPlaceholderViewModel Sheet { get; }
 
-    public GameTabPlaceholderViewModel Play { get; }
+    /// <summary>A aba Jogar: capturas e notas do jogo (#553).</summary>
+    public GameCapturesViewModel Play { get; }
 
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
     public bool InGame => HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null;
