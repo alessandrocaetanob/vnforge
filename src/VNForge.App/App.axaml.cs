@@ -134,6 +134,8 @@ public sealed class App : Application
             openFolder: MainWindowViewModel.OpenInFileManager,
             tagsFile: new UserTagsFile(configDirectory),
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
-            playLog: playLog);
+            playLog: playLog,
+            switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+            engines: engines);
     }
 }

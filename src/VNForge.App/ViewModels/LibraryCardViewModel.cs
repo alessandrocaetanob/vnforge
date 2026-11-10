@@ -5,7 +5,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Um jogo da grade ou da lista. Tudo o que a tela escreve vem pronto do <see cref="LibraryCard"/> do Core; aqui só moram a seleção e a escolha de ícone.</summary>
-public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card, IReadOnlyList<LibraryDrawerChip>? tags = null) : ObservableObject
+public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card, LibraryTranslationState? version = null, IReadOnlyList<LibraryDrawerChip>? tags = null) : ObservableObject
 {
     public LibraryGame Game { get; } = game;
 
@@ -56,6 +56,18 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
     public IReadOnlyList<LibraryDrawerChip> Tags { get; } = tags ?? [];
 
     public bool HasTags => Tags.Count > 0;
+
+    /// <summary>O que a pasta do jogo tem agora (original, com o patch do VNForge ou desconhecido); nulo quando o jogo não tem projeto ligado.</summary>
+    public LibraryTranslationState? Version { get; } = version;
+
+    private LibraryVersionLabel? VersionLabel => Version is { } version && LibraryVersionLabel.IsKnown(version) ? LibraryVersionLabel.For(version) : null;
+
+    /// <summary>A etiqueta sob o cartão: "PT-BR no jogo" ou "Original". Sem ela, o VNForge não afirma nada sobre a pasta.</summary>
+    public bool HasVersionTag => VersionLabel is not null;
+
+    public string VersionTag => VersionLabel?.Tag ?? string.Empty;
+
+    public string VersionTone => VersionLabel?.Tone ?? "pend";
 
     public string AutomationName => $"{Title}. {Chip}. {Subtitle}";
 

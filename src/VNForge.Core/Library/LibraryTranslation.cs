@@ -20,8 +20,9 @@ public enum LibraryTranslationKind
 /// O estado de um jogo da biblioteca. <paramref name="Patch"/> é o que está na pasta (tipo, quando foi gravado, backup, impressão digital dos textos) e só existe em
 /// <see cref="LibraryTranslationKind.Translated"/>; <paramref name="Reason"/> diz, em português, por que o estado é <see cref="LibraryTranslationKind.Unknown"/>.
 /// <paramref name="PatchRecorded"/> é falso quando há backup vivo mas o <c>game-state.json</c> não diz o que a injeção pôs (<c>vnf patch-exe</c>, estado que não gravou): então <paramref name="Patch"/> só traz a data e o backup, e o tipo não é conhecido.
+/// <paramref name="FilesChanged"/> conta os arquivos que o backup vivo guardou (os da última injeção) e <paramref name="FilesWithoutOriginal"/> os que a injeção criou, sem original para guardar; os dois só valem em <see cref="LibraryTranslationKind.Translated"/>.
 /// </summary>
-public sealed record LibraryTranslationState(LibraryTranslationKind Kind, GameInGame? Patch = null, string? Reason = null, bool PatchRecorded = true);
+public sealed record LibraryTranslationState(LibraryTranslationKind Kind, GameInGame? Patch = null, string? Reason = null, bool PatchRecorded = true, int FilesChanged = 0, int FilesWithoutOriginal = 0);
 
 /// <summary>
 /// Lê o estado de um jogo da biblioteca no projeto ligado a ele, pelo mesmo <c>game-state.json</c> e pelos mesmos backups que a barra de "Testar no jogo" usa.
@@ -112,9 +113,11 @@ public static class LibraryTranslationReader
             }
 
             // Sem estado que combine com o backup (vnf patch-exe, um estado que não gravou, outra versão do arquivo) o VNForge sabe que há injeção, mas não o que ela pôs.
+            var changed = backup.Manifest.Files.Count;
+            var created = backup.Manifest.Files.Count(f => !f.Existed);
             return saved is not null && saved.AppliedAt >= backup.Manifest.CreatedAt
-                ? new LibraryTranslationState(LibraryTranslationKind.Translated, saved)
-                : new LibraryTranslationState(LibraryTranslationKind.Translated, new GameInGame(GameTestKind.Translation, backup.Manifest.CreatedAt, backup.Name, null, null), PatchRecorded: false);
+                ? new LibraryTranslationState(LibraryTranslationKind.Translated, saved, FilesChanged: changed, FilesWithoutOriginal: created)
+                : new LibraryTranslationState(LibraryTranslationKind.Translated, new GameInGame(GameTestKind.Translation, backup.Manifest.CreatedAt, backup.Name, null, null), PatchRecorded: false, FilesChanged: changed, FilesWithoutOriginal: created);
         }
 
         if (saved?.BackupDirectory is { } name && !backups.Any(b => string.Equals(b.Name, name, StringComparison.Ordinal)))

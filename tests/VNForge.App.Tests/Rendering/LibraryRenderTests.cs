@@ -105,7 +105,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         var theme = ThemeOf(themeName);
         await Abrir(theme, library => library.Select(library.Cards.Single(c => c.Title == "Amaoto no Hakoniwa")), (window, vm) =>
         {
-            var switchBox = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Classes.Contains("libseg"));
+            var switchBox = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LayoutSwitch");
             var drawerHost = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "DrawerHost");
             Assert.True(switchBox.TranslatePoint(new Point(switchBox.Bounds.Width, 0), window)!.Value.X <= drawerHost.TranslatePoint(default, window)!.Value.X, "Grade e Lista passam do começo da gaveta");
             var texts = Texts(window);

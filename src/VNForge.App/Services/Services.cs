@@ -59,6 +59,19 @@ public static class ProjectLabels
         _ => id,
     };
 
+    /// <summary>O idioma do jogo por extenso ("Japonês"); código fora das opções do assistente volta em caixa alta.</summary>
+    public static string SourceLanguage(string code) => code switch
+    {
+        "ja" => "Japonês",
+        "en" => "Inglês",
+        "zh" => "Chinês",
+        "ko" => "Coreano",
+        _ => code.ToUpperInvariant(),
+    };
+
+    /// <summary>O idioma da tradução como o quadro escreve: o código em caixa alta ("PT-BR").</summary>
+    public static string TargetLanguage(string code) => code.ToUpperInvariant();
+
     /// <summary><c>claude-opus-5-5</c> vira <c>Claude Opus 5.5</c>; id fora do padrão volta como veio.</summary>
     public static string Model(string id)
     {

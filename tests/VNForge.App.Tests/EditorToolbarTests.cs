@@ -12,7 +12,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-/// <summary>A barra do Editor (#394): uma linha só, filtros à esquerda e ações à direita, Traduzir com IA sempre visível e as outras três iguais entre si.</summary>
+/// <summary>A barra do Editor (#394): uma linha só, filtros à esquerda e as Dúvidas à direita. Roteiro, Ler como jogador, Buscar e Traduzir com IA vivem no cabeçalho do jogo (#546).</summary>
 public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     [Theory]
@@ -44,7 +44,6 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                 var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
                 var doubtButton = window.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Command == vm.StartDoubtReviewCommand);
                 var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
-                var translate = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.TranslatePendingCommand);
 
                 if (chips.Count != 6)
                 {
@@ -61,11 +60,6 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     failures.Add($"o nome acessível do botão Dúvidas não começa pelo texto visível: '{AutomationProperties.GetName(doubtButton)}'");
                 }
 
-                if (tools.Select(t => Math.Round(Box(t).Y)).Distinct().Count() != 1 || Math.Abs(Box(translate).Y - Box(tools[0]).Y) > 4)
-                {
-                    failures.Add("as ações saíram da linha da barra");
-                }
-
                 // Quando os seis chips não cabem, a área deles rola e é cortada na borda: o que importa é que essa área não entre nas ações.
                 var filters = chips[0].GetVisualAncestors().OfType<ScrollViewer>().First();
                 if (Box(filters).Right > tools.Min(t => Box(t).X) + 1)
@@ -74,9 +68,9 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                 }
 
                 var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
-                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
+                if (doubtButton is not null && (Box(doubtButton).Right > window.ClientSize.Width - margin + 1 || Box(doubtButton).Right < window.ClientSize.Width - margin - 1))
                 {
-                    failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
+                    failures.Add($"Dúvidas deve encostar na margem direita ({Box(doubtButton).Right:0} de {window.ClientSize.Width:0})");
                 }
 
                 window.Close();
@@ -87,12 +81,11 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
     }
 
     [Theory]
-    [InlineData(960, true)]
-    [InlineData(1280, true)]
-    [InlineData(1366, true)]
-    [InlineData(1440, false)]
-    [InlineData(1920, false)]
-    public async Task A_barra_fica_numa_linha_com_os_filtros_a_esquerda_e_as_acoes_a_direita(int windowWidth, bool iconsOnly)
+    [InlineData(960)]
+    [InlineData(1366)]
+    [InlineData(1440)]
+    [InlineData(1920)]
+    public async Task A_barra_fica_numa_linha_com_os_filtros_e_sem_as_acoes_que_foram_para_o_cabecalho(int windowWidth)
     {
         using var temp = new TempFolder();
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Machine, TranslationStatus.Untranslated);
@@ -112,77 +105,30 @@ public sealed class EditorToolbarTests(HeadlessFixture fixture) : IClassFixture<
                     Dispatcher.UIThread.RunJobs();
                 }
 
-                var header = window.GetVisualDescendants().OfType<PageHeader>().Single();
                 var chips = window.GetVisualDescendants().OfType<FilterChip>().Where(c => c.IsEffectivelyVisible).ToList();
-                var tools = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("tool") && !b.Classes.Contains("scenes-trigger") && b.IsEffectivelyVisible).ToList();
-                var translate = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.TranslatePendingCommand);
-
                 Rect Box(Control c) => new(c.TranslatePoint(default, window)!.Value, c.Bounds.Size);
-                var all = chips.Cast<Control>().Concat(tools).Append(translate).ToList();
 
-                if (tools.Count != 3)
-                {
-                    failures.Add($"esperava 3 botões secundários, achei {tools.Count}");
-                }
-
-                if (chips.Count != 5 || chips.Any(c => !c.IsEffectivelyVisible))
+                if (chips.Count != 5)
                 {
                     failures.Add("os 5 filtros precisam estar visíveis");
                 }
 
-                // O chip do quadro tem 32 px e o botão sm 28: na mesma linha quer dizer o mesmo centro, não o mesmo topo.
-                if (all.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2))).Distinct().Count() != 1)
+                // O chip do quadro tem 32 px: na mesma linha quer dizer o mesmo centro.
+                if (chips.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2))).Distinct().Count() != 1)
                 {
-                    failures.Add("filtros e ações não estão na mesma linha: " + string.Join(",", all.Select(c => Math.Round(Box(c).Y + (Box(c).Height / 2)))));
+                    failures.Add("os filtros não estão na mesma linha");
                 }
 
-                var margin = window.ClientSize.Width < EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.NarrowMargin : EditorBreakpoints.WideMargin;
-                if (Box(translate).Right > window.ClientSize.Width - margin + 1 || Box(translate).Right < window.ClientSize.Width - margin - 1)
+                var buttons = window.GetVisualDescendants().OfType<Button>().ToList();
+                if (buttons.Any(b => b.Command == vm.TranslatePendingCommand || b.Command == vm.StartReadingCommand || b.Command == vm.ToggleSearchCommand))
                 {
-                    failures.Add($"Traduzir com IA deve encostar na margem direita ({Box(translate).Right:0} de {window.ClientSize.Width:0})");
+                    failures.Add("Traduzir com IA, Ler como jogador e Buscar ficam no cabeçalho do jogo, não na barra");
                 }
 
-                // Os filtros do quadro são pílulas de 32 px e, a 960 px, não cabem ao lado das ações: a fila rola dentro do ScrollViewer e é o recorte dele que não pode passar das ações.
-                var visibleRight = Math.Min(chips.Max(c => Box(c).Right), Box(chips[0].FindAncestorOfType<ScrollViewer>()!).Right);
-                if (visibleRight > tools.Min(t => Box(t).X))
+                // O quadro do #546 não tem a linha de título: a barra é a primeira coisa da tela e não há PageHeader.
+                if (window.GetVisualDescendants().OfType<PageHeader>().Any())
                 {
-                    failures.Add("os filtros passam por cima das ações");
-                }
-
-                if (!translate.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == "Traduzir com IA"))
-                {
-                    failures.Add("Traduzir com IA perdeu o texto");
-                }
-
-                var labels = tools.Select(t => t.GetVisualDescendants().OfType<TextBlock>().Single().IsEffectivelyVisible).ToList();
-                if (labels.Any(shown => shown == iconsOnly))
-                {
-                    failures.Add($"rótulos dos botões secundários: {string.Join(",", labels)} (só ícones esperado: {iconsOnly})");
-                }
-
-                if (!iconsOnly && tools.Select(t => Math.Round(Box(t).Height)).Distinct().Count() != 1)
-                {
-                    failures.Add("os botões secundários têm alturas diferentes");
-                }
-
-                if (iconsOnly)
-                {
-                    if (tools.Select(t => Math.Round(Box(t).Width)).Distinct().Count() != 1)
-                    {
-                        failures.Add("os botões de ícone têm larguras diferentes");
-                    }
-
-                    if (tools.Any(t => string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(t)) || ToolTip.GetTip(t) is null))
-                    {
-                        failures.Add("botão de ícone sem nome ou sem dica");
-                    }
-                }
-
-                // Sem o vazio de antes: a barra começa logo abaixo do título (a migalha e o título ocupam cerca de 56 px).
-                var barTop = Box(chips[0]).Y;
-                if (barTop - Box(header).Bottom > 16)
-                {
-                    failures.Add($"espaço vazio entre o título e a barra: {barTop - Box(header).Bottom:0} px");
+                    failures.Add("o Editor não tem mais a linha de título");
                 }
 
                 window.Close();

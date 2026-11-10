@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
 using VNForge.Core;
+using VNForge.Core.Engines;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
@@ -70,6 +71,9 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly PlayLogFile? playLog;
     private readonly Action<Action> post;
     private readonly Dictionary<string, StatusCounts?> translations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LibraryTranslationState> versions = new(StringComparer.Ordinal);
+    private readonly LibraryTranslationSwitcher? switcher;
+    private readonly IReadOnlyList<IEngine> engines;
     private List<LibraryGame> games = [];
     private GameLibrary library = new();
     private UserTags userTags = new();
@@ -96,7 +100,9 @@ public sealed partial class LibraryViewModel : ObservableObject
         Action<string>? openFolder = null,
         UserTagsFile? tagsFile = null,
         GamePlayer? player = null,
-        PlayLogFile? playLog = null)
+        PlayLogFile? playLog = null,
+        LibraryTranslationSwitcher? switcher = null,
+        IReadOnlyList<IEngine>? engines = null)
     {
         this.file = file;
         this.picker = picker;
@@ -108,6 +114,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         readUserTags = userTags ?? (tagsFile is null ? () => new UserTags() : tagsFile.Load);
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
+        this.switcher = switcher;
+        this.engines = engines ?? [];
         this.player = player;
         this.playLog = playLog;
         this.post = post;
@@ -360,12 +368,13 @@ public sealed partial class LibraryViewModel : ObservableObject
         string? error = null;
         GameLibrary loaded;
         Dictionary<string, StatusCounts?> counts = new(StringComparer.Ordinal);
+        Dictionary<string, LibraryTranslationState> states = new(StringComparer.Ordinal);
         UserTags tags;
         PlayLog playedNow;
         try
         {
             var recent = RecentProjects();
-            (loaded, counts, tags, playedNow, var warning) = await Task.Run(() => Read(recent), CancellationToken.None);
+            (loaded, counts, tags, states, playedNow, var warning) = await Task.Run(() => Read(recent), CancellationToken.None);
             error = warning;
         }
         catch (LibraryException e)
@@ -398,6 +407,12 @@ public sealed partial class LibraryViewModel : ObservableObject
             translations[pair.Key] = pair.Value;
         }
 
+        versions.Clear();
+        foreach (var pair in states)
+        {
+            versions[pair.Key] = pair.Value;
+        }
+
         ErrorMessage = error;
         if (Mode != LibraryMode.FirstScan || Scan.Phase == LibraryScanPhase.Idle)
         {
@@ -420,12 +435,12 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
-    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, PlayLog Played, string? Warning) Read(IReadOnlyList<string> recent)
+    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, Dictionary<string, LibraryTranslationState> Versions, PlayLog Played, string? Warning) Read(IReadOnlyList<string> recent)
     {
         var (tags, tagsError) = ReadTags();
         if (file is null)
         {
-            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), tags, new PlayLog(), tagsError);
+            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), tags, new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal), new PlayLog(), tagsError);
         }
 
         var current = file.Load();
@@ -439,9 +454,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         var counts = new Dictionary<string, StatusCounts?>(StringComparer.Ordinal);
+        var states = new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal);
         foreach (var game in current.Games.Where(g => g.ProjectPath is not null))
         {
             counts[game.Id] = readTranslation(game);
+            states[game.Id] = ReadVersion(game);
         }
 
         // O tempo de jogo ilegível não esconde a Biblioteca: avisa, e o arquivo fica como está até a pessoa resolver.
@@ -456,7 +473,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             playWarning = e.Message;
         }
 
-        return (current, counts, tags, playedNow, tagsError ?? playWarning);
+        return (current, counts, tags, states, playedNow, tagsError ?? playWarning);
     }
 
     private int? PercentOf(LibraryGame game) =>
@@ -488,7 +505,7 @@ public sealed partial class LibraryViewModel : ObservableObject
                 break;
             }
 
-            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))) { IsPlaying = game.Id == PlayingId };
+            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id)) { IsPlaying = game.Id == PlayingId };
             Continue.Add(new LibraryContinueViewModel(card, $"{PlayTime.LastPlayed(last, now)} · {PlayTime.Format(stats.Total)}"));
         }
 
@@ -507,7 +524,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         Cards.Clear();
         foreach (var game in shown)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
         }
 
         Subtitle = SubtitleText();
