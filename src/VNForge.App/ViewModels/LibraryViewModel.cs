@@ -420,6 +420,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         Redraw();
+        GamesLoaded?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>As tags próprias num arquivo ilegível não escondem os jogos: a biblioteca abre sem elas e o erro aparece no aviso.</summary>

@@ -121,6 +121,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(LibraryCountText));
             }
         };
+        // A aba Jogar aberta antes de a Biblioteca carregar ainda não achou o jogo do projeto: procura de novo quando a lista chega.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (ReferenceEquals(CurrentPage, Play) && Play.HasNoGame && CurrentProject is { } project)
+            {
+                Play.Enter(Library.GameOfProject(project.Root));
+            }
+        };
         Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
         start.PropertyChanged += (_, e) =>
@@ -182,7 +190,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(Breadcrumb));
             }
         };
-        Play = new GameTabPlaceholderViewModel("Abrir o jogo por aqui e contar o tempo de jogo ainda não existem. Para ver a tradução rodando, use a seção Testar.", "Ir para Testar", () => SelectedNav = buildItem);
+        Play = new GameCapturesViewModel { OpenFolder = this.openFolder, ShowEditor = () => SelectedNav = editorItem };
         selectedNav = startItem;
         CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -803,6 +811,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A Conferência é lida ao abrir a página; ao voltar ao Editor, ele relê se a Conferência mudou algum texto.</summary>
     private void PrepareLeavingAndEntering(NavKey target)
     {
+        if (target == NavKey.Play)
+        {
+            Play.Enter(CurrentProject is { } project ? Library.GameOfProject(project.Root) : null);
+        }
+        else
+        {
+            Play.Leave();
+        }
+
         if (target == NavKey.Editor)
         {
             Editor.DropChangedSinceTestIfOutdated();
@@ -888,6 +905,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        Play.Leave();
+
         // Só a janela que vai mesmo fechar cancela o lançamento em curso.
         Release.CancelIfRunning();
         return true;
@@ -921,7 +940,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             lastTranslationItem = dashboardItem;
         }
 
+        var otherProject = CurrentProject?.Root != summary.Root;
         CurrentProject = summary;
+        if (otherProject && ReferenceEquals(CurrentPage, Play))
+        {
+            // A aba Jogar aberta troca de jogo: grava a nota do antigo e passa o atalho para o novo.
+            Play.Enter(Library.GameOfProject(summary.Root));
+        }
+
         Dashboard.Project = summary;
         Editor.Project = summary;
         Settings.Load(summary);

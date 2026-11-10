@@ -331,18 +331,17 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public async Task Jogar_oferece_o_caminho_para_a_Traducao()
+    public async Task Jogar_oferece_o_caminho_para_o_Editor()
     {
         using var temp = new TempFolder();
         var vm = await OpenedAsync(temp);
         vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Play);
 
-        Assert.True(vm.Play.ActionCommand.CanExecute(null));
-        vm.Play.ActionCommand.Execute(null);
+        Assert.True(vm.Play.ShowInEditorCommand.CanExecute(null));
+        vm.Play.ShowInEditorCommand.Execute(null);
 
-        Assert.Same(vm.Build, vm.CurrentPage);
+        Assert.Same(vm.Editor, vm.CurrentPage);
         Assert.Equal(GameTab.Translation, vm.SelectedGameTab?.Tab);
-
     }
 
     [Fact]
