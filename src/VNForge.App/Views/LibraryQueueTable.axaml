@@ -34,16 +34,16 @@
                             AutomationProperties.Name="{Binding AutomationName}">
                       <Grid Margin="16,8" MinHeight="{DynamicResource Vnf.RowHeight}" ColumnDefinitions="28,2.2*,1.7*,1.4*,1.1*,*,170" ColumnSpacing="12">
                         <TextBlock Classes="lib-dim" VerticalAlignment="Center" Text="{Binding PositionText}"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
                           <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="58" Background="{DynamicResource Vnf.BgInset}">
                             <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
                           </Border>
-                          <TextBlock Classes="lib-ct" VerticalAlignment="Center" Text="{Binding Card.Title}"/>
-                        </StackPanel>
-                        <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding PortugueseTone}"><TextBlock Text="{Binding PortugueseText}"/></Border>
-                        <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding EngineTone}"><TextBlock Text="{Binding EngineText}"/></Border>
-                        <TextBlock Grid.Column="4" VerticalAlignment="Center" Text="{Binding TextEstimate}"/>
-                        <TextBlock Grid.Column="5" Classes="lib-dim" VerticalAlignment="Center" Text="{Binding Duration}"/>
+                          <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" Text="{Binding Card.Title}"/>
+                        </Grid>
+                        <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding PortugueseTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding PortugueseText}"/></Border>
+                        <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding EngineTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding EngineText}"/></Border>
+                        <TextBlock Grid.Column="4" FontWeight="Normal" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding TextEstimate}"/>
+                        <TextBlock Grid.Column="5" Classes="lib-dim" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Duration}"/>
                         <Button Grid.Column="6" Classes="sm" Classes.accent="{Binding IsTranslate}" HorizontalAlignment="Right" VerticalAlignment="Center" IsEnabled="{Binding CanAct}"
                                 Command="{Binding $parent[v:LibraryQueueTable].((vm:LibraryViewModel)DataContext).OpenGameCommand}" CommandParameter="{Binding Card}" Content="{Binding ActionText}"/>
                       </Grid>

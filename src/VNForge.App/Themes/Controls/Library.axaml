@@ -219,6 +219,18 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
   </Style>
 
+  <!-- Com a gaveta aberta a faixa de filtros não cabe numa linha: "Ordenar por" e a aparência descem para uma linha própria, à direita. -->
+  <Style Selector="StackPanel.sortbar">
+    <Setter Property="Grid.Column" Value="3"/>
+  </Style>
+  <Style Selector="StackPanel.sortbar.docked">
+    <Setter Property="Grid.Row" Value="1"/>
+    <Setter Property="Grid.Column" Value="0"/>
+    <Setter Property="Grid.ColumnSpan" Value="4"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="Margin" Value="0,8,0,0"/>
+  </Style>
+
   <!-- ".v3-input": campo de 32 com ícone, bg-inset, borda stroke-control, raio 8; o TextBox dentro não tem moldura própria. -->
   <Style Selector="Border.lib-input">
     <Setter Property="Height" Value="{DynamicResource Vnf.ControlMd}"/>
