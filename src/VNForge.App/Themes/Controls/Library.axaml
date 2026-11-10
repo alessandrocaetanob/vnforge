@@ -219,11 +219,8 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
   </Style>
 
-  <!-- Com a gaveta aberta a faixa de filtros não cabe numa linha: "Ordenar por" e a aparência descem para uma linha própria, à direita. -->
+  <!-- Com os cinco chips, a busca e os filtros já ocupam a linha toda a 1440: "Ordenar por" e a aparência ficam numa linha própria, à direita. -->
   <Style Selector="StackPanel.sortbar">
-    <Setter Property="Grid.Column" Value="3"/>
-  </Style>
-  <Style Selector="StackPanel.sortbar.docked">
     <Setter Property="Grid.Row" Value="1"/>
     <Setter Property="Grid.Column" Value="0"/>
     <Setter Property="Grid.ColumnSpan" Value="4"/>

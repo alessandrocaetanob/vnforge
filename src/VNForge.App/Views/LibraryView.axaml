@@ -145,7 +145,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <StackPanel Classes="sortbar" Classes.docked="{Binding HasDrawer}" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <StackPanel Classes="sortbar" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="Ordenar por"/>
             <ListBox Classes="libseg" Name="SortSwitch" ItemsSource="{Binding Sorts}" SelectedItem="{Binding SelectedSort}" AutomationProperties.Name="Ordem dos jogos">
               <ListBox.ItemTemplate>

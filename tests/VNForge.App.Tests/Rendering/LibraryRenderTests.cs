@@ -41,8 +41,8 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Equal(["Grade", "Lista"], window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LayoutSwitch").GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
 
             var chips = window.GetVisualDescendants().OfType<FilterChip>().ToList();
-            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte"], chips.Select(c => c.Label));
-            Assert.Equal([12, 2, 9, 5], chips.Select(c => c.Count));
+            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte", "Engine suportada"], chips.Select(c => c.Label));
+            Assert.Equal([12, 2, 9, 5, 6], chips.Select(c => c.Count));
             Assert.True(chips[0].IsChecked);
 
             foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Conteúdo adulto escondido", "18+" })
@@ -231,7 +231,13 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Lista_mostra_a_fila_de_traducao_com_o_portugues_a_engine_o_texto_e_a_acao(string themeName)
+    public Task Lista_mostra_a_fila_de_traducao_com_o_portugues_a_engine_o_texto_e_a_acao(string themeName) => MostrarFila(themeName, gaveta: false);
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public Task Fila_com_a_gaveta_aberta_cabe_sem_reticencias_nas_colunas_de_texto_e_duracao(string themeName) => MostrarFila(themeName, gaveta: true);
+
+    private async Task MostrarFila(string themeName, bool gaveta)
     {
         var theme = ThemeOf(themeName);
         var checkedAt = LibrarySamples.Now.AddHours(-1);
@@ -244,7 +250,10 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             library.SelectFilter(LibraryFilter.NoPortuguese);
             library.SelectedSort = library.Sorts[0];
             library.SelectedLayout = library.Layouts[1];
-            library.Select(library.Cards.Single(c => c.Title == "Nanairo Ressha"));
+            if (gaveta)
+            {
+                library.Select(library.Cards.Single(c => c.Title == "Nanairo Ressha"));
+            }
         }, (window, vm) =>
         {
             var texts = Texts(window);
@@ -259,11 +268,11 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             }
 
             var rows = window.GetVisualDescendants().OfType<Border>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("qrow")).ToList();
-            Assert.Single(rows, r => r.Classes.Contains("sel"));
+            Assert.Equal(gaveta ? 1 : 0, rows.Count(r => r.Classes.Contains("sel")));
             Assert.Equal(3, window.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Classes.Contains("accent") && b.Classes.Contains("sm")));
 
             ScreenRenderer.Settle(window);
-            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-fila", theme)));
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(gaveta ? "biblioteca-fila-gaveta" : "biblioteca-fila", theme)));
         }, games: games);
     }
 

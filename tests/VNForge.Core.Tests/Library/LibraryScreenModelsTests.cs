@@ -252,6 +252,9 @@ public sealed class LibraryScreenModelsTests
         Assert.Equal(3, counts.NoPortuguese);
         Assert.Equal(2, counts.Unsupported);
         Assert.Equal([6, 1, 3, 2], [counts.Of(LibraryFilter.All), counts.Of(LibraryFilter.InTranslation), counts.Of(LibraryFilter.NoPortuguese), counts.Of(LibraryFilter.Unsupported)]);
+        var games = Collection();
+        Assert.Equal(games.Count(g => g.Engine.Translatable), counts.Of(LibraryFilter.Supported));
+        Assert.All(LibraryListing.Filter(games, LibraryFilter.Supported, null, Percent, null, Hidden), g => Assert.True(g.Engine.Translatable));
     }
 
     [Fact]

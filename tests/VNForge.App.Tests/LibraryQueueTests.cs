@@ -77,7 +77,7 @@ public sealed class LibraryQueueTests : IDisposable
         Assert.False(started.IsTranslate);
 
         var unmatched = Row(vm, "Kōrin no Mori");
-        Assert.Equal("Sem jogo no VNDB", unmatched.PortugueseText);
+        Assert.Equal("Sem casamento", unmatched.PortugueseText);
         Assert.Equal("·", unmatched.TextEstimate);
         Assert.Equal("·", unmatched.Duration);
     }

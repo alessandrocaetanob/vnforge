@@ -112,6 +112,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             new LibraryFilterChipViewModel(LibraryFilter.InTranslation, "Em tradução"),
             new LibraryFilterChipViewModel(LibraryFilter.NoPortuguese, "Sem português"),
             new LibraryFilterChipViewModel(LibraryFilter.Unsupported, "Sem suporte"),
+            new LibraryFilterChipViewModel(LibraryFilter.Supported, "Engine suportada"),
         ];
         Match = new LibraryMatchViewModel(this);
         Scan.PropertyChanged += (_, e) =>

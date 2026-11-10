@@ -23,7 +23,7 @@ public sealed class LibraryQueueRowViewModel(LibraryCardViewModel card, Translat
         PortugueseStatus.Partial => "Parcial",
         PortugueseStatus.Complete => "Completa",
         _ when Entry.Game.IsConfirmed => "Não conferido",
-        _ => "Sem jogo no VNDB",
+        _ => "Sem casamento",
     };
 
     /// <summary>O tom da pílula, na chave que o estilo <c>lib-pill</c> lê: o que ainda falta traduzir é "ok" (verde), o que já existe em parte ou por inteiro é "warn".</summary>
@@ -34,7 +34,12 @@ public sealed class LibraryQueueRowViewModel(LibraryCardViewModel card, Translat
         _ => string.Empty,
     };
 
-    public string EngineText => Entry.Game.Engine.Translatable ? $"{Entry.Game.Engine.Name} · traduz" : LibraryCards.ChipText(Entry.Game.Engine);
+    public string EngineText => Entry.Game.Engine.Source switch
+    {
+        LibraryEngineSource.Engine => $"{Entry.Game.Engine.Name} · traduz",
+        LibraryEngineSource.Signature => LibraryCards.ChipText(Entry.Game.Engine),
+        _ => "Não reconhecida",
+    };
 
     public string EngineTone => Entry.Game.Engine.Translatable ? "ok" : "warn";
 

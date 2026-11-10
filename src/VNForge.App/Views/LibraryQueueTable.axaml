@@ -19,7 +19,16 @@
       <StackPanel Spacing="16">
         <Border Classes="lib-card" Padding="0" ClipToBounds="True">
           <StackPanel>
-            <Grid Name="QueueHeader" Height="38" Margin="16,0" ColumnDefinitions="28,2.2*,1.7*,1.4*,1.1*,*,170" ColumnSpacing="12">
+            <Grid Name="QueueHeader" Height="38" Margin="16,0" ColumnSpacing="12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="2.2*" MinWidth="120"/>
+                <ColumnDefinition Width="1.7*" MinWidth="120"/>
+                <ColumnDefinition Width="1.4*" MinWidth="140"/>
+                <ColumnDefinition Width="1.1*" MinWidth="108"/>
+                <ColumnDefinition Width="*" MinWidth="96"/>
+                <ColumnDefinition Width="150"/>
+              </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Jogo"/>
               <TextBlock Grid.Column="2" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Português no VNDB"/>
               <TextBlock Grid.Column="3" Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="Engine"/>
@@ -32,13 +41,22 @@
                   <Border Classes="qrow" Classes.sel="{Binding Card.IsSelected}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
                     <Button Classes="libcard" Command="{Binding $parent[v:LibraryQueueTable].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding Card}"
                             AutomationProperties.Name="{Binding AutomationName}">
-                      <Grid Margin="16,8" MinHeight="{DynamicResource Vnf.RowHeight}" ColumnDefinitions="28,2.2*,1.7*,1.4*,1.1*,*,170" ColumnSpacing="12">
+                      <Grid Margin="16,8" MinHeight="{DynamicResource Vnf.RowHeight}" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="28"/>
+                          <ColumnDefinition Width="2.2*" MinWidth="120"/>
+                          <ColumnDefinition Width="1.7*" MinWidth="120"/>
+                          <ColumnDefinition Width="1.4*" MinWidth="140"/>
+                          <ColumnDefinition Width="1.1*" MinWidth="108"/>
+                          <ColumnDefinition Width="*" MinWidth="96"/>
+                          <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
                         <TextBlock Classes="lib-dim" VerticalAlignment="Center" Text="{Binding PositionText}"/>
                         <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
                           <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="58" Background="{DynamicResource Vnf.BgInset}">
                             <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
                           </Border>
-                          <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" Text="{Binding Card.Title}"/>
+                          <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" Text="{Binding Card.Title}"/>
                         </Grid>
                         <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding PortugueseTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding PortugueseText}"/></Border>
                         <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding EngineTone}"><TextBlock TextTrimming="CharacterEllipsis" Text="{Binding EngineText}"/></Border>

@@ -65,6 +65,29 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
+    public async Task Jogo_da_Biblioteca_com_casamento_confirmado_traz_a_ficha_direto_sem_buscar_e_Voltar_oferece_a_busca()
+    {
+        var catalog = Catalog(Vn("v1", "Amaoto no Hakoniwa", Title), Vn("v2", "Outro", "別の"));
+        var vm = Create(catalog);
+        await vm.SetGameFolderAsync(game, "v1");
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Vndb, vm.Step);
+        Assert.Equal(VndbStage.Preview, vm.Stage);
+        Assert.Equal("v1", vm.ConfirmedVndb?.VisualNovelId);
+        Assert.Equal("Amaoto no Hakoniwa, v1", vm.Preview!.Label);
+        Assert.DoesNotContain(catalog.Calls, c => c.Contains("Search", StringComparison.Ordinal));
+
+        vm.BackCommand.Execute(null);
+
+        Assert.Equal(VndbStage.Empty, vm.Stage);
+        Assert.Null(vm.ConfirmedVndb);
+        Assert.Equal(WizardStep.Vndb, vm.Step);
+    }
+
+    [Fact]
     public async Task Sem_resultado_que_combine_com_a_pasta_nada_vem_marcado_e_avancar_espera_a_escolha()
     {
         var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Outro titulo", "雨音の箱庭 外伝")));
