@@ -287,18 +287,18 @@
                       <TextBlock Classes="fieldtext" Classes.chips="{Binding ProposalHasMarkers}" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
                     </Border>
                   </StackPanel>
-                  <!-- Não cabe na caixa: a caixa do jogo com a tradução de hoje e as duas saídas do Editor, dividir em páginas ou encurtar com a IA. -->
+                  <!-- Não cabe na caixa: o aviso com as duas saídas do Editor (dividir em páginas ou encurtar com a IA) vem antes da caixa do jogo, para aparecer sem rolar o painel; o quadro não tem o aviso, só a caixa. -->
                   <StackPanel Spacing="10" IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).HasSelectedFit}">
+                    <c:FitWarning DataContext="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectedFit}" x:DataType="vm:FitWarningViewModel"
+                                  Message="{Binding Message}" SplitText="{Binding SplitText}" ShortenText="{Binding ShortenText}"
+                                  SplitCommand="{Binding SplitCommand}" ShortenCommand="{Binding ShortenCommand}" ShowShorten="{Binding HasShortener}"
+                                  ErrorText="{Binding Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
                     <c:OverlineText Classes="overline" Text="Como fica na caixa do jogo"/>
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                       <c:GameTextbox HorizontalAlignment="Left" Size="Small"
                                      Layout="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectedLayout}"
                                      AutomationProperties.Name="Caixa do jogo"/>
                     </ScrollViewer>
-                    <c:FitWarning DataContext="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectedFit}" x:DataType="vm:FitWarningViewModel"
-                                  Message="{Binding Message}" SplitText="{Binding SplitText}" ShortenText="{Binding ShortenText}"
-                                  SplitCommand="{Binding SplitCommand}" ShortenCommand="{Binding ShortenCommand}" ShowShorten="{Binding HasShortener}"
-                                  ErrorText="{Binding Error}" AutomationProperties.Name="Aviso: não cabe na caixa do jogo"/>
                   </StackPanel>
                   <c:TechnicalDetails Key="conference" AutomationProperties.Name="Detalhes técnicos">
                     <StackPanel Spacing="4" Margin="0,8,0,0">
