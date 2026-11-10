@@ -71,6 +71,15 @@
       </ControlTemplate>
     </Setter>
   </Style>
+  <!-- O ToggleSwitch do Fluent reserva 12 px depois do botão e uma folga acima e abaixo mesmo sem texto; o quadro põe o rótulo a 8 px do botão. -->
+  <Style Selector="ToggleSwitch.lib-switch">
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="Margin" Value="0,-6,-12,-6"/>
+  </Style>
+  <!-- O contorno da capa escolhida passa da caixa do cartão: nenhum apresentador no caminho pode cortá-lo. -->
+  <Style Selector="ItemsControl.libgrid ContentPresenter">
+    <Setter Property="ClipToBounds" Value="False"/>
+  </Style>
   <Style Selector="Button.libcard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent"/>
   </Style>
@@ -196,6 +205,9 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="Padding" Value="15,4"/>
+  </Style>
+  <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.libseg > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
   </Style>
   <Style Selector="ListBox.libseg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
