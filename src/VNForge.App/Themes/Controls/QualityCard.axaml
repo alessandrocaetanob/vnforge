@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- QualityCard (".opt" e ".v3-qc" do quadro): o OptionCard com o círculo de rádio na linha do título (display 15/20 bold), o preço em 17/24 bold e o tempo embaixo, em letra pequena.
+  <!-- QualityCard (".opt" e ".v3-qc" do quadro): o OptionCard com o círculo de rádio na linha do título (display 15/20 bold), o preço em 17/24 bold e o tempo ao lado dele, em letra pequena.
        Sem nome de modelo: a qualidade basta. Marcado, só a borda vira accent de 2px; o fundo fica o do cartão. -->
   <Style Selector="c|QualityCard">
     <Setter Property="Padding" Value="16,14"/>
@@ -17,12 +17,13 @@
               <Border Name="PART_Mark" Classes="radio-mark"/>
               <TextBlock Grid.Column="1" Classes="title-sm" LineHeight="20" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
-            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{TemplateBinding Description}"
+            <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro da #547 tem 12 com entrelinha de 20. -->
+            <TextBlock FontSize="12" LineHeight="20" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Description}"
                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-            <StackPanel IsVisible="{TemplateBinding ShowPrice}">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{TemplateBinding ShowPrice}">
               <TextBlock Name="PART_Price" Text="{TemplateBinding PriceText}" FontSize="17" LineHeight="24" FontWeight="Bold"/>
-              <!-- Sem as classes caption e secondary: o estilo delas ganha do valor local no template e mandaria 12/16; o quadro tem 12 com entrelinha de 1,6 (19,2, arredondada para 19 no render), que dá os 158 de altura do cartão. -->
-              <TextBlock Name="PART_Duration" FontSize="12" LineHeight="19" Foreground="{DynamicResource Vnf.TextSecondary}" TextWrapping="Wrap" Text="{TemplateBinding Duration}"
+              <TextBlock Name="PART_Duration" FontSize="12" LineHeight="20" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{TemplateBinding Duration}"
+                         VerticalAlignment="Bottom" Margin="0,0,0,1"
                          IsVisible="{TemplateBinding Duration, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <TextBlock Name="PART_RateMark" Classes="caption secondary" Text="(cotação de exemplo)" IsVisible="{TemplateBinding ExampleRate}"/>
