@@ -1,3 +1,4 @@
+using System.Globalization;
 using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
@@ -102,4 +103,52 @@ public sealed class LibraryDrawerViewModel(LibraryCardViewModel card, LibraryDra
     public bool IsMatched => Card.Game.IsConfirmed;
 
     public bool CanTranslate => Card.Game.Engine.Translatable;
+
+    private LibraryVersionLabel? VersionLabel => Card.Version is { } version ? LibraryVersionLabel.For(version) : null;
+
+    /// <summary>"Versão do jogo": só para o jogo que tem projeto ligado, que é de onde vêm o patch e o backup.</summary>
+    public bool HasVersion => VersionLabel is not null;
+
+    public string VersionPill => VersionLabel?.Pill ?? string.Empty;
+
+    public string VersionTone => VersionLabel?.Tone ?? "pend";
+
+    public string VersionDetail => VersionLabel?.Detail ?? string.Empty;
+
+    public string? VersionNote => VersionLabel?.Note;
+
+    public bool HasVersionNote => VersionNote is not null;
+
+    /// <summary>"Última troca": quando a injeção que está na pasta foi gravada; só existe com patch no jogo.</summary>
+    public string? LastSwitchText => Card.Version is { Kind: LibraryTranslationKind.Translated, Patch: { } patch }
+        ? patch.AppliedAt.ToLocalTime().ToString("dd/MM/yyyy, HH:mm", CultureInfo.InvariantCulture)
+        : null;
+
+    public bool HasLastSwitch => LastSwitchText is not null;
+
+    public IReadOnlyList<LibraryVersionItem> Versions { get; } = [new(false, "Original"), new(true, "Traduzido")];
+
+    /// <summary>Estado desconhecido não troca nada: o controle fica desligado e a gaveta diz o motivo.</summary>
+    public bool IsVersionKnown => Card.Version is { Kind: not LibraryTranslationKind.Unknown };
+
+    /// <summary>O botão marcado: "Original" com o jogo como veio, "Traduzido" com a tradução inteira, nenhum quando a pasta só tem parte dela. Escolher o outro troca.</summary>
+    public LibraryVersionItem? SelectedVersion
+    {
+        get => Card.Version switch
+        {
+            { Kind: LibraryTranslationKind.Original } => Versions[0],
+            { } version when LibraryVersionLabel.IsFullTranslation(version) => Versions[1],
+            _ => null,
+        };
+        set
+        {
+            if (value is not null && value != SelectedVersion && IsVersionKnown && !Library.IsSwitching)
+            {
+                Library.StartSwitch(Card, value.Translated);
+            }
+        }
+    }
 }
+
+/// <summary>Um botão do controle "Original / Traduzido" da gaveta.</summary>
+public sealed record LibraryVersionItem(bool Translated, string Label);

@@ -60,6 +60,8 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly Action<string> openFolder;
     private readonly Action<Action> post;
     private readonly Dictionary<string, StatusCounts?> translations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LibraryTranslationState> versions = new(StringComparer.Ordinal);
+    private readonly LibraryTranslationSwitcher? switcher;
     private List<LibraryGame> games = [];
     private GameLibrary library = new();
     private UserTags userTags = new();
@@ -81,7 +83,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         Func<LibraryGame, StatusCounts?>? readTranslation = null,
         Func<UserTags>? userTags = null,
         ILibrarySheetSource? sheets = null,
-        Action<string>? openFolder = null)
+        Action<string>? openFolder = null,
+        LibraryTranslationSwitcher? switcher = null)
     {
         this.file = file;
         this.picker = picker;
@@ -92,6 +95,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         readUserTags = userTags ?? (() => new UserTags());
         this.sheets = sheets;
         this.openFolder = openFolder ?? (_ => { });
+        this.switcher = switcher;
         this.post = post;
         Filters =
         [
@@ -257,11 +261,12 @@ public sealed partial class LibraryViewModel : ObservableObject
         string? error = null;
         GameLibrary loaded;
         Dictionary<string, StatusCounts?> counts = new(StringComparer.Ordinal);
+        Dictionary<string, LibraryTranslationState> states = new(StringComparer.Ordinal);
         UserTags tags;
         try
         {
             var recent = RecentProjects();
-            (loaded, counts, tags) = await Task.Run(() => Read(recent), CancellationToken.None);
+            (loaded, counts, tags, states) = await Task.Run(() => Read(recent), CancellationToken.None);
         }
         catch (LibraryException e)
         {
@@ -285,6 +290,12 @@ public sealed partial class LibraryViewModel : ObservableObject
             translations[pair.Key] = pair.Value;
         }
 
+        versions.Clear();
+        foreach (var pair in states)
+        {
+            versions[pair.Key] = pair.Value;
+        }
+
         ErrorMessage = error;
         if (Mode != LibraryMode.FirstScan || Scan.Phase == LibraryScanPhase.Idle)
         {
@@ -294,11 +305,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         Redraw();
     }
 
-    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags) Read(IReadOnlyList<string> recent)
+    private (GameLibrary Library, Dictionary<string, StatusCounts?> Counts, UserTags Tags, Dictionary<string, LibraryTranslationState> Versions) Read(IReadOnlyList<string> recent)
     {
         if (file is null)
         {
-            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), readUserTags());
+            return (new GameLibrary(), new Dictionary<string, StatusCounts?>(StringComparer.Ordinal), readUserTags(), new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal));
         }
 
         var current = file.Load();
@@ -312,12 +323,14 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         var counts = new Dictionary<string, StatusCounts?>(StringComparer.Ordinal);
+        var states = new Dictionary<string, LibraryTranslationState>(StringComparer.Ordinal);
         foreach (var game in current.Games.Where(g => g.ProjectPath is not null))
         {
             counts[game.Id] = readTranslation(game);
+            states[game.Id] = LibraryTranslationReader.Read(game);
         }
 
-        return (current, counts, readUserTags());
+        return (current, counts, readUserTags(), states);
     }
 
     private int? PercentOf(LibraryGame game) =>
@@ -344,7 +357,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         Cards.Clear();
         foreach (var game in shown)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id))));
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id)));
         }
 
         HasNoResults = games.Count > 0 && Cards.Count == 0;
