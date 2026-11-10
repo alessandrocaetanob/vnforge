@@ -204,6 +204,30 @@ public sealed class LibraryPlayTests : IDisposable
     }
 
     [Fact]
+    public async Task Aba_Jogar_lista_as_quatro_sessoes_mais_recentes_como_o_quadro_e_o_tempo_total_conta_todas()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var playLog = new PlayLogFile(Config, _clock);
+        for (var daysAgo = 1; daysAgo <= 6; daysAgo++)
+        {
+            var started = Start.AddDays(-daysAgo);
+            playLog.Record(game.Id, new PlaySession(PlaySession.NewId(), started, started.AddMinutes(30), TimeSpan.FromMinutes(30)));
+        }
+
+        var library = Create(new FakeGameLauncher(_clock));
+        await library.LoadAsync();
+        var play = new GamePlayViewModel(library, _clock);
+        play.Open(project);
+
+        Assert.Equal(4, play.Rows.Count);
+        Assert.Equal("Ontem", play.Rows[0].When.Split(',')[0]);
+        Assert.Equal("3 h 00 min", play.TotalText);
+        Assert.StartsWith("em 6 sessões", play.AverageText);
+    }
+
+    [Fact]
     public async Task Interruptor_do_lancador_mexido_logo_antes_do_Jogar_vale_na_abertura()
     {
         var project = _root.SubFolder("projeto");

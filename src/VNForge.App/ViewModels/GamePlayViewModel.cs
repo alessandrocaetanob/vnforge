@@ -17,6 +17,9 @@ public sealed partial class GamePlayViewModel : ObservableObject
     private const double ChartHeight = 80;
     private const double ChartMinBar = 4;
 
+    // O quadro da aba mostra as quatro mais recentes; o total e o gráfico contam todas.
+    private const int VisibleRows = 4;
+
     private readonly LibraryViewModel library;
     private readonly TimeProvider clock;
     private string? projectRoot;
@@ -163,7 +166,7 @@ public sealed partial class GamePlayViewModel : ObservableObject
         var sessions = game is null ? [] : library.Played.SessionsOf(game.Id);
         var now = clock.GetUtcNow();
         var stats = game is null ? PlayStats.None : library.Played.StatsOf(game.Id);
-        Rows = ShowsWeeks ? PlayHistory.WeekRows(sessions, now) : PlayHistory.Rows(sessions, now);
+        Rows = [.. (ShowsWeeks ? PlayHistory.WeekRows(sessions, now) : PlayHistory.Rows(sessions, now)).Take(VisibleRows)];
         TotalText = stats.Sessions == 0 ? "0 min" : PlayTime.Format(stats.Total);
         AverageText = Describe(stats);
         Bars = BarsOf(PlayHistory.PerWeek(sessions, now));

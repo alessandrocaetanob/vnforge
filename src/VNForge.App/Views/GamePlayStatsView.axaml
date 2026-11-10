@@ -37,14 +37,14 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Classes="lib-dim" FontSize="11" LineHeight="16" Foreground="{DynamicResource Vnf.TextTertiary}" Text="12 semanas atrás"/>
-          <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="11" LineHeight="16" Foreground="{DynamicResource Vnf.TextTertiary}" Text="esta semana"/>
+          <TextBlock Classes="lib-dim" FontSize="11" LineHeight="20" Foreground="{DynamicResource Vnf.TextTertiary}" Text="12 semanas atrás"/>
+          <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="11" LineHeight="20" Foreground="{DynamicResource Vnf.TextTertiary}" Text="esta semana"/>
         </Grid>
       </StackPanel>
     </Border>
 
     <Border Classes="sheet-card">
-      <StackPanel Spacing="8">
+      <StackPanel Spacing="12">
         <TextBlock Classes="sheet-h3" Text="Último jogado"/>
         <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="Este jogo fica no topo da Biblioteca, em Continuar jogando, por até 30 dias."/>
       </StackPanel>

@@ -62,7 +62,7 @@
 
     <Border Classes="sheet-card" Padding="0" IsVisible="{Binding HasGame}">
       <StackPanel>
-        <Grid ColumnDefinitions="*,Auto" Margin="16">
+        <Grid ColumnDefinitions="*,Auto" Margin="16,17">
           <TextBlock Classes="sheet-h3" Text="Sessões" VerticalAlignment="Center"/>
           <ListBox Name="SessionsView" Grid.Column="1" Classes="seg" ItemsSource="{Binding ViewOptions}" SelectedIndex="{Binding ViewIndex}" AutomationProperties.Name="Ver as sessões por"/>
         </Grid>
@@ -70,8 +70,8 @@
         <ItemsControl Name="Rows" ItemsSource="{Binding Rows}" AutomationProperties.Name="Sessões de jogo">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="core:PlaySessionRow">
-              <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0" Padding="16,12">
-                <Grid ColumnDefinitions="*,140,160">
+              <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0" Padding="16,12,16,15">
+                <Grid ColumnDefinitions="*,140,160" ColumnSpacing="12">
                   <TextBlock VerticalAlignment="Center" Text="{Binding When}"/>
                   <TextBlock Grid.Column="1" VerticalAlignment="Center" FontWeight="Bold" Text="{Binding Duration}"/>
                   <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="lib-dim" Text="{Binding Via}"/>

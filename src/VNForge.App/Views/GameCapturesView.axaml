@@ -68,7 +68,7 @@
     <c:EmptyState Name="NoGame" IsVisible="{Binding HasNoGame}" Message="Este projeto não está na Biblioteca. Adicione a pasta do jogo à Biblioteca para guardar capturas e notas por aqui."/>
 
     <ScrollViewer IsVisible="{Binding HasGame}" HorizontalScrollBarVisibility="Disabled">
-      <Grid Margin="32,20,32,24" ColumnDefinitions="*,420" ColumnSpacing="24">
+      <Grid Margin="32,20,32,24" ColumnDefinitions="*,352" ColumnSpacing="24">
         <StackPanel VerticalAlignment="Top" Spacing="16">
           <v:GamePlayView DataContext="{Binding Session}"/>
           <Border Classes="shots-card">
