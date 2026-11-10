@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.LibraryVndbListCard"
+             x:DataType="vm:LibraryVndbListViewModel">
+
+  <!-- O cartão "Na sua lista do VNDB" (quadro do #550): rótulos, voto, datas, notas e as duas ações. -->
+  <Border Name="ListCard" Classes="lib-card">
+    <StackPanel Spacing="12">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="lib-h3" VerticalAlignment="Center" Text="Na sua lista do VNDB"/>
+        <Border Name="SyncPill" Grid.Column="1" Classes="lib-pill" Tag="{Binding SyncTone}"><TextBlock Text="{Binding SyncText}"/></Border>
+      </Grid>
+
+      <ItemsControl Name="LabelChips" ItemsSource="{Binding Labels}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:VndbLabelChip">
+            <c:FilterChip Margin="0,0,6,6" Label="{Binding Text}" IsChecked="{Binding IsOn, Mode=OneWay}"
+                          Command="{Binding $parent[ItemsControl].((vm:LibraryVndbListViewModel)DataContext).ToggleLabelCommand}" CommandParameter="{Binding}"
+                          AutomationProperties.Name="{Binding Text}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+        <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Voto"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <TextBox Name="VoteBox" Width="72" Text="{Binding VoteInput}" PlaceholderText="sem voto" AutomationProperties.Name="Voto de 1 a 10"/>
+          <TextBlock VerticalAlignment="Center" FontSize="13" Classes="lib-dim" Text="de 10"/>
+        </StackPanel>
+        <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Início"/>
+        <TextBox Name="StartedBox" Grid.Row="1" Grid.Column="1" Width="176" HorizontalAlignment="Left" Text="{Binding StartedInput}" PlaceholderText="ainda não começou" AutomationProperties.Name="Data de início, dia/mês/ano"/>
+        <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" LineHeight="20" VerticalAlignment="Center" Text="Fim"/>
+        <TextBox Name="FinishedBox" Grid.Row="2" Grid.Column="1" Width="176" HorizontalAlignment="Left" Text="{Binding FinishedInput}" PlaceholderText="ainda não terminou" AutomationProperties.Name="Data de fim, dia/mês/ano"/>
+      </Grid>
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="lib-dim" FontSize="12" Text="Notas"/>
+        <TextBox Name="NotesBox" Text="{Binding NotesText}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120"
+                 PlaceholderText="Nada anotado" AutomationProperties.Name="Notas da lista do VNDB"/>
+      </StackPanel>
+
+      <WrapPanel>
+        <Button Name="MarkFinishedButton" Classes="sm" Margin="0,0,8,6" Command="{Binding MarkFinishedCommand}" IsVisible="{Binding CanMarkFinished}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Checkmark}"/>
+            <TextBlock Text="Marcar como terminado"/>
+          </StackPanel>
+        </Button>
+        <Button Name="OpenInVndbButton" Classes="subtle sm" Margin="0,0,0,6" Command="{Binding OpenInVndbCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
+            <TextBlock Text="Abrir no VNDB"/>
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+
+      <TextBlock Name="ListMessage" Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="{Binding Message}"
+                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+    </StackPanel>
+  </Border>
+</UserControl>

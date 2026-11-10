@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
              xmlns:vndb="using:VNForge.Core.Vndb"
              x:Class="VNForge.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
@@ -882,6 +883,11 @@
             <TextBlock Name="LocaleEmulatorStatus" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Status}"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A pasta onde está o LEProc.exe, ou o próprio LEProc.exe. Cada jogo escolhe, na gaveta da Biblioteca, se abre por ele."/>
           </StackPanel>
+        </TabItem>
+
+        <!-- VNDB: o token da conta, no cofre do Windows, e a sincronização da lista (#550). Sem o serviço ligado, a aba não aparece. -->
+        <TabItem Header="VNDB" IsVisible="{Binding Vndb, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <v:VndbSettingsView DataContext="{Binding Vndb}"/>
         </TabItem>
       </TabControl>
 

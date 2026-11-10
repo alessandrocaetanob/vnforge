@@ -70,7 +70,7 @@ public sealed partial class EditorViewModel
         {
             loadedContext = contextLoader(root);
             var snapshot = lines.BeginRecheck(includeProjectRules: true);
-            result = await Task.Run(snapshot.Run);
+            result = await Task.Run(snapshot.Run, CancellationToken.None);
         }
         catch (Exception e)
         {
