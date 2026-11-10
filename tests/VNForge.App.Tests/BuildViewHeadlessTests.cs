@@ -193,7 +193,9 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 var window = Abrir(vm);
                 var selecionaveis = window.GetVisualDescendants().OfType<SelectableTextBlock>().ToList();
 
-                Assert.Contains(selecionaveis, t => t.Text == vm.ErrorMessage);
+                var faixa = window.GetVisualDescendants().OfType<VNForge.App.Controls.GameStateBanner>().Single(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Mensagem de erro");
+                Assert.Equal(vm.ErrorTitle, faixa.Title);
+                Assert.Equal(vm.ErrorDetail, faixa.Message);
                 Assert.All(
                     selecionaveis,
                     t => Assert.Contains(((MenuFlyout)t.ContextFlyout!).Items.OfType<MenuItem>(), i => i.Header as string == "Copiar"));

@@ -81,7 +81,7 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.Equal(GameState.Blocked, vm.GameBannerState);
         Assert.Equal("2 erros travam o teste no jogo", vm.GameBannerTitle);
         Assert.Contains("Falta ou sobra um marcador (2)", vm.GameBannerMessage, StringComparison.Ordinal);
-        Assert.Contains("Conferir a tradução", vm.GameBannerMessage, StringComparison.Ordinal);
+        Assert.Contains("Corrija em Conferir.", vm.GameBannerMessage, StringComparison.Ordinal);
         Assert.False(vm.TestCommand.CanExecute(null));
         Assert.True(vm.TestAccentsCommand.CanExecute(null));
         Assert.True(vm.ReturnToOriginalCommand.CanExecute(null));
