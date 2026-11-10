@@ -871,6 +871,20 @@
           </StackPanel>
         </TabItem>
 
+        <!-- Jogos: o Locale Emulator que o Jogar da Biblioteca usa nos jogos que pedem localidade japonesa. -->
+        <TabItem Header="Jogos" IsVisible="{Binding HasLocaleEmulator}">
+          <StackPanel Margin="0,16,0,0" Spacing="8" DataContext="{Binding LocaleEmulator}" x:DataType="vm:LocaleEmulatorSettingsViewModel">
+            <c:OverlineText Classes="overline" Text="Locale Emulator"/>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+              <TextBox Name="LocaleEmulatorPath" Text="{Binding PathText}" PlaceholderText="C:\Ferramentas\LocaleEmulator" AutomationProperties.Name="Caminho do Locale Emulator"/>
+              <Button Grid.Column="1" Command="{Binding ChooseCommand}" Content="Escolher a pasta"/>
+              <Button Grid.Column="2" Classes="accent" Command="{Binding SaveCommand}" Content="Salvar"/>
+            </Grid>
+            <TextBlock Name="LocaleEmulatorStatus" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Status}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A pasta onde está o LEProc.exe, ou o próprio LEProc.exe. Cada jogo escolhe, na gaveta da Biblioteca, se abre por ele."/>
+          </StackPanel>
+        </TabItem>
+
         <!-- VNDB: o token da conta, no cofre do Windows, e a sincronização da lista (#550). Sem o serviço ligado, a aba não aparece. -->
         <TabItem Header="VNDB" IsVisible="{Binding Vndb, Converter={x:Static ObjectConverters.IsNotNull}}">
           <v:VndbSettingsView DataContext="{Binding Vndb}"/>

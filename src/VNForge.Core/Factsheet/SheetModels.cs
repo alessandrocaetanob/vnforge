@@ -70,7 +70,10 @@ public sealed record GameSheet(
     IReadOnlyList<LibraryTag> Tags,
     IReadOnlyList<string> CharacterIds,
     bool CharactersTruncated,
-    DateTimeOffset FetchedAt);
+    DateTimeOffset FetchedAt,
+    string? Released = null,
+    string? OriginalLanguage = null,
+    double? Rating = null);
 
 /// <summary>Os rótulos em português do que o VNDB marca nos personagens e no jogo.</summary>
 public static class SheetLabels
@@ -99,6 +102,92 @@ public static class SheetLabels
         Text.TranslationStatus.Reviewed => "revisado",
         Text.TranslationStatus.Approved => "aprovado",
         _ => "sem tradução",
+    };
+
+    /// <summary>O papel como o selo do cartão o escreve: "Protagonista", "Principal", "Secundário" (ou "Secundária" para uma personagem feminina) e "Aparece".</summary>
+    public static string RoleBadge(string role, string? genderLabel) => role switch
+    {
+        "main" => "Protagonista",
+        "primary" => "Principal",
+        "side" => string.Equals(genderLabel, "feminino", StringComparison.Ordinal) ? "Secundária" : "Secundário",
+        "appears" => "Aparece",
+        _ => role,
+    };
+
+    /// <summary>O selo da etapa como os cartões e os botões o escrevem: "Traduzido pela IA", "Traduzido", "Revisado", "Aprovado" e "Sem tradução"; <paramref name="feminine"/> concorda com um substantivo feminino (a sinopse).</summary>
+    public static string StatusBadge(Text.TranslationStatus status, bool feminine = false) => status switch
+    {
+        Text.TranslationStatus.Machine => feminine ? "Traduzida pela IA" : "Traduzido pela IA",
+        Text.TranslationStatus.Translated => feminine ? "Traduzida" : "Traduzido",
+        Text.TranslationStatus.Reviewed => feminine ? "Revisada" : "Revisado",
+        Text.TranslationStatus.Approved => feminine ? "Aprovada" : "Aprovado",
+        _ => "Sem tradução",
+    };
+
+    /// <summary>A duração como a ficha a escreve: "Média · 18 h (47 votos)"; só a categoria traz a faixa em horas ("Média · 10 a 30 h"), e sem votos vale "Sem votos".</summary>
+    public static string LengthDetail(int? minutes, int? category, int votes)
+    {
+        (string Name, string Range)? band = category switch
+        {
+            1 => ("Muito curta", "menos de 2 h"),
+            2 => ("Curta", "2 a 10 h"),
+            3 => ("Média", "10 a 30 h"),
+            4 => ("Longa", "30 a 50 h"),
+            5 => ("Muito longa", "mais de 50 h"),
+            _ => null,
+        };
+        if (minutes is null && band is null)
+        {
+            return "Sem votos";
+        }
+
+        var parts = new List<string>();
+        if (band is { } known)
+        {
+            parts.Add(known.Name);
+        }
+
+        if (minutes is { } m)
+        {
+            parts.Add(m >= 60 ? $"{(int)Math.Round(m / 60.0, MidpointRounding.AwayFromZero)} h" : $"{m} min");
+        }
+        else if (band is { } only)
+        {
+            parts.Add(only.Range);
+        }
+
+        var text = string.Join(" · ", parts);
+        return votes > 0 ? $"{text} ({votes} {(votes == 1 ? "voto" : "votos")})" : text;
+    }
+
+    /// <summary>"2019, em japonês": o ano do lançamento do VNDB (<c>2019-05-24</c>, <c>2019-05</c> ou <c>2019</c>) e a língua original; nulo quando o VNDB não diz nenhum dos dois.</summary>
+    public static string? Released(string? released, string? language)
+    {
+        var year = released is { Length: >= 4 } text && text[..4].All(char.IsAsciiDigit) ? text[..4] : string.Equals(released, "tba", StringComparison.OrdinalIgnoreCase) ? "A anunciar" : null;
+        var name = LanguageName(language);
+        return (year, name) switch
+        {
+            (null, null) => null,
+            (null, _) => $"em {name}",
+            (_, null) => year,
+            _ => $"{year}, em {name}",
+        };
+    }
+
+    /// <summary>O nome em português de uma língua do VNDB (<c>ja</c>, <c>en</c>...); nulo para uma que a ficha não conhece.</summary>
+    public static string? LanguageName(string? code) => code?.ToLowerInvariant() switch
+    {
+        "ja" => "japonês",
+        "en" => "inglês",
+        "zh" or "zh-hans" or "zh-hant" => "chinês",
+        "ko" => "coreano",
+        "pt" or "pt-br" => "português",
+        "es" => "espanhol",
+        "fr" => "francês",
+        "de" => "alemão",
+        "ru" => "russo",
+        "it" => "italiano",
+        _ => null,
     };
 
     /// <summary>Masculino, feminino, não binário ou ambíguo; <c>desconhecido</c> quando o VNDB não diz.</summary>

@@ -83,24 +83,56 @@
     <!-- Os jogos: o cabeçalho, a busca e os filtros, a grade ou a lista e, à direita, a gaveta do jogo escolhido. -->
     <Grid Name="GamesPage" ColumnDefinitions="*,Auto" IsVisible="{Binding HasGames}">
       <Grid RowDefinitions="Auto,Auto,*" Margin="32,24,32,0" RowSpacing="20">
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
-          <StackPanel>
-            <TextBlock Classes="lib-h1" Text="Biblioteca"/>
-            <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+        <StackPanel Spacing="20">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+            <StackPanel>
+              <TextBlock Classes="lib-h1" Text="Biblioteca"/>
+              <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+            </StackPanel>
+            <Button Grid.Column="1" Name="RescanButton" Command="{Binding RescanCommand}" VerticalAlignment="Top">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+                <TextBlock Text="Varrer de novo"/>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
+                <TextBlock Text="Adicionar pasta"/>
+              </StackPanel>
+            </Button>
+          </Grid>
+          <!-- "Continuar jogando": os últimos jogados, o último primeiro; cada cartão tem o Jogar. -->
+          <StackPanel Name="ContinuePanel" Spacing="12" IsVisible="{Binding HasContinue}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="lib-h3" Text="Continuar jogando"/>
+              <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="por último jogado"/>
+            </Grid>
+            <ItemsControl Name="ContinueTiles" Margin="-8,0" ItemsSource="{Binding Continue}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryContinueViewModel">
+                  <Border Classes="lib-card" Padding="10" Margin="8,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                      <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
+                        <c:Cover Width="44" Image="{Binding Card.Image}" Seed="{Binding Title}" IsVisible="{Binding Card.HasImage}"/>
+                      </Border>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
+                        <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Detail}"/>
+                      </StackPanel>
+                      <Button Grid.Column="2" Classes="sm" VerticalAlignment="Center" IsEnabled="False" IsVisible="{Binding Card.IsPlaying}" Content="Jogando" AutomationProperties.Name="Jogando"/>
+                      <Button Grid.Column="2" Classes="accent icon sm" VerticalAlignment="Center" IsVisible="{Binding !Card.IsPlaying}" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).PlayCommand}"
+                              CommandParameter="{Binding Card}" AutomationProperties.Name="{Binding AutomationName, StringFormat='Jogar {0}'}">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
-          <Button Grid.Column="1" Name="RescanButton" Command="{Binding RescanCommand}" VerticalAlignment="Top">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
-              <TextBlock Text="Varrer de novo"/>
-            </StackPanel>
-          </Button>
-          <Button Grid.Column="2" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
-              <TextBlock Text="Adicionar pasta"/>
-            </StackPanel>
-          </Button>
-        </Grid>
+        </StackPanel>
 
         <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -193,10 +225,16 @@
                     <TextBlock Text="Abrir jogo"/>
                   </StackPanel>
                 </Button>
-                <Button Name="PlayButton" IsEnabled="False" ToolTip.Tip="Jogar chega com a página Jogar." ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Jogar">
+                <Button Name="PlayButton" Command="{Binding Library.PlayCommand}" CommandParameter="{Binding Card}" IsVisible="{Binding !Card.IsPlaying}" AutomationProperties.Name="Jogar">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
                     <TextBlock Text="Jogar"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="PlayingButton" IsEnabled="False" IsVisible="{Binding Card.IsPlaying}" AutomationProperties.Name="Jogando">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                    <TextBlock Text="Jogando"/>
                   </StackPanel>
                 </Button>
                 <Button Name="MoreButton" Classes="icon" AutomationProperties.Name="Mais ações do jogo">
@@ -213,6 +251,21 @@
               </StackPanel>
               <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
                       Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
+
+              <Border Classes="lib-hr"/>
+
+              <StackPanel Spacing="8">
+                <c:OverlineText Classes="overline" Text="Jogar"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Abrir pelo Locale Emulator"/>
+                    <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="Marque se o jogo pede localidade japonesa. O caminho do Locale Emulator fica nos Ajustes."/>
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" Name="JapaneseLocaleSwitch" Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" VerticalAlignment="Center"
+                                IsChecked="{Binding RequiresJapaneseLocale}" AutomationProperties.Name="Abrir pelo Locale Emulator"/>
+                </Grid>
+                <TextBlock Name="PlayedText" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding PlayedText}"/>
+              </StackPanel>
 
               <Border Classes="lib-hr"/>
 

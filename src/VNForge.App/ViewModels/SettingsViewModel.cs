@@ -397,7 +397,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Termina quando a estimativa das linhas pendentes foi calculada (ou descartada por outro projeto).</summary>
     public Task EstimateLoading { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência).</summary>
+    /// <summary>O caminho do Locale Emulator da aba Jogos; nulo (e a aba escondida) onde o app não tem Biblioteca, como nos testes do shell.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLocaleEmulator))]
+    public partial LocaleEmulatorSettingsViewModel? LocaleEmulator { get; set; }
+
+    public bool HasLocaleEmulator => LocaleEmulator is not null;
+
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Jogos).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PageMaxWidth))]
     public partial int SelectedTab { get; set; }

@@ -71,6 +71,33 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public async Task Continuar_jogando_poe_os_ultimos_jogados_no_topo_da_grade_e_a_gaveta_diz_o_tempo(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library => library.Select(library.Cards.Single(c => c.Title == "Amaoto no Hakoniwa")), (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[] { "Continuar jogando", "por último jogado", "Abrir pelo Locale Emulator", "Jogar" })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            var tiles = window.GetVisualDescendants().OfType<Border>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("lib-card") && b.Padding == new Thickness(10)).ToList();
+            Assert.Equal(3, tiles.Count);
+            var lefts = tiles.Select(tile => tile.TranslatePoint(default, window)!.Value.X).ToList();
+            Assert.True(lefts[0] < lefts[1] && lefts[1] < lefts[2]);
+            Assert.Contains(texts, t => t.EndsWith("· 27 h 40 min", StringComparison.Ordinal));
+            Assert.Contains(texts, t => t == "Há 5 dias · 7 h 05 min");
+            Assert.Contains(texts, t => t == "Há 12 dias · 3 h 20 min");
+            Assert.Contains(texts, t => t.StartsWith("27 h 40 min em 1 sessão · último jogado ", StringComparison.Ordinal));
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-continuar", theme)));
+        }, played: true);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Gaveta_abre_no_jogo_escolhido_com_a_ficha_as_tags_e_o_andamento(string themeName)
     {
         var theme = ThemeOf(themeName);
@@ -87,7 +114,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             }
 
             Assert.Contains("雨音の箱庭", texts);
-            Assert.False(window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PlayButton").IsEnabled);
+            Assert.False(window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PlayButton").IsEffectivelyEnabled);
             var drawer = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("lib-drawer"));
             Assert.Equal(396, drawer.Bounds.Width, 1);
             Assert.Equal(new CornerRadius(20), drawer.CornerRadius);
@@ -202,7 +229,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         }, empty: true);
     }
 
-    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false)
+    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
@@ -211,7 +238,13 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 var previous = VndbImages.Source;
                 VndbImages.Source = new LibrarySamples.Images();
                 var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library());
-                var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, userTags: Tags, sheets: new LibrarySamples.Sheets());
+                var playLog = new PlayLogFile(config.Path);
+                if (played)
+                {
+                    PlaySamples(playLog);
+                }
+
+                var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, userTags: Tags, sheets: new LibrarySamples.Sheets(), player: played ? new GamePlayer(new NoLauncher(), playLog) : null, playLog: playLog);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(LibrarySamples.Now));
                 var vm = new MainWindowViewModel(start, library: library);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
@@ -232,6 +265,22 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Três jogos jogados, como no quadro: hoje (27 h 40 min), há 5 dias (7 h 05 min) e há 12 dias (3 h 20 min).</summary>
+    private static void PlaySamples(PlayLogFile playLog)
+    {
+        foreach (var (title, daysAgo, time) in new[] { ("Amaoto no Hakoniwa", 0, new TimeSpan(27, 40, 0)), ("Hoshikuzu Diary", 5, new TimeSpan(7, 5, 0)), ("Namiuchigiwa no Shiori", 12, new TimeSpan(3, 20, 0)) })
+        {
+            var end = LibrarySamples.Now.AddDays(-daysAgo).AddMinutes(-20);
+            playLog.Record(LibrarySamples.Games().Single(g => g.Title == title).Id, new PlaySession(PlaySession.NewId(), end - time, end, time));
+        }
+    }
+
+    // O Jogar só precisa estar habilitado para o render; nenhum teste daqui abre jogo.
+    private sealed class NoLauncher : IGameLauncher
+    {
+        public IGameProcess Start(GameLaunch launch) => throw new NotSupportedException();
     }
 
     private static UserTags Tags()
