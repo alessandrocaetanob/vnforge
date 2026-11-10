@@ -67,6 +67,10 @@
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
     </Style>
+    <Style Selector="Button.palette-trigger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    </Style>
   </Window.Styles>
 
   <!-- O Mica só aparece com Background transparente; sem ele (sessão remota, economia de bateria) a reserva bg-base cobre o fundo. -->

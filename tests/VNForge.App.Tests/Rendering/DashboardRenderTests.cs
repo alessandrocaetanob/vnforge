@@ -177,6 +177,34 @@ public sealed class DashboardRenderTests(HeadlessFixture fixture, DemoFolderFixt
         });
     }
 
+    /// <summary>
+    /// Abaixo de 1100 px a coluna da direita desce para baixo do mapa; ao alargar de novo ela volta com os 384 px do quadro, não com a largura de antes da #544.
+    /// A ação de "Precisa de você" mantém o texto na margem, mas a área de clique tem 32 px de altura.
+    /// </summary>
+    [Fact]
+    public async Task A_coluna_da_direita_volta_com_384_px_depois_de_estreitar_e_alargar_a_janela()
+    {
+        await Abrir(ThemeVariant.Dark, ScreenRenderer.Height, (window, _) =>
+        {
+            var view = Assert.Single(window.GetVisualDescendants().OfType<DashboardView>(), v => v.IsEffectivelyVisible);
+            var side = view.GetVisualDescendants().OfType<Control>().Single(c => c.Name == "Side");
+            Assert.Equal(DashboardView.SideWidth, side.Bounds.Width);
+
+            window.Width = 900;
+            ScreenRenderer.Settle(window);
+            Assert.Equal(1, Grid.GetRow(side));
+            Assert.True(side.Bounds.Width > DashboardView.SideWidth);
+
+            window.Width = ScreenRenderer.Width;
+            ScreenRenderer.Settle(window);
+            Assert.Equal(0, Grid.GetRow(side));
+            Assert.Equal(384, side.Bounds.Width);
+
+            var action = view.GetVisualDescendants().OfType<TodoItem>().First().GetVisualDescendants().OfType<Button>().Single();
+            Assert.True(action.Bounds.Height >= 32, $"a área de clique da ação tem {action.Bounds.Height} px de altura");
+        });
+    }
+
     public static TheoryData<string, int> ThemesAndWidths => new() { { "Dark", 1366 }, { "Light", 1366 }, { "Dark", 1440 }, { "Light", 1440 } };
 
     [Theory]

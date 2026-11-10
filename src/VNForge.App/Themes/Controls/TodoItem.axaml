@@ -26,11 +26,13 @@
       </ControlTemplate>
     </Setter>
   </Style>
-  <!-- A ação do quadro é em 14 semibold e colada na margem; o link sm (13, regular, 8px de vão) não serve. -->
+  <!-- A ação do quadro é em 14 semibold e o texto fica colado na margem; a área de clique tem 32 px de altura e 8 de cada lado (o padding, desfeito pela margem negativa, que também devolve 4 px de altura para a linha ficar em 50). -->
   <Style Selector="Button.link.todo-action">
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
-    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="32"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="Margin" Value="-8,-2"/>
   </Style>
   <Style Selector="c|TodoItem:warning">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
