@@ -17,11 +17,14 @@ public enum GameState
 
     /// <summary>O jogo tem a tradução, mas o VNForge não consegue devolver o original (a cópia de segurança sumiu ou não lê).</summary>
     Warning,
+
+    /// <summary>Só avisos (a Conferência não tem erros): ponto âmbar, contorno neutro.</summary>
+    Caution,
 }
 
 /// <summary>
 /// A faixa do estado do jogo em "Testar no jogo" (v3.css, <c>.gamestate</c>): um ponto de estado, o título ("O jogo está com a tradução de 22/10"), uma frase
-/// e, em <c>Content</c>, os botões. <c>Footer</c>, quando há, fica sob uma divisória no mesmo cartão (os cinco passos do teste). O estado vira <c>:original</c>, <c>:translated</c> ou <c>:blocked</c> e pinta o ponto.
+/// e, em <c>Content</c>, os botões. <c>Footer</c>, quando há, fica sob uma divisória no mesmo cartão (os cinco passos do teste). O estado vira <c>:original</c>, <c>:translated</c>, <c>:blocked</c>, <c>:warning</c> ou <c>:caution</c> e pinta o ponto. <c>:warning</c> (o jogo não devolve o original) tem ponto e contorno âmbar; <c>:caution</c> (a Conferência só tem avisos) só o ponto âmbar, com o contorno neutro.
 /// </summary>
 public sealed class GameStateBanner : ContentControl
 {
@@ -72,5 +75,6 @@ public sealed class GameStateBanner : ContentControl
         PseudoClasses.Set(":translated", State == GameState.Translated);
         PseudoClasses.Set(":blocked", State == GameState.Blocked);
         PseudoClasses.Set(":warning", State == GameState.Warning);
+        PseudoClasses.Set(":caution", State == GameState.Caution);
     }
 }

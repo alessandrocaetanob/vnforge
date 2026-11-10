@@ -133,7 +133,11 @@ public sealed class OfflineDictionaryRenderTests(HeadlessFixture fixture) : ICla
             Assert.Equal(sceneBefore, inspector.FindControl<Control>("TranslationFragment")!.Bounds);
             Assert.True(editor.Detail.HasMemory);
             var highlight = inspector.FindControl<WordHighlight>("SourceHighlight")!;
-            Assert.Single(highlight.Rects());
+            // O original tem 350 px de largura, como no quadro do #532, e a palavra pode cair na quebra de linha: o destaque tem um retângulo por linha (de uma a duas), uma sobre a outra.
+            var rects = highlight.Rects().ToList();
+            Assert.InRange(rects.Count, 1, 2);
+            Assert.All(rects, r => Assert.True(r.Width > 0 && r.Height > 0));
+            Assert.Equal(rects.Count, rects.Select(r => r.Y).Distinct().Count());
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"editor-dicionario-{width}", theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark)));
             return Task.FromResult(true);
         });

@@ -1,8 +1,14 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.AI.Claude;
+using VNForge.AI.Cost;
+using VNForge.AI.Images;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Engines;
@@ -40,6 +46,29 @@ public sealed partial class ImageFilterChipViewModel(ImageFilter filter, string 
     public partial bool IsSelected { get; set; }
 }
 
+/// <summary>As ferramentas da barra acima das prévias: escolher a área, apagar e escrever o texto.</summary>
+public enum ImageTool
+{
+    SelectArea,
+    Erase,
+    Text,
+}
+
+/// <summary>Uma amostra de cor do texto: a cor em <c>#rrggbb</c> e se é a que está valendo.</summary>
+public sealed partial class ColorSwatchViewModel(string hex) : ObservableObject
+{
+    public string Hex { get; } = hex;
+
+    /// <summary>Cor clara demais para se destacar do fundo da tela: ganha um fio de contorno.</summary>
+    public bool IsLight { get; } = ImageEditSerializer.IsColor(hex) && Luminance(hex) > 0.8;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    private static double Luminance(string hex) =>
+        ((0.2126 * Convert.ToInt32(hex.Substring(1, 2), 16)) + (0.7152 * Convert.ToInt32(hex.Substring(3, 2), 16)) + (0.0722 * Convert.ToInt32(hex.Substring(5, 2), 16))) / 255;
+}
+
 /// <summary>Onde a imagem está no caminho até o jogo.</summary>
 public enum ImageState
 {
@@ -67,7 +96,15 @@ public sealed partial class ImageItemViewModel(ImageTextEntry entry, Func<ImageI
 
     public string JapaneseText => Entry.Text;
 
-    public string Caption => $"{Name} · {Entry.Width}×{Entry.Height} · {Entry.Archive}" + (ThumbnailError is null ? string.Empty : $"\nSem miniatura: {ThumbnailError}");
+    /// <summary>Nome, tamanho e pacote da imagem, numa linha.</summary>
+    public string Summary => $"{Name} · {Entry.Width}×{Entry.Height} · {Entry.Archive}";
+
+    /// <summary>A tradução que o modelo sugeriu junto com a leitura; vazia nos inventários de antes dela.</summary>
+    public string Translation => Entry.Translation ?? string.Empty;
+
+    public bool HasTranslation => Translation.Length > 0;
+
+    public string Caption => Summary + (ThumbnailError is null ? string.Empty : $"\nSem miniatura: {ThumbnailError}");
 
     /// <summary>Por que a miniatura não saiu; aparece na dica da imagem na faixa.</summary>
     public string? ThumbnailError
@@ -135,6 +172,8 @@ public sealed record RewriteFile(string Path, string Detail);
 public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 {
     private static readonly string[] Editable = ["image/png"];
+    private static readonly string[] SwatchPresets = ["#1d1d2a", "#f1eee6", "#5a4630"];
+    private const string NoOutline = "Nenhum";
 
     private readonly IReadOnlyList<IEngine> engines;
     private readonly IImageComposer composer;
@@ -149,12 +188,16 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     private readonly TimeSpan previewDelay;
     private readonly SemaphoreSlim thumbnailGate = new(3);
     private CancellationTokenSource? previewCts;
+    private bool syncingOutline;
+    private ImageScanPlan? scanPlan;
+    private CancellationTokenSource? scanCts;
 
     public ImagesViewModel(IReadOnlyList<IEngine>? engines = null, IImageComposer? composer = null, TimeSpan? previewDelay = null)
     {
         this.previewDelay = previewDelay ?? TimeSpan.FromMilliseconds(150);
         this.engines = engines ?? [new YuRisEngine()];
         this.composer = composer ?? new AvaloniaImageComposer();
+        RefreshSwatches();
         Chips =
         [
             new ImageFilterChipViewModel(ImageFilter.All, "Todas") { IsSelected = true },
@@ -168,7 +211,24 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     /// <summary>O painel pediu o build: quem hospeda leva a pessoa à página Testar e roda o build, que grava as imagens marcadas no pacote.</summary>
     public event EventHandler? BuildRequested;
 
+    /// <summary>Quem lê as imagens com a IA: recebe o modelo e devolve o leitor. Sem ele (sem chave de API) a tela avisa em vez de ler.</summary>
+    public Func<string, IImageTextReader>? ReaderFactory { get; set; }
+
+    public Func<ExchangeRate> Rate { get; set; } = () => ExchangeRate.Placeholder;
+
+    public Func<BudgetLimits> Limits { get; set; } = () => BudgetLimits.None;
+
+    /// <summary>Abre um arquivo no programa do sistema; os testes trocam por um falso.</summary>
+    public Action<string> OpenPath { get; set; } = OpenInFileManager;
+
+    // O modelo que lê as imagens: o mais barato com visão.
+    private static string ScanModel => ClaudeModels.Haiku;
+
     public ObservableCollection<ImageItemViewModel> Items { get; } = [];
+
+    public ObservableCollection<ColorSwatchViewModel> TextSwatches { get; } = [];
+
+    public ObservableCollection<ResultFact> ScanFacts { get; } = [];
 
     public ObservableCollection<ImageItemViewModel> Visible { get; } = [];
 
@@ -196,6 +256,32 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         get => UsesSolidErase ? EraseChoices[1] : EraseChoices[0];
         set => UsesSolidErase = value == EraseChoices[1];
     }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSelectTool), nameof(IsEraseTool), nameof(IsTextTool))]
+    public partial ImageTool ActiveTool { get; set; } = ImageTool.SelectArea;
+
+    /// <summary>O tamanho da fonte como o campo mostra: "18 px". Aceita o número com ou sem o "px"; o que não for número volta ao que vale.</summary>
+    public string FontSizeText
+    {
+        get => $"{Plain(FontSize)} px";
+        set
+        {
+            var digits = value.Replace("px", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+            if (double.TryParse(digits, NumberStyles.Float, CultureInfo.CurrentCulture, out var size) || double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+            {
+                FontSize = size;
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsSelectTool => ActiveTool == ImageTool.SelectArea;
+
+    public bool IsEraseTool => ActiveTool == ImageTool.Erase;
+
+    public bool IsTextTool => ActiveTool == ImageTool.Text;
 
     [ObservableProperty]
     public partial ProjectSummary? Project { get; set; }
@@ -250,6 +336,10 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool HasOutline { get; set; }
 
+    /// <summary>O campo Contorno: <c>Nenhum</c> ou uma cor <c>#rrggbb</c>. Texto que não é nenhum dos dois é ignorado e o campo volta ao que vale quando a imagem é aberta de novo.</summary>
+    [ObservableProperty]
+    public partial string OutlineText { get; set; } = NoOutline;
+
     [ObservableProperty]
     public partial string OutlineColor { get; set; } = "#ffffff";
 
@@ -271,6 +361,24 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial int RegionHeight { get; set; }
 
+    /// <summary>Quantos pixels da tela cada pixel da imagem ocupa na prévia do original; a tela informa, para a moldura e as alças terem o mesmo traço em qualquer zoom.</summary>
+    [ObservableProperty]
+    public partial double OverlayScale { get; set; } = 1;
+
+    private double ScaleOrOne => OverlayScale > 0.01 ? OverlayScale : 1;
+
+    public double OverlayStroke => 2 / ScaleOrOne;
+
+    public double HandleSize => 10 / ScaleOrOne;
+
+    public double HandleLeft => RegionX - (HandleSize / 2);
+
+    public double HandleRight => RegionX + RegionWidth - (HandleSize / 2);
+
+    public double HandleTop => RegionY - (HandleSize / 2);
+
+    public double HandleBottom => RegionY + RegionHeight - (HandleSize / 2);
+
     [ObservableProperty]
     public partial string FitText { get; private set; } = string.Empty;
 
@@ -282,6 +390,21 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     public partial bool IsDirty { get; private set; }
 
     public bool CanUndo => IsDirty && HasImage;
+
+    /// <summary>Em que o pacote da imagem aberta se chama na tela: o formato (YPF), ou "pacote" quando não dá para dizer.</summary>
+    public string PackageLabel => SelectedItem is { } item ? $"No {FormatName(item.Archive) ?? "pacote"}" : "No pacote";
+
+    public bool CanOpenInventory => Items.Count > 0;
+
+    /// <summary>O texto do botão que abre o diálogo da regravação: "Regravar no YPF" quando as imagens marcadas vivem num formato só.</summary>
+    public string RewriteLabel
+    {
+        get
+        {
+            var formats = Items.Where(i => i.State == ImageState.Marked).Select(i => FormatName(i.Archive)).Distinct(StringComparer.Ordinal).ToList();
+            return formats.Count == 1 && formats[0] is { } name ? $"Regravar no {name}" : "Regravar no pacote";
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRewrite), nameof(MarkedText))]
@@ -309,6 +432,32 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     public bool IsConfirming => ConfirmationTitle.Length > 0;
 
+    /// <summary>O rótulo do botão que confirma, com a conta das imagens: "Regravar 3 imagens".</summary>
+    [ObservableProperty]
+    public partial string ConfirmationButton { get; private set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsScanConfirming))]
+    public partial string ScanTitle { get; private set; } = string.Empty;
+
+    public bool IsScanConfirming => ScanTitle.Length > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsScanBusy))]
+    public partial bool IsScanning { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsScanBusy))]
+    public partial bool IsPreparingScan { get; private set; }
+
+    public bool IsScanBusy => IsScanning || IsPreparingScan;
+
+    [ObservableProperty]
+    public partial string ScanProgressText { get; private set; } = string.Empty;
+
+    /// <summary>A leitura das imagens em andamento; os testes esperam por ela.</summary>
+    public Task Scanning { get; private set; } = Task.CompletedTask;
+
     partial void OnProjectChanged(ProjectSummary? value) => Loading = LoadAsync(value);
 
     partial void OnSelectedItemChanged(ImageItemViewModel? oldValue, ImageItemViewModel? newValue)
@@ -324,6 +473,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(PackageLabel));
         Selecting = SelectAsync(newValue);
     }
 
@@ -331,15 +481,60 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     partial void OnFontChanged(string value) => FieldsChanged();
 
-    partial void OnFontSizeChanged(double value) => FieldsChanged();
+    partial void OnFontSizeChanged(double value)
+    {
+        OnPropertyChanged(nameof(FontSizeText));
+        FieldsChanged();
+    }
 
     partial void OnIsBoldChanged(bool value) => FieldsChanged();
 
-    partial void OnTextColorChanged(string value) => FieldsChanged();
+    partial void OnTextColorChanged(string value)
+    {
+        RefreshSwatches();
+        FieldsChanged();
+    }
 
-    partial void OnHasOutlineChanged(bool value) => FieldsChanged();
+    partial void OnHasOutlineChanged(bool value)
+    {
+        SyncOutlineText();
+        FieldsChanged();
+    }
 
-    partial void OnOutlineColorChanged(string value) => FieldsChanged();
+    partial void OnOutlineColorChanged(string value)
+    {
+        SyncOutlineText();
+        FieldsChanged();
+    }
+
+    partial void OnOutlineTextChanged(string value)
+    {
+        if (syncingOutline)
+        {
+            return;
+        }
+
+        var text = value.Trim();
+        syncingOutline = true;
+        try
+        {
+            if (text.Length == 0 || string.Equals(text, NoOutline, StringComparison.OrdinalIgnoreCase))
+            {
+                HasOutline = false;
+            }
+            else if (ImageEditSerializer.IsColor(text))
+            {
+                OutlineColor = text.ToLowerInvariant();
+                HasOutline = true;
+            }
+        }
+        finally
+        {
+            syncingOutline = false;
+        }
+    }
+
+    partial void OnOverlayScaleChanged(double value) => RefreshOverlay();
 
     partial void OnUsesSolidEraseChanged(bool value)
     {
@@ -349,13 +544,87 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     partial void OnEraseColorChanged(string value) => FieldsChanged();
 
-    partial void OnRegionXChanged(int value) => FieldsChanged();
+    partial void OnRegionXChanged(int value) => RegionChanged();
 
-    partial void OnRegionYChanged(int value) => FieldsChanged();
+    partial void OnRegionYChanged(int value) => RegionChanged();
 
-    partial void OnRegionWidthChanged(int value) => FieldsChanged();
+    partial void OnRegionWidthChanged(int value) => RegionChanged();
 
-    partial void OnRegionHeightChanged(int value) => FieldsChanged();
+    partial void OnRegionHeightChanged(int value) => RegionChanged();
+
+    private void RegionChanged()
+    {
+        RefreshOverlay();
+        FieldsChanged();
+    }
+
+    private void RefreshOverlay()
+    {
+        OnPropertyChanged(nameof(OverlayStroke));
+        OnPropertyChanged(nameof(HandleSize));
+        OnPropertyChanged(nameof(HandleLeft));
+        OnPropertyChanged(nameof(HandleRight));
+        OnPropertyChanged(nameof(HandleTop));
+        OnPropertyChanged(nameof(HandleBottom));
+    }
+
+    // O campo Contorno mostra "Nenhum" ou a cor; quem manda é HasOutline com OutlineColor.
+    private void SyncOutlineText()
+    {
+        if (syncingOutline)
+        {
+            return;
+        }
+
+        syncingOutline = true;
+        try
+        {
+            OutlineText = HasOutline ? OutlineColor : NoOutline;
+        }
+        finally
+        {
+            syncingOutline = false;
+        }
+    }
+
+    // As três amostras do quadro, mais uma para a cor de uma edição antiga que não é nenhuma delas.
+    private void RefreshSwatches()
+    {
+        var current = TextColor.ToLowerInvariant();
+        var shown = SwatchPresets.Contains(current, StringComparer.Ordinal) || !ImageEditSerializer.IsColor(current) ? SwatchPresets : [.. SwatchPresets, current];
+        if (!TextSwatches.Select(w => w.Hex).SequenceEqual(shown))
+        {
+            TextSwatches.Clear();
+            foreach (var hex in shown)
+            {
+                TextSwatches.Add(new ColorSwatchViewModel(hex));
+            }
+        }
+
+        foreach (var swatch in TextSwatches)
+        {
+            swatch.IsSelected = swatch.Hex == current;
+        }
+    }
+
+    /// <summary>Escolhe a ferramenta da barra. Só "Selecionar área" muda o que o arrastar sobre o original faz; as outras levam a pessoa ao campo delas.</summary>
+    [RelayCommand]
+    private void UseTool(ImageTool tool) => ActiveTool = tool;
+
+    /// <summary>Põe a cor do texto: uma das amostras.</summary>
+    [RelayCommand]
+    private void PickTextColor(string hex) => TextColor = hex;
+
+    /// <summary>Se o ponteiro está numa alça da área, devolve o canto oposto, que fica parado enquanto a alça é arrastada.</summary>
+    public bool TryResizeAnchor(double x, double y, out (double X, double Y) anchor)
+    {
+        var (left, top, right, bottom) = (RegionX, RegionY, RegionX + RegionWidth, RegionY + RegionHeight);
+        var reach = HandleSize;
+        (double X, double Y, double AnchorX, double AnchorY)[] corners = [(left, top, right, bottom), (right, top, left, bottom), (left, bottom, right, top), (right, bottom, left, top)];
+        var hit = corners.Where(c => Math.Abs(x - c.X) <= reach && Math.Abs(y - c.Y) <= reach).Select(c => ((double X, double Y)?)(c.AnchorX, c.AnchorY)).FirstOrDefault();
+        anchor = hit ?? default;
+        return hit is not null;
+    }
 
     /// <summary>Escolhe o filtro da faixa e refaz a lista.</summary>
     [RelayCommand]
@@ -404,6 +673,222 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         LoadFields(saved ?? Defaults(SelectedItem, source));
     }
 
+    /// <summary>Abre o <c>images.json</c> no programa que o sistema tem para ele.</summary>
+    [RelayCommand]
+    private void OpenInventory()
+    {
+        if (folder is not null && File.Exists(folder.ImageInventoryPath))
+        {
+            OpenPath(folder.ImageInventoryPath);
+        }
+    }
+
+    /// <summary>Lista as imagens do jogo, estima o custo e abre o diálogo que pede o OK antes de chamar a IA.</summary>
+    [RelayCommand]
+    private async Task ScanAsync()
+    {
+        if (folder is null || IsScanBusy)
+        {
+            return;
+        }
+
+        if (!CanCreateReader())
+        {
+            ErrorMessage = "Falta a chave de API. Configure-a nos Ajustes para a IA ler as imagens do jogo.";
+            return;
+        }
+
+        ErrorMessage = null;
+        IsPreparingScan = true;
+        using var preparing = new CancellationTokenSource();
+        scanCts = preparing;
+        try
+        {
+            var project = folder;
+            var directory = gameDirectory;
+            var formats = engines.SelectMany(e => e.Archives).ToList();
+            var (plan, estimate) = await Task.Run(
+                () =>
+                {
+                    var listing = ImageLister.List(directory, formats, null, preparing.Token);
+                    var made = ImageScanPlan.Build(listing, project.LoadImageInventory());
+                    return (made, ImageScanCost.Estimate(made.ToRead, ScanModel));
+                },
+                preparing.Token);
+            if (plan.Candidates.Count == 0)
+            {
+                ErrorMessage = "Não achei imagens que a IA possa ler nos pacotes do jogo.";
+                return;
+            }
+
+            var rate = Rate();
+            var cost = CostEstimator.Brl(estimate, rate);
+            if (Limits().Limit is { } limit && rate.ToBrl(AiUsageLog.Load(project).Dollars) + cost > limit)
+            {
+                ErrorMessage = $"Parou antes de chamar a IA: o gasto do projeto mais esta leitura (cerca de {Money.Brl(cost)}) passa do limite de {Money.Brl(limit)}. Aumente o limite nos Ajustes.";
+                return;
+            }
+
+            scanPlan = plan;
+            if (plan.ToRead.Count == 0)
+            {
+                Scanning = RunScanAsync(plan);
+                return;
+            }
+
+            ScanFacts.Clear();
+            ScanFacts.Add(new ResultFact("Imagens nos pacotes do jogo", ProjectLabels.Number(plan.Candidates.Count)));
+            ScanFacts.Add(new ResultFact("Já lidas", ProjectLabels.Number(plan.Reused)));
+            ScanFacts.Add(new ResultFact("Vão à IA", ProjectLabels.Number(plan.ToRead.Count)));
+            ScanFacts.Add(new ResultFact("Custo estimado", Money.Brl(cost)));
+            ScanTitle = plan.ToRead.Count == 1 ? "Ler 1 imagem com a IA?" : $"Ler {ProjectLabels.Number(plan.ToRead.Count)} imagens com a IA?";
+        }
+        catch (OperationCanceledException)
+        {
+            // A pessoa cancelou a preparação: nada foi pedido à IA e nada a mostrar.
+        }
+        catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Não foi possível listar as imagens do jogo: {ex.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(scanCts, preparing))
+            {
+                scanCts = null;
+            }
+
+            IsPreparingScan = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ConfirmScan()
+    {
+        if (scanPlan is not { } plan)
+        {
+            return;
+        }
+
+        ScanTitle = string.Empty;
+        Scanning = RunScanAsync(plan);
+    }
+
+    /// <summary>Fecha o diálogo da leitura sem chamar a IA.</summary>
+    [RelayCommand]
+    private void CancelScan()
+    {
+        ScanTitle = string.Empty;
+        if (!IsScanning)
+        {
+            scanPlan = null;
+        }
+    }
+
+    /// <summary>Cancela a leitura em andamento; o que já foi lido fica no inventário.</summary>
+    [RelayCommand]
+    private void StopScan() => scanCts?.Cancel();
+
+    private async Task RunScanAsync(ImageScanPlan plan)
+    {
+        if (folder is not { } project || ReaderFactory is not { } factory)
+        {
+            return;
+        }
+
+        using var cts = new CancellationTokenSource();
+        scanCts = cts;
+        IsScanning = true;
+        ScanProgressText = plan.ToRead.Count == 0 ? "Gravando o inventário..." : "Abrindo os pacotes do jogo...";
+        try
+        {
+            ImageScanResult result;
+            if (plan.ToRead.Count == 0)
+            {
+                result = ImageTextScanner.WithoutReading(plan);
+            }
+            else
+            {
+                var progress = new Progress<ImageScanProgress>(p => ScanProgressText = $"Lendo as imagens · {ProjectLabels.Number(p.Done)} de {ProjectLabels.Number(p.Total)}");
+                result = await new ImageTextScanner(factory(ScanModel), engines.SelectMany(e => e.Archives).ToList())
+                    .ScanAsync(gameDirectory, plan, new ImageScanRun(), progress, cts.Token);
+            }
+
+            // O gasto entra na conta antes da gravação: a API já cobrou, e uma falha ao gravar o inventário não apaga essa conta.
+            if (result.InputTokens + result.OutputTokens > 0)
+            {
+                RunCostTracker.Record(project, ScanModel, new ClaudeUsage(result.InputTokens, result.OutputTokens, 0, 0));
+            }
+
+            if (!result.Entries.SequenceEqual(project.LoadImageInventory()))
+            {
+                project.SaveImageInventory(result.Entries);
+            }
+
+            ErrorMessage = ScanProblem(result);
+        }
+        catch (OperationCanceledException)
+        {
+            ErrorMessage = "Leitura cancelada. O que já foi lido ficou no inventário.";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            ErrorMessage = $"A leitura das imagens parou: {ex.Message}";
+        }
+        finally
+        {
+            scanCts = null;
+            scanPlan = null;
+            IsScanning = false;
+            ScanProgressText = string.Empty;
+        }
+
+        var error = ErrorMessage;
+        await LoadAsync(Project);
+        ErrorMessage = error;
+    }
+
+    private static string? ScanProblem(ImageScanResult result)
+    {
+        if (result.AbortReason is { } reason)
+        {
+            return reason;
+        }
+
+        if (result.Failed.Count > 0)
+        {
+            return $"{ProjectLabels.Number(result.Failed.Count)} imagens não puderam ser lidas (a primeira: {result.Failed[0].Message}). Leia de novo para tentar só as que faltam.";
+        }
+
+        return result.Cancelled ? "Leitura cancelada. O que já foi lido ficou no inventário." : null;
+    }
+
+    // Sem leitor ou sem chave (a fábrica lança ao montar o cliente) não adianta listar nem estimar.
+    private bool CanCreateReader()
+    {
+        try
+        {
+            return ReaderFactory is not null && ReaderFactory(ScanModel) is not null;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static void OpenInFileManager(string path)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception e) when (e is Win32Exception or InvalidOperationException)
+        {
+            // Sem programa para o arquivo (sessão remota, CI) o comando não tem outro destino; só registra.
+            Debug.WriteLine(e);
+        }
+    }
+
     /// <summary>Abre o diálogo que diz o que o build vai regravar nos pacotes do jogo.</summary>
     [RelayCommand]
     private async Task RewriteAsync()
@@ -416,18 +901,26 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         ConfirmationFiles.Clear();
         ConfirmationFacts.Clear();
         var marked = Items.Where(i => i.State == ImageState.Marked).ToList();
+        var touched = marked.Select(i => i.Archive).Distinct(StringComparer.Ordinal).ToList();
+        // Abrir os pacotes e listar a pasta do jogo leva tempo num jogo grande; fora da thread de UI.
+        var (archives, sizes) = await Task.Run(() => (CountArchives(), touched.ToDictionary(a => a, EntrySizes, StringComparer.Ordinal)), CancellationToken.None);
         foreach (var item in marked)
         {
             var file = folder.EditedImagePath(item.Archive, item.Path);
-            ConfirmationFiles.Add(new RewriteFile(item.Name, $"{item.Archive} · {Kilobytes(File.Exists(file) ? new FileInfo(file).Length : 0)}"));
+            var after = Kilobytes(File.Exists(file) ? new FileInfo(file).Length : 0);
+            var detail = sizes[item.Archive].TryGetValue(item.Path, out var before) ? $"{item.Archive} · {Kilobytes(before)} para {after}" : $"{item.Archive} · {after}";
+            ConfirmationFiles.Add(new RewriteFile(item.Name, detail));
         }
 
-        var touched = marked.Select(i => i.Archive).Distinct(StringComparer.Ordinal).ToList();
-        // Abrir os pacotes e listar a pasta do jogo leva tempo num jogo grande; fora da thread de UI.
-        var (archives, entries) = await Task.Run(() => (CountArchives(), touched.Sum(CountEntries)), CancellationToken.None);
-        ConfirmationFacts.Add(new ResultFact("Pacotes tocados", $"{ProjectLabels.Number(touched.Count)} de {ProjectLabels.Number(archives)}"));
+        var formats = touched.Select(FormatName).Distinct(StringComparer.Ordinal).ToList();
+        var format = formats.Count == 1 ? formats[0] : null;
+        var entries = sizes.Values.Sum(s => s.Count);
+        ConfirmationFacts.Add(new ResultFact(format is null ? "Pacotes tocados" : $"Arquivos {format} tocados", $"{ProjectLabels.Number(touched.Count)} de {ProjectLabels.Number(archives)}"));
         ConfirmationFacts.Add(new ResultFact("Entradas que ficam byte a byte iguais", ProjectLabels.Number(Math.Max(0, entries - marked.Count))));
-        ConfirmationTitle = marked.Count == 1 ? "Gerar o build com 1 imagem alterada?" : $"Gerar o build com {ProjectLabels.Number(marked.Count)} imagens alteradas?";
+        ConfirmationFacts.Add(new ResultFact("Cópia de segurança antes de gravar", "sim"));
+        var count = marked.Count == 1 ? "1 imagem" : $"{ProjectLabels.Number(marked.Count)} imagens";
+        ConfirmationButton = $"Regravar {count}";
+        ConfirmationTitle = $"Regravar {count} {(format is null ? "nos pacotes do jogo" : $"no {format}")}?";
     }
 
     [RelayCommand]
@@ -706,8 +1199,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             FitText = edit.Text.Length == 0
                 ? "Sem texto: a área só é apagada."
                 : FitsRegion
-                    ? $"Cabe na área · {Pixels(width)} de {Pixels(edit.Region.Width)} de largura"
-                    : $"Não cabe na área · {Pixels(width)} de {Pixels(edit.Region.Width)} de largura, {Pixels(height)} de {Pixels(edit.Region.Height)} de altura";
+                    ? $"Cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura"
+                    : $"Não cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura, {Plain(height)} de {Pixels(edit.Region.Height)} de altura";
             PackageText = $"{item.Archive} · entrada {item.Path} · {Kilobytes(OriginalPng?.Length ?? 0)} para {Kilobytes(png.Length)}";
         }
         catch (OperationCanceledException)
@@ -817,6 +1310,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         MarkedCount = Items.Count(i => i.State == ImageState.Marked);
         OnPropertyChanged(nameof(MarkedText));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(CanOpenInventory));
+        OnPropertyChanged(nameof(RewriteLabel));
         Chips[(int)ImageFilter.All].Count = Items.Count;
         Chips[(int)ImageFilter.WithJapanese].Count = Items.Count(i => i.HasText);
         Chips[(int)ImageFilter.Edited].Count = Items.Count(i => i.State != ImageState.Pending);
@@ -835,10 +1330,32 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             ImageFilter.WithoutText => !i.HasText,
             _ => true,
         }).ToList();
-        Visible.Clear();
-        foreach (var item in shown)
+
+        // Muda a lista no lugar: esvaziar e encher de novo faria a lista da tela soltar a imagem aberta e o editor sumiria ao marcar.
+        for (var i = Visible.Count - 1; i >= 0; i--)
         {
-            Visible.Add(item);
+            if (!shown.Contains(Visible[i]))
+            {
+                Visible.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (i < Visible.Count && ReferenceEquals(Visible[i], shown[i]))
+            {
+                continue;
+            }
+
+            var at = Visible.IndexOf(shown[i]);
+            if (at >= 0)
+            {
+                Visible.Move(at, i);
+            }
+            else
+            {
+                Visible.Insert(i, shown[i]);
+            }
         }
     }
 
@@ -855,7 +1372,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         }
     }
 
-    private int CountEntries(string archiveName)
+    // O tamanho de cada entrada do pacote, para o "antes" do diálogo e a conta das que ficam iguais; vazio quando o pacote não abre.
+    private Dictionary<string, long> EntrySizes(string archiveName)
     {
         try
         {
@@ -865,18 +1383,23 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             var format = engines.SelectMany(e => e.Archives).FirstOrDefault(f => f.FileExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase) && f.CanOpen(stream));
             if (format is null)
             {
-                return 0;
+                return [];
             }
 
             stream.Position = 0;
             using var archive = format.Open(stream);
-            return archive.Entries.Count;
+            return archive.Entries.ToDictionary(e => e.Path, e => e.Size, StringComparer.Ordinal);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or VNForgeException or InvalidDataException)
         {
-            return 0;
+            return [];
         }
     }
+
+    // O formato do pacote como a pessoa o conhece: a extensão em maiúsculas (img.ypf vira YPF).
+    private static string? FormatName(string archive) => Path.GetExtension(archive).TrimStart('.') is { Length: > 0 } extension ? extension.ToUpperInvariant() : null;
+
+    private static string Plain(double value) => value.ToString("0", CultureInfo.InvariantCulture);
 
     private static string Pixels(double value) => $"{value.ToString("0", CultureInfo.InvariantCulture)} px";
 

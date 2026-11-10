@@ -81,7 +81,7 @@ public sealed partial class PersonalGlossaryViewModel(
         ? $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de 1 termo entrou"
         : $"{Rows.Count(r => r.IsInProject).ToString(CultureInfo.InvariantCulture)} de {Count.ToString(CultureInfo.InvariantCulture)} termos entraram";
 
-    public const string BannerText = "Entram quando o projeto é criado ou pelo botão Usar no projeto.";
+    public const string BannerText = "Entraram quando o projeto foi criado, a partir do glossário pessoal.";
 
     public bool HasBanner => Count > 0;
 

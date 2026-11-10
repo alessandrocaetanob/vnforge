@@ -66,6 +66,10 @@ jobs:
               "/d:sonar.token=$SONAR_TOKEN"
               '/d:sonar.host.url=https://sonarcloud.io'
               '/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml'
+              # Contagem de testes do Sonar: o run-tests.sh grava um TRX por processo (xUnit v3, opção -result-trx do runner nativo;
+              # https://xunit.net/docs/getting-started/v3/cmdline). O Sonar lê TRX como relatório VSTest:
+              # https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/test-execution-parameters/
+              '/d:sonar.cs.vstest.reportsPaths=test-results/trx/*.trx'
               # docs/design é referência copiada do design system (telas .dc.html e READMEs) e licenses/ traz textos de licença copiados, não código do produto.
               '/d:sonar.exclusions=docs/design/**,licenses/**'
               # Tokens.axaml e Icons.axaml são gerados por tools/ e repetem a mesma estrutura por tema.
@@ -105,16 +109,29 @@ jobs:
                   - ~/.nuget/packages
       - run:
           name: Testes
-          # O dotnet-coverage só imprime quando uma suíte termina, e a do App roda calada por uns 10 minutos: o limite
-          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho.
+          # O dotnet-coverage só imprime quando o comando termina, e a suíte do App roda calada por minutos: o limite
+          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho. O script imprime a cada 2 minutos.
           no_output_timeout: 30m
+          # O script roda as suítes em paralelo e divide a do App em três fatias pelo tempo de tempos-app.txt: um
+          # dotnet-coverage só, em volta dele, junta os processos filhos num coverage.xml para o Sonar.
           command: |
             set -euo pipefail
             if [ -f .sonar-begun ]; then
-              dotnet-coverage collect "dotnet test --solution VNForge.slnx --configuration Release --no-build" -f xml -o coverage.xml
+              dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml
             else
-              dotnet test --solution VNForge.slnx --configuration Release --no-build
+              bash .circleci/run-tests.sh
             fi
+      # O store_test_results e o store_artifacts rodam mesmo com o passo Testes vermelho, mas não se o job for
+      # cancelado ou estourar o tempo (https://circleci.com/docs/reference/configuration-reference/, "The when
+      # attribute"). Por isso não levam `when`: a mesma página diz que, como passos comuns, eles não o aceitam.
+      # Os JUnit alimentam a aba Tests e o Insights.
+      - store_test_results:
+          path: test-results
+      # A divisão do App, a saída de cada processo e o tempos-app.txt (os tempos medidos nesta rodada, que se copiam
+      # para .circleci/tempos-app.txt) ficam em Artifacts.
+      - store_artifacts:
+          path: test-results/logs
+          destination: logs
       - run:
           name: Sonar end
           # when: always fecha a análise mesmo com teste vermelho; só roda se o begin terminou.

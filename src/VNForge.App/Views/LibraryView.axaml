@@ -1,0 +1,446 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:v="using:VNForge.App.Views"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:core="using:VNForge.Core.Library"
+             x:Class="VNForge.App.Views.LibraryView"
+             x:DataType="vm:LibraryViewModel">
+
+  <UserControl.Resources>
+    <!-- A capa de um jogo da grade e da lista: a imagem do VNDB, o véu de conteúdo adulto ou a placa sem capa. O círculo do casamento, a etiqueta de engine e a faixa de andamento ficam por cima. -->
+    <DataTemplate x:Key="CoverTemplate" x:DataType="vm:LibraryCardViewModel">
+      <Panel>
+        <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+          <Panel>
+            <c:Cover FillWidth="True" LoadOnlyInViewport="True" HorizontalAlignment="Stretch" Image="{Binding Image}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
+            <Border IsVisible="{Binding HasNoArt}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="25%,0%" EndPoint="75%,100%">
+                  <GradientStop Color="{DynamicResource Vnf.BgCardHoverColor}" Offset="0"/>
+                  <GradientStop Color="{DynamicResource Vnf.BgInsetColor}" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
+              <StackPanel VerticalAlignment="Bottom" Spacing="2" Margin="0,0,0,30">
+                <TextBlock Classes="lib-ct" Text="{Binding Title}" TextWrapping="Wrap"/>
+                <TextBlock Classes="jp-row secondary" FontSize="12" LineHeight="16" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
+              </StackPanel>
+            </Border>
+            <Border IsVisible="{Binding IsAdultVeil}" Background="{DynamicResource Vnf.CoverVeilBg}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
+                    CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                <PathIcon Width="28" Height="28" HorizontalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
+                <TextBlock Classes="lib-h2" FontSize="24" LineHeight="30" HorizontalAlignment="Center" Text="18+"/>
+                <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" TextAlignment="Center" Classes="lib-dim" Text="Conteúdo adulto escondido"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="cchip" Classes.warn="{Binding ChipWarn}"><TextBlock Text="{Binding Chip}" VerticalAlignment="Center"/></Border>
+            <Border Classes="cstate" Classes.warn="{Binding StateIsWarning}" IsVisible="{Binding HasState}" ToolTip.Tip="{Binding StateText}">
+              <PathIcon HorizontalAlignment="Center" VerticalAlignment="Center" Data="{Binding StateIcon, Converter={x:Static c:IconKeyConverter.Instance}}"/>
+            </Border>
+            <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Progress}" IsVisible="{Binding HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
+          </Panel>
+        </Border>
+        <!-- ".v3-cover.sel": contorno de 3 px em accent, a 3 px da capa, com o raio da capa somado às duas medidas. -->
+        <Border IsHitTestVisible="False" Margin="-6" BorderThickness="3" CornerRadius="22" BorderBrush="{DynamicResource Vnf.Accent}" IsVisible="{Binding IsSelected}"/>
+      </Panel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="GridCardTemplate" x:DataType="vm:LibraryCardViewModel">
+      <Button Classes="libcard" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}"
+              AutomationProperties.Name="{Binding AutomationName}">
+        <Grid RowDefinitions="*,Auto">
+          <ContentControl Classes="libcover" ContentTemplate="{StaticResource CoverTemplate}" Content="{Binding}"/>
+          <StackPanel Grid.Row="1" Margin="0,8,0,0">
+            <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
+            <TextBlock Classes="lib-cs" Text="{Binding Subtitle}"/>
+          </StackPanel>
+        </Grid>
+      </Button>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ListRowTemplate" x:DataType="vm:LibraryCardViewModel">
+      <Button Classes="libcard" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}"
+              AutomationProperties.Name="{Binding AutomationName}">
+        <Border Classes="lib-card" Padding="12" Height="76" Margin="0,0,0,8" BorderBrush="{DynamicResource Vnf.StrokeSubtle}">
+          <Grid ColumnDefinitions="44,*,Auto,200" ColumnSpacing="16">
+            <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
+              <c:Cover Width="44" Image="{Binding Image}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
+              <TextBlock Classes="jp-row secondary" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <Border Grid.Column="2" Classes="lib-tag" VerticalAlignment="Center"><TextBlock Text="{Binding Chip}"/></Border>
+            <TextBlock Grid.Column="3" Classes="lib-cs" VerticalAlignment="Center" Text="{Binding Subtitle}"/>
+          </Grid>
+        </Border>
+      </Button>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Panel>
+    <!-- Os jogos: o cabeçalho, a busca e os filtros, a grade ou a lista e, à direita, a gaveta do jogo escolhido. -->
+    <Grid Name="GamesPage" ColumnDefinitions="*,Auto" IsVisible="{Binding HasGames}">
+      <Grid RowDefinitions="Auto,Auto,*" Margin="32,24,32,0" RowSpacing="20">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+          <StackPanel>
+            <TextBlock Classes="lib-h1" Text="Biblioteca"/>
+            <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+          </StackPanel>
+          <Button Grid.Column="1" Name="RescanButton" Command="{Binding RescanCommand}" VerticalAlignment="Top">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+              <TextBlock Text="Varrer de novo"/>
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="2" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
+              <TextBlock Text="Adicionar pasta"/>
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <Border Grid.Row="1" Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Error}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Name="FilterRow" ColumnSpacing="8" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1000*" MinWidth="160" MaxWidth="320"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <Border Classes="lib-input">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+              <TextBox Grid.Column="1" Name="SearchBox" Classes="bare" Text="{Binding SearchText}" PlaceholderText="Buscar por título, original ou tag" AutomationProperties.Name="Buscar por título, original ou tag"/>
+            </Grid>
+          </Border>
+          <ItemsControl Grid.Column="1" ItemsSource="{Binding Filters}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LibraryFilterChipViewModel">
+                <c:FilterChip Label="{Binding Label}" Count="{Binding Count}" IsChecked="{Binding IsSelected}"
+                              Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleFilterCommand}" CommandParameter="{Binding}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ListBox Grid.Column="3" Classes="libseg" Name="LayoutSwitch" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout}" AutomationProperties.Name="Aparência dos jogos">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:LibraryLayoutItem"><TextBlock Text="{Binding Label}"/></DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+
+        <!-- O ScrollViewer vai 8 px além da folga da página para o contorno da capa escolhida não ser cortado; o Border devolve os 8. -->
+        <ScrollViewer Grid.Row="2" Name="GridScroll" Margin="-8,-8,-8,0" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsGrid}">
+          <Border Padding="8,8,8,24">
+            <ItemsControl Classes="libgrid" ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource GridCardTemplate}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><c:CoverGridPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </Border>
+        </ScrollViewer>
+        <ScrollViewer Grid.Row="2" Name="ListScroll" Margin="-8,-8,-8,0" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsList}">
+          <Border Padding="8,8,8,24">
+            <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ListRowTemplate}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </Border>
+        </ScrollViewer>
+        <c:EmptyState Grid.Row="2" Name="NoResults" IsVisible="{Binding HasNoResults}" Message="Nenhum jogo combina com a busca ou com o filtro."/>
+      </Grid>
+
+      <!-- A gaveta: 420 de largura com 24 de folga acima, abaixo e à direita. -->
+      <Border Grid.Column="1" Name="DrawerHost" Width="420" Padding="0,24,24,24" IsVisible="{Binding HasDrawer}">
+        <Border Classes="lib-drawer" ClipToBounds="True" DataContext="{Binding Drawer}" x:DataType="vm:LibraryDrawerViewModel">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16">
+              <Grid ColumnDefinitions="150,*" ColumnSpacing="16">
+                <Panel VerticalAlignment="Top">
+                  <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
+                    <Panel>
+                      <c:Cover FillWidth="True" HorizontalAlignment="Stretch" Image="{Binding Card.Image}" Seed="{Binding Title}"/>
+                      <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Card.Progress}" IsVisible="{Binding Card.HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
+                    </Panel>
+                  </Border>
+                </Panel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Name="DrawerTitle" Classes="lib-h2" FontSize="22" LineHeight="28" Text="{Binding Title}" TextWrapping="Wrap"/>
+                  <TextBlock FontFamily="{DynamicResource Vnf.FontJp}" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}" TextWrapping="Wrap"/>
+                  <Grid Margin="0,12,0,0" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                    <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" Text="Engine"/>
+                    <TextBlock Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding EngineText}"/>
+                    <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" LineHeight="20" Text="VNDB"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding VndbText}"/>
+                    <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Duração"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding Duration}"/>
+                    <TextBlock Grid.Row="3" Classes="lib-dim" FontSize="13" LineHeight="20" Text="Lançado" IsVisible="{Binding HasReleased}"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" FontSize="13" LineHeight="20" FontWeight="SemiBold" Text="{Binding ReleasedYear}" IsVisible="{Binding HasReleased}"/>
+                  </Grid>
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Name="OpenGameButton" Classes="accent" Command="{Binding Library.OpenGameCommand}" CommandParameter="{Binding Card}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
+                    <TextBlock Text="Abrir jogo"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="PlayButton" IsEnabled="False" ToolTip.Tip="Jogar chega com a página Jogar." ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Jogar">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+                    <TextBlock Text="Jogar"/>
+                  </StackPanel>
+                </Button>
+                <Button Name="MoreButton" Classes="icon" AutomationProperties.Name="Mais ações do jogo">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.More}"/>
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                      <MenuItem Header="Escolher o jogo no VNDB" Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
+                      <MenuItem Header="Desfazer o casamento" Command="{Binding Library.UnconfirmCommand}" CommandParameter="{Binding Card}" IsVisible="{Binding IsMatched}"/>
+                      <MenuItem Header="Mostrar a pasta" Command="{Binding Library.ShowFolderCommand}" CommandParameter="{Binding Card}"/>
+                      <MenuItem Header="Tirar da Biblioteca" Command="{Binding Library.RemoveCommand}" CommandParameter="{Binding Card}"/>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+              <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
+                      Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
+
+              <Border Classes="lib-hr"/>
+
+              <StackPanel IsVisible="{Binding HasSynopsis}">
+                <Grid ColumnDefinitions="*,Auto">
+                  <c:OverlineText Classes="overline" Text="Sinopse" VerticalAlignment="Center"/>
+                  <Border Grid.Column="1" Classes="lib-pill" Tag="rev" IsVisible="{Binding SynopsisReviewed}"><TextBlock Text="Revisada"/></Border>
+                </Grid>
+                <TextBlock Name="Synopsis" Margin="0,6,0,0" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Text="{Binding Synopsis}"/>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding HasTags}">
+                <c:OverlineText Classes="overline" Text="Tags" Margin="0,0,0,6"/>
+                <ItemsControl Name="TagsPanel" ItemsSource="{Binding Chips}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:LibraryDrawerChip">
+                      <Panel Margin="0,0,6,6">
+                        <Border Classes="lib-tag" Classes.mine="{Binding Mine}" IsVisible="{Binding IsPlain}"><TextBlock Text="{Binding Text}"/></Border>
+                        <Panel IsVisible="{Binding IsHidden}" Height="24">
+                          <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1" StrokeDashArray="3,3" Fill="Transparent"/>
+                          <StackPanel Orientation="Horizontal" Spacing="4" Margin="10,0" VerticalAlignment="Center">
+                            <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
+                            <TextBlock FontSize="12" LineHeight="16" Classes="lib-dim" Text="{Binding Text}"/>
+                          </StackPanel>
+                        </Panel>
+                      </Panel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <StackPanel Spacing="16" IsVisible="{Binding HasTranslation}">
+                <Border Classes="lib-hr"/>
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <c:OverlineText Classes="overline" Text="Tradução" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="13" Text="{Binding TranslationPercentText}"/>
+                  </Grid>
+                  <c:FractionBar Margin="0,6,0,0" Height="6" Radius="3" Value="{Binding TranslationProgress}"/>
+                  <TextBlock Margin="0,4,0,0" Classes="lib-dim" FontSize="12" Text="{Binding TranslationText}"/>
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Border>
+    </Grid>
+
+    <!-- A primeira varredura: a pasta e as escolhas, o andamento com a tabela e, ao lado, o "Até agora". -->
+    <Panel IsVisible="{Binding IsFirstScan}">
+    <Grid Name="ScanPage" ColumnDefinitions="*,300" Margin="32,24,32,24" ColumnSpacing="24" DataContext="{Binding Scan}" x:DataType="vm:LibraryScanViewModel">
+      <StackPanel Spacing="20">
+        <StackPanel>
+          <TextBlock Classes="lib-h1" Text="Primeira varredura"/>
+          <TextBlock Classes="lib-sub" Text="O VNForge só lê as pastas. Nada é copiado nem alterado nos jogos."/>
+        </StackPanel>
+        <Border Classes="lib-card">
+          <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+              <Border Classes="lib-icobox"><PathIcon Data="{StaticResource Icon.Folder}"/></Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock FontWeight="SemiBold" Text="Pasta dos jogos"/>
+                <TextBlock Name="ScanFolder" Classes="mono lib-dim" Text="{Binding Folder}"/>
+              </StackPanel>
+              <Button Grid.Column="2" Name="ChangeFolderButton" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ChangeFolderCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+                  <TextBlock Text="Trocar pasta"/>
+                </StackPanel>
+              </Button>
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="24">
+              <StackPanel Orientation="Horizontal" Spacing="8"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding IncludeSubfolders}" AutomationProperties.Name="Incluir subpastas"/><TextBlock VerticalAlignment="Center" Text="Incluir subpastas"/></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding MatchVndb}" AutomationProperties.Name="Casar com o VNDB"/><TextBlock VerticalAlignment="Center" Text="Casar com o VNDB"/></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8"><ToggleSwitch Classes="lib-switch" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" IsChecked="{Binding RescanOnOpen}" AutomationProperties.Name="Ler a pasta toda de novo ao abrir o app"/><TextBlock VerticalAlignment="Center" Text="Ler a pasta toda de novo ao abrir o app"/></StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="lib-card" Padding="0" ClipToBounds="True">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto" Margin="16,16,16,12">
+              <StackPanel>
+                <TextBlock Name="ScanTitle" Classes="lib-h3" Text="{Binding Title}"/>
+                <TextBlock Name="ScanDetail" Classes="lib-dim" FontSize="13" Text="{Binding Detail}" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+              <Button Grid.Column="1" Name="ScanActionButton" Classes="sm" VerticalAlignment="Top" Content="{Binding ActionText}"
+                      Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ScanActionCommand}"/>
+            </Grid>
+            <c:FractionBar Margin="16,0,16,12" Height="6" Radius="3" Value="{Binding Progress}"/>
+            <Grid ColumnDefinitions="1.3*,*,*,*" Height="38" Margin="16,0" Name="ScanHeader">
+              <TextBlock Classes="column-header lib-dim" VerticalAlignment="Center" Text="Pasta"/>
+              <TextBlock Grid.Column="1" Classes="column-header lib-dim" VerticalAlignment="Center" Text="Engine"/>
+              <TextBlock Grid.Column="2" Classes="column-header lib-dim" VerticalAlignment="Center" Text="Suporte"/>
+              <TextBlock Grid.Column="3" Classes="column-header lib-dim" VerticalAlignment="Center" Text="VNDB"/>
+            </Grid>
+            <Border Classes="lib-hr"/>
+            <ItemsControl Name="ScanRows" ItemsSource="{Binding Rows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryScanRowViewModel">
+                  <Border Classes="lib-row">
+                    <Grid ColumnDefinitions="1.3*,*,*,*">
+                      <TextBlock Classes="mono" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Folder}"/>
+                      <TextBlock Grid.Column="1" FontWeight="Bold" VerticalAlignment="Center" Text="{Binding Engine}"/>
+                      <Border Grid.Column="2" Classes="lib-pill" Tag="{Binding SupportTone}"><TextBlock Text="{Binding SupportText}"/></Border>
+                      <Border Grid.Column="3" Classes="lib-pill" Tag="{Binding VndbTone}"><TextBlock Text="{Binding VndbText}"/></Border>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Spacing="16">
+        <Border Classes="lib-card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="lib-h3" Text="Até agora"/>
+            <Grid ColumnDefinitions="*,Auto"><Border Classes="lib-pill" Tag="ok"><TextBlock Text="Reconhecidos"/></Border><TextBlock Name="TallyRecognized" Grid.Column="1" Classes="lib-h2" FontSize="22" LineHeight="28" Text="{Binding Recognized}"/></Grid>
+            <Grid ColumnDefinitions="*,Auto"><Border Classes="lib-pill" Tag="warn"><TextBlock Text="Sem suporte ainda"/></Border><TextBlock Grid.Column="1" Classes="lib-h2" FontSize="22" LineHeight="28" Text="{Binding NoSupportYet}"/></Grid>
+            <Grid ColumnDefinitions="*,Auto"><Border Classes="lib-pill" Tag="err"><TextBlock Text="Não reconhecidos"/></Border><TextBlock Grid.Column="1" Classes="lib-h2" FontSize="22" LineHeight="28" Text="{Binding Unrecognized}"/></Grid>
+            <Grid ColumnDefinitions="*,Auto"><Border Classes="lib-pill" Tag="pend"><TextBlock Text="A confirmar no VNDB"/></Border><TextBlock Grid.Column="1" Classes="lib-h2" FontSize="22" LineHeight="28" Text="{Binding ToConfirm}"/></Grid>
+          </StackPanel>
+        </Border>
+        <Border Classes="lib-card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="lib-h3" Text="Depois da varredura"/>
+            <TextBlock Classes="lib-dim" FontSize="13" TextWrapping="Wrap" Text="Você confirma os jogos a confirmar um por vez. Os que o VNDB não acha ficam sem capa, e você pode ligar o jogo a mão."/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+    </Panel>
+
+    <!-- A biblioteca vazia: três capas tracejadas, o convite e as duas saídas. -->
+    <StackPanel Name="EmptyPage" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="24" Margin="0,0,0,40">
+      <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Bottom">
+        <Panel Width="120" Height="160" VerticalAlignment="Bottom"><Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="2" StrokeDashArray="3,3" Fill="Transparent"/></Panel>
+        <Panel Width="150" Height="200" VerticalAlignment="Bottom"><Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="2" StrokeDashArray="3,3" Fill="Transparent"/></Panel>
+        <Panel Width="120" Height="160" VerticalAlignment="Bottom"><Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="2" StrokeDashArray="3,3" Fill="Transparent"/></Panel>
+      </StackPanel>
+      <StackPanel MaxWidth="520" Spacing="8">
+        <TextBlock Classes="lib-h1" TextAlignment="Center" TextWrapping="Wrap" Text="Aponte onde estão os seus jogos"/>
+        <TextBlock Classes="lib-sub" TextAlignment="Center" TextWrapping="Wrap" Text="O VNForge lê a pasta, reconhece a engine de cada jogo e busca capa, sinopse e personagens no VNDB. Você só confirma."/>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+        <Button Name="ChooseFolderButton" Classes="accent lg" Command="{Binding ChooseFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+            <TextBlock Text="Escolher pasta"/>
+          </StackPanel>
+        </Button>
+        <Button Name="ExistingProjectButton" Classes="lg" Content="Abrir um projeto que já existe" Command="{Binding OpenExistingProjectCommand}"/>
+      </StackPanel>
+      <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" MaxWidth="520">
+        <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+      </Border>
+      <Panel Name="DropArea" Width="520" Height="105" DragDrop.AllowDrop="True" AutomationProperties.Name="Soltar uma pasta ou um drive">
+        <Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource Vnf.StrokeSubtle}" StrokeThickness="1" StrokeDashArray="3,3" Fill="{DynamicResource Vnf.BgCard}"/>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+          <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+          <TextBlock Classes="lib-dim" Text="Ou solte uma pasta ou um drive aqui"/>
+        </StackPanel>
+      </Panel>
+      <TextBlock Classes="lib-dim" FontSize="13" HorizontalAlignment="Center" Text="O VNForge só lê. Antes de mexer num jogo, ele sempre faz uma cópia de segurança."/>
+    </StackPanel>
+
+    <!-- O diálogo do casamento com o VNDB (".v3-dialog" de 720). O título é o do conteúdo, em 20/28, como no quadro. -->
+    <c:ScreenDialog DialogWidth="720" DataContext="{Binding Match}" x:DataType="vm:LibraryMatchViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+      <StackPanel Spacing="16" Margin="0,-16,0,0" AutomationProperties.Name="Qual é este jogo no VNDB?">
+        <StackPanel>
+          <TextBlock Name="MatchTitle" Classes="lib-h2" Text="{Binding Title}"/>
+          <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.TextSecondary}">
+            <Run Text="{Binding Intro}"/><Run Text=" "/><Run Classes="mono" FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding FolderText}"/><Run Text="{Binding IntroEnd}"/>
+          </TextBlock>
+        </StackPanel>
+        <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+        </Border>
+        <ItemsControl Name="Candidates" ItemsSource="{Binding Choices}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LibraryMatchChoiceViewModel">
+              <RadioButton Classes="option marked" Margin="0,0,0,12" GroupName="match" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"
+                           Command="{Binding $parent[ItemsControl].((vm:LibraryMatchViewModel)DataContext).SelectChoiceCommand}" CommandParameter="{Binding}">
+                <Grid ColumnDefinitions="Auto,64,*" ColumnSpacing="12">
+                  <Border Classes="radio-mark" VerticalAlignment="Top" Margin="0,4,0,0"/>
+                  <Border Grid.Column="1" VerticalAlignment="Top" CornerRadius="{DynamicResource Vnf.RadiusLg}" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}">
+                    <c:Cover Width="64" Image="{Binding Image}" Seed="{Binding Title}"/>
+                  </Border>
+                  <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock Classes="lib-h3" Text="{Binding Title}"/>
+                    <TextBlock FontFamily="{DynamicResource Vnf.FontJp}" FontSize="13" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
+                    <TextBlock Classes="lib-dim" FontSize="13" Text="{Binding Details}" IsVisible="{Binding HasDetails}"/>
+                    <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding Badges}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LibraryMatchBadgeItem">
+                          <Border Classes="lib-pill" Tag="{Binding Tone}"><TextBlock Text="{Binding Text}"/></Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Grid>
+              </RadioButton>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+          <Button Classes="subtle" Content="Não é nenhum deles" Command="{Binding NoneOfThemCommand}"/>
+          <Button Grid.Column="1" Classes="subtle" Command="{Binding SearchCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Search}"/>
+              <TextBlock Text="Buscar no VNDB"/>
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="3" Content="Depois" Command="{Binding LaterCommand}"/>
+          <Button Grid.Column="4" Classes="accent" Command="{Binding ConfirmCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Check}"/>
+              <TextBlock Text="Confirmar este"/>
+            </StackPanel>
+          </Button>
+        </Grid>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+  </Panel>
+</UserControl>

@@ -48,6 +48,32 @@ public sealed class ImageInventoryFileTests : IDisposable
     }
 
     [Fact]
+    public void A_traducao_sugerida_e_opcional_e_so_aparece_no_arquivo_quando_existe()
+    {
+        ImageTextEntry[] entries =
+        [
+            new("pac/ui.pak", "menu/titulo.png", "ab12", 640, 480, "タイトル", "Título"),
+            new("pac/ui.pak", "bg/rua.png", "cd34", 1280, 720, string.Empty),
+        ];
+
+        _project.SaveImageInventory(entries);
+
+        var text = File.ReadAllText(_project.ImageInventoryPath);
+        Assert.Equal(1, text.Split("\"translation\"").Length - 1);
+        Assert.Equal(entries, _project.LoadImageInventory());
+    }
+
+    [Fact]
+    public void Inventario_de_antes_da_sugestao_continua_legivel()
+    {
+        File.WriteAllText(_project.ImageInventoryPath, """{"version":1,"entries":[{"archive":"a.ypf","path":"x.png","hash":"ab","width":10,"height":10,"text":"あ"}]}""");
+
+        var entry = Assert.Single(_project.LoadImageInventory());
+
+        Assert.Null(entry.Translation);
+    }
+
+    [Fact]
     public void O_arquivo_guarda_o_japones_sem_escape_e_uma_entrada_por_linha()
     {
         _project.SaveImageInventory(Sample);

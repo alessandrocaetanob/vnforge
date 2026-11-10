@@ -42,6 +42,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 start.Detail.Context = () => new DashboardContext(new ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new BudgetLimits(300m, 50m), true);
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
@@ -121,6 +122,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, RequestedThemeVariant = ThemeVariant.Dark, DataContext = vm };
                 try
                 {
@@ -161,6 +163,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), clock);
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
                 try
                 {
@@ -202,6 +205,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
                 window.Show();
                 await start.OpenAsync(root);
@@ -300,6 +304,7 @@ public sealed class StartDiaryRenderTests(HeadlessFixture fixture, DemoFolderFix
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), clock);
                 var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault));
+                vm.CurrentPage = start;
                 var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
                 window.Show();
                 await start.OpenAsync(root);

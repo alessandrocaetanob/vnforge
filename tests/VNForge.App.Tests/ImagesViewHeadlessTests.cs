@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -63,7 +64,19 @@ public class ImagesViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
                 Assert.All(images, i => Assert.Equal((320, 180), (((Bitmap)i.Source!).PixelSize.Width, ((Bitmap)i.Source!).PixelSize.Height)));
 
                 await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Marcar para o build").Command!).ExecuteAsync(null);
-                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Gerar o build com as imagens").Command!).ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                // Marcar atualiza a lista de miniaturas e a lista da tela não pode largar a imagem aberta, senão o editor some no meio da tarefa.
+                Assert.Same(vm.Items.Single(), vm.SelectedItem);
+                Assert.True(vm.HasImage);
+
+                // O contorno de 3 px da miniatura aberta cabe inteiro na área da lista, que corta o que passa dela.
+                var ring = Assert.Single(window.GetVisualDescendants().OfType<Border>(), r => r.Classes.Contains("thumb"));
+                var strip = Assert.IsType<VirtualizingStackPanel>(ring.FindAncestorOfType<VirtualizingStackPanel>());
+                var at = ring.TranslatePoint(default, strip)!.Value;
+                Assert.True(at.X >= 0 && at.Y >= 0 && at.X + ring.Bounds.Width <= strip.Bounds.Width && at.Y + ring.Bounds.Height <= strip.Bounds.Height, $"o contorno em {at} com {ring.Bounds.Size} passa da lista {strip.Bounds.Size}");
+                await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)Botao(window, "Regravar as imagens no pacote").Command!).ExecuteAsync(null);
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 

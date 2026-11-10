@@ -70,6 +70,7 @@ public sealed record SheetStatusCounts(int Pending, int Machine, int Translated,
 /// A ficha do jogo depois de esconder o que a <see cref="SheetVisibility"/> esconde. <paramref name="HiddenTags"/> e <paramref name="HiddenCharacters"/> contam o que sumiu;
 /// <paramref name="HiddenSpoilerTags"/> e <paramref name="HiddenAdultTags"/> separam as tags escondidas pelo motivo, e <paramref name="HiddenCharacterCards"/> diz quais personagens
 /// sumiram e de que nível. <paramref name="TagsStatus"/> é a etapa mais atrasada entre os nomes das tags que aparecem; nulo quando não há tag.
+/// <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, valem como nível 2 e somem até a ficha ser buscada de novo.
 /// </summary>
 public sealed record GameSheetCard(
     string VisualNovelId,
@@ -89,7 +90,8 @@ public sealed record GameSheetCard(
     string LengthDetail,
     string? Released,
     string? Rating,
-    TranslationStatus? TagsStatus);
+    TranslationStatus? TagsStatus,
+    int StaleCharacters = 0);
 
 /// <summary>
 /// Aplica a privacidade da biblioteca à ficha. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): acima de <see cref="SheetVisibility.SpoilerLevel"/>
@@ -123,9 +125,9 @@ public static class SheetViewer
 
         var visibleTags = game.Tags.Where(t => !IsTagHidden(t, visibility)).Select(t => TagCard(t, terms)).ToList();
         var hiddenTags = game.Tags.Where(t => IsTagHidden(t, visibility)).ToList();
-        var shown = all.Where(c => (c.In(game.VisualNovelId)?.Spoiler ?? 0) <= visibility.SpoilerLevel).ToList();
+        var shown = all.Where(c => (c.In(game.VisualNovelId)?.WorstSpoiler ?? 0) <= visibility.SpoilerLevel).ToList();
         var visibleCharacters = shown.Select(c => CharacterCard(c, game.VisualNovelId, terms, visibility)).ToList();
-        var hiddenCharacters = all.Except(shown).Select(c => new SheetHiddenCharacter(c.Id, c.In(game.VisualNovelId)?.Spoiler ?? 0)).ToList();
+        var hiddenCharacters = all.Except(shown).Select(c => new SheetHiddenCharacter(c.Id, c.In(game.VisualNovelId)?.WorstSpoiler ?? 0)).ToList();
 
         var texts = new List<SheetText>();
         texts.AddRange(new[] { game.Synopsis }.OfType<SheetText>());
@@ -151,7 +153,8 @@ public static class SheetViewer
             SheetLabels.LengthDetail(game.LengthMinutes, game.Length, game.LengthVotes),
             SheetLabels.Released(game.Released, game.OriginalLanguage),
             VndbRating.Score(game.Rating),
-            visibleTags.Count == 0 ? null : visibleTags.Min(t => t.Status));
+            visibleTags.Count == 0 ? null : visibleTags.Min(t => t.Status),
+            all.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
     }
 
     /// <summary>A visibilidade esconde a tag: nível de spoiler acima do liberado, ou tag erótica sem o conteúdo adulto liberado.</summary>
@@ -248,7 +251,7 @@ public static class SheetViewer
             character.Original,
             SheetLabels.Role(appearance?.Role ?? "appears"),
             appearance?.Role ?? "appears",
-            appearance?.Spoiler ?? 0,
+            appearance?.WorstSpoiler ?? 0,
             imageHidden ? null : character.Image,
             imageHidden,
             character.Description is { } text ? Shown(text, visibility) : null,
@@ -259,7 +262,7 @@ public static class SheetViewer
             statuses.Count == 0 ? null : statuses.Min());
     }
 
-    private static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
+    internal static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
     {
         var term = terms.Find(SheetTermKind.Trait, trait.Id);
         return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, trait.GroupName, trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated, trait.Lie);

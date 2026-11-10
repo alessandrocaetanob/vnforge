@@ -44,15 +44,20 @@
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     </Style>
 
-    <!-- A densidade da grade é um botão de dois estados com o mesmo tamanho e contorno dos outros; marcado, ganha o accent-soft dos filtros. -->
+    <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
+         dos filtros e o contorno accent, que é o que diz que está ligado. -->
     <Style Selector="ToggleButton.density">
       <Setter Property="MinHeight" Value="{DynamicResource Vnf.ControlSm}"/>
       <Setter Property="Height" Value="{DynamicResource Vnf.ControlSm}"/>
-      <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="Padding" Value="8,0"/>
       <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="ToggleButton.density /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
     <Style Selector="ToggleButton.density:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.density:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
@@ -173,11 +178,11 @@
 
     <!-- Scripts 1* (180 a 190), linhas 2,53*, inspetor 1,9* (320 a 600): a 1440 px de janela dá 190 · 632 · 474 (v4: a lista de cenas cede 58 px à grade); o inspetor cresce para a caixa do jogo mostrar as 73 colunas (#392).
          Abaixo de 1400 px a coluna das cenas some (o flyout do cabeçalho a substitui) e o inspetor fica com 360 px; o EditorView troca as medidas. -->
-    <Grid Grid.Row="4" x:Name="Columns" Margin="0,8,0,0" ColumnSpacing="12" IsVisible="{Binding IsGridShown}">
+    <Grid Grid.Row="4" x:Name="Columns" Margin="0,8,0,0" ColumnSpacing="16" IsVisible="{Binding IsGridShown}">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="190"/>
+        <ColumnDefinition Width="1*" MinWidth="180" MaxWidth="220"/>
         <ColumnDefinition Width="2.53*" MinWidth="240"/>
-        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="600"/>
+        <ColumnDefinition Width="1.9*" MinWidth="320" MaxWidth="384"/>
       </Grid.ColumnDefinitions>
 
       <!-- Cenas -->

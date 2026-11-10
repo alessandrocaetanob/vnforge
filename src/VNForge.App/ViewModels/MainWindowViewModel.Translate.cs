@@ -172,9 +172,9 @@ public sealed partial class MainWindowViewModel
             return Dashboard.ReloadAsync();
         }
 
-        if (ReferenceEquals(CurrentPage, Start))
+        if (ReferenceEquals(CurrentPage, Library))
         {
-            return Start.LoadAsync();
+            return Task.WhenAll(Start.LoadAsync(), Library.LoadAsync());
         }
 
         // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar; vale também com a Conferência aberta.

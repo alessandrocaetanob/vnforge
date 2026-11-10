@@ -13,12 +13,14 @@ public sealed class ImageScanPlan
         IReadOnlyList<ImageCandidate> candidates,
         IReadOnlyList<ImageCandidate> toRead,
         IReadOnlyDictionary<string, string> known,
-        IReadOnlyDictionary<string, string> previous)
+        IReadOnlyDictionary<string, string> previous,
+        IReadOnlyDictionary<string, string> previousTranslations)
     {
         Candidates = candidates;
         ToRead = toRead;
         Known = known;
         Previous = previous;
+        PreviousTranslations = previousTranslations;
     }
 
     /// <summary>Todas as imagens do jogo que passaram no filtro.</summary>
@@ -34,6 +36,9 @@ public sealed class ImageScanPlan
 
     internal IReadOnlyDictionary<string, string> Previous { get; }
 
+    /// <summary>A tradução sugerida que o inventário anterior trazia, por hash; só as imagens que a tinham.</summary>
+    internal IReadOnlyDictionary<string, string> PreviousTranslations { get; }
+
     /// <param name="existing">O <c>images.json</c> de antes.</param>
     /// <param name="force">Lê tudo de novo, mesmo o que o inventário já tem; a leitura antiga só fica para o que não chegar a ser relido.</param>
     /// <param name="limit">No máximo tantas leituras (chamadas ao modelo) nesta execução.</param>
@@ -43,11 +48,12 @@ public sealed class ImageScanPlan
         ArgumentNullException.ThrowIfNull(existing);
 
         var previous = existing.GroupBy(e => e.Hash, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Text, StringComparer.Ordinal);
+        var previousTranslations = existing.Where(e => !string.IsNullOrEmpty(e.Translation)).GroupBy(e => e.Hash, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Translation!, StringComparer.Ordinal);
         IReadOnlyDictionary<string, string> known = force ? new Dictionary<string, string>() : previous;
 
         var unique = listing.Candidates.Where(c => !known.ContainsKey(c.Hash)).DistinctBy(c => c.Hash, StringComparer.Ordinal);
         List<ImageCandidate> toRead = [.. limit is { } max ? unique.Take(Math.Max(0, max)) : unique];
-        return new ImageScanPlan(listing.Candidates, toRead, known, previous);
+        return new ImageScanPlan(listing.Candidates, toRead, known, previous, previousTranslations);
     }
 }
 
@@ -130,7 +136,7 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
     {
         var entries = plan.Candidates
             .Select(c => state.Readings.TryGetValue(c.Hash, out var text) || plan.Previous.TryGetValue(c.Hash, out text)
-                ? new ImageTextEntry(c.Archive, c.Path, c.Hash, c.Info.Width, c.Info.Height, text)
+                ? new ImageTextEntry(c.Archive, c.Path, c.Hash, c.Info.Width, c.Info.Height, text, TranslationOf(plan, state, c.Hash, text))
                 : null)
             .OfType<ImageTextEntry>()
             .OrderBy(e => e.Archive, StringComparer.Ordinal)
@@ -142,6 +148,26 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
             Cancelled = state.Cancelled,
             AbortReason = state.AbortReason,
         };
+    }
+
+    // A sugestão da leitura de agora; sem ela (imagem sem texto ou leitor que não sugere), a do inventário anterior, se o texto lido é o mesmo.
+    private static string? TranslationOf(ImageScanPlan plan, RunState state, string hash, string text)
+    {
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        if (state.Translations.TryGetValue(hash, out var fresh) && fresh.Length > 0)
+        {
+            return fresh;
+        }
+
+        return plan.PreviousTranslations.TryGetValue(hash, out var previous)
+            && plan.Previous.TryGetValue(hash, out var old)
+            && string.Equals(old, text, StringComparison.Ordinal)
+            ? previous
+            : null;
     }
 
     /// <returns>Falso quando a execução foi cancelada e o resto dos pacotes não deve ser lido.</returns>
@@ -242,6 +268,8 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
 
         public ConcurrentDictionary<string, string> Readings { get; } = new(StringComparer.Ordinal);
 
+        public ConcurrentDictionary<string, string> Translations { get; } = new(StringComparer.Ordinal);
+
         public ConcurrentQueue<ImageScanFailure> Failed { get; } = new();
 
         public ConcurrentQueue<ImageCandidate> Refused { get; } = new();
@@ -272,6 +300,7 @@ public sealed class ImageTextScanner(IImageTextReader reader, IReadOnlyList<IArc
             else
             {
                 Readings[candidate.Hash] = reading.Text.Trim();
+                Translations[candidate.Hash] = reading.Translation.Trim();
             }
 
             Report(candidate);

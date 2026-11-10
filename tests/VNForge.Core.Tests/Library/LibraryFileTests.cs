@@ -244,6 +244,20 @@ public sealed class LibraryFileTests : IDisposable
     }
 
     [Fact]
+    public void Erro_de_escrita_sai_como_LibraryException_no_Save_e_no_Update()
+    {
+        // Uma pasta no lugar do library.json faz a troca do temporário falhar com IOException ou UnauthorizedAccessException.
+        var file = new LibraryFile(_dir.Path, _ => { });
+        Directory.CreateDirectory(file.Path);
+
+        var save = Assert.Throws<LibraryException>(() => file.Save(Sample()));
+        var update = Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true)));
+
+        Assert.Contains("library.json", save.Message, StringComparison.Ordinal);
+        Assert.NotNull(update.InnerException);
+    }
+
+    [Fact]
     public void Save_espera_um_leitor_soltar_o_arquivo_em_vez_de_falhar()
     {
         // O leitor só solta quando o Save pede a espera: nenhum relógio nem thread do pool entra na conta.

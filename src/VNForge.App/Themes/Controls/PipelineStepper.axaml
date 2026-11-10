@@ -34,7 +34,7 @@
                 CornerRadius="{TemplateBinding CornerRadius}"
                 Padding="{TemplateBinding Padding}">
           <Panel>
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalAlignment="Center">
+            <Grid Name="PART_Grid" ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalAlignment="Center">
               <Border Name="PART_Circle" Width="20" Height="20" CornerRadius="5" BorderThickness="1.5"
                       BorderBrush="{DynamicResource Vnf.StrokeControl}" VerticalAlignment="Center">
                 <Panel>
@@ -45,9 +45,9 @@
                 </Panel>
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
-                <TextBlock Text="{TemplateBinding Title}" FontSize="13" LineHeight="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                <TextBlock Name="PART_Title" Text="{TemplateBinding Title}" FontSize="13" LineHeight="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource Vnf.TextPrimary}"/>
-                <TextBlock Text="{TemplateBinding Subtitle}" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis"
+                <TextBlock Name="PART_Subtitle" Text="{TemplateBinding Subtitle}" FontSize="12" LineHeight="16" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource Vnf.TextSecondary}"/>
               </StackPanel>
             </Grid>
@@ -89,6 +89,59 @@
   </Style>
   <Style Selector="c|PipelineStepItem:active /template/ Border#PART_Underline">
     <Setter Property="IsVisible" Value="True"/>
+  </Style>
+
+  <!-- Variante do Painel (quadro da #544): o cartão é do Border em volta e cada etapa só leva a divisória da direita. Rótulo 14/20 e subtítulo 13/20, que quebram em vez de cortar;
+       etapa concluída é o ícone de círculo com ✓ de 24px, as outras um quadradinho de 18px de contorno fino, 12px de vão e o sublinhado da atual com 3px.
+       O vão da direita é 12 e não 16: com 16 o "48.211 linhas lidas" de 13px da fonte do app quebra em duas linhas, e no quadro cabe em uma. -->
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem">
+    <Setter Property="Padding" Value="16,12,12,12"/>
+    <Setter Property="BorderThickness" Value="0,0,1,0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem:nth-child(1)">
+    <Setter Property="BorderThickness" Value="0,0,1,0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem:nth-last-child(1)">
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem /template/ Grid#PART_Grid">
+    <Setter Property="ColumnSpacing" Value="12"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem /template/ Border#PART_Circle">
+    <Setter Property="Width" Value="18"/>
+    <Setter Property="Height" Value="18"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem:done /template/ Border#PART_Circle">
+    <Setter Property="Width" Value="24"/>
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem:done /template/ PathIcon#PART_Check">
+    <Setter Property="Width" Value="24"/>
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="Data" Value="{DynamicResource Icon.Check}"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem /template/ TextBlock#PART_Title">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="TextTrimming" Value="None"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem /template/ TextBlock#PART_Subtitle">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="20"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="TextTrimming" Value="None"/>
+  </Style>
+  <Style Selector="c|PipelineStepper.dash c|PipelineStepItem:active /template/ Border#PART_Underline">
+    <Setter Property="Height" Value="3"/>
+    <Setter Property="Margin" Value="-16,0,-12,-12"/>
   </Style>
 
   <!-- Variante do assistente de novo projeto (quadro da #536): anéis de 18px sem número e de traço fino, o concluído de 20px só com o contorno e o ✓ em accent,

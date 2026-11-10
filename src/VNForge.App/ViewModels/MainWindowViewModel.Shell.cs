@@ -2,6 +2,8 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Services;
+using VNForge.Core;
+using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
 
@@ -174,6 +176,57 @@ public sealed partial class MainWindowViewModel
 
     [RelayCommand]
     private void OpenLibrary() => SelectedNav = Nav[0];
+
+    /// <summary>
+    /// "Abrir jogo" da gaveta da Biblioteca: um jogo com projeto de tradução abre o projeto e leva à Ficha; um jogo que o VNForge traduz e ainda não tem projeto abre o assistente
+    /// de novo projeto com a pasta dele; um jogo de engine sem suporte só explica, porque ainda não há o que abrir nele.
+    /// </summary>
+    private void OpenGameFromLibrary(LibraryGame game, Func<NewProjectWizardViewModel>? newProjectWizard)
+    {
+        if (game.ProjectPath is { } path)
+        {
+            ProjectOpening = OpenLibraryProjectAsync(path);
+        }
+        else if (game.Engine.Translatable)
+        {
+            ShowWizard(newProjectWizard, game.Folder);
+        }
+        else
+        {
+            Toasts.Show($"O VNForge ainda não traduz jogos da engine {game.Engine.Name}. Por enquanto a Biblioteca só guarda o jogo e a ficha dele.", ToastKind.Info, key: "library-open");
+        }
+    }
+
+    /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>
+    private async Task OpenExistingProjectAsync()
+    {
+        var before = CurrentProject;
+        await Start.OpenFolderCommand.ExecuteAsync(null);
+        if (CurrentProject is { } opened && !ReferenceEquals(opened, before))
+        {
+            SelectedNav = sheetItem;
+        }
+    }
+
+    private async Task OpenLibraryProjectAsync(string path)
+    {
+        try
+        {
+            if (await Start.OpenAsync(path) is not null)
+            {
+                SelectedNav = sheetItem;
+            }
+            else if (Start.ErrorMessage is { Length: > 0 } problem)
+            {
+                // Não depende do PropertyChanged de Start.ErrorMessage: o mesmo erro duas vezes seguidas não o dispara de novo.
+                Library.ReportProblem(problem);
+            }
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Library.ReportProblem($"{e.Message} O projeto não pôde ser aberto.");
+        }
+    }
 
     [RelayCommand]
     private void ReturnToGame()

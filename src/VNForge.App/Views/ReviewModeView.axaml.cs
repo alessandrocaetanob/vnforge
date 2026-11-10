@@ -4,9 +4,11 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -36,6 +38,7 @@ public sealed partial class ReviewModeView : UserControl
         AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
         LostFocus += (_, _) => held.Clear();
         Script.LayoutUpdated += OnScriptLayoutUpdated;
+        ActualThemeVariantChanged += (_, _) => FillSpeaker();
     }
 
     /// <summary>
@@ -137,6 +140,7 @@ public sealed partial class ReviewModeView : UserControl
 
         current.PropertyChanged += OnViewModelPropertyChanged;
         FillSource();
+        FillSpeaker();
         FocusScreen();
     }
 
@@ -184,6 +188,11 @@ public sealed partial class ReviewModeView : UserControl
         if (e.PropertyName == nameof(ReviewModeViewModel.Detail))
         {
             FillSource();
+            FillSpeaker();
+        }
+        else if (e.PropertyName == nameof(ReviewModeViewModel.SpeakerText))
+        {
+            FillSpeaker();
         }
         else if (e.PropertyName == nameof(ReviewModeViewModel.Position))
         {
@@ -237,16 +246,63 @@ public sealed partial class ReviewModeView : UserControl
         }
     }
 
+    /// <summary>
+    /// Quem fala, como no quadro: o nome do jogo e a seta em cinza e o nome em português em destaque, na cor do personagem quando ele está cadastrado, seguido da voz.
+    /// O texto é montado aqui porque só uma parte dele leva a cor. O menu de copiar o nome continua valendo para o bloco todo.
+    /// </summary>
+    private void FillSpeaker()
+    {
+        SpeakerLine.Inlines?.Clear();
+        if (current?.Detail is not { } detail || SpeakerLine.Inlines is not { } inlines)
+        {
+            return;
+        }
+
+        if (detail.Speaker is null || detail.SpeakerTarget is null)
+        {
+            inlines.Add(new Run(detail.SpeakerPair));
+        }
+        else
+        {
+            inlines.Add(new Run($"{detail.Speaker} → "));
+            var name = new Run(detail.SpeakerTarget) { FontWeight = FontWeight.SemiBold };
+            if (detail.SpeakerColor is { } color)
+            {
+                name.Foreground = color.BrushFor(ActualThemeVariant);
+            }
+
+            inlines.Add(name);
+        }
+
+        if (detail.HasVoice)
+        {
+            inlines.Add(new Run($" · {detail.Voice}"));
+        }
+    }
+
+    /// <summary>
+    /// O original com os marcadores em selos. Os do fim do texto (a virada de página, quase sempre) vão para a fileira de baixo, ao lado de "Entender o japonês", como no
+    /// quadro; os do meio ficam no texto, no lugar em que quebram a fala.
+    /// </summary>
     private void FillSource()
     {
         SourceText.Inlines?.Clear();
+        SourceMarkers.Children.Clear();
         if (current?.Detail is not { } detail)
         {
             return;
         }
 
-        foreach (var segment in detail.SourceSegments)
+        var segments = detail.SourceSegments.ToList();
+        var tail = segments.Count;
+        while (tail > 0 && segments[tail - 1].IsMarker)
         {
+            tail--;
+        }
+
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
             if (!segment.IsMarker)
             {
                 SourceText.Inlines?.Add(new Run(segment.Text));
@@ -254,7 +310,16 @@ public sealed partial class ReviewModeView : UserControl
             }
 
             var kind = segment.Text.StartsWith('{') ? MarkerKind.Variable : MarkerKind.Control;
-            SourceText.Inlines?.Add(new InlineUIContainer(MarkerChipGenerator.CreateChip(segment.Text, kind)) { BaselineAlignment = BaselineAlignment.Center });
+            var chip = (MarkerChip)MarkerChipGenerator.CreateChip(segment.Text, kind);
+            if (i >= tail)
+            {
+                chip.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+                SourceMarkers.Children.Add(chip);
+            }
+            else
+            {
+                SourceText.Inlines?.Add(new InlineUIContainer(chip) { BaselineAlignment = BaselineAlignment.Center });
+            }
         }
     }
 }

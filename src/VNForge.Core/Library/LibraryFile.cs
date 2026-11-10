@@ -61,7 +61,15 @@ public sealed class LibraryFile(string directory)
     public T Update<T>(Func<GameLibrary, T> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"A pasta de '{Path}' não pôde ser criada: {e.Message}", e);
+        }
+
         using var gate = Acquire();
         var library = Load();
         var result = change(library);
@@ -87,16 +95,24 @@ public sealed class LibraryFile(string directory)
         FileLock.Acquire(Path + ".lock", LockTimeout, $"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
 
     /// <summary>Grava a biblioteca sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
+    /// <exception cref="LibraryException">O arquivo não pôde ser gravado (disco cheio, sem permissão, preso por outro programa).</exception>
     public void Save(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        AtomicFile.WriteAllText(Path, Serialize(library), _wait);
+        try
+        {
+            AtomicFile.WriteAllText(Path, Serialize(library), _wait);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new LibraryException($"O arquivo '{Path}' não pôde ser gravado: {e.Message}", e);
+        }
     }
 
     public static string Serialize(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games], library.LocaleEmulatorPath), Json);
+        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games], library.LocaleEmulatorPath, library.Roots.Count == 0 ? null : [.. library.Roots]), Json);
     }
 
     /// <exception cref="LibraryException">JSON malformado, versão desconhecida, jogo sem id ou pasta, ou o mesmo id duas vezes.</exception>
@@ -138,7 +154,7 @@ public sealed class LibraryFile(string directory)
             }
         }
 
-        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy(), envelope.LocaleEmulatorPath);
+        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy(), envelope.LocaleEmulatorPath, envelope.Roots);
     }
 
     private static LibraryGame Normalize(LibraryGame game) => game with
@@ -146,5 +162,5 @@ public sealed class LibraryFile(string directory)
         Candidates = game.Candidates ?? [],
     };
 
-    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games, string? LocaleEmulatorPath = null);
+    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games, string? LocaleEmulatorPath = null, List<LibraryRoot>? Roots = null);
 }

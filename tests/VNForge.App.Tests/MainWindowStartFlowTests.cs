@@ -26,7 +26,7 @@ public class MainWindowStartFlowTests
         using var temp = new TempFolder();
         var vm = Create(temp);
         await vm.Start.OpenAsync(TwoScripts(temp));
-        Assert.Same(vm.Start, vm.CurrentPage);
+        Assert.Same(vm.Library, vm.CurrentPage);
 
         await vm.Start.OpenSelectedCommand.ExecuteAsync(null);
         await vm.Dashboard.ReloadAsync();

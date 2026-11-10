@@ -44,8 +44,9 @@ public sealed class SheetFetchAndStoreTests
         Assert.Equal(["i1", "i104", "i2", "i3"], terms.All.Where(t => t.Kind == SheetTermKind.Trait).Select(t => t.Id));
         Assert.Equal("Hair", terms.Find(SheetTermKind.Trait, "i1")!.Context);
         var kenta = store.LoadCharacter("c1")!;
-        Assert.Equal(new SheetAppearance(Game1, "main", 0), kenta.In(Game1));
-        Assert.Equal(new SheetAppearance(Game1, "side", 2), store.LoadCharacter("c3")!.In(Game1));
+        Assert.Equal(("main", 0), (kenta.In(Game1)!.Role, kenta.In(Game1)!.Spoiler));
+        Assert.Equal([new SheetAppearanceEdition(null, "main", 0)], kenta.In(Game1)!.Editions);
+        Assert.Equal(("side", 2), (store.LoadCharacter("c3")!.In(Game1)!.Role, store.LoadCharacter("c3")!.In(Game1)!.Spoiler));
         Assert.Equal(("m", "m"), (kenta.Gender!.Visible, kenta.Gender.Spoiler));
     }
 
@@ -88,7 +89,8 @@ public sealed class SheetFetchAndStoreTests
         await SheetFetcher.FetchAsync(catalog, store, Game2, cancellationToken: Ct);
 
         var kenta = store.LoadCharacter("c1")!;
-        Assert.Equal([new SheetAppearance(Game1, "main", 0), new SheetAppearance(Game2, "side", 1)], kenta.Appearances);
+        Assert.Equal([(Game1, "main", 1), (Game2, "side", 1)], kenta.Appearances.Select(a => (a.VisualNovelId, a.Role, a.Spoiler)));
+        Assert.Equal([new SheetAppearanceEdition(null, "main", 0), new SheetAppearanceEdition("r2", "side", 1), new SheetAppearanceEdition(null, "side", 1)], kenta.Appearances.SelectMany(a => a.Editions!).Take(3));
         Assert.Equal(["c1"], store.LoadAllCharacters().Select(c => c.Id));
         Assert.Equal(["c1"], store.LoadGame(Game2)!.CharacterIds);
     }

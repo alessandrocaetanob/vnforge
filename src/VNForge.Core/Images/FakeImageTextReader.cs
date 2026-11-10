@@ -11,6 +11,9 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
     private int _inFlight;
     private int _maxInFlight;
 
+    /// <summary>A tradução sugerida de cada imagem; por padrão o leitor não sugere nada.</summary>
+    public Func<ImageToRead, string>? Translate { get; set; }
+
     /// <summary>As imagens recebidas, na ordem das chamadas.</summary>
     public IReadOnlyCollection<ImageToRead> Received => _received;
 
@@ -69,7 +72,7 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
 
             return RefuseWhen?.Invoke(image) == true
                 ? new ImageTextReading(string.Empty, Refused: true)
-                : new ImageTextReading(_text(image), InputTokens: InputTokens, OutputTokens: OutputTokens);
+                : new ImageTextReading(_text(image), InputTokens: InputTokens, OutputTokens: OutputTokens, Translation: Translate?.Invoke(image) ?? string.Empty);
         }
         finally
         {

@@ -18,7 +18,7 @@ public class MainWindowBuildNavTests
         var vm = Create(temp);
 
         Assert.True(vm.TryClose());
-        Assert.IsType<StartViewModel>(vm.CurrentPage);
+        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class MainWindowBuildNavTests
         Assert.False(item.IsEnabled);
 
         vm.SelectedNav = item;
-        Assert.IsType<StartViewModel>(vm.CurrentPage);
+        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
 
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
