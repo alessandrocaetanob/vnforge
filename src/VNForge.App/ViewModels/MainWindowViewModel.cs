@@ -200,6 +200,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Characters.Open(request.Id, request.RevealSpoilers);
             SelectedNav = charactersItem;
         };
+        // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (Sheet.ListCard is null && CurrentProject is { } project)
+            {
+                Sheet.ListCard = Library.ListCardForProject(project.Root, Sheet.VisualNovelId);
+            }
+        };
         Sheet.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))

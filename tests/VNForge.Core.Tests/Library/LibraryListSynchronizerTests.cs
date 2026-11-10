@@ -217,6 +217,46 @@ public sealed class LibraryListSynchronizerTests
     }
 
     [Fact]
+    public async Task A_escolha_da_pessoa_em_cada_conflito_vale_mais_que_o_lado_mais_recente()
+    {
+        var agreed = Fields(vote: 70, notes: "daqui");
+        var library = Synced(agreed with { Vote = 95, Notes = "do app" }, Latest, agreed);
+        var fake = new FakeVndbCatalog(list: [Entry(lastModified: Later, vote: 60, notes: "do site", labels: [7])]);
+        var options = new LibrarySyncOptions
+        {
+            Resolutions = new Dictionary<(string, string), LibrarySyncWinner> { [("g1", "voto")] = LibrarySyncWinner.Remote, [("g1", "notas")] = LibrarySyncWinner.Local },
+        };
+
+        var synchronizer = new LibraryListSynchronizer(fake, new FakeTimeProvider(Latest));
+        var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, options, Ct);
+        await synchronizer.ApplyAsync(plan, FakeVndbCatalog.ValidToken, (game, state) => LibraryListSynchronizer.Keep(library, game, state), null, Ct);
+
+        Assert.Equal([LibrarySyncWinner.Remote, LibrarySyncWinner.Local], plan.Items[0].Conflicts.Select(c => c.Winner));
+        Assert.Equal(60, library.Games[0].CurrentList!.Fields.Vote);
+        Assert.Equal("do app", library.Games[0].CurrentList!.Fields.Notes);
+        Assert.Equal("do app", (await Remote(fake))!.Notes);
+        Assert.Equal(60, (await Remote(fake))!.Vote);
+    }
+
+    [Fact]
+    public async Task Campo_de_fora_da_sincronizacao_nao_e_lido_nem_enviado()
+    {
+        var library = Synced(Fields(vote: 70, notes: "daqui"), Latest);
+        var fake = new FakeVndbCatalog(list: [Entry(lastModified: Later, vote: 60, notes: "do site", labels: [7])]);
+        var local = library.Games[0].CurrentList!.Fields with { Vote = 95, Notes = "do app" };
+        library.Replace(library.Games[0] with { List = library.Games[0].CurrentList! with { Fields = local } });
+
+        var synchronizer = new LibraryListSynchronizer(fake, new FakeTimeProvider(Latest));
+        var plan = await synchronizer.PlanAsync(library, FakeVndbCatalog.ValidToken, new LibrarySyncOptions { Fields = LibrarySyncFields.Notes }, Ct);
+        await synchronizer.ApplyAsync(plan, FakeVndbCatalog.ValidToken, (game, state) => LibraryListSynchronizer.Keep(library, game, state), null, Ct);
+
+        Assert.Equal(60, (await Remote(fake))!.Vote);
+        Assert.Equal(95, library.Games[0].CurrentList!.Fields.Vote);
+        Assert.Equal("do app", (await Remote(fake))!.Notes);
+        Assert.Equal(["notas"], plan.Items[0].Pushed);
+    }
+
+    [Fact]
     public async Task Rotulos_de_um_lado_so_passam_para_o_outro_e_na_primeira_vez_se_somam()
     {
         var agreed = Fields(vote: null, notes: null, 1, 3);

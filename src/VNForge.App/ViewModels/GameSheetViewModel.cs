@@ -66,6 +66,10 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     public string? VisualNovelId => visualNovelId;
 
+    /// <summary>O cartão "Na sua lista do VNDB" do jogo, quando ele está na Biblioteca e confirmado no VNDB; nulo some o cartão.</summary>
+    [ObservableProperty]
+    public partial LibraryVndbListViewModel? ListCard { get; set; }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReady), nameof(ShowEmpty), nameof(EmptyMessage), nameof(EmptyActionText), nameof(EmptyActionCommand))]
     public partial GameSheetState State { get; private set; } = GameSheetState.NoLink;
@@ -269,6 +273,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
     public void Open(string? id, string title)
     {
         generation++;
+        ListCard = null;
         visualNovelId = id;
         GameTitle = title;
         data = null;
