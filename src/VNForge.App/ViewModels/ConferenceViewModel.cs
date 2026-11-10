@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Formatting;
@@ -164,6 +166,42 @@ public sealed partial class ConferenceViewModel : ObservableObject
 
     /// <summary>Há aviso e nenhum erro: a faixa do topo diz que nada trava o teste no jogo.</summary>
     public bool HasOnlyWarnings => !HasBlockingErrors && IssueCount is > 0;
+
+    /// <summary>A faixa do topo da página: erros que travam o teste, só avisos ou conferência limpa; some enquanto não há conferência.</summary>
+    public bool HasBanner => HasBlockingErrors || HasOnlyWarnings || IsClear;
+
+    /// <summary>O ponto e o contorno da faixa: vermelho com erro, âmbar só com aviso, verde com a conferência limpa.</summary>
+    public GameState BannerState => HasBlockingErrors ? GameState.Blocked : HasOnlyWarnings ? GameState.Caution : GameState.Translated;
+
+    public string BannerTitle => HasBlockingErrors ? BlockingMessage.TrimEnd('.') : "Nada trava o teste no jogo";
+
+    public string BannerMessage => HasBlockingErrors
+        ? "Corrija estes antes de testar. Os avisos não travam nada."
+        : HasOnlyWarnings
+            ? "Os avisos não travam nada. Corrija quando puder."
+            : $"A tradução está pronta para testar. {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")} · {Plural(lineCount, "linha conferida", "linhas conferidas")}.";
+
+    /// <summary>"Testar no jogo" só aparece na faixa da conferência limpa.</summary>
+    public bool ShowTestButton => IsClear;
+
+    /// <summary>O usuário pediu para testar no jogo; quem escuta (a janela principal) leva à página Testar.</summary>
+    public event EventHandler? TestRequested;
+
+    [RelayCommand]
+    private void Test() => TestRequested?.Invoke(this, EventArgs.Empty);
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(IsClear) or nameof(HasOnlyWarnings) or nameof(HasBlockingErrors) or nameof(BlockingMessage))
+        {
+            OnPropertyChanged(nameof(HasBanner));
+            OnPropertyChanged(nameof(BannerState));
+            OnPropertyChanged(nameof(BannerTitle));
+            OnPropertyChanged(nameof(BannerMessage));
+            OnPropertyChanged(nameof(ShowTestButton));
+        }
+    }
 
     /// <summary>"Corrigir 3 com um clique"; "Corrigir com um clique" quando não há o que corrigir.</summary>
     [ObservableProperty]

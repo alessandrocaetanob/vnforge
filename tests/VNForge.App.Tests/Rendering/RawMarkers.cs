@@ -10,7 +10,7 @@ namespace VNForge.App.Tests.Rendering;
 internal static class RawMarkers
 {
     /// <summary>O cartão de "mesmo original" tem <paramref name="minChips"/> selos ou mais e nenhum texto com barra invertida.</summary>
-    public static void AssertCardUsesChips(ConsistencyCardView card, int minChips)
+    public static void AssertCardUsesChips(Control card, int minChips)
     {
         var chips = card.GetVisualDescendants().OfType<MarkerChip>().Where(c => c.IsEffectivelyVisible).ToList();
         Assert.True(chips.Count >= minChips, $"o original e cada variante mostram o marcador como selo (achei {chips.Count}, esperava {minChips} ou mais)");

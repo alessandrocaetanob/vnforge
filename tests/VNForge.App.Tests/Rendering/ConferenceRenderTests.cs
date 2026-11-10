@@ -58,23 +58,25 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                     ScreenRenderer.Settle(window);
                     var view = window.GetVisualDescendants().OfType<ConferenceView>().Single();
                     Assert.True(vm.Conference.HasFixable);
-                    AssertHeader(view, vm.Conference);
-                    AssertBlockingBanner(window, view, vm.Conference, theme);
+                    AssertBanner(window, view, vm.Conference, theme);
                     AssertSceneNamesAndChips(view);
 
                     // O cartão de "mesmo original": as duas ações não são o botão de destaque (esse é um por tela, no cabeçalho).
                     var cardButtons = view.GetVisualDescendants().OfType<Button>()
                         .Where(b => b.IsEffectivelyVisible && (b.Command == vm.Conference.UseVariantCommand || b.Command == vm.Conference.KeepDifferentCommand)).ToList();
-                    Assert.True(cardButtons.Count >= 4, "o cartão mostra Usar em todas por variante e Manter diferentes");
+                    Assert.True(cardButtons.Count >= 3, "o grupo mostra Usar em todas nas variantes que não são a mais usada e Manter diferentes");
                     Assert.All(cardButtons, b => Assert.DoesNotContain("accent", b.Classes));
-                    RawMarkers.AssertCardUsesChips(view.GetVisualDescendants().OfType<ConsistencyCardView>().Single(c => c.IsEffectivelyVisible), minChips: 4);
+                    var group = view.GetVisualDescendants().OfType<ConferenceGroupView>().Single(c => c.IsEffectivelyVisible);
+                    RawMarkers.AssertCardUsesChips(group, minChips: 3);
+                    Assert.Single(group.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("radio") && b.Classes.Contains("on"));
+                    Assert.Equal(2, cardButtons.Count(b => b.Command == vm.Conference.UseVariantCommand));
 
                     // Erro sem correção automática: só "Abrir no editor", em destaque, na barra do pé do painel.
                     var open = ActionButton(view, vm.Conference.OpenLineCommand);
                     Assert.Contains("accent", open.Classes);
                     Assert.DoesNotContain(PanelButtons(view), b => b.Command == vm.Conference.FixAndNextCommand && b.IsEffectivelyVisible);
                     AssertInsidePanelFooter(window, view, open);
-                    Save(window, "conferir-v3-problemas", theme);
+                    Save(window, "conferir-v6-problemas", theme);
 
                     // O espaço duplo da mesma linha traz a correção proposta e o botão "Aplicar correção".
                     vm.Conference.SelectedRow = vm.Conference.Rows.First(r => r.RuleId == "espaco-duplo");
@@ -91,7 +93,7 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
                     AssertInsidePanelFooter(window, view, markOk);
                     AssertInsidePanelFooter(window, view, openEditor);
                     Assert.True(fixAndNext.Bounds.Width > openEditor.Bounds.Width, "a ação principal ocupa a largura do painel");
-                    Save(window, "conferir-v3-um-clique", theme);
+                    Save(window, "conferir-v6-um-clique", theme);
                 }
                 finally
                 {
@@ -216,29 +218,26 @@ public sealed class ConferenceRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.True(box.Bottom <= window.Height, "o botão está na área visível");
     }
 
-    /// <summary>Um só botão de destaque no cabeçalho: "Corrigir N com um clique" quando há correção, e "Conferir de novo" fica neutro.</summary>
-    private static void AssertHeader(ConferenceView view, ConferenceViewModel conference)
+    /// <summary>A faixa do topo é o cartão do quadro (GameStateBanner): título e frase da conferência, "Corrigir N com um clique" é o único botão de destaque e "Conferir de novo" fica neutro.</summary>
+    private static void AssertBanner(Window window, ConferenceView view, ConferenceViewModel conference, ThemeVariant theme)
     {
-        var buttons = view.GetVisualDescendants().OfType<Button>().ToList();
+        var banner = Assert.Single(view.GetVisualDescendants().OfType<GameStateBanner>(), b => b.IsEffectivelyVisible);
+        Assert.Equal(GameState.Blocked, banner.State);
+        Assert.Equal($"{conference.BlockingCount} {conference.BlockingRest}".TrimEnd('.'), banner.Title);
+        Assert.Equal("Corrija estes antes de testar. Os avisos não travam nada.", banner.Message);
+        var buttons = banner.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).ToList();
         var fixAll = Assert.Single(buttons, b => b.Command == conference.FixAllCommand);
-        var refresh = Assert.Single(buttons, b => b.Command == conference.RefreshCommand && b.IsEffectivelyVisible);
+        var refresh = Assert.Single(buttons, b => b.Command == conference.RefreshCommand);
         Assert.Contains("accent", fixAll.Classes);
         Assert.DoesNotContain("accent", refresh.Classes);
-        Assert.Single(buttons, b => b.Classes.Contains("accent") && b.Classes.Contains("sm") && b.IsEffectivelyVisible);
-    }
+        Assert.Single(buttons, b => b.Classes.Contains("accent"));
 
-    /// <summary>A faixa do topo é de cartão, com a barra de erro à esquerda e o número em vermelho: nada de fundo vermelho cheio.</summary>
-    private static void AssertBlockingBanner(Window window, ConferenceView view, ConferenceViewModel conference, ThemeVariant theme)
-    {
-        var banner = Assert.Single(view.GetVisualDescendants().OfType<Border>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == conference.BlockingMessage);
-        Assert.Equal(conference.BlockingMessage, $"{conference.BlockingCount} {conference.BlockingRest}");
         var errorBg = ColorOf("Vnf.SignalErrorBg", theme);
         var errorFg = ColorOf("Vnf.SignalErrorFg", theme);
         var probe = PixelProbe.Capture(window, banner);
         Assert.True(probe.CountInArea(new Rect(8, 2, probe.Width - 16, probe.Height - 4), errorBg, 4) < probe.Width * probe.Height / 100, "a faixa não tem fundo vermelho");
-        Assert.True(probe.CountInArea(new Rect(0, 4, 3, probe.Height - 8), errorFg, 6) > probe.Height / 2, "a barra de erro desenha a borda esquerda");
-        var number = banner.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines ?? []).OfType<Run>().Single(r => r.Text == conference.BlockingCount);
-        Assert.Equal(errorFg, Assert.IsType<ISolidColorBrush>(number.Foreground, exactMatch: false).Color);
+        Assert.True(probe.CountInArea(new Rect(0, 0, probe.Width, 1), errorFg, 6) > probe.Width / 2, "o contorno de cima é vermelho");
+        Assert.True(probe.CountInArea(new Rect(12, 12, 20, probe.Height - 24), errorFg, 6) > 40, "o ponto de estado é vermelho");
     }
 
     private static Color ColorOf(string key, ThemeVariant theme) =>

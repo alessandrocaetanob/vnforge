@@ -7,11 +7,52 @@
              x:DataType="vm:ConferenceViewModel">
 
   <UserControl.Styles>
-    <!-- A caixa de original e tradução do painel: fundo rebaixado, raio 4. -->
+    <!-- O original do painel (v3-org do quadro): fundo rebaixado, raio 12, 17/26. A tradução de hoje é o campo do quadro (v3-field): cartão, contorno de controle, raio 12, 14/20. -->
     <Style Selector="Border.original">
       <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
-      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+      <Setter Property="Padding" Value="14,12"/>
+    </Style>
+    <Style Selector="Border.original.field">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="14,10"/>
+    </Style>
+    <!-- Cartão do quadro (x-card): raio 16 sobre o painel comum. -->
+    <Style Selector="Border.panel.card">
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    </Style>
+    <!-- Selo de gravidade do painel (v3-pill): 20px, 11/600, sem ícone. -->
+    <Style Selector="Border.sev">
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Background" Value="{DynamicResource Vnf.SignalWarningBg}"/>
+    </Style>
+    <Style Selector="Border.sev > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="LineHeight" Value="16"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/>
+    </Style>
+    <Style Selector="Border.sev.ai">
+      <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
+    </Style>
+    <Style Selector="Border.sev.ai > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
+    </Style>
+    <Style Selector="Border.sev.error">
+      <Setter Property="Background" Value="{DynamicResource Vnf.SignalErrorBg}"/>
+    </Style>
+    <Style Selector="Border.sev.error > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.SignalErrorFg}"/>
+    </Style>
+    <!-- A barra da linha selecionada vai de ponta a ponta (x-is.on). -->
+    <Style Selector="ListBox.rows > ListBoxItem /template/ Border#SelectionBar">
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="CornerRadius" Value="0"/>
     </Style>
     <!-- O selo tem 20px: a linha do detalhe que leva selo cresce para 22 em vez de cortar o texto. -->
     <Style Selector="TextBlock.body-sm.chips">
@@ -24,7 +65,7 @@
     </Style>
     <Style Selector="ListBox.cards > ListBoxItem">
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="Margin" Value="0"/>
       <Setter Property="MinHeight" Value="0"/>
       <Setter Property="Background" Value="Transparent"/>
     </Style>
@@ -37,44 +78,37 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" Focusable="True">
+  <Grid x:Name="Root" RowDefinitions="Auto,Auto,*" Margin="32,20,32,16" Focusable="True">
 
-    <!-- Cabeçalho sem título nem resumo (o quadro não os tem; o cabeçalho do jogo já diz a aba): só, à direita, um só botão de destaque: "Corrigir N com um clique" quando há correção, senão "Conferir de novo". -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="32,8,32,8">
-      <Button Grid.Column="1" Classes="sm" Classes.accent="{Binding HasFixable}" IsVisible="{Binding HasFixable}" VerticalAlignment="Bottom" Command="{Binding FixAllCommand}"
-              AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">
-        <TextBlock Text="{Binding FixAllLabel}"/>
-      </Button>
-      <Button Grid.Column="2" Classes="sm" Classes.accent="{Binding RefreshIsPrimary}" VerticalAlignment="Bottom" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
+    <!-- Faixa do topo (v3-banner do quadro): ponto, título, frase e as ações da conferência. Erros travam o teste no jogo (contorno e ponto vermelhos), só avisos não travam nada (ponto âmbar), conferência limpa leva ao teste (ponto verde). Depois dela, a falha da última ação e o resultado dela. -->
+    <StackPanel Grid.Row="0" Spacing="8">
+      <Button Classes="subtle" HorizontalAlignment="Right" IsVisible="{Binding !HasBanner}" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
         <TextBlock Text="Conferir de novo"/>
       </Button>
-    </Grid>
-
-    <!-- Faixa do topo: os erros travam o teste no jogo, os avisos não travam nada; depois a falha da última ação e o resultado dela. -->
-    <StackPanel Grid.Row="1" Spacing="8" Margin="32,0,32,8">
-      <!-- Neutra: fundo de cartão, ícone de erro e só o número em vermelho; a barra à esquerda guarda o sinal sem gritar. -->
-      <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasBlockingErrors}" AutomationProperties.Name="{Binding BlockingMessage}">
-        <Grid ColumnDefinitions="3,*">
-          <Border Background="{DynamicResource Vnf.SignalErrorFg}"/>
-          <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="12,10">
-            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"/>
-            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-              <Run FontWeight="Bold" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding BlockingCount}"/>
-              <Run FontWeight="SemiBold" Text="{Binding BlockingRest}"/>
-              <Run Text="Corrija esses antes de testar no jogo. Os avisos não travam nada."/>
-            </TextBlock>
-          </Grid>
-        </Grid>
-      </Border>
-      <Border Classes="infobar warning" IsVisible="{Binding HasOnlyWarnings}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-          <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Warning}"/>
-          <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
-            <Run FontWeight="SemiBold" Text="Nada trava o teste no jogo."/>
-            <Run Text="Os avisos não travam nada; corrija quando puder."/>
-          </TextBlock>
-        </Grid>
-      </Border>
+      <c:GameStateBanner State="{Binding BannerState}" Title="{Binding BannerTitle}" Message="{Binding BannerMessage}" IsVisible="{Binding HasBanner}"
+                         AutomationProperties.Name="{Binding BannerTitle}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Button Classes="accent" FontSize="13" IsVisible="{Binding HasFixable}" Command="{Binding FixAllCommand}"
+                  AutomationProperties.Name="Corrigir de uma vez os problemas que têm correção de um clique">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
+              <TextBlock Text="{Binding FixAllLabel}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button Classes="accent" FontSize="13" IsVisible="{Binding ShowTestButton}" Command="{Binding TestCommand}" AutomationProperties.Name="Testar no jogo">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
+              <TextBlock Text="Testar no jogo" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button Classes="subtle" FontSize="13" Command="{Binding RefreshCommand}" AutomationProperties.Name="Conferir de novo">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ArrowSync}"/>
+              <TextBlock Text="Conferir de novo" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </c:GameStateBanner>
       <Border Classes="infobar error" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
@@ -91,10 +125,10 @@
     </StackPanel>
 
     <!-- Filtros em linguagem comum; os números são do projeto inteiro. -->
-    <ItemsControl Grid.Row="2" ItemsSource="{Binding Filters}" Margin="32,0,32,8" AutomationProperties.Name="Filtros">
+    <ItemsControl Grid.Row="1" ItemsSource="{Binding Filters}" Margin="0,14" AutomationProperties.Name="Filtros">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
-          <WrapPanel ItemSpacing="6" LineSpacing="6"/>
+          <WrapPanel ItemSpacing="8" LineSpacing="8"/>
         </ItemsPanelTemplate>
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
@@ -106,13 +140,13 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,420" ColumnSpacing="12" Margin="32,0,32,12">
+    <Grid Grid.Row="2" ColumnDefinitions="*,384" ColumnSpacing="20">
 
       <!-- Problemas: o que é, a cena e a linha; "não traduzida" resumida por cena. -->
-      <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Problemas">
+      <Border Classes="panel card" ClipToBounds="True" AutomationProperties.Name="Problemas">
         <Grid RowDefinitions="Auto,Auto,*,Auto">
           <!-- Um card por ajuste de formatação que a estratégia de acentuação não grava, no lugar das linhas que ele causa; o botão troca o ajuste. -->
-          <ItemsControl ItemsSource="{Binding SettingCards}" IsVisible="{Binding HasSettingCards}" Margin="12,12,12,4"
+          <ItemsControl ItemsSource="{Binding SettingCards}" IsVisible="{Binding HasSettingCards}" Margin="16,16,16,4"
                         AutomationProperties.Name="Ajustes que o jogo não grava">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -140,7 +174,7 @@
           </ItemsControl>
           <!-- Um cartão por original com mais de uma tradução, no lugar de um aviso por linha: as variantes, as linhas de cada uma (links para o Editor) e o que difere da mais usada. -->
           <!-- Virtualizada: um projeto pode ter milhares de originais repetidos. Sem seleção visível; os botões do cartão são o que se clica. -->
-          <ListBox Grid.Row="1" Classes="cards" MaxHeight="300" Margin="12,8,12,4" ItemsSource="{Binding ConsistencyCards}" IsVisible="{Binding HasConsistencyCards}"
+          <ListBox Grid.Row="1" Classes="cards" MaxHeight="300" ItemsSource="{Binding ConsistencyCards}" IsVisible="{Binding HasConsistencyCards}"
                    SelectionMode="Toggle" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Originais com traduções diferentes">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -149,12 +183,12 @@
             </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ConferenceConsistencyCardViewModel">
-                  <v:ConsistencyCardView/>
+                  <v:ConferenceGroupView/>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
           <Panel Grid.Row="2">
-            <ListBox Classes="projects" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" SelectionMode="Single"
+            <ListBox Classes="projects rows" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" SelectionMode="Single"
                      AutomationProperties.Name="Problemas encontrados">
               <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -163,23 +197,28 @@
               </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ConferenceIssueRowViewModel">
-                  <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="12" Margin="16,6" MinHeight="48"
+                  <Grid ColumnDefinitions="18,*,Auto" ColumnSpacing="14" Margin="16,10" MinHeight="42"
                         Background="Transparent" DoubleTapped="OnIssueDoubleTapped">
-                    <Panel Width="16" Height="16" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,3,0,0">
-                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                    <Panel Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,1,0,0">
+                      <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Error}" Foreground="{DynamicResource Vnf.SignalErrorFg}"
                                 IsVisible="{Binding IsError}" AutomationProperties.Name="Trava o teste"/>
-                      <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                      <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"
                                 IsVisible="{Binding !IsError}" AutomationProperties.Name="Aviso"/>
                     </Panel>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
-                      <TextBlock Classes="body-sm" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Classes="caption secondary" Text="{Binding Where}" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" MinWidth="0">
+                      <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Classes="caption secondary" Text="{Binding Where}" TextTrimming="CharacterEllipsis"
+                                 IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                       <TextBlock Classes="caption secondary" Text="{Binding OriginNote}" TextTrimming="CharacterEllipsis"
                                  IsVisible="{Binding IsMachineDraft}"/>
-                      <TextBlock Classes="body-sm secondary" Classes.chips="{Binding HasDetailMarkers}" c:MarkedText.Source="{Binding DetailMarked}" TextTrimming="CharacterEllipsis" MaxLines="1"
+                      <TextBlock Classes="body-sm" Classes.chips="{Binding HasDetailMarkers}" c:MarkedText.Source="{Binding DetailMarked}" TextTrimming="CharacterEllipsis" MaxLines="1"
                                  ToolTip.Tip="{Binding Detail}" AutomationProperties.Name="{Binding Detail}"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding Tag}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                    <TextBlock Grid.Column="2" Classes="caption secondary" Text="{Binding Where}" VerticalAlignment="Top" Margin="0,2,0,0"
+                               IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                    <Border Grid.Column="2" Classes="sev ai" VerticalAlignment="Top" IsVisible="{Binding Tag, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                      <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                    </Border>
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -189,27 +228,26 @@
                        TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding ShowEmptyText}" Text="{Binding EmptyMessage}"/>
             <!-- Conferência limpa: a frase acima cede lugar ao estado vazio com o selo 訳. -->
             <c:EmptyState IsVisible="{Binding IsClear}"
-                          Message="Nada trava o teste no jogo. A tradução está pronta para testar."
-                          ActionText="Conferir de novo" ActionCommand="{Binding RefreshCommand}"/>
+                          Message="Nenhum problema aberto. A conferência de agora não achou nada; ela roda de novo quando você aprova linhas."/>
           </Panel>
           <Border Grid.Row="3" Classes="divider-top" Padding="16,10">
-            <TextBlock Classes="caption secondary" Text="{Binding ListFooter}" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Classes="caption secondary" Text="{Binding ListFooter}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
           </Border>
         </Grid>
       </Border>
 
       <!-- Painel do problema: o que é, o original, a tradução de hoje, como vai ficar e as ações. -->
-      <Border Grid.Column="1" Classes="panel" Padding="16" AutomationProperties.Name="Problema selecionado">
+      <Border Grid.Column="1" Classes="panel card" Padding="16,14" AutomationProperties.Name="Problema selecionado">
         <Panel>
           <TextBlock Classes="body-sm secondary" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
                      IsVisible="{Binding !HasSelection}" Text="Selecione um problema para ver o que fazer."/>
           <Panel IsVisible="{Binding HasSelection}">
             <Grid RowDefinitions="*,Auto" DataContext="{Binding SelectedRow}" x:DataType="vm:ConferenceIssueRowViewModel">
               <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="8" Margin="0,0,8,0">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <c:SeverityTag Level="{Binding Level}"/>
-                    <TextBlock Classes="body-sm secondary" Text="{Binding Where}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <StackPanel Spacing="10" Margin="0,0,8,0">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Classes="sev" Classes.error="{Binding IsError}"><TextBlock Text="{Binding SeverityLabel}" VerticalAlignment="Center"/></Border>
+                    <TextBlock Classes="caption secondary" Text="{Binding Where}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                   <TextBlock Classes="title-md" Text="{Binding DetailTitle}" TextWrapping="Wrap"/>
                   <StackPanel Spacing="6">
@@ -235,18 +273,19 @@
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasTranslation}">
                     <c:OverlineText Classes="overline" Text="{Binding TranslationLabel}"/>
-                    <Border Classes="original">
-                      <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
+                    <Border Classes="original field">
+                      <TextBlock FontSize="14" LineHeight="20" c:MarkedText.Source="{Binding Translation}" TextWrapping="Wrap" AutomationProperties.Name="{Binding TranslationLabel}"/>
                     </Border>
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasProposal}">
                     <c:OverlineText Classes="overline" Text="Como vai ficar"/>
-                    <Border Classes="original proposal">
-                      <TextBlock FontSize="14" LineHeight="26" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
+                    <Border Classes="original field proposal">
+                      <TextBlock FontSize="14" LineHeight="20" c:MarkedText.Source="{Binding ProposedText}" TextWrapping="Wrap" AutomationProperties.Name="Como vai ficar"/>
                     </Border>
                   </StackPanel>
                   <!-- Não cabe na caixa: a caixa do jogo com a tradução de hoje e as duas saídas do Editor, dividir em páginas ou encurtar com a IA. -->
                   <StackPanel Spacing="10" IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).HasSelectedFit}">
+                    <c:OverlineText Classes="overline" Text="Como fica na caixa do jogo"/>
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                       <c:GameTextbox HorizontalAlignment="Left" Size="Small"
                                      Layout="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).SelectedLayout}"
@@ -266,7 +305,7 @@
                 </StackPanel>
               </ScrollViewer>
               <!-- Barra fixa no pé do painel: a ação principal em destaque (Enter), as outras duas ao lado uma da outra. Sem correção automática, "Abrir no editor" é a principal. -->
-              <Border Grid.Row="1" Classes="divider-top" Margin="0,8,0,0" Padding="0,8,0,0">
+              <Border Grid.Row="1" Margin="0,8,0,0">
                 <StackPanel Spacing="8">
                   <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                           IsVisible="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).ShowFixAndNext}"
@@ -286,7 +325,10 @@
                     <Button Classes.accent="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenIsPrimary}"
                             Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).OpenLineCommand}"
                             CommandParameter="{Binding}" AutomationProperties.Name="Abrir a linha no Editor">
-                      <TextBlock Text="Abrir no editor"/>
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Edit}"/>
+                        <TextBlock Text="Abrir no editor" VerticalAlignment="Center"/>
+                      </StackPanel>
                     </Button>
                     <Button Classes="subtle" IsVisible="{Binding CanMarkOk}"
                             Command="{Binding $parent[UserControl].((vm:ConferenceViewModel)DataContext).MarkOkCommand}"

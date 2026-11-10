@@ -17,6 +17,9 @@ public enum GameState
 
     /// <summary>O jogo tem a tradução, mas o VNForge não consegue devolver o original (a cópia de segurança sumiu ou não lê).</summary>
     Warning,
+
+    /// <summary>Só avisos (a Conferência não tem erros): ponto âmbar, contorno neutro.</summary>
+    Caution,
 }
 
 /// <summary>
@@ -72,5 +75,6 @@ public sealed class GameStateBanner : ContentControl
         PseudoClasses.Set(":translated", State == GameState.Translated);
         PseudoClasses.Set(":blocked", State == GameState.Blocked);
         PseudoClasses.Set(":warning", State == GameState.Warning);
+        PseudoClasses.Set(":caution", State == GameState.Caution);
     }
 }

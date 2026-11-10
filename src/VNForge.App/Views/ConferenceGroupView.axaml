@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.ConferenceGroupView"
+             x:DataType="vm:ConferenceConsistencyCardViewModel">
+  <!-- O grupo "mesmo original, traduções diferentes" da lista da Conferência (x-list do quadro): cabeçalho, o original, e uma opção por tradução com o botão "Usar em todas"; a mais usada já vem marcada. O Editor tem o seu cartão (ConsistencyCardView). -->
+  <UserControl.Styles>
+    <Style Selector="Border.radio">
+      <Setter Property="Width" Value="16"/>
+      <Setter Property="Height" Value="16"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    </Style>
+    <Style Selector="Border.radio.on">
+      <Setter Property="BorderThickness" Value="5"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Margin="16,14,16,6" AutomationProperties.Name="{Binding AutomationName}">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <PathIcon Width="18" Height="18" Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Vnf.SignalWarningFg}"/>
+        <TextBlock FontSize="15" LineHeight="20" FontWeight="SemiBold" Text="{Binding Title}" VerticalAlignment="Center"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <Button Classes="link sm" Padding="0" MinHeight="20" FontWeight="Normal" Content="{Binding KeepLabel}"
+                Command="{Binding KeepCommand}"
+                CommandParameter="{Binding}" AutomationProperties.Name="Manter as traduções diferentes de propósito e deixar de avisar deste original"/>
+        <TextBlock Classes="caption secondary" Text="{Binding LinesText}" VerticalAlignment="Center"/>
+      </StackPanel>
+    </Grid>
+    <TextBlock Margin="0,8,0,0" Classes="jp-body" c:MarkedText.Source="{Binding Source}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+    <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Variants}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ConferenceVariantViewModel">
+          <Border Classes="divider-top" Padding="0,8">
+            <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="16" AutomationProperties.Name="{Binding AutomationName}">
+              <Border Classes="radio" Classes.on="{Binding IsReference}" VerticalAlignment="Top" Margin="0,3,0,0"/>
+              <StackPanel Grid.Column="1" MinWidth="0">
+                <TextBlock FontSize="14" LineHeight="22" TextWrapping="Wrap" c:MarkedText.Source="{Binding Translation}"/>
+                <ItemsControl ItemsSource="{Binding VisibleLines}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel ItemSpacing="4" LineSpacing="0"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConferenceLineLink">
+                      <Button Classes="link sm" Padding="0,0,4,0" MinHeight="17" FontWeight="Normal" Content="{Binding Label}"
+                              Command="{Binding Open}"
+                              CommandParameter="{Binding Request}" AutomationProperties.Name="{Binding Label, StringFormat='Abrir {0} no Editor'}"/>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="link sm" HorizontalAlignment="Left" Padding="0" MinHeight="17" IsVisible="{Binding HasMore}" Command="{Binding ToggleLinesCommand}"
+                        Content="{Binding MoreLabel}" AutomationProperties.Name="Mostrar ou esconder as outras linhas desta tradução"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                <TextBlock Classes="caption secondary" Text="{Binding CountText}" IsVisible="{Binding IsReference}" Margin="0,3,0,0"/>
+                <Button Classes="sm" IsVisible="{Binding !IsReference}" Content="{Binding UseLabel}"
+                        Command="{Binding Card.UseCommand}"
+                        CommandParameter="{Binding}" AutomationProperties.Name="{Binding UseAutomationName}"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>
