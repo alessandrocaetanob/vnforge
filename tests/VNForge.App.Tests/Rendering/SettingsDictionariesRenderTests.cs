@@ -127,6 +127,7 @@ public sealed class SettingsDictionariesRenderTests(HeadlessFixture fixture, Dem
                     ScreenRenderer.Settle(window);
 
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-dicionarios-nova-regra", theme)));
+                    DialogProbe.AssertCentered(window, 640);
                     var layer = OverlayLayer.GetOverlayLayer(window)!;
                     var dialogTexts = layer.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!).ToList();
                     Assert.Contains("Nova regra do pós-dicionário", dialogTexts);

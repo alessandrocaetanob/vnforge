@@ -180,6 +180,7 @@ public sealed class NightBatchRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Contains("Manter", buttons);
                 Assert.Contains("Desfazer 59 linhas", buttons);
 
+                DialogProbe.AssertCentered(window, 460);
                 Save(window, "desfazer-o-lote", theme);
 
                 vm.UndoBatch.KeepCommand.Execute(null);

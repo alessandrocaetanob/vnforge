@@ -1,15 +1,20 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Bible;
+using VNForge.AI.Cost;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Bible;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -31,27 +36,39 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated, TranslationStatus.Untranslated);
         var folder = ProjectFolder.Open(root);
         folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, "美咲", "ただいま", null, TranslationStatus.Untranslated)]);
+        // As cores do quadro: Kenta verde, Misaki rosa, Ren laranja e Aoi azul.
+        folder.SaveCharacters([new CharacterEntry("健太", "Kenta", Color: "green"), new CharacterEntry("美咲", "Misaki", Color: "rose"), new CharacterEntry("蓮", "Ren", Color: "orange"), new CharacterEntry("葵", "Aoi", Color: "blue")]);
+        folder.SaveText("yst00001", SceneLines(("健太", 6), ("美咲", 9), ("蓮", 4), ("葵", 2)));
+        folder.SaveBible(GameBible.From([new BibleScene("yst00001") { Summary = "Versão anterior." }]));
+        folder.KeepPreviousBible();
         folder.SaveBible(GameBible.From(
         [
             new BibleScene("yst00001")
             {
                 Name = "Atraso no portão",
-                Summary = "Na chuva da manhã, Kenta e Ren chegam ao portão e encontram o professor de braços cruzados.",
-                Characters = ["Kenta", "Ren"],
-                Tone = ["cômico leve", "tenso no fim"],
-                Jokes = ["o guarda-chuva de Ren"],
-                Relations = [new BibleRelation("Kenta e Ren", "Amigos de infância")],
+                Summary = "Na chuva da manhã, Kenta e Ren chegam ao portão da escola e encontram o professor responsável de braços cruzados. Misaki repreende Aizawa e Sakura por cinco minutos de atraso. Ren reclama do guarda-chuva que emprestou.",
+                Characters = ["Kenta", "Misaki", "Ren", "Aoi"],
+                Tone = ["cômico leve", "tenso no fim", "seco na fala de Misaki"],
+                Jokes = ["o guarda-chuva de Ren", "\"cinco minutos\""],
+                Relations = [new BibleRelation("Kenta e Ren", "Amigos de infância, se provocam o tempo todo."), new BibleRelation("Misaki e Sakura", "Professora e aluna. Tom seco, sem ironia.")],
                 Edited = [BibleField.Name],
             },
-            new BibleScene("yst00002") { Name = "Volta para casa", Summary = "Ren volta sozinho." },
+            new BibleScene("yst00002") { Name = "Volta para casa", Summary = "Ren volta sozinho.", Jokes = ["o guarda-chuva de Ren"] },
         ]) with
         {
-            Synopsis = "Kenta se muda para uma cidade onde chove todo semestre.",
-            Timeline = [new BibleTimelineEntry("Prólogo", "A chuva e a mudança de cidade"), new BibleTimelineEntry("Capítulo 1", "Um semestre começa molhado")],
+            Synopsis = "Kenta se muda para uma cidade onde chove todo semestre e descobre que um guarda-chuva perdido liga três colegas de turma. A história segue os cinco meses até o festival da escola.",
+            Timeline = [new BibleTimelineEntry("Prólogo", "A chuva e a mudança de cidade"), new BibleTimelineEntry("Parte 1", "Um semestre começa molhado"), new BibleTimelineEntry("Capítulo 2", "O festival e o caderno perdido")],
             Generation = new BibleGeneration(Now, "claude-opus-5-5", 2, 1, 1.8m),
         });
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 0.8m, 1));
         return root;
     }
+
+    private static IReadOnlyList<TextUnit> SceneLines(params (string Speaker, int Count)[] speakers) =>
+    [
+        .. speakers.SelectMany(s => Enumerable.Range(0, s.Count).Select(i => (s.Speaker, i)))
+            .Select((line, index) => new TextUnit($"yst00001:{index:D6}", TextUnitKind.Dialogue, line.Speaker, $"「相沢、佐倉。二人そろって五分遅刻だ」{line.i}", $"Aizawa, Sakura. Os dois, cinco minutos atrasados. {line.i}", TranslationStatus.Machine)),
+    ];
 
     private static string VisibleText(Control root) =>
         string.Join('\n', root.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
@@ -66,6 +83,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
                 using var project = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(CreateProject(project)), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start) { BibleProviderFactory = (_, _) => new FakeBibleProvider() };
+                // Teto baixo para o pedido de R$ 0,43 aparecer na barra de custo depois do já gasto, como o trecho azul do quadro.
+                vm.Bible.Limits = () => new BudgetLimits(14.5m, null);
                 var window = new MainWindow { Width = width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm };
                 try
                 {
@@ -109,8 +128,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var texts = VisibleText(view);
             foreach (var expected in new[]
             {
-                "Bíblia", "CENAS", "Cena 1", "Atraso no portão", "Volta para casa", "RESUMO", "QUEM APARECE", "TOM", "PIADAS QUE VOLTAM", "RELAÇÕES",
-                "SINOPSE DO JOGO", "LINHA DO TEMPO", "Prólogo", "Custo da bíblia", "Gerada em", "Cenas lidas", "Reler um capítulo", "Exportar", "Voltar à última geração",
+                "Cenas", "Cena 1", "Atraso no portão", "Volta para casa", "Resumo", "Quem aparece", "Tom", "Piadas que voltam", "Relações",
+                "Sinopse do jogo", "Linha do tempo", "Prólogo", "Custo da bíblia", "Gerada em", "Cenas lidas", "Reler um capítulo", "Exportar", "Voltar à última geração",
             })
             {
                 Assert.Contains(expected, texts, StringComparison.Ordinal);
@@ -126,8 +145,33 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             Assert.Contains(owners, b => !b.Classes.Contains("mine"));
 
             var summary = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "SummaryBox");
-            Assert.Contains("professor de braços cruzados", summary.Text, StringComparison.Ordinal);
+            Assert.Contains("professor responsável de braços cruzados", summary.Text, StringComparison.Ordinal);
             Assert.Equal("Resumo", AutomationProperties.GetName(summary));
+
+            // O quadro mostra quem aparece, o tom, as piadas e as relações como chips e lista, sem caixa de texto, e não tem título nem frase de explicação.
+            foreach (var expected in new[]
+            {
+                "fala 6 vezes", "fala 9", "cômico leve", "tenso no fim", "seco na fala de Misaki", "o guarda-chuva de Ren · cenas 1 e 2", "Amigos de infância, se provocam o tempo todo.",
+                "Misaki e Sakura", "O jogo", "sinopse e linha do tempo", "Gerada em",
+            })
+            {
+                Assert.Contains(expected, texts, StringComparison.Ordinal);
+            }
+
+            Assert.DoesNotContain("O que a IA entendeu de cada cena", texts, StringComparison.Ordinal);
+            Assert.All(
+                view.GetVisualDescendants().OfType<TextBox>().Where(t => t.Classes.Contains("inline-box")),
+                box => Assert.False(box.IsEffectivelyVisible, $"{AutomationProperties.GetName(box)} abre só ao clicar"));
+            Assert.True(view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "UndoButton").IsEffectivelyEnabled);
+
+            // O estado do quadro: o resumo em edição, com a borda de destaque e sem o botão de reescrever na linha dele.
+            summary.Focus();
+            // O quadro foi capturado entre duas piscadas: sem o cursor, só a borda de destaque marca o campo.
+            summary.CaretBrush = Avalonia.Media.Brushes.Transparent;
+            ScreenRenderer.Settle(window);
+            var summaryCard = view.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("summary"));
+            Assert.Equal(1.5, summaryCard.BorderThickness.Left);
+            Assert.DoesNotContain(summaryCard.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("rewrite") && b.IsEffectivelyVisible);
             Assert.DoesNotContain('—', texts);
             Assert.DoesNotContain('–', texts);
 
@@ -135,6 +179,35 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             Assert.True(clipped.Count == 0, string.Join("; ", clipped));
 
             Snapshot(window, "biblia-v6", theme);
+        });
+    }
+
+    [Fact]
+    public async Task Clicar_na_leitura_do_campo_abre_a_caixa_de_texto_e_sair_dela_a_fecha()
+    {
+        await WithBiblePage("Dark", async (window, vm, _) =>
+        {
+            vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Bible);
+            await vm.Bible.Loading;
+            ScreenRenderer.Settle(window);
+            var view = Assert.Single(window.GetVisualDescendants().OfType<BibleView>(), v => v.IsEffectivelyVisible);
+            var field = view.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "ToneField");
+            var reading = field.Children.OfType<Border>().Single();
+            var box = field.Children.OfType<TextBox>().Single();
+            Assert.True(reading.IsEffectivelyVisible);
+            Assert.False(box.IsEffectivelyVisible);
+
+            window.MouseDown(reading.TranslatePoint(new Point(8, 8), window)!.Value, MouseButton.Left);
+            window.MouseUp(reading.TranslatePoint(new Point(8, 8), window)!.Value, MouseButton.Left);
+            ScreenRenderer.Settle(window);
+            Assert.True(box.IsEffectivelyVisible);
+            Assert.False(reading.IsEffectivelyVisible);
+            Assert.True(box.IsFocused);
+
+            view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "SummaryBox").Focus();
+            ScreenRenderer.Settle(window);
+            Assert.False(box.IsEffectivelyVisible);
+            Assert.True(reading.IsEffectivelyVisible);
         });
     }
 
@@ -153,17 +226,20 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
 
             var view = Assert.Single(window.GetVisualDescendants().OfType<BibleView>(), v => v.IsEffectivelyVisible);
             Assert.True(view.Bounds.Right <= width, $"a página ({view.Bounds.Right:0} px) cabe na janela de {width} px");
-            Assert.DoesNotContain(
-                view.GetVisualDescendants().OfType<ScrollViewer>(),
-                s => s.IsEffectivelyVisible && s.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled && s.Extent.Width > s.Viewport.Width + 1);
+            var sideScroll = view.GetVisualDescendants().OfType<ScrollViewer>()
+                .Where(s => s.IsEffectivelyVisible && s.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled && s.Extent.Width > s.Viewport.Width + 1)
+                .Select(s => $"{s.TemplatedParent?.GetType().Name} {(s.TemplatedParent as Control)?.Name} extent {s.Extent.Width:0} viewport {s.Viewport.Width:0}").ToList();
+            Assert.True(sideScroll.Count == 0, string.Join("; ", sideScroll));
 
             var sceneList = view.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "SceneList");
             var summary = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "SummaryBox");
             Assert.True(sceneList.Bounds.Width >= 196, $"lista de cenas com {sceneList.Bounds.Width:0} px");
-            Assert.True(summary.Bounds.Width >= 280, $"campo do resumo com {summary.Bounds.Width:0} px");
+            Assert.True(summary.Bounds.Width >= 270, $"campo do resumo com {summary.Bounds.Width:0} px");
 
             var texts = VisibleText(view);
-            Assert.Contains("Ir para a cena no Editor", texts, StringComparison.Ordinal);
+            var openInEditor = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "OpenInEditorButton");
+            Assert.True(openInEditor.IsEffectivelyVisible && openInEditor.Bounds.Right <= view.Bounds.Right, "o botão do Editor fica à vista, só com o ícone");
+            Assert.Equal("Ir para a cena no Editor", AutomationProperties.GetName(openInEditor));
             Assert.Contains("Filtrar cenas", view.GetVisualDescendants().OfType<TextBox>().Select(t => t.PlaceholderText), StringComparer.Ordinal);
 
             var clipped = ClippedTextHeadlessTests.FindClipped(view);
@@ -189,7 +265,8 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
             var dialog = layer.Children.OfType<Control>().Single(c => c.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "ConfirmGenerateButton"));
             var texts = VisibleText(dialog);
             Assert.Contains("Gerar a bíblia do jogo", texts, StringComparison.Ordinal);
-            Assert.Contains("O QUE A IA VAI LER", texts, StringComparison.Ordinal);
+            Assert.Contains("O que a IA vai ler", texts, StringComparison.Ordinal);
+            DialogProbe.AssertCentered(window, 640);
             Assert.Contains("Custo (aproximado): R$ ", texts, StringComparison.Ordinal);
             Assert.Contains("Já gasto no projeto: R$ ", texts, StringComparison.Ordinal);
             Assert.Contains("Campos que você editou (1 cena)", texts, StringComparison.Ordinal);
@@ -209,23 +286,37 @@ public sealed class BibleRenderTests(HeadlessFixture fixture) : IClassFixture<He
         });
     }
 
-    [Fact]
-    public async Task O_inspetor_do_Editor_mostra_o_cartao_Resumo_da_cena_com_o_selo_Biblia()
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_inspetor_do_Editor_mostra_o_cartao_Resumo_da_cena_com_o_selo_Biblia(string themeName)
     {
-        await WithBiblePage("Dark", async (window, vm, theme) =>
+        await WithBiblePage(themeName, async (window, vm, theme) =>
         {
             vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
             await vm.Editor.Loading;
             ScreenRenderer.Settle(window);
-            vm.Editor.SelectedLine = vm.Editor.Lines.First();
+            vm.Editor.SelectedLine = vm.Editor.Lines.First(l => l.SpeakerName == "Misaki");
             ScreenRenderer.Settle(window);
 
             var card = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "SceneSummaryCard" && b.IsEffectivelyVisible);
             var texts = VisibleText(card);
             Assert.Contains("Resumo da cena", texts, StringComparison.Ordinal);
             Assert.Contains("Bíblia", texts, StringComparison.Ordinal);
-            Assert.Contains("professor de braços cruzados", texts, StringComparison.Ordinal);
-            Assert.Contains("cômico leve · tenso no fim", texts, StringComparison.Ordinal);
+            Assert.Contains("professor responsável de braços cruzados", texts, StringComparison.Ordinal);
+            Assert.DoesNotContain("cômico leve", texts, StringComparison.Ordinal);
+
+            // O quadro: a grade tem um retrato redondo ao lado de cada nome e nenhuma coluna Linha; "Na cena" vem recolhido, com a conta de falas.
+            var grid = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LinesList");
+            Assert.Contains(grid.GetVisualDescendants().OfType<Portrait>(), p => p.IsEffectivelyVisible && p.Size == PortraitSize.Sm);
+            Assert.DoesNotContain("Linha", VisibleText(window.GetVisualDescendants().OfType<EditorView>().Single(v => v.IsEffectivelyVisible)).Split('\n'));
+            var scene = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SceneToggle");
+            Assert.True(scene.IsEffectivelyVisible, "o Na cena é um cabeçalho que abre");
+            Assert.False(window.GetVisualDescendants().OfType<ContextLines>().Single(c => c.Name == "SceneLines").IsEffectivelyVisible, "o Na cena começa recolhido");
+
+            // Uma linha já traduzida não oferece "Sugerir" nem os chips de reescrever: o quadro não os mostra neste estado.
+            var inspectorText = VisibleText(window.GetVisualDescendants().OfType<LineDetailView>().Single(v => v.IsEffectivelyVisible));
+            Assert.DoesNotContain("Sugerir", inspectorText, StringComparison.Ordinal);
+            Assert.DoesNotContain("Reescrever com um toque", inspectorText, StringComparison.Ordinal);
 
             Snapshot(window, "biblia-v6-editor", theme);
         });

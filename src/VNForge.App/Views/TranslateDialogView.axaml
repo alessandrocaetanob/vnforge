@@ -6,7 +6,7 @@
              x:DataType="vm:TranslateDialogViewModel">
 
   <!-- Traduzir com IA (U12): o diálogo vive na camada de sobreposição, sobre o Editor; Escape e o X fecham. Três perguntas: o que, com que qualidade e por quanto. -->
-  <c:ScreenDialog Title="Traduzir com IA" IsOpen="{Binding IsOpen, Mode=TwoWay}">
+  <c:ScreenDialog Title="Traduzir com IA" DialogWidth="780" ShowClose="True" IsOpen="{Binding IsOpen, Mode=TwoWay}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <ScrollViewer.Styles>
         <!-- Escopo sem linha pendente: o cartão fica apagado (60%, como no quadro). O diálogo sobe para a camada de sobreposição, então o estilo mora dentro dele. -->
@@ -17,7 +17,7 @@
       <StackPanel Spacing="16" AutomationProperties.Name="Traduzir com IA">
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="O que traduzir"/>
+          <c:OverlineText Classes="overline" Text="O que traduzir"/>
           <ItemsControl ItemsSource="{Binding Scopes}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -42,7 +42,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Com que qualidade"/>
+          <c:OverlineText Classes="overline" Text="Com que qualidade"/>
           <ItemsControl ItemsSource="{Binding Qualities}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -60,7 +60,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8" IsVisible="{Binding ShowWhen}">
-          <TextBlock Classes="overline" Text="Quando"/>
+          <c:OverlineText Classes="overline" Text="Quando"/>
           <ItemsControl ItemsSource="{Binding Whens}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -94,7 +94,7 @@
         </StackPanel>
 
         <StackPanel Spacing="8">
-          <TextBlock Classes="overline" Text="Quanto custa"/>
+          <c:OverlineText Classes="overline" Text="Quanto custa"/>
           <!-- ".card.in" do quadro: fundo bg-inset, raio de 12, respiro de 12 por 14; a trilha da barra tem a cor do cartão, então só os trechos coloridos aparecem. -->
           <Border Background="{DynamicResource Vnf.BgInset}" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,12">
             <StackPanel Spacing="10">

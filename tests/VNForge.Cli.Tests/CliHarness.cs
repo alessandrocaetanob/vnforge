@@ -17,6 +17,8 @@ internal sealed class CliHarness : IDisposable
         _input = new SwitchableReader(stdin);
         Cli = VnfCli.Create(WorkingDirectory, UserLogDirectory, UserConfigDirectory, _input,
             realVault ? null : new InMemoryApiKeyStore(), terminal ?? CliTerminal.Plain(width: 100), realVault ? null : VndbTokens);
+        // As capturas de tela nunca podem ir para a pasta de dados de quem roda os testes.
+        Cli.UserCapturesDirectory = Path.Combine(Root, "user-captures");
         // O ambiente da máquina de quem roda os testes não pode decidir o token do VNDB.
         Cli.EnvironmentReader = name => Environment.TryGetValue(name, out var value) ? value : null;
         // Os testes de comando não dependem das regras reais de QA (testadas em Core.Tests).

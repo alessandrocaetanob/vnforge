@@ -2,8 +2,11 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Eval;
 using VNForge.AI.Translation;
+using VNForge.App.Controls;
 using VNForge.App.ViewModels;
+using VNForge.Core.Bible;
 using VNForge.Core.Eval;
+using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -234,7 +237,8 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.False(vm.ShowReport);
         Assert.Equal("Par 1 de 12", vm.PairTitle);
         Assert.StartsWith("原文", vm.OriginalText);
-        Assert.StartsWith("ORIGINAL · ", vm.OriginalMeta);
+        Assert.Matches(@"^Original · Cena 1, linha \d{4}$", vm.OriginalMeta);
+        Assert.Equal(1d / 12, vm.PairFraction, 6);
         Assert.NotEqual(vm.TextA, vm.TextB);
         Assert.Contains("de 3 linhas", vm.FitA);
         Assert.Equal("você escolhe sem saber qual configuração gerou cada texto", vm.BlindSubtitle);
@@ -332,5 +336,90 @@ public sealed class EvalViewModelTests : IDisposable
 
         Assert.All(vm.Rows, r => Assert.Equal("sem juiz", r.JudgeText));
         Assert.Empty(_judge.ReceivedBatches);
+    }
+
+    [Fact]
+    public async Task A_barra_da_rodada_as_cegas_conta_o_par_que_esta_na_tela()
+    {
+        var vm = await RunRound(Vm(), Project());
+        vm.BlindStartCommand.Execute(null);
+        for (var i = 0; i < 6; i++)
+        {
+            vm.ChooseFirstCommand.Execute(null);
+        }
+
+        Assert.Equal("Par 7 de 12", vm.PairTitle);
+        Assert.Equal(7d / 12, vm.PairFraction, 6);
+    }
+
+    [Fact]
+    public async Task O_original_diz_para_quem_a_fala_vai_pelo_elenco_da_cena_na_biblia()
+    {
+        var project = Project();
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "美咲" })]);
+        project.SaveCharacters([new CharacterEntry("美咲", "Misaki"), new CharacterEntry("相沢", "Aizawa"), new CharacterEntry("佐倉", "Sakura")]);
+        project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Misaki", "Aizawa", "Sakura"] }]));
+        var vm = await RunRound(Vm(), project);
+
+        vm.BlindStartCommand.Execute(null);
+
+        Assert.Equal("Misaki → Aizawa e Sakura", vm.OriginalSpeaker);
+    }
+
+    [Fact]
+    public async Task Sem_elenco_na_biblia_o_original_mostra_so_quem_fala_com_o_nome_do_cadastro()
+    {
+        var project = Project();
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "美咲" })]);
+        project.SaveCharacters([new CharacterEntry("美咲", "Misaki")]);
+        var vm = await RunRound(Vm(), project);
+
+        vm.BlindStartCommand.Execute(null);
+
+        Assert.Equal("Misaki", vm.OriginalSpeaker);
+    }
+
+    [Fact]
+    public async Task Falante_sem_cadastro_aparece_sozinho_mesmo_com_elenco_na_biblia()
+    {
+        var project = Project();
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "美咲" })]);
+        project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Misaki", "Aizawa"] }]));
+        var vm = await RunRound(Vm(), project);
+
+        vm.BlindStartCommand.Execute(null);
+
+        Assert.Equal("美咲", vm.OriginalSpeaker);
+    }
+
+    [Fact]
+    public async Task A_barra_de_chrF_da_tabela_usa_a_janela_do_relatorio()
+    {
+        var vm = await RunRound(Vm(), Project());
+
+        Assert.All(vm.Rows, r => Assert.InRange(r.ChrfShare, 0d, 1d));
+        var best = vm.Rows.MaxBy(r => r.Chrf)!;
+        Assert.Same(best, vm.Rows.MaxBy(r => r.ChrfShare));
+    }
+
+    [Fact]
+    public void A_janela_do_chrF_vai_de_um_degrau_abaixo_do_menor_ao_maior_arredondado_para_cima()
+    {
+        var shares = EvalChrfBar.Shares([61.4, 60.9, 59.8, 54.3, 47]);
+
+        Assert.Equal([0.856, 0.836, 0.792, 0.572, 0.28], shares.Select(s => Math.Round(s, 3)));
+        Assert.Equal([0.6], EvalChrfBar.Shares([31]).Select(s => Math.Round(s, 3)));
+        Assert.Empty(EvalChrfBar.Shares([]));
+    }
+
+    [Fact]
+    public void O_eixo_de_custo_do_grafico_para_na_ultima_marca_que_cabe()
+    {
+        var points = new[] { new EvalChartPoint("A", 156.7, 61.4, false), new EvalChartPoint("E", 3.9, 47, false) };
+
+        var (max, step) = EvalChart.XScale(points);
+
+        Assert.Equal((170d, 50d), (max, step));
+        Assert.Equal([0d, 50d, 100d, 150d], EvalChart.XTicks(max, step));
     }
 }
