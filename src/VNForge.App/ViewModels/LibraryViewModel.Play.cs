@@ -5,9 +5,7 @@ namespace VNForge.App.ViewModels;
 /// <summary>O que a aba Jogar do jogo aberto precisa da Biblioteca: o jogo do projeto, as sessões, os interruptores por jogo e o "Jogar".</summary>
 public sealed partial class LibraryViewModel
 {
-    /// <summary>As sessões de jogo lidas na última leitura; <see cref="System.ComponentModel.INotifyPropertyChanged"/> avisa "Played" a cada leitura.</summary>
-    internal PlayLog Played => played;
-
+    // "Played" (em LibraryViewModel.Export.cs) avisa a cada leitura, e a aba Jogar relê as sessões.
     internal string? LocaleEmulatorPath => library.LocaleEmulatorPath;
 
     internal Task PlayGameAsync(LibraryGame game)
