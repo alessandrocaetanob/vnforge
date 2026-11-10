@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
+using VNForge.Core.Injection;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
@@ -96,6 +97,18 @@ public sealed class LibraryVersionTests : IDisposable
         vm.HasSwitchProblem = false;
 
         Assert.Null(vm.SwitchProblem);
+    }
+
+    [Fact]
+    public void Injecao_recusada_porque_o_jogo_mudou_depois_da_extracao_diz_quantos_arquivos_diferem()
+    {
+        var refused = new InjectionException("recusada") { ChangedFiles = [new ChangedGameFile("a.ypf", "x", "y"), new ChangedGameFile("b.ypf", "x", null)] };
+
+        var problem = LibraryViewModel.Describe(refused);
+
+        Assert.Equal("O jogo mudou depois da extração", problem.Title);
+        Assert.Equal("2 arquivos", problem.Differing);
+        Assert.Equal("recusada", LibraryViewModel.Describe(new InjectionException("recusada")).Message);
     }
 
     [Fact]

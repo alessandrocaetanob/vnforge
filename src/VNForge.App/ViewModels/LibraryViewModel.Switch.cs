@@ -80,7 +80,7 @@ public sealed partial class LibraryViewModel
         Refilter();
     }
 
-    private static LibrarySwitchProblem Describe(Exception e) => e switch
+    internal static LibrarySwitchProblem Describe(Exception e) => e switch
     {
         QaBlockedException blocked => new LibrarySwitchProblem(
             "A Conferência travou a troca",
