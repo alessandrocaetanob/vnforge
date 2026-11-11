@@ -9,8 +9,6 @@ public sealed class LinePreviewSpeakerMarksTests : IDisposable
 {
     private const string Id = "a001:000001";
 
-    private static readonly FormattingProfile Wide = FormattingProfile.Default with { Wrap = new WrapRule(true, 40, 3, CharWidthMode.Uniform) };
-
     private readonly TempFolder _temp = new();
 
     public void Dispose() => _temp.Dispose();
@@ -28,17 +26,6 @@ public sealed class LinePreviewSpeakerMarksTests : IDisposable
             });
         folder.SaveText("a001", units);
         return folder;
-    }
-
-    [Fact]
-    public void SemSinal_AAberturaInvisivelOcupaUmaColunaNaPrimeiraLinhaESemFechamento()
-    {
-        var preview = LinePreviewer.Create(Wide, Spoken(), "um dois", SpeakerBoxMarks.For(new Cp1252TextEncoder()));
-
-        var line = Assert.Single(Assert.Single(preview.Boxes));
-        Assert.Equal("\u00A0um dois", line.Text);
-        Assert.Equal(8, line.Columns);
-        Assert.Equal("um dois", preview.Text);
     }
 
     [Fact]

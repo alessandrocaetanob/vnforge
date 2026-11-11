@@ -19,12 +19,6 @@ public sealed class SpeakerEncodingRuleTests
             strategy is null ? null : TextEncoderRegistry.Default.Create(strategy));
 
     [Fact]
-    public void Falante_so_de_sinais_largos_nao_dispara_porque_a_largura_e_normalizada()
-    {
-        Assert.Empty(new SpeakerEncodingRule().Check(Context(Unit("？？？"))));
-    }
-
-    [Fact]
     public void Sem_falante_ou_sem_encoder_ou_em_estrategia_que_grava_nao_dispara()
     {
         var rule = new SpeakerEncodingRule();

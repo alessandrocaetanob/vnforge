@@ -31,6 +31,15 @@ public sealed class FormattingConflictRuleTests
         AiConfig.Default));
 
     [Fact]
+    public void Linha_de_papel_que_o_perfil_nao_formata_nao_e_do_ajuste()
+    {
+        var context = Context(EllipsisAsCharacter, units: [Unit("Hm\u2026", kind: TextUnitKind.Choice)]);
+
+        Assert.Empty(new FormattingConflictRule().Check(context));
+        Assert.Single(new UnencodableCharacterRule().Check(context));
+    }
+
+    [Fact]
     public void Sem_conflito_nem_encoder_a_regra_cala()
     {
         Assert.Empty(new FormattingConflictRule().Check(Context(EllipsisAsCharacter, "sjis", Unit("Ah..."))));

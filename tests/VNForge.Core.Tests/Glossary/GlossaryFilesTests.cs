@@ -110,6 +110,29 @@ public class GlossaryFilesTests : IDisposable
     }
 
     [Fact]
+    public void ProjectFolder_grava_e_le_os_dois_arquivos_na_raiz()
+    {
+        var pasta = NovoProjeto();
+
+        pasta.SaveGlossary(Termos());
+        pasta.SaveCharacters(Personagens());
+
+        Assert.True(File.Exists(Path.Combine(_root, "glossary.json")));
+        Assert.True(File.Exists(Path.Combine(_root, "characters.json")));
+        Assert.Equal(Termos(), pasta.LoadGlossary());
+        Assert.Equal(Personagens(), pasta.LoadCharacters());
+    }
+
+    [Fact]
+    public void ProjectFolder_sem_os_arquivos_devolve_listas_vazias()
+    {
+        var pasta = NovoProjeto();
+
+        Assert.Empty(pasta.LoadGlossary());
+        Assert.Empty(pasta.LoadCharacters());
+    }
+
+    [Fact]
     public void ProjectFolder_recusa_arquivo_fora_de_utf8()
     {
         var pasta = NovoProjeto();

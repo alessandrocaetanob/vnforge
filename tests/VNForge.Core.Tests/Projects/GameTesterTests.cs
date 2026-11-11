@@ -67,6 +67,23 @@ public sealed class GameTesterTests : IDisposable
         Directory.Exists(_project.BackupDirectory) ? Directory.GetDirectories(_project.BackupDirectory) : [];
 
     [Fact]
+    public void Teste_completo_faz_backup_antes_de_gravar_injeta_e_abre_o_jogo()
+    {
+        Translate("a001", 0, "Hello");
+
+        var result = Run();
+
+        Assert.Equal("dialogue|Hello\nname|Ana\u0001narration|Chovia.", File.ReadAllText(GamePackage));
+        var backup = Assert.Single(BackupFolders());
+        Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package)));
+        Assert.True(File.Exists(Path.Combine(backup, BackupManifest.FileName)));
+        Assert.Equal(Path.Combine(_game, GameExe), _starter.Executable);
+        Assert.Equal(_game, _starter.WorkingDirectory);
+        Assert.Equal(Path.Combine(_game, GameExe), result.Executable);
+        Assert.Equal(GameTestKind.Translation, result.Kind);
+    }
+
+    [Fact]
     public void Devolve_os_cinco_passos_na_ordem_e_cada_um_com_tempo()
     {
         Translate("a001", 0, "Hello");
@@ -124,6 +141,20 @@ public sealed class GameTesterTests : IDisposable
         var state = GameStateFile.Load(_project);
         Assert.Null(state.InGame);
         Assert.NotNull(state.LastTest);
+    }
+
+    [Fact]
+    public void Erros_da_Conferencia_recusam_sem_tocar_no_jogo_nem_criar_backup()
+    {
+        Translate("a001", 0, string.Empty);
+        var untouched = File.ReadAllBytes(GamePackage);
+
+        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
+
+        Assert.Equal(untouched, File.ReadAllBytes(GamePackage));
+        Assert.Empty(BackupFolders());
+        Assert.Null(_starter.Executable);
+        Assert.False(File.Exists(GameStateFile.PathFor(_project)));
     }
 
     [Fact]
@@ -207,6 +238,38 @@ public sealed class GameTesterTests : IDisposable
         Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
 
         Assert.Equal(before.At, GameStateFile.Load(_project).LastTest!.At);
+    }
+
+    [Fact]
+    public void Repetir_o_teste_com_o_jogo_igual_nao_cria_outro_backup_e_mantem_o_primeiro()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var first = GameStateFile.Load(_project).InGame!.BackupDirectory;
+
+        Run();
+
+        Assert.Single(BackupFolders());
+        Assert.Equal(first, GameStateFile.Load(_project).InGame!.BackupDirectory);
+    }
+
+    [Fact]
+    public void Testar_de_novo_com_o_jogo_injetado_e_uma_edicao_no_meio_injeta_por_cima_sem_restaurar()
+    {
+        var before = File.ReadAllBytes(GamePackage);
+        Translate("a001", 0, "Hello");
+        Run();
+        Translate("a001", 0, "Hi");
+
+        Run();
+
+        Assert.Equal("dialogue|Hi\nname|Ana\u0001narration|Chovia.", File.ReadAllText(GamePackage));
+        Assert.All(BackupFolders(), backup => Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package))));
+        Assert.Equal(2, BackupFolders().Length);
+
+        Tester().ReturnToOriginal(_project);
+
+        Assert.Equal(before, File.ReadAllBytes(GamePackage));
     }
 
     [Fact]
@@ -300,6 +363,19 @@ public sealed class GameTesterTests : IDisposable
         Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
         Assert.All(GameInjector.ListBackups(_project), backup => Assert.True(backup.Restored));
         Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
+    }
+
+    [Fact]
+    public void Teste_sem_nada_a_copiar_nao_regrava_o_estado_com_backup_nulo()
+    {
+        Translate("a001", 0, "Hello");
+        Run();
+        var first = GameStateFile.Load(_project).InGame;
+
+        Run();
+
+        Assert.Equal(first, GameStateFile.Load(_project).InGame);
+        Assert.NotNull(GameStateFile.Load(_project).InGame?.BackupDirectory);
     }
 
     /// <summary>Falha na segunda cópia: a primeira é a do original para o backup, e a segunda é a gravação no jogo.</summary>

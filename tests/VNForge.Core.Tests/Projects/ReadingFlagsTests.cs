@@ -36,27 +36,13 @@ public class ReadingFlagsTests
     }
 
     [Fact]
-    public void SetOdd_falso_tira_a_marca_e_repetir_nao_regrava()
+    public void WithOdd_sem_mudanca_devolve_a_mesma_linha()
     {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, ReadingFlags.SoundsOdd));
-        var caminho = projeto.TextPath("yst00001");
+        var linha = Linha(1);
 
-        editor.SetOdd("yst00001", "yst00001:000001", false);
-        Assert.False(projeto.LoadText("yst00001")[0].IsOdd());
-
-        File.SetLastWriteTimeUtc(caminho, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        editor.SetOdd("yst00001", "yst00001:000001", false);
-        Assert.Equal(new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), File.GetLastWriteTimeUtc(caminho));
-    }
-
-    [Fact]
-    public void SetOdd_numa_linha_que_nao_existe_falha()
-    {
-        using var pasta = new TempFolder();
-        var (_, editor) = Preparar(pasta.Path, Linha(1));
-
-        Assert.Throws<KeyNotFoundException>(() => editor.SetOdd("yst00001", "yst00001:000099", true));
+        Assert.Same(linha, linha.WithOdd(false));
+        var marcada = linha.WithOdd(true);
+        Assert.Same(marcada, marcada.WithOdd(true));
     }
 
     [Fact]

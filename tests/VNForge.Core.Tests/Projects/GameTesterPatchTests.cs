@@ -63,6 +63,8 @@ public sealed class GameTesterPatchTests : IDisposable
 
     private string PackagePath => Path.Combine(_game, FakeEngine.PackageName);
 
+    private string PatchStaging => Path.Combine(_project.CacheDirectory, "patch", FakeExePatch.PatchId);
+
     private GameTester Tester() => new([_engine], _starter, new QaEngine([]), _clock);
 
     private GameTestResult Run(GameTestOptions? options = null) =>
@@ -80,6 +82,26 @@ public sealed class GameTesterPatchTests : IDisposable
         Directory.Exists(_project.BackupDirectory) ? Directory.GetDirectories(_project.BackupDirectory) : [];
 
     [Fact]
+    public void Projeto_cp1252_sai_do_teste_com_o_exe_trocado_e_o_backup_no_manifesto_com_o_hash_conferido()
+    {
+        var originalHash = Sha256(ExePath);
+
+        var result = Run();
+
+        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
+        var backup = Assert.Single(GameInjector.ListBackups(_project));
+        var entry = Assert.Single(backup.Manifest!.Files, f => f.Path == GameExe);
+        Assert.True(entry.Existed);
+        Assert.Equal(originalHash, entry.OriginalSha256);
+        Assert.Equal(Sha256(ExePath), entry.InjectedSha256);
+        Assert.Equal(OriginalExe, File.ReadAllText(Path.Combine(backup.Directory, GameExe)));
+        Assert.Contains(GameExe, result.Injection.Written);
+        Assert.Contains(FakeEngine.PackageName, result.Injection.Written);
+        Assert.Equal(ExePath, _starter.Executable);
+        Assert.False(Directory.Exists(PatchStaging), "a cópia de trabalho do patch tem que ser apagada");
+    }
+
+    [Fact]
     public void Segunda_rodada_nao_grava_o_exe_de_novo_nem_cria_outro_backup()
     {
         Run();
@@ -92,6 +114,20 @@ public sealed class GameTesterPatchTests : IDisposable
         Assert.Null(second.Injection.BackupDirectory);
         Assert.Empty(second.Injection.Written);
         Assert.Equal(exeWrittenAt, File.GetLastWriteTimeUtc(ExePath));
+        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
+    }
+
+    [Fact]
+    public void Jogo_que_ja_esta_com_o_patch_e_com_o_build_nao_grava_nada_nem_cria_backup()
+    {
+        File.WriteAllText(ExePath, PatchedExe);
+        Run(new GameTestOptions(OpenGame: false));
+        var backup = Assert.Single(BackupFolders());
+
+        Assert.DoesNotContain(GameExe, GameInjector.ListBackups(_project).Single().Manifest!.Files.Select(f => f.Path));
+        Run(new GameTestOptions(OpenGame: false));
+
+        Assert.Equal(backup, Assert.Single(BackupFolders()));
         Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
     }
 
@@ -118,6 +154,19 @@ public sealed class GameTesterPatchTests : IDisposable
         Assert.Equal(0, _patchRequests);
         var backup = Assert.Single(GameInjector.ListBackups(_project));
         Assert.DoesNotContain(GameExe, backup.Manifest!.Files.Select(f => f.Path));
+    }
+
+    [Fact]
+    public void Patch_aplicado_num_teste_antigo_sobrevive_a_um_teste_novo_e_a_restauracao_devolve_o_original()
+    {
+        var exe = File.ReadAllBytes(ExePath);
+        Run();
+        Translate("a001", 0, "Hi");
+
+        Run();
+        Tester().ReturnToOriginal(_project);
+
+        Assert.Equal(exe, File.ReadAllBytes(ExePath));
     }
 
     /// <summary>Troca <c>original-exe</c> por <c>patched--exe</c> no executável; reconhece os dois estados e recusa o resto.</summary>

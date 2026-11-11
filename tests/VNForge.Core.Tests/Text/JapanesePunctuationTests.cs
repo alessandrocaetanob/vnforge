@@ -7,23 +7,24 @@ public sealed class JapanesePunctuationTests
     private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
     private static readonly ITextEncoder Sjis = TextEncoderRegistry.Default.Create("sjis");
 
+    [Theory]
+    [InlineData("Hum・・・")]
+    public void Reticencias_e_pontos_medios_sao_idempotentes_em_toda_estrategia(string texto)
+    {
+        foreach (var encoder in new ITextEncoder[] { Cp1252, Sjis, new OnlyAsciiEncoder() })
+        {
+            var corrigido = JapanesePunctuation.FixUnencodable(texto, encoder);
+            Assert.Equal(corrigido, JapanesePunctuation.FixUnencodable(corrigido, encoder));
+            var trocado = JapanesePunctuation.ToKeyboard(texto, encoder);
+            Assert.Equal(trocado, JapanesePunctuation.ToKeyboard(trocado, encoder));
+            Assert.Empty(encoder.FindUnencodable(JapanesePunctuation.FixUnencodable(texto, encoder).Replace("★", string.Empty)));
+        }
+    }
+
     [Fact]
     public void Marcador_invalido_deixa_o_texto_inteiro_como_esta()
     {
         Assert.Equal("Oi。\\", JapanesePunctuation.FixUnencodable("Oi。\\", Cp1252));
-    }
-
-    [Theory]
-    [InlineData("Oi。～（x）「y」・・・ＡＢ１　！")]
-    public void A_troca_e_idempotente(string texto)
-    {
-        foreach (var encoder in new ITextEncoder[] { Cp1252, Sjis, new OnlyAsciiEncoder() })
-        {
-            var fixedOnce = JapanesePunctuation.FixUnencodable(texto, encoder);
-            Assert.Equal(fixedOnce, JapanesePunctuation.FixUnencodable(fixedOnce, encoder));
-            var keyboardOnce = JapanesePunctuation.ToKeyboard(texto, encoder);
-            Assert.Equal(keyboardOnce, JapanesePunctuation.ToKeyboard(keyboardOnce, encoder));
-        }
     }
 
     [Theory]

@@ -38,7 +38,7 @@ Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/mara
   - Prova: `dotnet test tests/VNForge.App.Tests` e a ferramenta de capturas gerando os PNG das telas em `.tmp/capturas`
   - Pronto: a pasta `tests/VNForge.App.Tests/Rendering` some, com o `PixelProbe` e as asserções de medida. Um `ScreenSmokeTests` cobre cada tela num tema, sem exceção e sem texto cortado. As capturas viram um comando à parte (projeto de ferramenta ou opção da Cli) que o designer roda, fora do CI. O processo do App fica abaixo de 600 MB de memória.
   - Depende de: T1
-- [ ] **T3 · Core**
+- [x] **T3 · Core**
   - Issue: #657 (`infra`)
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: no máximo 500 testes, com as idas e voltas e a concorrência do `ProjectFileIo` mantidas, e o tempo e a contagem no relatório.
@@ -80,6 +80,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
+- T3 (#657): Core de 3.444 para 1.368 testes (alvo 500, 868 acima), 3,4 s sem cobertura, linhas 90,63% (17.025 de 18.785) e ramos 84,43% (11.080 de 13.123), contra a base de 90,62% e 84,42%. Cada teste foi medido sozinho e ficou o menor conjunto que mantém as linhas e os ramos, mais os de ida e volta, byte a byte, backup e restauração, concorrência do `ProjectFolder`, vetores de valor esperado das codificações e guardas de arquitetura. O alvo de 500 só fecha perdendo cobertura: fora os que protegem dado do usuário, cada um dos testes que restam cobre sozinho alguma linha ou ramo.
 
 ## Fora da corrida
 

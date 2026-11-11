@@ -94,16 +94,6 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
-    public void Serialize_recusa_configuracao_invalida()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02) with { Encoding = new EncodingConfig("latin") };
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
-
-        Assert.Equal("$.encoding.strategy", erro.Field);
-    }
-
-    [Fact]
     public void Titulo_do_jogo_faz_ida_e_volta_com_original_e_traducao()
     {
         var json = ExemploDoDoc02.Replace(

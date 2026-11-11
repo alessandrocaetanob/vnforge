@@ -241,6 +241,29 @@ public sealed class ProjectBuilderTests : IDisposable
         _project.SaveText("a001", [.. units.Select((u, i) => i == 0 ? u with { ChosenSpeaker = speaker } : u)]);
     }
 
+    [Theory]
+    [InlineData("sjis", "美咲", null, "美咲", "Mísaki", "美咲")]
+    [InlineData("cp1252", "？？？", null, null, null, "???")]
+    public void Placa_da_caixa_do_jogo_mostra_o_nome_que_o_build_entrega_a_engine(string strategy, string extracted, string? chosen, string? characterSource, string? characterTarget, string? plate)
+    {
+        _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig(strategy) });
+        if (characterSource is not null)
+        {
+            _project.SaveCharacters([new CharacterEntry(characterSource, characterTarget!)]);
+        }
+
+        ChooseSpeaker("Bom dia!", chosen, extracted);
+        Build();
+
+        var written = Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).EffectiveSpeaker;
+        var encoder = TextEncoderRegistry.Default.Create(strategy, _project.LoadConfig().Style.SpeakerDelimiter);
+        var unit = _project.LoadAllText()["a001"][0];
+        var shown = SpeakerText.WrittenName(unit, new CharacterBook(_project.LoadCharacters()), encoder);
+        Assert.Equal(string.IsNullOrEmpty(written) ? null : written, shown);
+        Assert.Equal(plate, shown);
+        Assert.Equal(plate, LinePreviewer.Create(_project, FirstUnit).Speaker);
+    }
+
     [Fact]
     public void Build_sem_a_regra_de_conferencia_recusa_o_falante_escolhido_que_nao_grava()
     {

@@ -62,6 +62,22 @@ public class LineEditorTests
         Assert.Equal("b。", editor.SetTranslation("yst00001", "yst00001:000001", "b。").Translation);
     }
 
+    [Fact]
+    public void Restore_devolve_a_linha_ao_estado_anterior()
+    {
+        using var pasta = new TempFolder();
+        var antes = Linha(1, TranslationStatus.Translated, "Bom dia.");
+        var (projeto, editor) = Preparar(pasta.Path, antes, Linha(2, TranslationStatus.Untranslated));
+        var gravada = editor.Approve("yst00001", antes.Id);
+
+        var restaurada = editor.Restore("yst00001", antes, gravada);
+
+        Assert.Equal(antes.Status, restaurada.Status);
+        var lida = Gravada(projeto, 1);
+        Assert.Equal((antes.Translation, antes.Status, antes.Origin, antes.Notes), (lida.Translation, lida.Status, lida.Origin, lida.Notes));
+        Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
+    }
+
     private static TextUnit ComDuvida(int n) =>
         Linha(n, TranslationStatus.Machine, "Bom dia.") with { Doubt = new TranslationDoubt(DoubtKind.HiddenSubject, "Quem cumprimenta?") };
 
@@ -87,6 +103,32 @@ public class LineEditorTests
 
         editor.SetTranslation("yst00001", "yst00001:000001", "Olá.");
         Assert.Null(Gravada(projeto, 1).Doubt);
+    }
+
+    [Fact]
+    public void Restore_devolve_a_duvida_que_a_linha_tinha()
+    {
+        using var pasta = new TempFolder();
+        var antes = ComDuvida(1);
+        var (projeto, editor) = Preparar(pasta.Path, antes);
+        var gravada = editor.Approve("yst00001", antes.Id);
+
+        editor.Restore("yst00001", antes, gravada);
+
+        Assert.Equal(antes.Doubt, Gravada(projeto, 1).Doubt);
+    }
+
+    [Fact]
+    public void Restore_de_linha_que_nao_existe_falha()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
+
+        Assert.Throws<KeyNotFoundException>(() =>
+        {
+            var inexistente = Linha(9, TranslationStatus.Translated, "x");
+            editor.Restore("yst00001", inexistente, inexistente);
+        });
     }
 
     [Fact]

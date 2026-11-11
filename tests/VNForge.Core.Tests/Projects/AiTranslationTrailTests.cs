@@ -67,6 +67,19 @@ public sealed class AiTranslationTrailTests : IDisposable
     }
 
     [Fact]
+    public void Restore_devolve_o_campo_de_antes()
+    {
+        var antes = DaIa(1, "Ei, vem.");
+        _project.SaveText("a", [antes]);
+        var gravada = Editor().SetTranslation("a", antes.Id, "Ô, vem.");
+
+        Editor().Restore("a", antes, gravada);
+
+        Assert.Null(Gravada(1).AiTranslation);
+        Assert.Equal("Ei, vem.", Gravada(1).Translation);
+    }
+
+    [Fact]
     public void Importar_revisao_guarda_o_texto_da_IA_so_quando_a_traducao_muda()
     {
         _project.SaveText("a", [DaIa(1, "Ei vem."), DaIa(2, "Ei anda.")]);

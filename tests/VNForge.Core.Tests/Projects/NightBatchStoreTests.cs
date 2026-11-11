@@ -91,6 +91,22 @@ public sealed class NightBatchStoreTests : IDisposable
     }
 
     [Fact]
+    public void O_ponto_de_restauracao_do_escopo_guarda_e_fecha_sem_a_lista_de_tarefas()
+    {
+        _project.SaveText("yst00001", [Linha(0), Linha(1)]);
+        var clock = new FakeTimeProvider(Agora);
+
+        var recorder = RestoreScope.TryBegin(_project, "Tradução noturna", null, RestorePointStore.IsAiWrite, clock);
+        _project.SaveText("yst00001", [Linha(0) with { Translation = "zero", Status = TranslationStatus.Machine, Origin = new TranslationOrigin("anthropic", "m", Agora) }, Linha(1)]);
+        var point = RestoreScope.TryComplete(recorder);
+
+        Assert.NotNull(point);
+        Assert.Equal(1, point.LineCount);
+        Assert.Equal(1, new RestorePointStore(_project, clock).Undo(point.Id).Restored);
+        Assert.Equal(TranslationStatus.Untranslated, _project.LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
     public void A_previa_do_desfazer_conta_o_que_voltaria_sem_gravar_nada()
     {
         _project.SaveText("yst00001", [Linha(0), Linha(1)]);

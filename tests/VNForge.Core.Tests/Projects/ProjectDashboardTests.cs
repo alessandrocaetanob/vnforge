@@ -31,6 +31,16 @@ public class ProjectDashboardTests
     }
 
     [Fact]
+    public void Pasta_de_backup_sem_manifesto_nao_completa_a_etapa_Injetar()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        Directory.CreateDirectory(Path.Combine(projeto.BackupDirectory, "2026-10-24_1200"));
+
+        Assert.False(ProjectDashboard.Read(projeto).Stages.Single(s => s.Key == PipelineStageKey.Inject).IsComplete);
+    }
+
+    [Fact]
     public void A_conferencia_conta_erros_e_avisos_sem_as_linhas_sem_traducao()
     {
         using var temp = new TempFolder();
@@ -64,6 +74,14 @@ public class ProjectDashboardTests
             "{\"version\":1,\"scripts\":{},\"archives\":[],\"warnings\":[],\"textFingerprint\":\"antigo\"}");
 
         Assert.Equal(BuildStatus.Stale, ProjectDashboard.Read(projeto).Build);
+    }
+
+    [Fact]
+    public void Sem_backup_nao_ha_data_de_backup()
+    {
+        using var temp = new TempFolder();
+
+        Assert.Null(ProjectDashboard.Read(ProjetoComTextos(temp.Path)).LastBackupAt);
     }
 
     [Fact]
