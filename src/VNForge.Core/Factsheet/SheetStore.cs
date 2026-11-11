@@ -151,7 +151,7 @@ public sealed partial class SheetStore(string directory)
         throw new LibraryException($"'{id}' não é um id do VNDB de {kind} (esperado {prefix}1234).");
     }
 
-    private T? Read<T>(string path, string what, Func<T, T> check)
+    private static T? Read<T>(string path, string what, Func<T, T> check)
         where T : class
     {
         if (!File.Exists(path))

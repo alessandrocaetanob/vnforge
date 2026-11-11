@@ -62,7 +62,8 @@ public static class ImageScanCost
 
         if (height > width)
         {
-            var (rw, rh) = Resized(height, width);
+            var (swappedWidth, swappedHeight) = (height, width);
+            var (rw, rh) = Resized(swappedWidth, swappedHeight);
             return (rh, rw);
         }
 

@@ -152,7 +152,7 @@ internal sealed class NativeWindowSystem : IWindowSystem
                 NativeWindows.DeleteDC(_memory);
             }
 
-            NativeWindows.ReleaseDC(0, Screen);
+            _ = NativeWindows.ReleaseDC(0, Screen);
         }
     }
 }

@@ -491,7 +491,7 @@ internal static class BibleCommand
 
         var key = ValidateSceneEdit(project, request);
         var fields = ChangedFields(request);
-        var relations = request.Relations.Select(ParseRelation).ToList();
+        var relations = request.Relations.Select(relation => ParseRelation(relation)).ToList();
         project.UpdateBible(bible =>
         {
             var scene = ApplyEdit(bible.Scene(key) ?? new BibleScene(key), request);

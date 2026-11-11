@@ -45,7 +45,7 @@ public static class LibraryDrawers
         if (raw is not null)
         {
             synopsis = LibraryVisibility.PlainSynopsis(raw, privacy.ShowSpoilers, out hadSpoilers);
-            reviewed = ReferenceEquals(raw, sheet?.Synopsis) && sheet!.SynopsisReviewed;
+            reviewed = ReferenceEquals(raw, sheet?.Synopsis) && sheet.SynopsisReviewed;
         }
 
         var visible = LibraryVisibility.VisibleTags(game, privacy);

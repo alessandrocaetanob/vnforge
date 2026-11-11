@@ -280,7 +280,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                             s.SaveGame(game);
                             saved++;
                             break;
-                        case SheetFieldKind.Character when s.LoadCharacter(field.Id!) is { Description: { } description } character && Fresh(description, item, force, overwrite):
+                        case SheetFieldKind.Character when field.Id is { } characterId && s.LoadCharacter(characterId) is { Description: { } description } character && Fresh(description, item, force, overwrite):
                             s.SaveCharacter(character with { Description = description.TranslatedByAi(target) });
                             saved++;
                             break;
