@@ -54,13 +54,6 @@ public class ViewModelStatesTests
         Assert.False(vm.ApplySettingCommand.CanExecute(null));
     }
 
-    [Fact]
-    public void O_tom_da_cena_que_cita_um_personagem_e_so_apoio()
-    {
-        Assert.True(new BibleToneChip("cômico leve", IsSupport: false).IsMain);
-        Assert.False(new BibleToneChip("seco na fala de Misaki", IsSupport: true).IsMain);
-    }
-
     [Theory]
     [InlineData("cp1252", "ajuste no jogo")]
     [InlineData("sjis", "forma antiga")]

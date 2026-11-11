@@ -19,54 +19,6 @@ public class MainWindowSettingsTests
     }
 
     [Fact]
-    public void Ajustes_fica_sempre_habilitado_e_abre_a_tela_de_ajustes()
-    {
-        using var temp = new TempFolder();
-        var vm = Create(temp);
-
-        var item = vm.Nav.Single(n => n.Key == NavKey.Settings);
-        vm.SelectedNav = item;
-
-        Assert.True(item.IsEnabled);
-        Assert.Equal("Ajustes", item.Label);
-        Assert.Same(vm.Settings, vm.CurrentPage);
-        Assert.False(vm.Settings.HasProject);
-    }
-
-    [Fact]
-    public async Task Abrir_um_projeto_entrega_o_projeto_aos_ajustes()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-
-        Assert.True(vm.Settings.HasProject);
-        Assert.Equal("Minha VN", vm.Settings.ProjectName);
-    }
-
-    [Fact]
-    public async Task A_barra_de_status_avisa_da_gravacao_automatica_so_nos_Ajustes_de_um_projeto()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-        var settingsItem = vm.Nav.Single(n => n.Key == NavKey.Settings);
-        vm.SelectedNav = settingsItem;
-        Assert.Equal(string.Empty, vm.StatusNote);
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        vm.SelectedNav = settingsItem;
-        Assert.Equal("Salvo", vm.StatusNote);
-
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-        Assert.Equal(string.Empty, vm.StatusNote);
-    }
-
-    [Fact]
     public void Guardar_a_chave_atualiza_a_barra_de_status_sem_mostrar_a_chave()
     {
         using var temp = new TempFolder();

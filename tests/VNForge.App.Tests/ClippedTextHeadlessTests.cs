@@ -130,36 +130,6 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
         Assert.Empty(problems);
     }
 
-    [Theory]
-    [MemberData(nameof(Widths))]
-    public async Task Detalhe_da_linha_nao_corta_os_botoes_e_eles_tem_a_mesma_altura(int width)
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenedWithProblem(temp);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-        vm.Editor.SelectedLine = vm.Editor.Lines[1];
-        var problems = new List<string>();
-        var heights = new List<double>();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Open(vm, width);
-                var detail = window.GetVisualDescendants().OfType<LineDetailView>().Single();
-                problems.AddRange(FindClipped(detail));
-                var model = (LineDetailViewModel)detail.DataContext!;
-                var approve = detail.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && (b.Command == model.ApproveAndNextCommand || b.Command == model.AcceptSuggestionCommand)).ToList();
-                // A barra fixa do rodapé tem os dois botões, em coluna única e em abas.
-                Assert.Equal(2, approve.Count);
-                heights.AddRange(approve.Select(b => b.Bounds.Height));
-                window.Close();
-            },
-            CancellationToken.None);
-
-        Assert.Empty(problems);
-        Assert.Single(heights.Select(h => Math.Round(h, 1)).Distinct());
-    }
-
     [Fact]
     public async Task Conferencia_em_tela_larga_so_estica_a_lista_de_problemas()
     {

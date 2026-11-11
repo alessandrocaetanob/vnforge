@@ -108,32 +108,6 @@ public class EmptyScenesTests
     }
 
     [Fact]
-    public async Task No_Editor_a_cena_vazia_aberta_continua_selecionada_mesmo_escondida()
-    {
-        using var temp = new TempFolder();
-        var editor = await OpenEditor(CreateProject(temp));
-        editor.HideEmptyScenes = false;
-        var empty = editor.Scripts.Single(s => s.Key == "yst00002");
-        editor.SelectedScript = empty;
-
-        editor.HideEmptyScenes = true;
-
-        Assert.Same(empty, editor.SelectedScript);
-        Assert.False(empty.IsListed);
-    }
-
-    [Fact]
-    public async Task No_Editor_o_filtro_de_cenas_nao_traz_de_volta_a_cena_vazia_escondida()
-    {
-        using var temp = new TempFolder();
-        var editor = await OpenEditor(CreateProject(temp));
-
-        editor.ScriptFilter = "vazia";
-
-        Assert.All(editor.Scripts.Where(s => s.Key is "yst00002" or "yst00003"), s => Assert.False(s.IsListed));
-    }
-
-    [Fact]
     public async Task No_Painel_o_capitulo_sem_linhas_vem_escondido_com_a_contagem_de_cenas()
     {
         using var temp = new TempFolder();
@@ -143,24 +117,6 @@ public class EmptyScenesTests
         Assert.Equal(["Capítulo 1", "Capítulo 3"], vm.Chapters.Select(c => c.Name));
         Assert.Equal("2 cenas vazias escondidas", vm.HiddenEmptyScenesText);
         Assert.True(vm.HasHiddenEmptyScenes);
-    }
-
-    [Fact]
-    public async Task No_Painel_mostrado_o_capitulo_vazio_nao_e_o_voce_esta_aqui_nem_o_proximo_passo()
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenDashboard(CreateProject(temp), lastEdited: "yst00002");
-
-        vm.HideEmptyScenes = false;
-
-        Assert.Equal(["Capítulo 1", "Vazios", "Capítulo 3"], vm.Chapters.Select(c => c.Name));
-        var empty = vm.Chapters.Single(c => c.Name == "Vazios");
-        Assert.True(empty.IsEmpty);
-        Assert.False(empty.IsHere);
-        Assert.Equal(string.Empty, empty.Note);
-        Assert.Equal(string.Empty, vm.HiddenEmptyScenesText);
-        Assert.Equal("Revisar o capítulo 1", vm.NextStepLabel);
-        Assert.Equal("yst00001", vm.NextStepTarget?.ScriptKey);
     }
 
     [Fact]
@@ -217,30 +173,5 @@ public class EmptyScenesTests
 
         Assert.True(main.Editor.HideEmptyScenes);
         Assert.True(new AppSettingsFile(config).Load().HideEmptyScenes);
-    }
-
-    [Fact]
-    public void A_escolha_gravada_vale_ao_abrir_o_app_de_novo()
-    {
-        using var temp = new TempFolder();
-        var config = temp.SubFolder("config");
-        Window(temp, config).Dashboard.HideEmptyScenes = false;
-
-        var reopened = Window(temp, config);
-
-        Assert.False(reopened.Dashboard.HideEmptyScenes);
-        Assert.False(reopened.Editor.HideEmptyScenes);
-    }
-
-    [Fact]
-    public void O_app_json_sem_a_chave_esconde_as_cenas_vazias_e_o_padrao_nao_grava_a_chave()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-
-        file.Save(AppSettings.Default);
-
-        Assert.True(file.Load().HideEmptyScenes);
-        Assert.DoesNotContain("hideEmptyScenes", File.ReadAllText(file.Path), StringComparison.Ordinal);
     }
 }

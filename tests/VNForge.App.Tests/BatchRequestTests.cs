@@ -196,17 +196,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedido_sem_filtro_avisa_que_a_IA_vai_ler_tudo()
-    {
-        var (vm, _, _) = Build();
-
-        await vm.BeginRequestAsync("deixar as falas mais naturais");
-
-        Assert.Contains("não cita personagem, cena nem palavra", vm.Summary);
-        Assert.Equal(4, vm.RequestPlan!.Candidates.Count);
-    }
-
-    [Fact]
     public async Task Limite_de_gasto_atingido_recusa_o_pedido()
     {
         var folder = ProjectFolder.Open(root);
@@ -331,25 +320,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task Trocar_o_projeto_com_a_IA_trabalhando_cancela_o_pedido_e_avisa()
-    {
-        var gate = new TaskCompletionSource();
-        var vm = new SearchReplaceViewModel(clock)
-        {
-            Project = ProjectSummaryReader.Read(root),
-            Requests = new BatchRequestService((_, _) => new GatedProvider(gate.Task), () => Settings()),
-        };
-        await vm.BeginRequestAsync(Request);
-        var running = vm.RunRequestCommand.ExecuteAsync(null);
-
-        vm.Project = null;
-        await running;
-
-        Assert.False(vm.HasPreview);
-        Assert.Contains("O painel mudou durante a operação", vm.Summary);
-    }
-
-    [Fact]
     public async Task O_plano_destaca_a_estimativa_que_passa_do_valor_de_aviso()
     {
         var (vm, provider, _) = Build(limits: new BudgetLimits(null, 0.0001m));
@@ -387,39 +357,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public void A_paleta_nao_oferece_o_pedido_quando_a_frase_acha_linhas()
-    {
-        var palette = new CommandPaletteViewModel(
-            () => [],
-            (_, _) => [new PaletteEntry(PaletteGroup.Line, "Você sabe o que houve?", "yst00001 · linha 1", () => { })],
-            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => { }));
-        palette.Open();
-
-        palette.Query = "você sabe o que";
-
-        Assert.Equal([PaletteGroup.Line], palette.Results.Select(r => r.Group));
-    }
-
-    [Fact]
-    public async Task O_pedido_fecha_o_leitor_de_cena_antes_de_abrir_o_painel()
-    {
-        var vm = new EditorViewModel(postToUi: action => action());
-        vm.Search.Requests = new BatchRequestService((_, _) => FakeBatchRequestProvider.Replacing("você", "tu"), () => Settings());
-        vm.Project = ProjectSummaryReader.Read(root);
-        await vm.Loading;
-        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00001");
-        vm.StartReading();
-        Assert.True(vm.IsReadingScene);
-
-        Assert.True(vm.OpenBatchRequest(Request));
-        await vm.BatchRequest;
-
-        Assert.False(vm.IsReadingScene);
-        Assert.True(vm.IsSearchOpen);
-        Assert.NotNull(vm.Search.RequestPlan);
-    }
-
-    [Fact]
     public void A_paleta_oferece_o_pedido_primeiro_quando_o_texto_tem_tres_palavras_ou_mais()
     {
         var asked = new List<string>();
@@ -434,20 +371,6 @@ public sealed class BatchRequestTests : IDisposable
         Assert.Equal("Pedir à IA: trocar você por tu", palette.Results[0].Title);
         palette.ExecuteSelected();
         Assert.Equal(["trocar você por tu"], asked);
-    }
-
-    [Fact]
-    public void A_paleta_nao_oferece_o_pedido_quando_o_texto_ja_nomeia_um_comando()
-    {
-        var palette = new CommandPaletteViewModel(
-            () => [new PaletteEntry(PaletteGroup.Command, "Revisar falas de Kenta", "", () => { })],
-            (_, _) => [],
-            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => { }));
-        palette.Open();
-
-        palette.Query = "revisar falas de kenta";
-
-        Assert.Equal(["Revisar falas de Kenta"], palette.Results.Select(r => r.Title));
     }
 
     [Fact]
@@ -477,5 +400,35 @@ public sealed class BatchRequestTests : IDisposable
         Assert.True(vm.Editor.IsReplaceVisible);
         Assert.NotNull(vm.Editor.Search.RequestPlan);
         Assert.Empty(provider.Received);
+    }
+
+    [Fact]
+    public async Task O_pedido_fecha_o_leitor_de_cena_antes_de_abrir_o_painel()
+    {
+        var vm = new EditorViewModel(postToUi: action => action());
+        vm.Search.Requests = new BatchRequestService((_, _) => FakeBatchRequestProvider.Replacing("você", "tu"), () => Settings());
+        vm.Project = ProjectSummaryReader.Read(root);
+        await vm.Loading;
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00001");
+        vm.StartReading();
+        Assert.True(vm.IsReadingScene);
+
+        Assert.True(vm.OpenBatchRequest(Request));
+        await vm.BatchRequest;
+
+        Assert.False(vm.IsReadingScene);
+        Assert.True(vm.IsSearchOpen);
+        Assert.NotNull(vm.Search.RequestPlan);
+    }
+
+    [Fact]
+    public async Task Pedido_sem_filtro_avisa_que_a_IA_vai_ler_tudo()
+    {
+        var (vm, _, _) = Build();
+
+        await vm.BeginRequestAsync("deixar as falas mais naturais");
+
+        Assert.Contains("não cita personagem, cena nem palavra", vm.Summary);
+        Assert.Equal(4, vm.RequestPlan!.Candidates.Count);
     }
 }

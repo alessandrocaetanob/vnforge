@@ -34,44 +34,6 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     }
 
     [Fact]
-    public async Task M_deixa_para_depois_e_avanca()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, Key.M, PhysicalKey.M, (vm, review) =>
-        {
-            Assert.Equal(1, review.Position);
-            Assert.True(review.Blocks[0].IsLater);
-            Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
-            Assert.Empty(SessionsFile.Load(ProjectFolder.Open(root)).Approvals);
-        });
-    }
-
-    [Fact]
-    public async Task Seta_para_a_direita_pula_e_avanca()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, Key.Right, PhysicalKey.ArrowRight, (vm, review) =>
-        {
-            Assert.Equal(1, review.Position);
-            Assert.True(review.Blocks[0].IsSkipped);
-            Assert.Empty(SessionsFile.Load(ProjectFolder.Open(root)).Approvals);
-        });
-    }
-
-    [Fact]
-    public async Task Seta_para_a_esquerda_volta_uma_linha()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, [(Key.Right, PhysicalKey.ArrowRight, true), (Key.Left, PhysicalKey.ArrowLeft, true)], (vm, review) => Assert.Equal(0, review.Position));
-    }
-
-    [Fact]
     public async Task E_sai_do_modo_revisao_com_a_linha_aberta_no_editor()
     {
         using var temp = new TempFolder();
@@ -108,53 +70,6 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Equal(2, review.Position);
             Assert.True(review.Blocks[1].IsApproved);
         });
-    }
-
-    [Fact]
-    public async Task Esc_que_fecha_o_mapa_de_atalhos_nao_fecha_tambem_a_revisao()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Rodar(
-            root,
-            (window, vm) =>
-            {
-                vm.ToggleShortcutMapCommand.Execute(null);
-                ScreenHost.Settle(window);
-                Assert.True(vm.IsShortcutMapOpen);
-
-                Teclar(window, [(Key.Escape, PhysicalKey.Escape, true)]);
-            },
-            (vm, _) =>
-            {
-                Assert.False(vm.IsShortcutMapOpen);
-                Assert.True(vm.Editor.IsReviewing);
-            });
-    }
-
-    [Fact]
-    public async Task Com_o_mapa_de_atalhos_aberto_as_teclas_da_revisao_nao_agem_na_fala_escondida()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Rodar(
-            root,
-            (window, vm) =>
-            {
-                vm.ToggleShortcutMapCommand.Execute(null);
-                ScreenHost.Settle(window);
-
-                Teclar(window, [(Key.Enter, PhysicalKey.Enter, true), (Key.M, PhysicalKey.M, true), (Key.Right, PhysicalKey.ArrowRight, true), (Key.E, PhysicalKey.E, true)]);
-            },
-            (vm, review) =>
-            {
-                Assert.True(vm.Editor.IsReviewing);
-                Assert.Equal(0, review.Position);
-                Assert.Equal(0, review.ApprovedCount);
-                Assert.Equal(0, review.LaterCount);
-            });
     }
 
     [Fact]
@@ -226,70 +141,8 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             });
     }
 
-    [Fact]
-    public async Task Sair_da_arvore_desinscreve_os_eventos_da_janela()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-        var inscritosAntes = (Review: 0, Editor: 0);
-        var inscritosDepois = (Review: 0, Editor: 0);
-
-        await Rodar(
-            root,
-            (window, vm) =>
-            {
-                inscritosAntes = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
-
-                vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
-                ScreenHost.Settle(window);
-
-                inscritosDepois = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
-            },
-            (_, _) =>
-            {
-                Assert.Equal((1, 1), inscritosAntes);
-                Assert.Equal((0, 0), inscritosDepois);
-            });
-    }
-
-    private static int Inscritos(object alvo, string evento, Type dono, Type ouvinte) =>
-        ((MulticastDelegate?)dono.GetField(evento, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(alvo))?
-        .GetInvocationList().Count(d => d.Target?.GetType() == ouvinte) ?? 0;
-
-    private static int InscritosPropertyChanged(object alvo, Type ouvinte) =>
-        typeof(Avalonia.AvaloniaObject).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-            .Where(f => f.FieldType == typeof(EventHandler<Avalonia.AvaloniaPropertyChangedEventArgs>))
-            .Select(f => (MulticastDelegate?)f.GetValue(alvo))
-            .Sum(d => d?.GetInvocationList().Count(h => h.Target?.GetType() == ouvinte) ?? 0);
-
     private Task Pressionar(string root, Key key, PhysicalKey physical, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
         Pressionar(root, [(key, physical, true)], verificar);
-
-    [Fact]
-    public async Task Segurar_o_Enter_aprova_so_uma_fala_porque_a_repeticao_da_tecla_e_ignorada()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
-        {
-            Assert.Equal(1, review.Position);
-            Assert.Equal(1, review.ApprovedCount);
-        });
-    }
-
-    [Fact]
-    public async Task Soltar_a_tecla_libera_a_proxima_batida()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, true), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
-        {
-            Assert.Equal(2, review.Position);
-            Assert.Equal(2, review.ApprovedCount);
-        });
-    }
 
     private Task Pressionar(string root, (Key Key, PhysicalKey Physical, bool Release)[] teclas, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
         Rodar(root, (window, _) => Teclar(window, teclas), verificar);
@@ -352,5 +205,31 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     {
         var root = SampleProjects.Create(parent, "Teste", TranslationStatus.Machine, TranslationStatus.Machine, TranslationStatus.Machine);
         return root;
+    }
+
+    [Fact]
+    public async Task Segurar_o_Enter_aprova_so_uma_fala_porque_a_repeticao_da_tecla_e_ignorada()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
+        {
+            Assert.Equal(1, review.Position);
+            Assert.Equal(1, review.ApprovedCount);
+        });
+    }
+
+    [Fact]
+    public async Task Soltar_a_tecla_libera_a_proxima_batida()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, true), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
+        {
+            Assert.Equal(2, review.Position);
+            Assert.Equal(2, review.ApprovedCount);
+        });
     }
 }

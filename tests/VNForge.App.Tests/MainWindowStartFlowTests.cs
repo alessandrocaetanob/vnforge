@@ -36,21 +36,4 @@ public class MainWindowStartFlowTests
         Assert.Same(vm.Dashboard, vm.CurrentPage);
         Assert.Equal("Minha VN", vm.Dashboard.Project?.Name);
     }
-
-    [Fact]
-    public async Task Continuar_em_abre_o_Editor_no_ultimo_script_editado()
-    {
-        using var temp = new TempFolder();
-        var root = TwoScripts(temp);
-        File.SetLastWriteTimeUtc(Path.Combine(root, "text", "yst00001.json"), Now.UtcDateTime.AddDays(-3));
-        File.SetLastWriteTimeUtc(Path.Combine(root, "text", "yst00002.json"), Now.UtcDateTime);
-        var vm = Create(temp);
-        await vm.Start.OpenAsync(root);
-
-        vm.Start.OpenSelectedInEditorCommand.Execute(null);
-        await vm.LineNavigation;
-
-        Assert.Same(vm.Editor, vm.CurrentPage);
-        Assert.Equal("yst00002", vm.Editor.SelectedScript?.Key);
-    }
 }

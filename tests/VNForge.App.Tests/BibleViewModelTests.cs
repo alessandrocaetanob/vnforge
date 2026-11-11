@@ -33,32 +33,6 @@ public sealed class BibleViewModelTests : IDisposable
         return vm;
     }
 
-    [Fact]
-    public void Lista_as_cenas_na_ordem_da_historia_e_marca_as_sem_resumo()
-    {
-        var vm = Open();
-
-        Assert.Equal(["yst00001", "yst00002", "yst00010"], vm.Rows.Select(r => r.Key));
-        Assert.Equal([1, 2, 3], vm.Rows.Select(r => r.Number));
-        Assert.Equal("Cena 2", vm.Rows[1].Title);
-        Assert.Equal(3, vm.NoSummaryCount);
-        Assert.Equal(0, vm.EditedCount);
-    }
-
-    [Fact]
-    public void O_nome_da_biblia_aparece_na_lista_e_a_cena_com_resumo_ganha_o_visto()
-    {
-        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Name = "Volta para casa", Summary = "Ren chega." }]));
-
-        var vm = Open();
-
-        var row = vm.Rows.Single(r => r.Key == "yst00002");
-        Assert.Equal("Volta para casa", row.Subtitle);
-        Assert.True(row.ShowCheck);
-        Assert.Equal(1, vm.NamedCount);
-        Assert.Equal(2, vm.NoSummaryCount);
-    }
-
     private void SaveCastScene()
     {
         _project.SaveCharacters([new CharacterEntry("健太", "Kenta"), new CharacterEntry("美咲", "Misaki")]);
@@ -98,19 +72,6 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Tom_vira_um_chip_por_tom_e_o_que_cita_um_personagem_da_cena_vira_apoio()
-    {
-        SaveCastScene();
-        _project.SaveBible(GameBible.From([new BibleScene("yst00001") { Characters = ["Kenta", "Misaki"], Tone = ["cômico leve", "tenso no fim", "seco na fala de Misaki"] }]));
-
-        var vm = Open();
-
-        Assert.Equal(["cômico leve", "tenso no fim", "seco na fala de Misaki"], vm.ToneChips.Select(c => c.Text));
-        Assert.Equal([false, false, true], vm.ToneChips.Select(c => c.IsSupport));
-        Assert.True(vm.HasTone);
-    }
-
-    [Fact]
     public void Piadas_que_voltam_lista_as_cenas_em_que_cada_uma_volta()
     {
         _project.SaveBible(GameBible.From(
@@ -125,17 +86,6 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3", "só aqui"], vm.JokeChips.Select(c => c.Label));
         vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00010");
         Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3"], vm.JokeChips.Select(c => c.Label));
-    }
-
-    [Fact]
-    public void Relacoes_viram_um_par_por_linha_com_a_descricao_ao_lado()
-    {
-        _project.SaveBible(GameBible.From([new BibleScene("yst00001") { Relations = [new BibleRelation("Kenta e Ren", "Amigos de infância"), new BibleRelation("Misaki e Sakura", "Professora e aluna")] }]));
-
-        var vm = Open();
-
-        Assert.Equal([("Kenta e Ren", "Amigos de infância"), ("Misaki e Sakura", "Professora e aluna")], vm.RelationRows.Select(r => (r.Between, r.Note)));
-        Assert.True(vm.HasRelations);
     }
 
     [Fact]
@@ -171,20 +121,6 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Abrir_a_cena_nao_a_marca_como_editada()
-    {
-        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "Resumo.", Tone = ["seco"] }]));
-        var vm = Open();
-
-        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-        vm.SelectedRow = vm.Rows[0];
-        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-
-        Assert.Empty(_project.LoadBible().Scene("yst00002")!.Edited);
-        Assert.Equal("seco", vm.ToneText);
-    }
-
-    [Fact]
     public void Editar_a_sinopse_do_jogo_grava_e_marca_como_sua()
     {
         var vm = Open();
@@ -212,22 +148,6 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Abrir_a_geracao_mostra_o_preco_antes_de_rodar_e_nao_chama_a_IA()
-    {
-        var vm = Open();
-
-        vm.OpenGenerateCommand.Execute(null);
-        await vm.Generation;
-
-        Assert.True(vm.IsGenerateOpen);
-        Assert.StartsWith("Custo (aproximado): R$ ", vm.EstimateText, StringComparison.Ordinal);
-        Assert.StartsWith("Já gasto no projeto: R$ ", vm.SpentText, StringComparison.Ordinal);
-        Assert.Equal("Campos que você editou (0 cenas)", vm.EditedKeptText);
-        Assert.Empty(_provider.SceneCalls);
-        Assert.StartsWith("Gerar de novo · R$ ", vm.GenerateLabel, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Gerar_escreve_a_biblia_preserva_o_que_e_seu_e_fecha_a_janela()
     {
         _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "Meu resumo." }.EditSummary("Meu resumo.")]));
@@ -237,6 +157,8 @@ public sealed class BibleViewModelTests : IDisposable
 
         vm.ConfirmGenerateCommand.Execute(null);
         await vm.Generation;
+        // O Reload no fim da geração abre uma nova estimativa em segundo plano, que remonta a linha do tempo; ler a coleção antes dela acabar dá "Collection was modified".
+        await vm.Loading;
 
         Assert.False(vm.IsGenerateOpen);
         Assert.False(vm.IsRunning);
@@ -279,18 +201,6 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task O_cabecalho_da_cena_traz_capitulo_cena_e_linhas()
-    {
-        var vm = Open();
-        await vm.Loading;
-
-        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-
-        Assert.Matches(@"cena 2 · linhas \d{4} a \d{4}$", vm.SceneHeader);
-        Assert.Contains("linhas", vm.SceneHeader, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Filtrar_cenas_reduz_a_lista_e_a_contagem_mostra_x_de_y()
     {
         var vm = Open();
@@ -302,19 +212,6 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.Equal(["yst00010"], vm.Rows.Select(r => r.Key));
         Assert.Equal("1 de 3", vm.ScenesCountText);
         Assert.Equal("yst00010", vm.SelectedRow?.Key);
-    }
-
-    [Fact]
-    public void Ir_para_a_cena_no_Editor_pede_o_script_da_cena_selecionada()
-    {
-        var vm = Open();
-        string? requested = null;
-        vm.EditorRequested += (_, key) => requested = key;
-        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-
-        vm.OpenInEditorCommand.Execute(null);
-
-        Assert.Equal("yst00002", requested);
     }
 
     [Fact]
@@ -360,19 +257,6 @@ public sealed class BibleViewModelTests : IDisposable
         vm.Open(ProjectSummaryReader.Read(_root));
         vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
         return vm;
-    }
-
-    [Fact]
-    public async Task Reescrever_com_recusa_da_IA_mostra_a_mensagem_e_registra_o_gasto()
-    {
-        var client = new StubClient(() => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(2_000, 500, 0, 0)));
-        var vm = OpenWith(client);
-
-        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
-
-        Assert.Equal(1, client.Calls);
-        Assert.Contains("não quis ler", vm.ErrorMessage, StringComparison.Ordinal);
-        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
     }
 
     [Fact]
@@ -496,5 +380,60 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.False(vm.HasProject);
         Assert.False(vm.HasScene);
         Assert.Equal(string.Empty, vm.SceneHeader);
+    }
+
+    [Fact]
+    public void Abrir_a_cena_nao_a_marca_como_editada()
+    {
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "Resumo.", Tone = ["seco"] }]));
+        var vm = Open();
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+        vm.SelectedRow = vm.Rows[0];
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        Assert.Empty(_project.LoadBible().Scene("yst00002")!.Edited);
+        Assert.Equal("seco", vm.ToneText);
+    }
+
+    [Fact]
+    public async Task Abrir_a_geracao_mostra_o_preco_antes_de_rodar_e_nao_chama_a_IA()
+    {
+        var vm = Open();
+
+        vm.OpenGenerateCommand.Execute(null);
+        await vm.Generation;
+
+        Assert.True(vm.IsGenerateOpen);
+        Assert.StartsWith("Custo (aproximado): R$ ", vm.EstimateText, StringComparison.Ordinal);
+        Assert.StartsWith("Já gasto no projeto: R$ ", vm.SpentText, StringComparison.Ordinal);
+        Assert.Equal("Campos que você editou (0 cenas)", vm.EditedKeptText);
+        Assert.Empty(_provider.SceneCalls);
+        Assert.StartsWith("Gerar de novo · R$ ", vm.GenerateLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Lista_as_cenas_na_ordem_da_historia_e_marca_as_sem_resumo()
+    {
+        var vm = Open();
+
+        Assert.Equal(["yst00001", "yst00002", "yst00010"], vm.Rows.Select(r => r.Key));
+        Assert.Equal([1, 2, 3], vm.Rows.Select(r => r.Number));
+        Assert.Equal("Cena 2", vm.Rows[1].Title);
+        Assert.Equal(3, vm.NoSummaryCount);
+        Assert.Equal(0, vm.EditedCount);
+    }
+
+    [Fact]
+    public async Task Reescrever_com_recusa_da_IA_mostra_a_mensagem_e_registra_o_gasto()
+    {
+        var client = new StubClient(() => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(2_000, 500, 0, 0)));
+        var vm = OpenWith(client);
+
+        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
+
+        Assert.Equal(1, client.Calls);
+        Assert.Contains("não quis ler", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
     }
 }

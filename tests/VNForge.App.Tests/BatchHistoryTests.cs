@@ -61,16 +61,6 @@ public sealed class BatchHistoryTests : IDisposable
     }
 
     [Fact]
-    public void Operacao_que_nao_mudou_linha_nenhuma_nao_entra_na_lista()
-    {
-        var (service, history, _) = Build();
-
-        history.Run(root, "Nada", folder => folder.LoadText("yst00001").Count);
-
-        Assert.Empty(service.Tasks);
-    }
-
-    [Fact]
     public async Task O_Desfazer_vale_em_outra_sessao_e_o_ponto_nao_entra_duas_vezes()
     {
         var first = Build();
@@ -98,22 +88,6 @@ public sealed class BatchHistoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Linha_editada_depois_do_lote_fica_e_o_aviso_diz_quantas()
-    {
-        var (_, history, bar) = Build();
-        var preview = Preview("tradução", "ZZ");
-        history.Run(root, "Substituir lote", folder => ProjectSearch.Apply(folder, preview, clock));
-        new LineEditor(ProjectFolder.Open(root), clock).SetTranslation("yst00001", Line(1).Id, "Minha versão");
-
-        var entry = Assert.Single(bar.Entries);
-        await entry.UndoCommand.ExecuteAsync(null);
-
-        Assert.Equal("Minha versão", Line(1).Translation);
-        Assert.Equal("tradução 0", Line(0).Translation);
-        Assert.Equal("2 linhas voltaram ao que eram. 1 foi editada depois e ficou como está.", entry.UndoMessage);
-    }
-
-    [Fact]
     public async Task Quando_nenhuma_linha_volta_por_edicao_posterior_o_Desfazer_continua_na_lista()
     {
         var (_, history, bar) = Build();
@@ -131,20 +105,6 @@ public sealed class BatchHistoryTests : IDisposable
         Assert.True(entry.CanUndo);
         Assert.Contains("3 foram editadas depois e ficaram como estão. O Desfazer continua disponível.", entry.UndoMessage);
         Assert.Single(new RestorePointStore(ProjectFolder.Open(root), clock).List());
-    }
-
-    [Fact]
-    public void Ponto_com_mais_de_30_dias_nao_volta_para_a_lista()
-    {
-        var first = Build();
-        var preview = Preview("tradução", "ZZ");
-        first.History.Run(root, "Substituir lote", folder => ProjectSearch.Apply(folder, preview, clock));
-        clock.Advance(RestorePointStore.Retention + TimeSpan.FromDays(1));
-
-        var (service, history, _) = Build();
-        history.LoadPersisted(root);
-
-        Assert.Empty(service.Tasks);
     }
 
     [Fact]

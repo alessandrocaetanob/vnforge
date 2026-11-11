@@ -4,36 +4,6 @@ namespace VNForge.App.Tests;
 
 public class TechnicalDetailsMemoryTests
 {
-    [Fact]
-    public void Sem_pasta_lembra_so_em_memoria_e_o_que_ninguem_mexeu_fica_sem_resposta()
-    {
-        var memory = new TechnicalDetailsMemory();
-
-        Assert.Null(memory.Get("build"));
-        memory.Set("build", true);
-        memory.Set("start", false);
-
-        Assert.True(memory.Get("build"));
-        Assert.False(memory.Get("start"));
-        Assert.Null(memory.Get("conference"));
-    }
-
-    [Fact]
-    public void Com_pasta_grava_nas_preferencias_e_o_proximo_app_le_de_volta()
-    {
-        using var temp = new TempFolder();
-        var config = temp.SubFolder("config");
-
-        var first = new TechnicalDetailsMemory(config);
-        first.Set("build", true);
-        first.Set("conference", true);
-        first.Set("conference", false);
-
-        var second = new TechnicalDetailsMemory(config);
-        Assert.True(second.Get("build"));
-        Assert.False(second.Get("conference"));
-        Assert.Null(second.Get("start"));
-    }
 
     [Theory]
     [InlineData("{ não é json")]

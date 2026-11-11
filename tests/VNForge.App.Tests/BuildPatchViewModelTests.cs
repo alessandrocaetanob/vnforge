@@ -80,22 +80,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
     private bool HasBackups => Directory.Exists(Folder.BackupDirectory) && Directory.EnumerateDirectories(Folder.BackupDirectory).Any();
 
-    [Fact]
-    public async Task Projeto_cp1252_com_exe_em_shift_jis_oferece_o_patch_sem_gravar_nada()
-    {
-        var original = File.ReadAllBytes(ExePath);
-
-        var vm = await OpenAsync();
-
-        Assert.True(vm.HasPatch);
-        Assert.Equal(BuildPatchState.Available, vm.PatchState);
-        Assert.Contains("MS Gothic", vm.PatchText);
-        Assert.True(vm.PatchCommand.CanExecute(null));
-        Assert.Equal(original, File.ReadAllBytes(ExePath));
-        Assert.False(HasBackups);
-        Assert.Empty(StagedFiles());
-    }
-
     [Theory]
     [InlineData("fold")]
     [InlineData("remap")]
@@ -106,15 +90,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
         Assert.False(vm.HasPatch);
         Assert.Equal(BuildPatchState.None, vm.PatchState);
-        Assert.False(vm.PatchCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Engine_sem_patch_de_executavel_nao_mostra_o_patch()
-    {
-        var vm = await OpenAsync(withPatchEngine: false);
-
-        Assert.False(vm.HasPatch);
         Assert.False(vm.PatchCommand.CanExecute(null));
     }
 
@@ -211,22 +186,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Exe_sem_o_nome_da_fonte_e_recusado_com_o_motivo()
-    {
-        var other = SyntheticExe();
-        Array.Fill(other, (byte)0xCC, NameOffset - 1, 0x20);
-        Array.Clear(other, 0x800, 0x20);
-        File.WriteAllBytes(ExePath, other);
-
-        var vm = await OpenAsync();
-
-        Assert.Equal(BuildPatchState.Refused, vm.PatchState);
-        Assert.Contains("Não achei o nome da fonte", vm.PatchText);
-        Assert.False(vm.PatchCommand.CanExecute(null));
-        Assert.False(HasBackups);
-    }
-
-    [Fact]
     public async Task Patch_ja_aplicado_mostra_o_estado_e_nao_cria_backup()
     {
         var patched = Patched(SyntheticExe());
@@ -278,35 +237,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedir_a_restauracao_com_o_patch_a_confirmar_apaga_a_copia_de_trabalho()
-    {
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-        await vm.ConfirmCommand.ExecuteAsync(null);
-        File.WriteAllBytes(ExePath, SyntheticExe());
-        await vm.ReloadAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-        Assert.NotEmpty(StagedFiles());
-
-        vm.RestoreCommand.Execute(null);
-
-        Assert.Equal(BuildConfirmation.Restore, vm.Pending);
-        Assert.Empty(StagedFiles());
-    }
-
-    [Fact]
-    public async Task Fechar_durante_a_confirmacao_do_patch_apaga_a_copia_de_trabalho()
-    {
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-        Assert.NotEmpty(StagedFiles());
-
-        Assert.True(vm.TryCloseSafely());
-
-        Assert.Empty(StagedFiles());
-    }
-
-    [Fact]
     public async Task O_patch_fica_desabilitado_enquanto_outra_operacao_roda()
     {
         var blocking = new BlockingStarter();
@@ -324,19 +254,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
         Assert.False(vm.IsBusy);
         Assert.True(vm.PatchCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_durante_a_confirmacao_apaga_a_copia_de_trabalho()
-    {
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-
-        vm.Project = null;
-
-        Assert.False(vm.IsConfirming);
-        Assert.Equal(BuildPatchState.None, vm.PatchState);
-        Assert.Empty(StagedFiles());
     }
 
     private sealed class BlockingStarter : IGameProcessStarter

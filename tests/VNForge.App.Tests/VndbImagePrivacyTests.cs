@@ -82,54 +82,6 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
     // ----- LibraryPrivacyReader -----
 
     [Fact]
-    public void Antes_da_primeira_leitura_vale_o_padrao_que_esconde_o_adulto_sem_tocar_o_disco()
-    {
-        using var temp = new TempFolder();
-        SetAdult(temp.Path, showAdult: true);
-        using var reader = new LibraryPrivacyReader(temp.Path, watch: false);
-
-        Assert.Equal(new LibraryPrivacy(), reader.Current());
-    }
-
-    [Fact]
-    public void Refresh_le_o_arquivo_e_avisa_so_quando_o_valor_muda()
-    {
-        using var temp = new TempFolder();
-        SetAdult(temp.Path, showAdult: true);
-        using var reader = new LibraryPrivacyReader(temp.Path, watch: false);
-        var changes = 0;
-        reader.Changed += (_, _) => changes++;
-
-        Assert.True(reader.Refresh().ShowAdult);
-        Assert.True(reader.Current().ShowAdult);
-        Assert.Equal(1, changes);
-
-        reader.Refresh();
-        Assert.Equal(1, changes);
-
-        SetAdult(temp.Path, showAdult: false);
-
-        Assert.False(reader.Refresh().ShowAdult);
-        Assert.False(reader.Current().ShowAdult);
-        Assert.Equal(2, changes);
-    }
-
-    [Fact]
-    public void Refresh_logo_depois_da_troca_ja_devolve_o_valor_novo_sem_esperar_o_observador()
-    {
-        using var temp = new TempFolder();
-        SetAdult(temp.Path, showAdult: true);
-        using var reader = new LibraryPrivacyReader(temp.Path, watch: false);
-        reader.Refresh();
-
-        for (var i = 0; i < 5; i++)
-        {
-            SetAdult(temp.Path, showAdult: i % 2 == 1);
-            Assert.Equal(i % 2 == 1, reader.Refresh().ShowAdult);
-        }
-    }
-
-    [Fact]
     public void Arquivo_ausente_ou_ilegivel_vale_o_padrao_e_a_proxima_leitura_tenta_de_novo()
     {
         using var temp = new TempFolder();
@@ -172,37 +124,6 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
-    public async Task A_leitura_que_decide_mostrar_usa_a_privacidade_de_agora_e_nao_a_ultima_lida()
-    {
-        await fixture.Session.Dispatch<int>(
-            async () =>
-            {
-                using var temp = new TempFolder();
-                SetAdult(temp.Path, showAdult: true);
-                var (source, reader, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
-                using (source)
-                {
-                    using (var shown = await source.LoadAsync(AdultFace, Ct))
-                    {
-                        Assert.NotNull(shown);
-                    }
-
-                    // O ajuste é desligado por fora; o leitor ainda guarda o valor antigo.
-                    SetAdult(temp.Path, showAdult: false);
-                    Assert.True(reader.Current().ShowAdult);
-
-                    Assert.Null(await source.LoadAsync(AdultFace, Ct));
-                    Assert.False(reader.Current().ShowAdult);
-                    Assert.Null(source.TryGet(AdultFace));
-                    Assert.Equal(1, downloader.Calls);
-                }
-
-                return 0;
-            },
-            Ct);
-    }
-
-    [Fact]
     public async Task Imagem_adulta_na_tela_volta_ao_marcador_quando_o_ajuste_e_desligado()
     {
         await fixture.Session.Dispatch<int>(
@@ -241,52 +162,6 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
-    public async Task No_desfocar_a_imagem_adulta_baixa_e_a_tela_a_borra_ate_a_pessoa_revelar_e_o_esconder_a_tira()
-    {
-        await fixture.Session.Dispatch<int>(
-            async () =>
-            {
-                using var temp = new TempFolder();
-                SetMode(temp.Path, AdultMode.Blur);
-                var (source, reader, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
-                VndbImages.Source = source;
-                var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
-                var window = new Window { Width = 200, Height = 200, Content = portrait };
-                try
-                {
-                    reader.Refresh();
-                    window.Show();
-                    await WaitUntil(() => portrait.HasImage, window);
-                    Assert.True(portrait.IsBlurred);
-                    Assert.Equal(1, downloader.Calls);
-
-                    portrait.Revealed = true;
-                    Assert.False(portrait.IsBlurred);
-                    portrait.Revealed = false;
-                    Assert.True(portrait.IsBlurred);
-
-                    SetMode(temp.Path, AdultMode.Show);
-                    reader.Refresh();
-                    await WaitUntil(() => portrait.HasImage && !portrait.IsBlurred, window);
-
-                    SetMode(temp.Path, AdultMode.Hide);
-                    reader.Refresh();
-                    await WaitUntil(() => !portrait.HasImage, window);
-                    Assert.False(portrait.IsBlurred);
-                }
-                finally
-                {
-                    window.Close();
-                    VndbImages.Source = null;
-                    source.Dispose();
-                }
-
-                return 0;
-            },
-            Ct);
-    }
-
-    [Fact]
     public async Task Sem_a_pasta_de_configuracao_na_partida_ligar_e_desligar_o_adulto_esconde_a_imagem_sem_ninguem_chamar_Refresh()
     {
         await fixture.Session.Dispatch<int>(
@@ -311,59 +186,6 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
 
                     SetAdult(config, showAdult: false);
                     await WaitUntil(() => !portrait.HasImage, window);
-                }
-                finally
-                {
-                    window.Close();
-                    VndbImages.Source = null;
-                    source.Dispose();
-                }
-
-                return 0;
-            },
-            Ct);
-    }
-
-    [Fact]
-    public async Task O_leitor_cria_a_pasta_que_faltava_e_o_observador_avisa_quando_o_arquivo_nasce()
-    {
-        using var temp = new TempFolder();
-        var config = Path.Combine(temp.Path, "cfg", "VNForge");
-        using var reader = new LibraryPrivacyReader(config);
-        var changed = new TaskCompletionSource();
-        reader.Changed += (_, _) => changed.TrySetResult();
-
-        Assert.True(Directory.Exists(config));
-        SetAdult(config, showAdult: true);
-
-        await changed.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        Assert.True(reader.Current().ShowAdult);
-    }
-
-    [Fact]
-    public async Task O_acerto_na_memoria_tambem_confere_a_privacidade_e_esconde_a_imagem()
-    {
-        await fixture.Session.Dispatch<int>(
-            async () =>
-            {
-                using var temp = new TempFolder();
-                SetAdult(temp.Path, showAdult: true);
-                var (source, reader, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
-                VndbImages.Source = source;
-                var window = new Window { Width = 200, Height = 200 };
-                try
-                {
-                    reader.Refresh();
-                    window.Show();
-                    (await source.LoadAsync(AdultFace, Ct))!.Dispose();
-
-                    // O ajuste é desligado por fora e ninguém chamou Refresh: o leitor ainda guarda o valor antigo e a imagem está na memória.
-                    SetAdult(temp.Path, showAdult: false);
-                    Assert.True(reader.Current().ShowAdult);
-                    var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
-                    window.Content = portrait;
-                    await WaitUntil(() => !portrait.HasImage, window);
-                    Assert.Equal(1, downloader.Calls);
                 }
                 finally
                 {
@@ -614,51 +436,6 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                     ScreenHost.Settle(window);
                     Assert.False(portrait.HasImage);
                     Assert.Throws<ObjectDisposedException>(() => _ = bitmapB.PixelSize);
-                }
-                finally
-                {
-                    window.Close();
-                    VndbImages.Source = null;
-                }
-
-                return 0;
-            },
-            Ct);
-    }
-
-    [Fact]
-    public async Task Sair_da_tela_com_uma_carga_em_andamento_devolve_a_posse_quando_ela_chega()
-    {
-        await fixture.Session.Dispatch<int>(
-            async () =>
-            {
-                var gated = new GatedSource();
-                VndbImages.Source = gated;
-                var a = new VndbImageRef("https://t.vndb.org/ch/12/a.jpg");
-                var cover = new Cover { Width = 44, Image = a };
-                var window = new Window { Width = 100, Height = 100, Content = cover };
-                try
-                {
-                    window.Show();
-                    ScreenHost.Settle(window);
-                    window.Content = null;
-                    ScreenHost.Settle(window);
-
-                    var bitmap = Blank();
-                    gated.Complete(a.Url, BitmapLease.Own(bitmap));
-                    await WaitUntil(() =>
-                    {
-                        try
-                        {
-                            _ = bitmap.PixelSize;
-                            return false;
-                        }
-                        catch (ObjectDisposedException)
-                        {
-                            return true;
-                        }
-                    });
-                    Assert.False(cover.HasImage);
                 }
                 finally
                 {

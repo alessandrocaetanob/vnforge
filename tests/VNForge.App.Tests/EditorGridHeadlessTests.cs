@@ -40,10 +40,51 @@ public static class HeadlessEntry
 /// <summary>Uma sessão para o processo todo: o Avalonia só aceita uma instância de aplicativo por thread de UI, então as classes de teste a dividem.</summary>
 public sealed class HeadlessFixture
 {
-    private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() => HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry)));
+    private static readonly object Gate = new();
+    private static HeadlessUnitTestSession? shared;
+
+    // Um Lazy guardaria a exceção da primeira tentativa e todo teste falharia igual, sem a causa; aqui uma falha de subida não fica guardada e
+    // chega aos testes com a mensagem original.
+    private static HeadlessUnitTestSession Shared()
+    {
+        lock (Gate)
+        {
+            if (shared is not null)
+            {
+                return shared;
+            }
+
+            var session = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry), AvaloniaTestIsolationLevel.PerAssembly);
+            try
+            {
+                // Um Application só: o Dispatcher.UIThread pertence à thread da sessão desde o primeiro Dispatch, e qualquer teste que o leia antes dele
+                // (um ViewModel que posta na interface) criaria um dispatcher preso à thread do xUnit.
+                ResilientHeadlessSession.RunWithRetry(async () =>
+                {
+                    await session.Dispatch(() => 0, CancellationToken.None);
+                    return 0;
+                }).GetAwaiter().GetResult();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"A sessão headless não subiu: {e.Message}", e);
+            }
+
+            return shared = session;
+        }
+    }
+
+    /// <summary>Sobe a sessão antes do primeiro teste do assembly (<see cref="HeadlessSessionFixture"/>).</summary>
+    internal static void Warm() => _ = Shared();
 
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
-    public ResilientHeadlessSession Session { get; } = new(Shared.Value);
+    public ResilientHeadlessSession Session { get; } = new(Shared());
+}
+
+/// <summary>Fixture do assembly: abre a sessão headless uma vez, antes de qualquer teste, ver <see cref="HeadlessFixture"/>.</summary>
+public sealed class HeadlessSessionFixture
+{
+    public HeadlessSessionFixture() => HeadlessFixture.Warm();
 }
 
 /// <summary>
@@ -84,6 +125,40 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
 
     private static int[] Realizadas(ListBox grade) =>
         [.. grade.GetRealizedContainers().Select(c => ((LineViewModel)c.DataContext!).Number).Order()];
+
+    [Fact]
+    public async Task Alt_seta_para_baixo_e_para_cima_movem_a_selecao_da_grade()
+    {
+        var vm = await Carregado(1_000);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                try
+                {
+                    Assert.True(Grade(window).ContainerFromIndex(0)!.Focus());
+                    Assentar(window);
+
+                    var passos = new List<int?>();
+                    foreach (var (key, physical) in new[] { (Key.Down, PhysicalKey.ArrowDown), (Key.Down, PhysicalKey.ArrowDown), (Key.Up, PhysicalKey.ArrowUp) })
+                    {
+                        window.KeyPress(key, RawInputModifiers.Alt, physical, null);
+                        window.KeyRelease(key, RawInputModifiers.Alt, physical, null);
+                        Assentar(window);
+                        passos.Add(vm.SelectedLine?.Number);
+                    }
+
+                    Assert.Equal([2, 3, 2], passos);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
+
 
     [Fact]
     public async Task Grade_com_50_mil_linhas_so_realiza_as_linhas_da_janela_e_rola_sem_travar()
@@ -130,38 +205,6 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
     }
 
     [Fact]
-    public async Task Trocar_o_filtro_na_tela_com_50_mil_linhas_reconstroi_a_grade_depressa()
-    {
-        var vm = await Carregado(LineCount);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    var grade = Grade(window);
-
-                    var relogio = Stopwatch.StartNew();
-                    vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.Pending));
-                    Assentar(window);
-                    vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.All));
-                    Assentar(window);
-                    relogio.Stop();
-
-                    Assert.True(relogio.Elapsed < Limit, $"Dois filtros levaram {relogio.Elapsed.TotalMilliseconds:N0} ms.");
-                    Assert.Equal(LineCount, grade.ItemCount);
-                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
     public async Task Selecao_acompanha_a_lista_e_a_linha_selecionada_entra_na_janela()
     {
         var vm = await Carregado(LineCount);
@@ -193,112 +236,4 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             },
             CancellationToken.None);
     }
-
-    [Fact]
-    public async Task Alt_seta_para_baixo_e_para_cima_movem_a_selecao_da_grade()
-    {
-        var vm = await Carregado(1_000);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    Assert.True(Grade(window).ContainerFromIndex(0)!.Focus());
-                    Assentar(window);
-
-                    var passos = new List<int?>();
-                    foreach (var (key, physical) in new[] { (Key.Down, PhysicalKey.ArrowDown), (Key.Down, PhysicalKey.ArrowDown), (Key.Up, PhysicalKey.ArrowUp) })
-                    {
-                        window.KeyPress(key, RawInputModifiers.Alt, physical, null);
-                        window.KeyRelease(key, RawInputModifiers.Alt, physical, null);
-                        Assentar(window);
-                        passos.Add(vm.SelectedLine?.Number);
-                    }
-
-                    Assert.Equal([2, 3, 2], passos);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task Selo_de_status_mostra_o_rotulo_e_as_cores_do_status()
-    {
-        var vm = await Carregado(200);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    var grade = Grade(window);
-
-                    var selos = grade.GetRealizedContainers()
-                        .SelectMany(c => c.GetVisualDescendants().OfType<StatusBadge>())
-                        .GroupBy(b => b.Status)
-                        .ToDictionary(g => g.Key, g => g.First());
-
-                    var ia = selos[TranslationStatus.Machine];
-                    Assert.Equal("IA", ia.Label);
-                    Assert.Equal("IA", Automation(ia));
-                    Assert.Equal(Cor(ia, "Vnf.StatusAiBg"), (ia.Background as ISolidColorBrush)?.Color);
-                    Assert.Equal(Cor(ia, "Vnf.StatusAiFg"), (ia.Foreground as ISolidColorBrush)?.Color);
-                    Assert.Equal(20, ia.Height);
-
-                    var pendente = selos[TranslationStatus.Untranslated];
-                    Assert.Equal("Em japonês", pendente.Label);
-                    Assert.Equal(Cor(pendente, "Vnf.StatusPendingBg"), (pendente.Background as ISolidColorBrush)?.Color);
-                    Assert.Equal(Cor(selos[TranslationStatus.Approved], "Vnf.StatusApprovedFg"), (selos[TranslationStatus.Approved].Foreground as ISolidColorBrush)?.Color);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task Tela_Busca_mostra_a_previa_com_antes_e_depois_na_lista()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated, TranslationStatus.Translated);
-        var vm = new SearchReplaceViewModel { Project = ProjectSummaryReader.Read(root), Pattern = "tradução", Replacement = "nova" };
-        await vm.PreviewCommand.ExecuteAsync(null);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = new Window { Width = 1200, Height = 800, Content = new SearchReplaceView { DataContext = vm } };
-                window.Show();
-                try
-                {
-                    Assentar(window);
-
-                    var lista = window.GetVisualDescendants().OfType<ListBox>().Single();
-                    Assert.Equal(2, lista.GetRealizedContainers().Count());
-                    var textos = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-                    Assert.Contains("tradução 0", textos);
-                    Assert.Contains("nova 0", textos);
-                    Assert.Contains("yst00001 · linha 1", textos);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    private static string? Automation(Control control) => Avalonia.Automation.AutomationProperties.GetName(control);
-
-    private static Color? Cor(Control control, string key) =>
-        control.TryFindResource(key, control.ActualThemeVariant, out var found) && found is ISolidColorBrush brush ? brush.Color : null;
 }

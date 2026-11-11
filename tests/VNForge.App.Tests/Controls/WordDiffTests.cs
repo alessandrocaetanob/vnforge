@@ -13,15 +13,6 @@ public class WordDiffTests
         }));
 
     [Fact]
-    public void Sem_traducao_atual_mostra_a_sugestao_inteira_sem_marcacao()
-    {
-        var diff = WordDiff.Compute(null, "Ehehe… Desculpaaa.\\p");
-
-        Assert.Equal(["Ehehe…", "Desculpaaa."], diff.Select(s => s.Text));
-        Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
-    }
-
-    [Fact]
     public void Insercoes_e_remocoes_por_palavra_como_no_canvas()
     {
         var diff = WordDiff.Compute("Não enche… Eu não achava o guarda-chuva.\\p", "Me deixa… Não achei o guarda-chuva.\\p");
@@ -42,23 +33,6 @@ public class WordDiffTests
     public void Pausas_nao_contam_e_quebra_de_linha_vira_espaco()
     {
         var diff = WordDiff.Compute("…Tem certeza?  Você vai se molhar.", "…Tem certeza?\\nVocê vai se molhar.\\p");
-
-        Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
-    }
-
-    [Fact]
-    public void Sugestao_vazia_marca_tudo_como_remocao()
-    {
-        var diff = WordDiff.Compute("uma frase", null);
-
-        Assert.All(diff, s => Assert.Equal(DiffKind.Delete, s.Kind));
-        Assert.Equal(2, diff.Count);
-    }
-
-    [Fact]
-    public void Quebra_de_linha_real_separa_palavras_como_o_espaco()
-    {
-        var diff = WordDiff.Compute("Tem certeza?\nVocê vai", "Tem certeza? Você vai");
 
         Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
     }

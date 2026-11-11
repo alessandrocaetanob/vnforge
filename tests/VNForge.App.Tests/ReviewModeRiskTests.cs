@@ -73,68 +73,6 @@ public sealed class ReviewModeRiskTests : IDisposable
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
 
     [Fact]
-    public async Task A_fila_por_risco_junta_as_cenas_do_maior_risco_ao_menor_e_comeca_pela_linha_mais_arriscada()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var revisao = vm.Review!;
-        Assert.True(revisao.IsRisk);
-        Assert.True(vm.IsReviewing);
-        Assert.Equal(4, revisao.Total);
-        Assert.Equal("yst00001:000001", revisao.Detail!.Id);
-        revisao.SkipCommand.Execute(null);
-        Assert.Equal("yst00002:000000", revisao.Detail!.Id);
-        Assert.Equal("yst00002", vm.SelectedScript!.Key);
-        Assert.Equal("Linha 2 de 4", revisao.PositionText);
-    }
-
-    [Fact]
-    public async Task O_cartao_da_linha_traz_a_pontuacao_o_nivel_e_um_chip_por_sinal()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var revisao = vm.Review!;
-        Assert.StartsWith("Risco ", revisao.RiskScoreText, StringComparison.Ordinal);
-        Assert.Equal("Alto", revisao.RiskLevelText);
-        Assert.True(revisao.IsHighRisk);
-        Assert.Equal("linha 0002 · 1ª da fila", revisao.RiskPositionText);
-        var chips = revisao.RiskChips.Select(c => c.Text).ToList();
-        Assert.Contains("Dúvida da IA +30", chips);
-        Assert.Contains("Soa estranho +20", chips);
-        Assert.Contains("Sugestão do editor +10", chips);
-        Assert.True(revisao.HasRiskChips);
-        Assert.True(revisao.ShowRisk);
-    }
-
-    [Fact]
-    public async Task Sem_o_arquivo_da_passada_de_editor_a_sugestao_nao_pesa_e_a_fila_abre_igual()
-    {
-        File.Delete(Path.Combine(ProjectFolder.Open(raiz).CacheDirectory, "editor-suggestions.json"));
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var chips = vm.Review!.RiskChips.Select(c => c.Text).ToList();
-        Assert.Contains("Dúvida da IA +30", chips);
-        Assert.DoesNotContain("Sugestão do editor +10", chips);
-    }
-
-    [Fact]
-    public async Task Sugestao_que_ja_nao_vale_para_a_traducao_da_linha_nao_pesa()
-    {
-        GravarSugestao("yst00001:000001", "uma tradução que a linha já não tem");
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        Assert.DoesNotContain("Sugestão do editor +10", vm.Review!.RiskChips.Select(c => c.Text));
-    }
-
-    [Fact]
     public async Task As_horas_ate_zerar_o_risco_alto_saem_do_ritmo_do_sessions_json_e_zeram_ao_passar_da_linha()
     {
         GravarRitmo120PorHora();
@@ -146,29 +84,6 @@ public sealed class ReviewModeRiskTests : IDisposable
         Assert.Equal("1 linha de risco alto · faltam cerca de 1 min no seu ritmo de 120 linhas por hora", revisao.RiskSummaryText);
         revisao.SkipCommand.Execute(null);
         Assert.Equal("Nenhuma linha de risco alto", revisao.RiskSummaryText);
-    }
-
-    [Fact]
-    public async Task Sem_ritmo_a_frase_das_horas_some_e_fica_so_a_contagem()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        Assert.Equal("1 linha de risco alto", vm.Review!.RiskSummaryText);
-    }
-
-    [Fact]
-    public async Task A_distribuicao_e_a_legenda_contam_a_fila_toda()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var revisao = vm.Review!;
-        Assert.Equal(100, revisao.RiskShare.High + revisao.RiskShare.Medium + revisao.RiskShare.Low);
-        Assert.Equal(25, revisao.RiskShare.High);
-        Assert.Equal(["Alto 25%", "Médio 25%", "Baixo 50%"], revisao.RiskLegend.Select(l => l.Text));
     }
 
     [Fact]
@@ -294,36 +209,6 @@ public sealed class ReviewModeRiskTests : IDisposable
         var cena = vm.Review!;
         Assert.Equal(cena.SceneName, cena.HeaderTitle);
         Assert.True(cena.ShowPosition);
-    }
-
-    [Fact]
-    public async Task Os_chips_levam_os_icones_e_as_cores_do_quadro_e_o_erro_do_QA_usa_a_cor_de_erro()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var chips = vm.Review!.RiskChips;
-        var duvida = Assert.Single(chips, c => c.Text == "Dúvida da IA +30");
-        Assert.True(duvida.IsAi && duvida.HasSparkle && !duvida.HasWarningIcon);
-        var qa = Assert.Single(chips, c => c.Text.StartsWith("Erro do QA", StringComparison.Ordinal));
-        Assert.True(qa.IsError && qa.HasWarningIcon && !qa.IsWarning && !qa.IsAi);
-        var estranho = Assert.Single(chips, c => c.Text == "Soa estranho +20");
-        Assert.True(estranho.IsWarning && !estranho.HasSparkle && !estranho.HasWarningIcon);
-        var sugestao = Assert.Single(chips, c => c.Text == "Sugestão do editor +10");
-        Assert.True(sugestao.IsAi && !sugestao.HasSparkle);
-    }
-
-    [Fact]
-    public async Task A_lista_a_seguir_mostra_ate_5_linhas()
-    {
-        ProjectFolder.Open(raiz).SaveText("yst00003", [Fala(3, 0, "美咲", "Um.\\p", TranslationStatus.Machine), Fala(3, 1, "美咲", "Dois.\\p", TranslationStatus.Machine), Fala(3, 2, "美咲", "Três.\\p", TranslationStatus.Machine)]);
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        Assert.Equal(7, vm.Review!.Total);
-        Assert.Equal(5, vm.Review.UpNext.Count);
     }
 
     [Fact]

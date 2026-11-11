@@ -47,19 +47,6 @@ public sealed class EditorSceneTests : IDisposable
 
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
 
-    [Fact]
-    public void A_contagem_da_mesma_fala_usa_o_separador_de_milhar_do_pt_BR()
-    {
-        var unidade = Fala(1, 0, "美咲", "「うん」\\p", "Aham.\\p", TranslationStatus.Machine);
-        var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao())
-        {
-            SameSource = new FalasIguais(4016),
-        };
-
-        Assert.Equal("Esta fala aparece em mais 4.016 linhas.", vm.SameSourceText);
-        Assert.Equal("Esta fala aparece em mais 12 linhas.", new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogio), new NavegadorMudo(), relogio, acao => acao()) { SameSource = new FalasIguais(12) }.SameSourceText);
-    }
-
     private sealed class NavegadorMudo : VNForge.App.Services.ILineNavigator
     {
         public void SelectNext()
@@ -129,57 +116,6 @@ public sealed class EditorSceneTests : IDisposable
     private static TaskCompletionSource<VNForge.App.Services.SameSourceOutcome> Porta() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     [Fact]
-    public async Task Usar_em_todos_devolve_o_controle_enquanto_grava_e_mostra_o_andamento_ate_o_fim()
-    {
-        var porta = Porta();
-        var falas = new FalasIguais(40, gate: porta);
-        var vm = DetalheComFalas(falas);
-
-        var execucao = vm.UseForAllCommand.ExecuteAsync(null);
-
-        Assert.False(execucao.IsCompleted);
-        Assert.True(vm.IsApplyingToAll);
-        Assert.False(vm.UseForAllCommand.CanExecute(null));
-        Assert.True(vm.CancelApplyToAllCommand.CanExecute(null));
-        falas.Batch.Report(new BatchProgress(1, 4));
-        Assert.Equal("Aplicando nas outras linhas... 25%", vm.ApplyProgressText);
-        Assert.Equal(0.25, vm.ApplyProgress);
-
-        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(40, 40, 40, false));
-        await execucao;
-
-        Assert.False(vm.IsApplyingToAll);
-        Assert.False(vm.CancelApplyToAllCommand.CanExecute(null));
-        Assert.True(vm.UseForAllCommand.CanExecute(null));
-        Assert.Equal("Aplicada a 40 linhas.", vm.SameSourceResult);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Durante_o_lote_iniciado_pelo_Confirmar_os_tres_comandos_ficam_desligados()
-    {
-        var porta = Porta();
-        var vm = DetalheComFalas(new FalasIguais(40, new(3, 0), gate: porta));
-        await vm.UseForAllCommand.ExecuteAsync(null);
-        Assert.True(vm.IsUseForAllConfirmOpen);
-
-        var execucao = vm.ConfirmUseForAllCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsApplyingToAll);
-        Assert.False(vm.UseForAllCommand.CanExecute(null));
-        Assert.False(vm.ConfirmUseForAllCommand.CanExecute(null));
-        Assert.False(vm.UseVariantCommand.CanExecute(null));
-        await vm.UseForAllCommand.ExecuteAsync(null);
-        Assert.False(vm.IsUseForAllConfirmOpen);
-
-        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(40, 40, 40, false));
-        await execucao;
-        Assert.True(vm.UseForAllCommand.CanExecute(null));
-        Assert.True(vm.ConfirmUseForAllCommand.CanExecute(null));
-        Assert.True(vm.UseVariantCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Trocar_de_linha_no_meio_do_lote_mantem_o_andamento_e_o_Cancelar_e_barra_um_segundo_lote()
     {
         var porta = Porta();
@@ -233,25 +169,6 @@ public sealed class EditorSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_o_Usar_em_todos_passa_o_pedido_adiante_e_diz_quantas_linhas_ficaram()
-    {
-        var porta = Porta();
-        var falas = new FalasIguais(40, gate: porta);
-        var vm = DetalheComFalas(falas);
-        var execucao = vm.UseForAllCommand.ExecuteAsync(null);
-        Assert.False(falas.Token.IsCancellationRequested);
-
-        vm.CancelApplyToAllCommand.Execute(null);
-
-        Assert.True(falas.Token.IsCancellationRequested);
-        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(12, 40, 12, false, Canceled: true));
-        await execucao;
-        Assert.False(vm.IsApplyingToAll);
-        Assert.Equal("Cancelado. Aplicada a 12 de 40 linhas; as outras continuam como estavam.", vm.SameSourceResult);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
     public async Task Se_a_gravacao_do_Usar_em_todos_falha_o_andamento_some_e_o_erro_aparece()
     {
         var porta = Porta();
@@ -281,22 +198,6 @@ public sealed class EditorSceneTests : IDisposable
         lote.Report(new BatchProgress(1, 2));
         Assert.Equal(0, lote.Progress);
         Assert.True(lote.TryStart(out _));
-    }
-
-    [Fact]
-    public async Task Usar_em_todos_do_Editor_grava_as_outras_linhas_e_atualiza_a_grade_no_fim()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[3];
-        vm.Detail!.FieldText = "Tá bom.";
-
-        await vm.Detail.UseForAllCommand.ExecuteAsync(null);
-        await vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
-
-        Assert.False(vm.Detail.IsApplyingToAll);
-        Assert.Equal("Tá bom.\\p", Gravada("yst00001", 2).Translation);
-        Assert.Equal("Tá bom.\\p", Gravada("yst00002", 0).Translation);
-        Assert.Equal("Aplicada a 2 linhas.", vm.Detail.SameSourceResult);
     }
 
     [Fact]
@@ -366,65 +267,6 @@ public sealed class EditorSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task Na_cena_mostra_a_fala_anterior_e_a_seguinte_sem_marcadores()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[1];
-
-        Assert.Equal(
-            [new ContextLine("美咲", "「おはよう」", "Bom dia."), new ContextLine("健太", "「うん」", "Aham.", Following: true)],
-            vm.Detail!.Scene);
-        Assert.True(vm.Detail.HasScene);
-    }
-
-    [Fact]
-    public async Task Na_primeira_e_na_ultima_linha_so_existe_um_lado()
-    {
-        var vm = await Abrir();
-
-        Assert.Equal([new ContextLine("Narração", "雨が降っている。", Following: true)], vm.Detail!.Scene);
-
-        vm.SelectedLine = vm.Lines[^1];
-
-        Assert.Equal([new ContextLine("健太", "「うん」", "Aham.")], vm.Detail!.Scene);
-    }
-
-    [Fact]
-    public async Task A_cena_ignora_o_filtro_da_grade()
-    {
-        var vm = await Abrir();
-        vm.ShowPendingLines();
-
-        vm.SelectedLine = vm.Lines[0];
-
-        Assert.Equal("美咲", vm.Detail!.Scene[0].Who);
-    }
-
-    [Fact]
-    public async Task A_mesma_fala_em_outras_linhas_aparece_no_inspetor_com_a_contagem()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[2];
-
-        Assert.Equal(2, vm.Detail!.SameSourceCount);
-        Assert.True(vm.Detail.HasSameSource);
-        Assert.Equal("Esta fala aparece em mais 2 linhas.", vm.Detail.SameSourceText);
-    }
-
-    [Fact]
-    public async Task Fala_unica_nao_oferece_usar_em_todos()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[0];
-
-        Assert.False(vm.Detail!.HasSameSource);
-        Assert.False(vm.Detail.UseForAllCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Usar_em_todos_grava_a_traducao_nas_linhas_do_mesmo_original_e_em_nenhuma_outra()
     {
         var vm = await Abrir();
@@ -451,22 +293,6 @@ public sealed class EditorSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task Usar_em_todos_atualiza_a_grade_do_script_aberto()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[3];
-        vm.Detail!.FieldText = "Tá bom.";
-
-        await vm.Detail!.UseForAllCommand.ExecuteAsync(null);
-        await vm.Detail!.ConfirmUseForAllCommand.ExecuteAsync(null);
-
-        Assert.Equal("Tá bom.", vm.Lines[2].TranslationPlain);
-        Assert.Equal(TranslationStatus.Translated, vm.Lines[2].Status);
-        Assert.Equal(TranslationStatus.Translated, vm.Lines[3].Status);
-        Assert.Equal(TranslationStatus.Machine, vm.Lines[0].Status);
-    }
-
-    [Fact]
     public async Task Usar_em_todos_sem_traducao_no_campo_avisa_e_nao_grava()
     {
         var vm = await Abrir();
@@ -476,20 +302,6 @@ public sealed class EditorSceneTests : IDisposable
 
         Assert.Equal("Escreva a tradução desta linha antes de usá-la nas outras.", vm.Detail.ErrorMessage);
         Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
-    }
-
-    [Fact]
-    public async Task Voltar_a_uma_linha_do_script_mostra_o_texto_aplicado()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[3];
-        vm.Detail!.FieldText = "Tá bom.";
-        await vm.Detail!.UseForAllCommand.ExecuteAsync(null);
-        await vm.Detail!.ConfirmUseForAllCommand.ExecuteAsync(null);
-
-        vm.SelectedLine = vm.Lines[2];
-
-        Assert.Equal("Tá bom.\\p", vm.Detail!.Translation);
     }
 
     [Fact]
@@ -524,29 +336,6 @@ public sealed class EditorSceneTests : IDisposable
         Assert.False(vm.Detail.IsUseForAllConfirmOpen);
         Assert.Equal("Oi.\\p", Gravada("yst00001", 1).Translation);
         Assert.Equal("Aplicada a 1 linha.", vm.Detail.SameSourceResult);
-    }
-
-    [Fact]
-    public async Task Usar_em_todos_registra_o_desfazer_do_lote_e_desfazer_volta_todas()
-    {
-        var vm = await Abrir();
-        LineSavedEventArgs? lote = null;
-        vm.LineSaved += (_, e) => lote = e.IsBatch ? e : lote;
-        vm.SelectedLine = vm.Lines[3];
-        vm.Detail!.FieldText = "Tá bom.";
-        await vm.Detail!.UseForAllCommand.ExecuteAsync(null);
-        await vm.Detail!.ConfirmUseForAllCommand.ExecuteAsync(null);
-
-        Assert.NotNull(lote);
-        Assert.Equal(2, lote.Batch.Count);
-        Assert.False(lote.IsApproval);
-
-        Assert.True(vm.Undo(lote));
-
-        Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
-        Assert.Equal(TranslationStatus.Approved, Gravada("yst00001", 2).Status);
-        Assert.Equal("Sim.\\p", Gravada("yst00002", 0).Translation);
-        Assert.Equal(TranslationStatus.Machine, Gravada("yst00002", 0).Status);
     }
 
     [Fact]

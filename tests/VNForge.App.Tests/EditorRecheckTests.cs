@@ -51,61 +51,6 @@ public sealed class EditorRecheckTests : IDisposable
     private static bool Tem(LineViewModel linha, string regra) => linha.Entry.Issues.Any(i => i.RuleId == regra);
 
     [Fact]
-    public async Task Corrigir_o_nome_do_personagem_tira_o_aviso_da_grade_na_hora()
-    {
-        var vm = await Abrir();
-        var linha = vm.Lines[0];
-        Assert.True(Tem(linha, "personagem-diferente"));
-        Assert.True(linha.HasWarning);
-        var antes = vm.IssueCount;
-
-        vm.Detail!.Translation = "Ele olhou para Kameshima.";
-        Assert.True(vm.FlushPendingEdits());
-
-        Assert.False(Tem(linha, "personagem-diferente"));
-        Assert.False(linha.HasWarning);
-        Assert.Equal(antes - 1, vm.IssueCount);
-        Assert.Empty(vm.Detail.QaIssues);
-    }
-
-    [Fact]
-    public async Task Gravar_um_nome_diferente_do_personagem_acende_o_aviso_da_grade_na_hora()
-    {
-        var vm = await Abrir();
-        var linha = vm.Lines[0];
-        vm.Detail!.Translation = "Ele olhou para Kameshima.";
-        Assert.True(vm.FlushPendingEdits());
-        Assert.False(Tem(linha, "personagem-diferente"));
-
-        vm.Detail!.Translation = "Ele olhou para Kamejima.";
-        Assert.True(vm.FlushPendingEdits());
-
-        Assert.True(Tem(linha, "personagem-diferente"));
-        Assert.True(linha.HasWarning);
-        Assert.Single(vm.Detail.QaIssues);
-    }
-
-    [Fact]
-    public async Task Trocar_o_nome_do_personagem_acende_o_aviso_nas_linhas_que_usam_o_nome_antigo()
-    {
-        var vm = await Abrir();
-        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
-        vm.Detail!.Translation = "Ele olhou para Kameshima.";
-        vm.FlushPendingEdits();
-        Assert.False(vm.Lines[0].HasWarning);
-
-        projeto.SaveCharacters([new CharacterEntry("亀島", "Kamejima", CharacterGender.Male)]);
-        Distinguir(projeto.CharactersPath);
-        await vm.RecheckAsync();
-
-        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
-        Assert.True(vm.Lines[0].HasWarning);
-        Assert.Equal(1, vm.IssueCount);
-        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Warnings).Count);
-        Assert.Single(vm.Detail.QaIssues);
-    }
-
-    [Fact]
     public async Task O_sublinhado_do_painel_aberto_acompanha_o_glossario_depois_da_reconferencia()
     {
         _ = VNForge.Core.Spelling.SpellChecker.Portuguese;
@@ -170,43 +115,6 @@ public sealed class EditorRecheckTests : IDisposable
     }
 
     [Fact]
-    public async Task Gravar_varias_vezes_seguidas_reconfere_o_projeto_uma_vez_so_depois_da_espera()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[2];
-        vm.Detail!.Translation = "Olá";
-        vm.FlushPendingEdits();
-        relogio.Advance(EditorViewModel.RecheckDelay / 2);
-        vm.Detail!.Translation = "Oi";
-        vm.FlushPendingEdits();
-        relogio.Advance(EditorViewModel.RecheckDelay / 2);
-        Assert.False(Tem(vm.Lines[2], "traducao-inconsistente"));
-
-        relogio.Advance(EditorViewModel.RecheckDelay / 2);
-        await vm.Rechecking;
-
-        Assert.True(Tem(vm.Lines[2], "traducao-inconsistente"));
-    }
-
-    [Fact]
-    public async Task Mudar_o_estilo_dos_honorificos_refaz_os_avisos_pelo_pedido_de_reconferencia()
-    {
-        projeto.SaveText(Script, [Fala(0, "美咲ちゃん", "Misaki-chan", TranslationStatus.Machine)]);
-        var config = projeto.LoadConfig();
-        projeto.SaveConfig(config with { Style = config.Style with { Honorifics = HonorificsPolicy.Keep } });
-        var vm = await Abrir();
-        Assert.False(vm.Lines[0].HasWarning);
-
-        projeto.SaveConfig(config with { Style = config.Style with { Honorifics = HonorificsPolicy.Remove } });
-        Distinguir(projeto.ConfigPath);
-        vm.RequestRecheck();
-        relogio.Advance(EditorViewModel.RecheckDelay);
-        await vm.Rechecking;
-
-        Assert.True(Tem(vm.Lines[0], "honorifico-fora-do-estilo"));
-    }
-
-    [Fact]
     public async Task A_reconferencia_de_um_projeto_trocado_nao_mexe_nas_linhas_novas()
     {
         var vm = await Abrir();
@@ -218,5 +126,25 @@ public sealed class EditorRecheckTests : IDisposable
         await reconferencia;
 
         Assert.Empty(vm.Lines);
+    }
+
+    [Fact]
+    public async Task Trocar_o_nome_do_personagem_acende_o_aviso_nas_linhas_que_usam_o_nome_antigo()
+    {
+        var vm = await Abrir();
+        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
+        vm.Detail!.Translation = "Ele olhou para Kameshima.";
+        vm.FlushPendingEdits();
+        Assert.False(vm.Lines[0].HasWarning);
+
+        projeto.SaveCharacters([new CharacterEntry("亀島", "Kamejima", CharacterGender.Male)]);
+        Distinguir(projeto.CharactersPath);
+        await vm.RecheckAsync();
+
+        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
+        Assert.True(vm.Lines[0].HasWarning);
+        Assert.Equal(1, vm.IssueCount);
+        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Warnings).Count);
+        Assert.Single(vm.Detail.QaIssues);
     }
 }

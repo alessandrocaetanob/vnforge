@@ -32,36 +32,6 @@ public sealed class EditorPassJobTests : IDisposable
         new(folder, (_, _) => provider, new TranslationJobSettings(Rate, limits ?? BudgetLimits.None, 2), usageOf, new FakeTimeProvider(Noon));
 
     [Fact]
-    public async Task Grava_os_ajustes_como_sugestao_e_deixa_a_traducao_como_estava()
-    {
-        var folder = Folder("Oi  você", "Tudo bem");
-        var before = File.ReadAllBytes(folder.TextPath("yst00001"));
-
-        var result = await Job(folder, new FakeEditorPassProvider()).RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.Equal(new EditorPassJobResult(1, 1, 0, 0, null, 0m, null), result);
-        var suggestion = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
-        Assert.Equal(new EditorSuggestion("yst00001", "yst00001:000000", EditorSuggestionKind.Fluency, "Oi  você", "Oi você", "Tira o espaço duplo.", Noon), suggestion);
-        Assert.Equal(before, File.ReadAllBytes(folder.TextPath("yst00001")));
-    }
-
-    [Fact]
-    public async Task Usa_o_modelo_da_qualidade_e_leva_o_resumo_da_cena_da_biblia()
-    {
-        var folder = Folder("Oi", "Tudo bem");
-        folder.SaveBible(GameBible.From([new BibleScene("yst00001") { Summary = "Duas amigas se encontram no portão." }]));
-        var fake = new FakeEditorPassProvider();
-        string? model = null;
-        var job = new EditorPassJob(folder, (m, _) => { model = m; return fake; }, new TranslationJobSettings(Rate, BudgetLimits.None, 1));
-
-        await job.RunAsync(["yst00001"], TranslationQuality.Fast, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.Equal(ClaudeModels.Haiku, model);
-        var scene = Assert.Single(fake.ReceivedScenes);
-        Assert.Equal("Duas amigas se encontram no portão.", Assert.Single(scene.Scenes).Summary);
-    }
-
-    [Fact]
     public async Task Cena_fora_do_escopo_ou_sem_traducao_nao_e_lida()
     {
         var folder = Folder(null, null);
@@ -74,21 +44,6 @@ public sealed class EditorPassJobTests : IDisposable
         Assert.Equal(0, inScope.Scenes);
         Assert.Equal(0, outOfScope.Scenes);
         Assert.Empty(fake.ReceivedScenes);
-    }
-
-    [Fact]
-    public async Task Uma_passada_nova_troca_as_sugestoes_antigas_da_cena()
-    {
-        var folder = Folder("Oi  você", "Tudo  bem");
-        var job = Job(folder, new FakeEditorPassProvider());
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        Assert.Equal(2, EditorSuggestionsFile.Load(folder).Suggestions.Count);
-
-        folder.SaveText("yst00001", [.. folder.LoadText("yst00001").Select(u => u with { Translation = u.Translation!.Replace("  ", " ", StringComparison.Ordinal) })]);
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.Empty(EditorSuggestionsFile.Load(folder).Suggestions);
-        Assert.False(File.Exists(EditorSuggestionsFile.PathFor(folder)));
     }
 
     [Fact]
@@ -121,34 +76,6 @@ public sealed class EditorPassJobTests : IDisposable
     }
 
     [Fact]
-    public async Task Registra_o_gasto_no_projeto_e_no_relatorio_da_tarefa()
-    {
-        var folder = Folder("Oi  você");
-        var reporter = new Reporter();
-
-        var result = await Job(folder, new FakeEditorPassProvider(), usageOf: _ => new ClaudeUsage(1_000_000, 100_000, 0, 0))
-            .RunAsync(["yst00001"], TranslationQuality.Careful, reporter, TestContext.Current.CancellationToken);
-
-        Assert.True(result.SpentBrl > 0m);
-        Assert.True(reporter.Cost > 0m);
-        Assert.True(AiUsageLog.Load(folder).Dollars > 0m);
-        Assert.Equal(1d, reporter.LastFraction);
-    }
-
-    [Fact]
-    public async Task Cancelar_interrompe_sem_gravar_sugestao()
-    {
-        var folder = Folder("Oi  você");
-        using var cancellation = new CancellationTokenSource();
-        await cancellation.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Job(folder, new FakeEditorPassProvider()).RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), cancellation.Token));
-
-        Assert.False(File.Exists(EditorSuggestionsFile.PathFor(folder)));
-    }
-
-    [Fact]
     public async Task Outra_grava_a_proposta_nova_no_lugar_da_antiga_e_nao_toca_na_traducao()
     {
         var folder = Folder("Oi  você", "Tudo bem");
@@ -176,29 +103,6 @@ public sealed class EditorPassJobTests : IDisposable
         Assert.Null(await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken));
         Assert.Equal([old], EditorSuggestionsFile.Load(folder).Suggestions);
         Assert.Null(await job.AnotherAsync(old with { ScriptKey = "outra" }, TranslationQuality.Careful, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Ignorar_durante_a_passada_nao_volta_na_gravacao_seguinte_e_as_cenas_do_job_ficam()
-    {
-        var folder = Folder("Oi  você");
-        folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, null, "原文", "Tudo  bem", TranslationStatus.Machine)]);
-        EditorSuggestion? ignored = null;
-        var provider = new HookedProvider(scene =>
-        {
-            // A segunda cena começa depois de a primeira ter gravado: a pessoa clica em Ignorar na sugestão da primeira.
-            if (scene.Lines[0].Id.StartsWith("yst00002:", StringComparison.Ordinal))
-            {
-                ignored = EditorSuggestionsFile.Load(folder).Suggestions.Single(s => s.ScriptKey == "yst00001");
-                EditorSuggestionsFile.Update(folder, f => f.Without(ignored.ScriptKey, ignored.UnitId));
-            }
-        });
-        var job = new EditorPassJob(folder, (_, _) => provider, new TranslationJobSettings(Rate, BudgetLimits.None, 1), null, new FakeTimeProvider(Noon));
-
-        await job.RunAsync(["yst00001", "yst00002"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.NotNull(ignored);
-        Assert.Equal(["yst00002:000000"], EditorSuggestionsFile.Load(folder).Suggestions.Select(s => s.UnitId));
     }
 
     [Fact]

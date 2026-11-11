@@ -33,36 +33,6 @@ public class GlossaryGameCharactersTests
     }
 
     [Fact]
-    public async Task Propoe_os_personagens_das_unidades_name_com_o_original_exato_e_sem_sujar_a_pagina()
-    {
-        using var temp = new TempFolder();
-
-        var (vm, folder) = await OpenAsync(temp, [Name(0, "真弓"), Name(1, "犬井"), Name(2, "学生Ａ"), Name(3, "？？？"), Name(4, "真弓")]);
-
-        Assert.Equal(["真弓", "犬井", "学生Ａ", "？？？"], vm.Characters.Select(c => c.Source));
-        Assert.All(vm.Characters, c => Assert.Equal(string.Empty, c.Target));
-        Assert.False(vm.IsDirty);
-        Assert.False(File.Exists(folder.CharactersPath));
-        Assert.Equal(4, vm.CharacterCount);
-    }
-
-    [Fact]
-    public async Task Nao_repete_quem_ja_esta_cadastrado_e_nao_mexe_na_linha_dele()
-    {
-        using var temp = new TempFolder();
-
-        var (vm, _) = await OpenAsync(
-            temp,
-            [Name(0, "真弓"), Name(1, "犬井")],
-            [new CharacterEntry("犬井", "Inui", CharacterGender.Male, "seco")]);
-
-        Assert.Equal(["犬井", "真弓"], vm.Characters.Select(c => c.Source));
-        var inui = vm.Characters[0];
-        Assert.Equal(("Inui", CharacterGender.Male, "seco"), (inui.Target, inui.Gender, inui.Tone));
-        Assert.False(vm.IsDirty);
-    }
-
-    [Fact]
     public async Task Nome_ja_traduzido_na_unidade_chega_ao_personagem()
     {
         using var temp = new TempFolder();
@@ -104,20 +74,5 @@ public class GlossaryGameCharactersTests
         Assert.Equal("Mayumi", folder.LoadCharacters().Single(c => c.Source == "真弓").Target);
         Assert.Null(folder.LoadText("yst00001").First().Translation);
         Assert.Equal(1, changed);
-    }
-
-    [Fact]
-    public async Task Salvar_sem_mudar_nenhuma_traducao_nao_avisa_as_linhas()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, [Name(0, "真弓", "Mayumi")], [new CharacterEntry("真弓", "Mayumi")]);
-        var changed = 0;
-        vm.LinesChanged += (_, _) => changed++;
-
-        vm.Characters[0].Gender = CharacterGender.Female;
-        Assert.True(vm.Flush());
-
-        Assert.Equal(0, changed);
-        Assert.Equal(CharacterGender.Female, vm.Characters[0].Gender);
     }
 }

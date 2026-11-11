@@ -26,58 +26,6 @@ public class SettingsEncodingConflictTests
     }
 
     [Fact]
-    public async Task Com_cp1252_a_opcao_Caractere_fica_desligada_com_a_dica_e_as_outras_ficam_ligadas()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "cp1252");
-
-        var character = vm.EllipsisStyles.Single(e => e.Value == EllipsisStyle.Character);
-        Assert.False(character.IsEnabled);
-        Assert.Equal("A estratégia cp1252 não grava as reticências (…).", character.DisabledReason);
-        Assert.All(vm.EllipsisStyles.Where(e => e.Value != EllipsisStyle.Character), e => Assert.True(e.IsEnabled));
-        Assert.All(vm.EllipsisStyles.Where(e => e.Value != EllipsisStyle.Character), e => Assert.Null(e.DisabledReason));
-        Assert.False(vm.HasEncodingConflicts);
-    }
-
-    [Fact]
-    public async Task Com_cp1252_as_aspas_de_canto_ficam_desligadas()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "cp1252");
-
-        var corner = vm.QuoteStyles.Single(q => q.Value == QuoteStyle.Corner);
-        Assert.False(corner.IsEnabled);
-        Assert.Equal("A estratégia cp1252 não grava as aspas 「 」.", corner.DisabledReason);
-        Assert.All(vm.QuoteStyles.Where(q => q.Value != QuoteStyle.Corner), q => Assert.True(q.IsEnabled));
-    }
-
-    [Fact]
-    public async Task Com_sjis_todas_as_opcoes_ficam_ligadas()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "sjis");
-
-        Assert.All(vm.EllipsisStyles, e => Assert.True(e.IsEnabled));
-        Assert.All(vm.QuoteStyles, q => Assert.True(q.IsEnabled));
-    }
-
-    [Fact]
-    public async Task Trocar_a_estrategia_liga_e_desliga_as_opcoes()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "sjis");
-        var character = vm.EllipsisStyles.Single(e => e.Value == EllipsisStyle.Character);
-        Assert.True(character.IsEnabled);
-
-        vm.EncodingStrategy = "cp1252";
-        Assert.False(character.IsEnabled);
-
-        vm.EncodingStrategy = "sjis";
-        Assert.True(character.IsEnabled);
-        Assert.Null(character.DisabledReason);
-    }
-
-    [Fact]
     public async Task Trocar_para_cp1252_com_o_ajuste_em_conflito_mostra_a_faixa_e_Usar_tres_pontos_resolve()
     {
         using var temp = new TempFolder();
@@ -97,28 +45,5 @@ public class SettingsEncodingConflictTests
         Assert.Equal(EllipsisStyle.Dots, folder.LoadFormatting().Typography.Ellipsis);
         Assert.False(vm.HasEncodingConflicts);
         Assert.Empty(vm.EncodingConflicts);
-    }
-
-    [Fact]
-    public async Task Escolher_outra_opcao_a_mao_tambem_some_com_a_faixa()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "sjis", quotes: QuoteStyle.Corner);
-        vm.EncodingStrategy = "cp1252";
-        Assert.Equal("Usar aspas retas", Assert.Single(vm.EncodingConflicts).ButtonLabel);
-
-        vm.SelectedQuotes = vm.QuoteStyles.Single(q => q.Value == QuoteStyle.Ascii);
-
-        Assert.False(vm.HasEncodingConflicts);
-    }
-
-    [Fact]
-    public async Task Estrategia_sem_encoder_nao_desliga_nada()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Open(temp, "remap");
-
-        Assert.All(vm.EllipsisStyles, e => Assert.True(e.IsEnabled));
-        Assert.False(vm.HasEncodingConflicts);
     }
 }

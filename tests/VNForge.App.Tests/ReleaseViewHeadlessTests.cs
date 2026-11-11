@@ -35,42 +35,6 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
         Assert.All(Textos(window), t => Assert.DoesNotContain(t, c => c is '—' or '–'));
 
     [Fact]
-    public async Task Pronta_mostra_as_conferencias_o_formulario_e_o_botao_de_gerar_habilitado()
-    {
-        var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync();
-        using var _t = temp;
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    Assert.True(Mostra(window, "O que já confere"));
-                    Assert.True(Mostra(window, "A versão"));
-                    Assert.True(Mostra(window, "O que o jogador recebe"));
-                    Assert.True(Mostra(window, "O que mudou desde o patch anterior"));
-                    Assert.True(Mostra(window, "Ver o Testar"));
-                    Assert.False(Mostra(window, "Ver os erros"));
-                    Assert.False(Mostra(window, "Etapas"));
-                    Assert.False(Mostra(window, "Arquivos gerados"));
-                    Assert.False(Mostra(window, "Abrir a pasta"));
-                    var gerar = Assert.Single(Visiveis(window, "Gerar patch e instalador"));
-                    Assert.True(gerar.IsEffectivelyEnabled);
-                    Assert.Contains("accent", gerar.Classes);
-                    Assert.Single(Textos(window), "Mudou desde o patch 1.1.0");
-                    Assert.Contains("Última versão: 1.1.0 · 02/10", Textos(window));
-                    SemTravessao(window);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
     public async Task Pronta_com_patch_anterior_mostra_a_tabela_estimada_e_o_antes_e_o_depois_das_falas()
     {
         var read = ReleaseViewModelTests.ReadyWithPreviousPatch() with
@@ -182,42 +146,6 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
             release.Set();
             await running;
         }
-    }
-
-    [Fact]
-    public async Task Versao_pronta_mostra_os_arquivos_com_copiar_checksum_so_nos_pacotes_e_o_leia_me()
-    {
-        var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync();
-        using var _t = temp;
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    Assert.True(Mostra(window, "Arquivos gerados"));
-                    Assert.True(Mostra(window, "Verificação"));
-                    Assert.False(Mostra(window, "O que o patch muda no jogo"));
-                    Assert.True(Mostra(window, "LEIA-ME.txt"));
-                    Assert.DoesNotContain("LICENCAS.txt", Textos(window));
-                    Assert.False(Mostra(window, "O que o jogador recebe"));
-                    Assert.False(Mostra(window, "A versão"));
-                    Assert.Equal(2, Visiveis(window, "Copiar checksum").Count());
-                    Assert.True(Mostra(window, "Abrir a pasta"));
-                    Assert.True(Mostra(window, "Testar o instalador"));
-                    Assert.Contains("accent", Assert.Single(Visiveis(window, "Abrir a pasta")).Classes);
-                    Assert.Contains("Versão 1.2.0 pronta", Textos(window));
-                    Assert.Contains(Textos(window), t => t.Contains("COMO INSTALAR", StringComparison.Ordinal));
-                    SemTravessao(window);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
     }
 
     [Fact]

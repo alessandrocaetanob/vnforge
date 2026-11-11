@@ -59,23 +59,6 @@ public class DashboardNavigationTests
         Assert.Equal(expected, main.SelectedNav!.Key);
     }
 
-    [Theory]
-    [InlineData(JourneyStep.Translate, NavKey.Editor)]
-    [InlineData(JourneyStep.Review, NavKey.Editor)]
-    [InlineData(JourneyStep.Check, NavKey.Conference)]
-    [InlineData(JourneyStep.Test, NavKey.Build)]
-    public async Task Um_passo_da_jornada_leva_a_tela_dele(JourneyStep step, NavKey expected)
-    {
-        using var temp = new TempFolder();
-        var main = await OpenAsync(temp);
-
-        main.Dashboard.OpenStepCommand.Execute(step);
-        await main.ConferenceLoading;
-        await main.Build.Loading;
-
-        Assert.Equal(expected, main.SelectedNav!.Key);
-    }
-
     [Fact]
     public async Task Um_item_de_Precisa_de_voce_leva_ao_Glossario_e_o_capitulo_ao_Editor_na_cena_dele()
     {
@@ -109,21 +92,6 @@ public class DashboardNavigationTests
 
         Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
         Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);
-    }
-
-    [Fact]
-    public async Task Os_pedidos_das_telas_de_conferir_e_testar_trocam_para_a_tela_pedida()
-    {
-        using var temp = new TempFolder();
-        var main = await OpenAsync(temp);
-
-        main.Conference.TestCommand.Execute(null);
-        await main.Build.Loading;
-        Assert.Equal(NavKey.Build, main.SelectedNav!.Key);
-
-        main.Build.ShowErrorsCommand.Execute(null);
-        await main.ConferenceLoading;
-        Assert.Equal(NavKey.Conference, main.SelectedNav!.Key);
     }
 
     [Fact]

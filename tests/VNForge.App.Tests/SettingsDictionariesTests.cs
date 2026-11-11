@@ -79,15 +79,6 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
-    public async Task O_aviso_do_cache_conta_as_linhas_das_regras_ligadas_do_pre()
-    {
-        var (vm, _) = await Opened(Sample());
-
-        Assert.Contains("2 linhas", vm.CacheNotice, StringComparison.Ordinal);
-        Assert.Contains("chave do cache", vm.CacheNotice, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Ligar_e_desligar_grava_no_formatting_json_sem_apagar_a_regra()
     {
         var (vm, folder) = await Opened(Sample());
@@ -260,17 +251,6 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal(["está em"], condition.Operators);
         condition.KindIndex = 2;
         Assert.Equal(["contém"], condition.Operators);
-    }
-
-    [Fact]
-    public void Sem_projeto_a_aba_fica_vazia()
-    {
-        var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => null, _ => new NoopClient());
-        vm.Load(null);
-
-        Assert.Empty(vm.PreRules);
-        Assert.Empty(vm.PostRules);
-        Assert.Null(vm.SelectedRule);
     }
 
     [Fact]

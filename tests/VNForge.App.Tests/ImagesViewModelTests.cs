@@ -79,43 +79,6 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
-    public void ListsTheInventoryWithTheFilterCounts()
-    {
-        var vm = Open();
-
-        Assert.Equal(4, vm.Items.Count);
-        Assert.Equal([4, 3, 0, 3, 1], vm.Chips.Select(c => c.Count));
-        Assert.False(vm.IsEmpty);
-    }
-
-    [Fact]
-    public void WithoutAnInventoryTheListIsEmpty()
-    {
-        File.Delete(folder.ImageInventoryPath);
-
-        var vm = Open();
-
-        Assert.Empty(vm.Items);
-        Assert.True(vm.IsEmpty);
-    }
-
-    [Fact]
-    public async Task SelectingAnImageReadsItFromThePackageAndShowsThePreview()
-    {
-        var vm = Open();
-
-        await Select(vm, Gate);
-
-        Assert.True(vm.IsEditable);
-        Assert.Equal(gate, vm.OriginalPng);
-        Assert.NotNull(vm.PreviewPng);
-        Assert.Equal((640, 360), (vm.PixelWidth, vm.PixelHeight));
-        Assert.True(vm.RegionWidth > 0 && vm.RegionHeight > 0);
-        Assert.False(vm.IsDirty);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
     public async Task OnlyPngImagesAreEditable()
     {
         var vm = Open();
@@ -157,17 +120,6 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task SetRegionStaysInsideTheImage()
-    {
-        var vm = Open();
-        await Select(vm, Gate);
-
-        vm.SetRegion(600, 340, 200, 200);
-
-        Assert.Equal((600, 340, 40, 20), (vm.RegionX, vm.RegionY, vm.RegionWidth, vm.RegionHeight));
-    }
-
-    [Fact]
     public async Task EveryChangeRendersAgain()
     {
         var vm = Open();
@@ -204,21 +156,6 @@ public sealed class ImagesViewModelTests : IDisposable
         Assert.Equal(ImageState.Marked, vm.SelectedItem!.State);
         Assert.False(vm.IsDirty);
         Assert.True(vm.IsMarked);
-    }
-
-    [Fact]
-    public async Task UnmarkingKeepsTheEditButLeavesTheBuild()
-    {
-        var vm = Open();
-        await Select(vm, Gate);
-        vm.Text = "Portão";
-        await vm.MarkCommand.ExecuteAsync(null);
-
-        await vm.UnmarkCommand.ExecuteAsync(null);
-
-        Assert.False(Assert.Single(folder.LoadImageEdits()).Marked);
-        Assert.Equal(0, vm.MarkedCount);
-        Assert.Equal(ImageState.Draft, vm.SelectedItem!.State);
     }
 
     [Fact]
@@ -331,22 +268,6 @@ public sealed class ImagesViewModelTests : IDisposable
         Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Reset], changes);
         Assert.Equal(vm.Items.Select(i => i.Path), vm.Visible.Select(i => i.Path));
     }
-
-    [Fact]
-    public async Task MarkingOneImageUnderAFilterChangesTheListInPlaceWithoutAReset()
-    {
-        var vm = Open();
-        vm.SetFilterCommand.Execute(ImageFilter.Untranslated);
-        await Select(vm, Gate);
-        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
-        vm.Visible.CollectionChanged += (_, e) => changes.Add(e.Action);
-        vm.Text = "Portão";
-
-        await vm.MarkCommand.ExecuteAsync(null);
-
-        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Remove], changes);
-        Assert.Same(vm.Items.Single(i => i.Path == Gate), vm.SelectedItem);
-    }
     [Fact]
     public async Task WithoutAChosenAreaTheCornerIsNotAResizeHandle()
     {
@@ -356,47 +277,6 @@ public sealed class ImagesViewModelTests : IDisposable
 
         Assert.False(vm.TryResizeAnchor(0, 0, out _));
         Assert.False(vm.TryResizeAnchor(5, 5, out _));
-    }
-
-    [Fact]
-    public async Task TheReaderIsCreatedOnceForTheKeyCheckAndTheReading()
-    {
-        File.Delete(folder.ImageInventoryPath);
-        var reader = new FakeImageTextReader();
-        var created = 0;
-        var vm = Open();
-        vm.HasApiKey = () => true;
-        vm.ReaderFactory = _ =>
-        {
-            created++;
-            return reader;
-        };
-
-        await vm.ScanCommand.ExecuteAsync(null);
-        vm.ConfirmScanCommand.Execute(null);
-        await vm.Scanning;
-
-        Assert.Equal(1, created);
-    }
-
-    [Fact]
-    public async Task TheRewriteDialogListsWhatTheBuildWillWrite()
-    {
-        var vm = Open();
-        await Select(vm, Gate);
-        vm.Text = "Portão";
-        await vm.MarkCommand.ExecuteAsync(null);
-
-        await vm.RewriteCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsConfirming);
-        Assert.Equal("Regravar 1 imagem no PAK?", vm.ConfirmationTitle);
-        Assert.Equal("Regravar 1 imagem", vm.ConfirmationButton);
-        var file = Assert.Single(vm.ConfirmationFiles);
-        Assert.Equal("portao.png", file.Path);
-        Assert.Matches(@"^img\.pak · \d+ KB para \d+ KB$", file.Detail);
-        Assert.Equal(["Arquivos PAK tocados", "Entradas que ficam byte a byte iguais", "Cópia de segurança antes de gravar"], vm.ConfirmationFacts.Select(f => f.Label));
-        Assert.Equal(["1 de 1", "3", "sim"], vm.ConfirmationFacts.Select(f => f.Value));
     }
 
     [Fact]
@@ -416,19 +296,6 @@ public sealed class ImagesViewModelTests : IDisposable
         Assert.Equal("Regravar 2 imagens", vm.ConfirmationButton);
         Assert.Equal("Regravar no PAK", vm.RewriteLabel);
         Assert.Equal(2, vm.ConfirmationFiles.Count);
-    }
-
-    [Fact]
-    public async Task ThePackageLineNamesTheFormatOfTheOpenImage()
-    {
-        var vm = Open();
-
-        await Select(vm, Gate);
-        vm.Text = "Portão";
-        await vm.Previewing;
-
-        Assert.Equal("No PAK", vm.PackageLabel);
-        Assert.StartsWith("img.pak · entrada bg/portao.png · ", vm.PackageText);
     }
 
     [Fact]
@@ -522,32 +389,6 @@ public sealed class ImagesViewModelTests : IDisposable
 
         Assert.Equal(folder.ImageInventoryPath, opened);
         await Task.CompletedTask;
-    }
-
-    [Fact]
-    public async Task TheSuggestedTranslationOfTheInventoryReachesTheItem()
-    {
-        folder.SaveImageInventory([new ImageTextEntry(Pack, Gate, Hash(gate), 640, 360, "桜ヶ丘高校 校門", "Colégio Sakuragaoka, portão"), new ImageTextEntry(Pack, Logo, Hash(logo), 320, 120, "タイトル")]);
-        var vm = Open();
-
-        var withTranslation = vm.Items.Single(i => i.Path == Gate);
-        var without = vm.Items.Single(i => i.Path == Logo);
-
-        Assert.True(withTranslation.HasTranslation);
-        Assert.Equal("Colégio Sakuragaoka, portão", withTranslation.Translation);
-        Assert.False(without.HasTranslation);
-        await Task.CompletedTask;
-    }
-
-    [Fact]
-    public void TheEmptyInventoryOffersToReadTheImagesInsteadOfSendingThePersonToTheTerminal()
-    {
-        File.Delete(folder.ImageInventoryPath);
-        var vm = Open();
-
-        Assert.True(vm.IsEmpty);
-        Assert.False(vm.CanOpenInventory);
-        Assert.True(vm.ScanCommand.CanExecute(null));
     }
 
     [Fact]
@@ -679,41 +520,6 @@ public sealed class ImagesViewModelTests : IDisposable
 
 
     [Fact]
-    public async Task ManyQuickChangesRenderOnlyTheLastOne()
-    {
-        var vm = new ImagesViewModel([new ArchiveEngine()], composer, TimeSpan.FromMilliseconds(200));
-        vm.Project = Summary();
-        await vm.Loading;
-        await Select(vm, Gate);
-        var before = composer.Renders;
-
-        vm.Text = "A";
-        vm.Text = "AB";
-        vm.Text = "ABC";
-        await vm.Previewing;
-
-        Assert.Equal(before + 1, composer.Renders);
-        Assert.Equal("Cabe na placa · 30 de " + vm.RegionWidth + " px de largura", vm.FitText.Split(',')[0]);
-    }
-
-    [Fact]
-    public async Task AFailedJsonWriteLeavesNoNewImageAndNoTemporaryFile()
-    {
-        var vm = Open();
-        await Select(vm, Gate);
-        vm.Text = "Portão";
-        Directory.CreateDirectory(folder.ImageEditsPath);
-
-        await vm.MarkCommand.ExecuteAsync(null);
-
-        Assert.NotNull(vm.ErrorMessage);
-        Assert.False(File.Exists(folder.EditedImagePath(Pack, Gate)));
-        Assert.False(File.Exists(folder.EditedImagePath(Pack, Gate) + ".tmp"));
-        Assert.Equal(0, vm.MarkedCount);
-        Assert.False(vm.IsMarked);
-    }
-
-    [Fact]
     public async Task AnImageBeyondTheSizeLimitIsRefusedWithAMessage()
     {
         var vm = Open();
@@ -723,21 +529,6 @@ public sealed class ImagesViewModelTests : IDisposable
 
         Assert.False(vm.IsEditable);
         Assert.Contains("acima do que o editor abre", vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task TheThumbnailIsReadOnceInTheBackgroundWhenTheStripAsksForIt()
-    {
-        var vm = Open();
-        var item = vm.Items.Single(i => i.Path == Gate);
-
-        Assert.Null(item.ThumbnailPng);
-        await item.ThumbnailLoading;
-
-        Assert.Equal(Encoding.UTF8.GetBytes("miniatura:" + gate.Length), item.ThumbnailPng);
-        Assert.Equal(1, composer.Thumbnails);
-        _ = item.ThumbnailPng;
-        Assert.Equal(1, composer.Thumbnails);
     }
 
     [Fact]

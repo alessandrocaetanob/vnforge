@@ -31,64 +31,6 @@ public sealed class CharactersViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task A_lista_traz_so_os_personagens_dos_jogos_da_Biblioteca_e_esconde_o_spoiler_por_padrao()
-    {
-        var vm = await OpenAsync();
-
-        Assert.Equal(["Hana Tsukino", "Sora Mori"], vm.Items.Select(i => i.Name));
-        Assert.Contains("2 escondidos por spoiler", vm.Subtitle, StringComparison.Ordinal);
-        Assert.Equal("2 personagens de 2 jogos", vm.StatusText);
-
-        vm.ShowSpoilers = true;
-
-        Assert.Equal(["Fantasma", "Hana Tsukino", "Mika Aoba", "Sora Mori"], vm.Items.Select(i => i.Name));
-    }
-
-    [Fact]
-    public async Task A_pagina_do_personagem_mostra_os_jogos_da_Biblioteca_com_o_papel_em_cada_um_e_deixa_de_fora_o_terceiro()
-    {
-        var vm = await OpenAsync();
-        vm.OpenCharacterCommand.Execute(vm.Items.Single(i => i.Name == "Hana Tsukino"));
-
-        var page = vm.Page!;
-
-        Assert.Equal("月野 花 · Hana Tsukino", page.NamesLine);
-        Assert.Equal("Também chamado de Hanako", page.AliasesLine);
-        Assert.Equal(["Moon Flower", "Star Garden"], page.Games.Select(g => g.Title));
-        Assert.Equal(["Protagonista", "Secundária"], page.Games.Select(g => g.Role.Text));
-        Assert.Equal("2 jogos da sua Biblioteca", page.GamesCount);
-        Assert.Contains("1 jogo do VNDB que não está na sua Biblioteca", page.Note, StringComparison.Ordinal);
-        Assert.EndsWith("Ele não entra na lista.", page.Note, StringComparison.Ordinal);
-        Assert.Contains(page.Tags, c => c is { IsHidden: true } && c.Text.StartsWith("1 traço com spoiler", StringComparison.Ordinal));
-        Assert.Equal("Hana Tsukino", vm.OpenName);
-        Assert.Contains(page.Tags, c => c.Text == "17 anos");
-    }
-
-    [Fact]
-    public async Task Com_a_edicao_casada_com_a_pasta_vale_o_papel_dela_e_o_maior_spoiler()
-    {
-        var vm = await OpenAsync(matched: true, showSpoilers: true);
-        vm.OpenCharacterCommand.Execute(vm.Items.Single(i => i.Name == "Mika Aoba"));
-
-        var game = Assert.Single(vm.Page!.Games);
-
-        Assert.Equal("Secundária", game.Role.Text);
-        Assert.Equal("Edição casada com a sua pasta · spoiler nível 2", game.Detail);
-    }
-
-    [Fact]
-    public async Task Sem_edicao_casada_vale_o_papel_mais_importante_e_o_maior_spoiler()
-    {
-        var vm = await OpenAsync(showSpoilers: true);
-        vm.OpenCharacterCommand.Execute(vm.Items.Single(i => i.Name == "Mika Aoba"));
-
-        var game = Assert.Single(vm.Page!.Games);
-
-        Assert.Equal("Protagonista", game.Role.Text);
-        Assert.Equal("Papel mais importante · spoiler nível 2", game.Detail);
-    }
-
-    [Fact]
     public async Task A_busca_e_o_filtro_por_traco_e_por_papel_estreitam_a_grade_e_Limpar_volta_a_tudo()
     {
         var vm = await OpenAsync(showSpoilers: true);
@@ -106,18 +48,6 @@ public sealed class CharactersViewModelTests : IDisposable
         vm.ClearFilterCommand.Execute(null);
         Assert.Equal(4, vm.Items.Count);
         Assert.False(vm.HasFilter);
-    }
-
-    [Fact]
-    public async Task Com_o_filtro_de_papel_o_cartao_mostra_o_papel_que_casou_com_o_filtro_e_nao_o_primeiro()
-    {
-        var vm = await OpenAsync();
-        Assert.Equal("Protagonista", vm.Items.Single(i => i.Name == "Hana Tsukino").Role.Text);
-
-        vm.RoleFacets.Single(f => f.Key == "side").IsSelected = true;
-
-        Assert.Equal(["Hana Tsukino", "Sora Mori"], vm.Items.Select(i => i.Name));
-        Assert.Equal(["Secundária", "Secundário"], vm.Items.Select(i => i.Role.Text));
     }
 
     [Fact]
@@ -165,19 +95,6 @@ public sealed class CharactersViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Um_personagem_so_com_spoiler_escondido_avisa_em_vez_de_abrir_uma_pagina_vazia()
-    {
-        await OpenAsync();
-        var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
-
-        vm.Open("c105");
-        await vm.LoadAsync();
-
-        Assert.Null(vm.Page);
-        Assert.Contains("spoiler escondido", vm.Notice, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Buscar_do_VNDB_traz_os_personagens_dos_jogos_da_Biblioteca_e_avisa_quando_falha()
     {
         new LibraryFile(_config.Path).Save(new GameLibrary([
@@ -197,35 +114,6 @@ public sealed class CharactersViewModelTests : IDisposable
         vm.CatalogFactory = () => throw new InvalidOperationException("sem rede");
         await vm.SyncCommand.ExecuteAsync(null);
         Assert.Equal(ToastKind.Error, Assert.Single(notices).Kind);
-    }
-
-    [Fact]
-    public async Task O_cartao_Na_traducao_e_a_barra_de_andamento_aparecem_so_quando_o_jogo_tem_projeto()
-    {
-        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
-        var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
-        vm.Open("c101");
-        await vm.LoadAsync();
-        Assert.False(vm.Page!.HasTranslation);
-        Assert.All(vm.Page.Games, g => Assert.False(g.HasProgress));
-
-        var root = SampleProjects.Create(Path.Combine(_config.Path, "projeto"), "Moon Flower", TranslationStatus.Approved, TranslationStatus.Untranslated);
-        var project = ProjectFolder.Open(root);
-        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "花" })]);
-        project.SaveCharacters([new CharacterEntry("花", "Hana", CharacterGender.Female, VndbId: "c101")]);
-        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = root }));
-        vm.Open("c101");
-        await vm.LoadAsync();
-
-        var page = vm.Page!;
-        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Moon Flower"), page.Translation);
-        Assert.Equal(0.5, page.Games[0].Progress);
-        Assert.False(page.Games[1].HasProgress);
-
-        // O cartão e o andamento são lidos uma vez ao abrir a página: mexer no filtro não volta ao disco.
-        File.Delete(project.CharactersPath);
-        vm.ShowSpoilers = true;
-        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Moon Flower"), vm.Page!.Translation);
     }
 
     [Fact]

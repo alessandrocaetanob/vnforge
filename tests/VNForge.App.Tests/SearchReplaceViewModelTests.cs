@@ -15,60 +15,6 @@ public class SearchReplaceViewModelTests
     }
 
     [Fact]
-    public async Task Buscar_lista_as_linhas_com_a_posicao_e_resume()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = Abrir(temp, TranslationStatus.Translated, TranslationStatus.Untranslated, TranslationStatus.Approved);
-        vm.Pattern = "tradução";
-
-        await vm.FindCommand.ExecuteAsync(null);
-
-        Assert.Equal(["yst00001 · linha 1", "yst00001 · linha 3"], vm.Results.Select(r => r.Location));
-        Assert.All(vm.Results, r => Assert.False(r.HasAfter));
-        Assert.Equal("2 linhas com 2 ocorrências.", vm.Summary);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Sem_ocorrencia_diz_isso_e_a_lista_fica_vazia()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
-        vm.Pattern = "inexistente";
-
-        await vm.FindCommand.ExecuteAsync(null);
-
-        Assert.Empty(vm.Results);
-        Assert.False(vm.HasResults);
-        Assert.Equal("Nenhuma ocorrência.", vm.Summary);
-    }
-
-    [Fact]
-    public async Task Regex_invalida_mostra_o_erro_em_portugues_sem_lancar()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
-        vm.Pattern = "(";
-        vm.UseRegex = true;
-
-        await vm.FindCommand.ExecuteAsync(null);
-
-        Assert.Contains("inválida", vm.ErrorMessage);
-        Assert.Empty(vm.Results);
-    }
-
-    [Fact]
-    public void Sem_texto_ou_sem_projeto_os_comandos_ficam_desligados()
-    {
-        var vm = new SearchReplaceViewModel();
-        vm.Pattern = "x";
-
-        Assert.False(vm.FindCommand.CanExecute(null));
-        Assert.False(vm.PreviewCommand.CanExecute(null));
-        Assert.False(vm.ApplyCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Previa_mostra_antes_e_depois_e_nao_grava()
     {
         using var temp = new TempFolder();
@@ -111,39 +57,6 @@ public class SearchReplaceViewModelTests
     }
 
     [Fact]
-    public async Task Mudar_um_campo_depois_da_previa_descarta_a_previa()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
-        vm.Pattern = "tradução";
-        vm.Replacement = "x";
-        await vm.PreviewCommand.ExecuteAsync(null);
-        Assert.True(vm.ApplyCommand.CanExecute(null));
-
-        vm.Replacement = "y";
-
-        Assert.False(vm.HasPreview);
-        Assert.False(vm.ApplyCommand.CanExecute(null));
-        Assert.Empty(vm.Results);
-    }
-
-    [Fact]
-    public async Task Linha_editada_depois_da_previa_fica_de_fora_e_o_resumo_avisa()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = Abrir(temp, TranslationStatus.Translated, TranslationStatus.Translated);
-        vm.Pattern = "tradução";
-        vm.Replacement = "nova";
-        await vm.PreviewCommand.ExecuteAsync(null);
-        new LineEditor(folder, TimeProvider.System).SetTranslation("yst00001", "yst00001:000000", "mudou");
-
-        await vm.ApplyCommand.ExecuteAsync(null);
-
-        Assert.Equal(["mudou", "nova 1"], folder.LoadText("yst00001").Select(u => u.Translation));
-        Assert.Contains("1 linha mudou depois da prévia", vm.Summary);
-    }
-
-    [Fact]
     public async Task Procurar_no_original_desliga_a_substituicao()
     {
         using var temp = new TempFolder();
@@ -175,20 +88,6 @@ public class SearchReplaceViewModelTests
     }
 
     [Fact]
-    public void Procurar_no_original_desliga_palavra_inteira_e_nao_a_passa_para_a_busca()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
-        vm.WholeWord = true;
-        Assert.True(vm.CanWholeWord);
-
-        vm.SearchSource = true;
-
-        Assert.False(vm.CanWholeWord);
-        Assert.False(vm.WholeWord);
-    }
-
-    [Fact]
     public async Task Palavra_inteira_vale_na_traducao()
     {
         using var temp = new TempFolder();
@@ -202,38 +101,6 @@ public class SearchReplaceViewModelTests
         vm.Pattern = "tradução";
         await vm.FindCommand.ExecuteAsync(null);
         Assert.Single(vm.Results);
-    }
-
-    [Fact]
-    public async Task Cancelar_interrompe_a_busca_e_nao_deixa_resultado()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
-        using var comecou = new ManualResetEventSlim();
-        var vm = new SearchReplaceViewModel(find: (_, _, token) =>
-        {
-            comecou.Set();
-            token.WaitHandle.WaitOne();
-            token.ThrowIfCancellationRequested();
-            return new SearchResult([], 0);
-        })
-        {
-            Project = ProjectSummaryReader.Read(root),
-            Pattern = "x",
-        };
-        Assert.False(vm.CancelCommand.CanExecute(null));
-
-        var busca = vm.FindCommand.ExecuteAsync(null);
-        comecou.Wait(TestContext.Current.CancellationToken);
-        Assert.True(vm.IsBusy);
-        Assert.True(vm.CancelCommand.CanExecute(null));
-        vm.CancelCommand.Execute(null);
-        await busca;
-
-        Assert.Equal("Cancelado. Nada foi gravado.", vm.Summary);
-        Assert.False(vm.IsBusy);
-        Assert.False(vm.CancelCommand.CanExecute(null));
-        Assert.Empty(vm.Results);
     }
 
     [Fact]

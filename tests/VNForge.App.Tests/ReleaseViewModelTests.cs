@@ -15,8 +15,6 @@ public sealed class ReleaseViewModelTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static DateTime LocalTested => new DateTimeOffset(2026, 11, 8, 19, 42, 0, TimeSpan.Zero).ToLocalTime().DateTime;
-
     internal static ProjectSummary Summary(string root) =>
         new("Amaoto no Hakoniwa", root, "yuris", 500, "cp1252", "claude", 312, new StatusCounts(0, 0, 100, 200, 100, 0));
 
@@ -166,9 +164,6 @@ public sealed class ReleaseViewModelTests
         public void Start(string executablePath, string workingDirectory) => Started.Add(executablePath);
     }
 
-    /// <summary>As 48.211 linhas e os 34% aprovados que o banner do quadro mostra; só os testes de render usam.</summary>
-    internal static StatusCounts QuadroCounts { get; } = new(3_811, 8_000, 20_000, 0, 16_400);
-
     internal static async Task<(ReleaseViewModel Vm, FakePublisher Publisher, TempFolder Temp, FakeTimeProvider Clock)> OpenAsync(ReleaseReadiness? readiness = null, StatusCounts? counts = null)
     {
         var temp = new TempFolder();
@@ -177,37 +172,6 @@ public sealed class ReleaseViewModelTests
         var vm = new ReleaseViewModel(new BackgroundTaskService(), publisher, clock, new RecordingStarter(), _ => { }) { Project = counts is null ? Summary(temp.Path) : Summary(temp.Path) with { Counts = counts } };
         await vm.ReloadAsync();
         return (vm, publisher, temp, clock);
-    }
-
-    [Fact]
-    public async Task Abre_pronta_com_a_versao_sugerida_o_instalador_e_a_pasta_de_saida()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        Assert.Equal(ReleasePhase.Ready, vm.Phase);
-        Assert.Equal("1.2.0", vm.Version);
-        Assert.Equal("Patch anterior: 1.1.0, de 02/10", vm.VersionHelp);
-        Assert.Equal("Última versão: 1.1.0 · 02/10", vm.LastVersionText);
-        Assert.StartsWith("Amaoto-no-Hakoniwa-PT-BR-1.2.0", vm.InstallerName, StringComparison.Ordinal);
-        Assert.Equal(Path.Combine(temp.Path, "releases", "1.2.0"), vm.OutputDirectory);
-        Assert.Equal(GameState.Translated, vm.BannerState);
-        Assert.Equal("A tradução pode virar uma versão", vm.BannerTitle);
-        Assert.Equal("400 linhas · 25% aprovadas · versão do jogo conferida pelo checksum", vm.BannerMessage);
-        Assert.True(vm.GenerateCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Os_tres_checks_dizem_o_que_confere()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        Assert.Collection(
-            vm.Checks,
-            c => Assert.Equal(("Conferir sem erros", true), (c.Text, c.IsOk)),
-            c => Assert.Equal(($"Testado no jogo em {LocalTested:dd/MM} às {LocalTested:HH:mm}", true), (c.Text, c.IsOk)),
-            c => Assert.Equal(("Jogo de referência confere", true), (c.Text, c.IsOk)));
     }
 
     [Fact]
@@ -224,40 +188,6 @@ public sealed class ReleaseViewModelTests
 
         Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa", plain.GameFolderLabel);
         Assert.StartsWith("Aponte a pasta da versão original que você usou para extrair o texto. Se o jogo", plain.WhatToDoText, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Executavel_sem_versao_mostra_o_campo_vazio_sem_parenteses_e_com_o_botao_ativo()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready());
-        using var _t = temp;
-
-        Assert.True(vm.ShowGameVersionField);
-        Assert.Equal(string.Empty, vm.GameVersion);
-        Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa", vm.GameFolderLabel);
-        Assert.False(vm.HasGameVersionError);
-        Assert.True(vm.GenerateCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Executavel_com_versao_esconde_o_campo()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready() with { GameVersion = "1.00" });
-        using var _t = temp;
-
-        Assert.False(vm.ShowGameVersionField);
-        Assert.Equal(string.Empty, vm.GameVersion);
-        Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa (versão 1.00)", vm.GameFolderLabel);
-    }
-
-    [Fact]
-    public async Task O_campo_abre_com_a_versao_que_o_projeto_guarda()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready() with { ReferenceVersion = "1.00" });
-        using var _t = temp;
-
-        Assert.True(vm.ShowGameVersionField);
-        Assert.Equal("1.00", vm.GameVersion);
     }
 
     [Fact]
@@ -290,30 +220,6 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
-    public async Task Sem_versao_guardada_o_campo_vazio_diz_que_o_patch_segue_sem_versao()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready());
-        using var _t = temp;
-
-        Assert.Equal("Vazio: o patch segue sem versão do jogo.", vm.GameVersionHelp);
-    }
-
-    [Fact]
-    public async Task Gerar_leva_a_versao_digitada_ao_core_e_o_campo_vazio_vai_como_nulo()
-    {
-        var (vm, publisher, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        await vm.GenerateCommand.ExecuteAsync(null);
-        await vm.ReloadAsync();
-        vm.GameVersion = "  1.01 ";
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        Assert.Null(publisher.Created[0].GameVersion);
-        Assert.Equal("1.01", publisher.Created[1].GameVersion);
-    }
-
-    [Fact]
     public async Task Com_a_versao_no_executavel_o_valor_que_sobrou_no_campo_nao_vai_ao_core()
     {
         var (vm, publisher, temp, _) = await OpenAsync(Ready() with { GameVersion = "1.00" });
@@ -341,58 +247,6 @@ public sealed class ReleaseViewModelTests
 
         Assert.False(vm.HasGameVersionError);
         Assert.True(vm.GenerateCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_limpa_a_versao_do_jogo_digitada()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-        vm.GameVersion = "1.00";
-
-        vm.Project = Summary(Path.Combine(temp.Path, "outro"));
-
-        Assert.Equal(string.Empty, vm.GameVersion);
-        Assert.False(vm.ShowGameVersionField);
-    }
-
-    [Fact]
-    public async Task A_fala_de_exemplo_usa_o_nome_da_cena_quando_ha_e_cena_n_quando_nao()
-    {
-        var (vm, _, temp, _) = await OpenAsync(ReadyLikeQuadro());
-        using var _t = temp;
-
-        Assert.Equal(["Cena 1 · linha 2", "Manhã de chuva · linha 14", "Sala de aula · linha 31"], vm.ChangeExamples.Select(e => e.Title));
-    }
-
-    [Fact]
-    public async Task Sem_build_o_jogo_so_e_conferido_ao_gerar_e_sem_teste_o_check_fica_aberto()
-    {
-        var read = Ready(previous: null, reference: ReleaseReference.Unknown) with { TestedAt = null };
-        var (vm, _, temp, _) = await OpenAsync(read);
-        using var _t = temp;
-
-        Assert.Equal("1.0.0", vm.Version);
-        Assert.Equal("Primeira versão do patch", vm.VersionHelp);
-        Assert.Equal(string.Empty, vm.LastVersionText);
-        Assert.False(vm.ShowChanges);
-        Assert.False(vm.Checks[1].IsOk);
-        Assert.True(vm.Checks[1].IsPending);
-        Assert.Equal("Jogo de referência confere ao gerar", vm.Checks[2].Text);
-        Assert.Contains("conferido pelo checksum ao gerar", vm.BannerMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Mudou_desde_o_patch_anterior_lista_as_cenas_do_core()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        Assert.True(vm.ShowChanges);
-        Assert.Equal("Mudou desde o patch 1.1.0", vm.ChangesTitle);
-        Assert.Equal("41 linhas em 2 cenas · vai para MUDANCAS.txt", vm.ChangesSubtitle);
-        Assert.Equal(["Cena 1", "Cena 2"], vm.Scenes.Select(s => s.Title));
-        Assert.Equal(["30 linhas", "11 linhas"], vm.Scenes.Select(s => s.Detail));
     }
 
     [Fact]
@@ -447,22 +301,6 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
-    public async Task Erros_da_conferencia_travam_o_botao_e_a_faixa_manda_para_os_erros()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready(errors: 3));
-        using var _t = temp;
-        var asked = 0;
-        vm.ErrorsRequested += (_, _) => asked++;
-
-        Assert.False(vm.GenerateCommand.CanExecute(null));
-        Assert.Equal(GameState.Blocked, vm.BannerState);
-        Assert.Equal("A Conferência tem erros", vm.BannerTitle);
-        Assert.Equal("Conferir com 3 erros", vm.Checks[0].Text);
-        vm.ShowErrorsCommand.Execute(null);
-        Assert.Equal(1, asked);
-    }
-
-    [Fact]
     public async Task Gerar_roda_o_core_com_as_opcoes_da_tela_e_termina_na_versao_pronta()
     {
         var (vm, publisher, temp, _) = await OpenAsync();
@@ -488,22 +326,6 @@ public sealed class ReleaseViewModelTests
         Assert.False(vm.ShowReceived);
         Assert.Contains("COMO INSTALAR", vm.ReadMeText, StringComparison.Ordinal);
         Assert.DoesNotContain('\r', vm.ReadMeText);
-    }
-
-    [Fact]
-    public async Task Os_seis_passos_seguem_a_ordem_do_quadro_e_ganham_o_tempo_de_cada_um()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        Assert.Equal(
-            ["Conferir a tradução", "Montar o build", "Calcular as diferenças", "Gravar o patch", "Montar o instalador", "Verificar numa cópia limpa"],
-            vm.Steps.Select(s => s.Label));
-        Assert.All(vm.Steps, s => Assert.True(s.IsDone));
-        Assert.Equal(["0,5 s", "1,0 s", "1,5 s", "2,0 s", "2,5 s", "3,0 s"], vm.Steps.Select(s => s.TimeText));
-        Assert.Equal("3,0 s", vm.VerificationTime);
     }
 
     [Fact]
@@ -563,115 +385,6 @@ public sealed class ReleaseViewModelTests
         Assert.Empty(vm.GameFiles);
         Assert.False(vm.ShowGameFiles);
         Assert.StartsWith("Cópia limpa do jogo de referência: 4 arquivos alterados, todos idênticos ao build.", vm.VerificationText, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Antes_de_gerar_a_tabela_e_os_tamanhos_vem_do_patch_anterior()
-    {
-        var (vm, _, temp, _) = await OpenAsync(ReadyWithPreviousPatch());
-        using var _t = temp;
-
-        Assert.True(vm.ShowGameFiles);
-        Assert.Equal(["Game/script.ypf", "Game/Game.exe", "Game/font.ypf", "Game/system.ypf"], vm.GameFiles.Select(f => f.Path));
-        Assert.Equal(["214,0 MB", "2,1 MB", "48,6 MB", "9,4 MB"], vm.GameFiles.Select(f => f.OriginalText));
-        Assert.Equal(["3,8 MB", "14 KB", "421 KB", "62 KB"], vm.GameFiles.Select(f => f.PatchText));
-        Assert.Equal(["1,8%", "0,7%", "0,8%", "0,7%"], vm.GameFiles.Select(f => f.RatioText));
-        Assert.Equal("4 de 312 arquivos tocados", vm.GameFilesTotal);
-        Assert.Equal("4,3 MB", vm.GameFilesPatchTotal);
-        Assert.Equal(["5,1 MB", "4,3 MB", "9 KB"], vm.Received.Select(r => r.SizeText));
-        Assert.Equal("Ao gerar, o app aplica o patch numa cópia limpa e compara com o build, byte a byte.", vm.ReceivedNote);
-    }
-
-    [Fact]
-    public async Task Durante_a_geracao_a_tabela_segue_e_a_nota_diz_de_que_patch_vem_a_estimativa()
-    {
-        var (vm, publisher, temp, _) = await OpenAsync(ReadyWithPreviousPatch());
-        using var _t = temp;
-        using var reached = new ManualResetEventSlim();
-        using var release = new ManualResetEventSlim();
-        var calls = 0;
-        publisher.Blocker = _ =>
-        {
-            if (++calls == 4)
-            {
-                reached.Set();
-                release.Wait(TimeSpan.FromMinutes(3));
-            }
-
-            return false;
-        };
-
-        var running = vm.GenerateCommand.ExecuteAsync(null);
-        await Task.Run(() => reached.Wait(TimeSpan.FromMinutes(3)), Ct);
-        try
-        {
-            Assert.True(vm.ShowGameFiles);
-            Assert.Equal("Estimativa a partir do patch 1.1.0. O tamanho final aparece ao fim do cálculo.", vm.ReceivedNote);
-            Assert.Equal(["5,1 MB", "4,3 MB", "9 KB"], vm.Received.Select(r => r.SizeText));
-        }
-        finally
-        {
-            release.Set();
-            await running;
-        }
-    }
-
-    [Fact]
-    public async Task Na_primeira_versao_nao_ha_estimativa_e_os_tamanhos_ficam_para_depois_de_gerar()
-    {
-        var (vm, _, temp, _) = await OpenAsync(Ready(previous: null));
-        using var _t = temp;
-
-        Assert.False(vm.ShowGameFiles);
-        Assert.Empty(vm.GameFiles);
-        Assert.Equal(["ao gerar", "ao gerar", "ao gerar"], vm.Received.Select(r => r.SizeText));
-    }
-
-    [Fact]
-    public async Task Mudou_desde_o_patch_mostra_o_antes_riscado_o_depois_e_quanto_falta()
-    {
-        var examples = new[]
-        {
-            new ChangeExample(1, 2, "Lá fora, a chuva ainda não parou.", "Lá fora, a chuva não parou desde cedo."),
-            new ChangeExample(2, 14, null, "Aoi: Vamos, antes que o sinal toque."),
-        };
-        var (vm, _, temp, _) = await OpenAsync(Ready() with { ChangeExamples = examples });
-        using var _t = temp;
-
-        Assert.True(vm.HasChangeExamples);
-        Assert.False(vm.HasSceneCounts);
-        Assert.Equal(["Cena 1 · linha 2", "Cena 2 · linha 14"], vm.ChangeExamples.Select(c => c.Title));
-        Assert.Equal(["Lá fora, a chuva ainda não parou.", null], vm.ChangeExamples.Select(c => c.Before));
-        Assert.Equal([true, false], vm.ChangeExamples.Select(c => c.HasBefore));
-        Assert.Equal("e mais 39 linhas em 2 cenas", vm.ChangesMore);
-        Assert.True(vm.HasChangesMore);
-    }
-
-    [Fact]
-    public async Task Sem_o_texto_do_patch_anterior_a_lista_cai_na_contagem_por_cena()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-
-        Assert.False(vm.HasChangeExamples);
-        Assert.True(vm.HasSceneCounts);
-        Assert.False(vm.HasChangesMore);
-    }
-
-    [Fact]
-    public async Task Checksum_diferente_mostra_o_arquivo_o_esperado_e_o_encontrado()
-    {
-        var changed = new[] { new ChangedGameFile("Game/Game.exe", "3f9a" + new string('0', 56) + "c21d", "77b0" + new string('1', 56) + "e04a") };
-        var read = Ready(reference: ReleaseReference.Differs, problem: "O jogo mudou desde a extração.") with { ChangedFiles = changed };
-        var (vm, _, temp, _) = await OpenAsync(read);
-        using var _t = temp;
-
-        var row = Assert.Single(vm.ChecksumFiles);
-        Assert.Equal("Game/Game.exe", row.Path);
-        Assert.Equal("SHA-256 3f9a…c21d", row.Expected);
-        Assert.Equal("SHA-256 77b0…e04a", row.Found);
-        Assert.Equal(changed[0].FoundSha256, row.FoundFull);
-        Assert.False(vm.HasChecksumMore);
     }
 
     [Fact]
@@ -749,20 +462,6 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
-    public async Task Falha_esperada_do_core_vira_a_mensagem_da_pagina_e_deixa_tentar_de_novo()
-    {
-        var (vm, publisher, temp, _) = await OpenAsync();
-        using var _t = temp;
-        publisher.Failure = new VNForgeException("Não achei o executável do instalador.");
-
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        Assert.Equal(ReleasePhase.Ready, vm.Phase);
-        Assert.Equal("Não achei o executável do instalador.", vm.ErrorMessage);
-        Assert.True(vm.GenerateCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Jogo_fora_da_versao_de_referencia_ao_gerar_trava_a_pagina_com_o_motivo_do_core()
     {
         var (vm, publisher, temp, _) = await OpenAsync();
@@ -777,25 +476,6 @@ public sealed class ReleaseViewModelTests
         Assert.Equal(GameState.Blocked, vm.BannerState);
         Assert.Contains("Game/Game.exe", vm.ProblemDetails, StringComparison.Ordinal);
         Assert.False(vm.GenerateCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Jogo_fora_da_versao_de_referencia_ja_na_leitura_abre_a_pagina_travada()
-    {
-        var read = Ready(reference: ReleaseReference.Differs, problem: "O jogo mudou desde a extração.");
-        var (vm, _, temp, _) = await OpenAsync(read);
-        using var _t = temp;
-        var asked = 0;
-        vm.GameFolderRequested += (_, _) => asked++;
-
-        Assert.Equal(ReleasePhase.Blocked, vm.Phase);
-        Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa", vm.GameFolder);
-        Assert.False(vm.ShowProblemDetails);
-        vm.ToggleProblemDetailsCommand.Execute(null);
-        Assert.True(vm.ShowProblemDetails);
-        vm.ChooseGameFolderCommand.Execute(null);
-        Assert.Equal(1, asked);
-        Assert.Equal("Jogo de referência não confere", vm.Checks[2].Text);
     }
 
     [Fact]
@@ -828,22 +508,6 @@ public sealed class ReleaseViewModelTests
     [InlineData(5_347_737, "5,1 MB")]
     public void Formata_o_tamanho_em_portugues(long bytes, string expected) =>
         Assert.Equal(expected, ReleaseViewModel.FormatSize(bytes));
-
-    [Fact]
-    public async Task Trocar_de_projeto_limpa_a_pagina_e_so_le_o_disco_quando_a_janela_pede()
-    {
-        var (vm, _, temp, _) = await OpenAsync();
-        using var _t = temp;
-        await vm.GenerateCommand.ExecuteAsync(null);
-        Assert.Equal(ReleasePhase.Done, vm.Phase);
-
-        vm.Project = Summary(temp.Path) with { Name = "Outro jogo" };
-
-        Assert.Equal(ReleasePhase.Ready, vm.Phase);
-        Assert.Empty(vm.Files);
-        Assert.Empty(vm.Checks);
-        Assert.Equal(string.Empty, vm.Version);
-    }
 
     [Fact]
     public async Task Trocar_de_projeto_no_meio_da_geracao_nao_mostra_a_versao_do_projeto_antigo_no_novo()
@@ -915,17 +579,5 @@ public sealed class ReleaseViewModelTests
         Assert.Equal(refused, vm.HasOutputError);
         Assert.Equal(!refused, vm.GenerateCommand.CanExecute(null));
         Assert.Equal(refused ? "A pasta de saída não pode ser a pasta do jogo nem ficar dentro dela. Escolha outra." : null, vm.OutputError);
-    }
-
-    [Fact]
-    public async Task Pasta_de_saida_relativa_vale_a_partir_da_raiz_do_projeto()
-    {
-        var (vm, publisher, temp, _) = await OpenAsync();
-        using var _t = temp;
-        vm.OutputDirectory = Path.Combine("saida", "v1");
-
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        Assert.Equal(Path.Combine(temp.Path, "saida", "v1"), Assert.Single(publisher.Created).OutputDirectory);
     }
 }

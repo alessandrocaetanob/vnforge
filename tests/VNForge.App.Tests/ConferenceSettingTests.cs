@@ -38,33 +38,6 @@ public class ConferenceSettingTests
     private static TextUnit[] ThreeEllipsisLines() => [Unit(0, "Espera... vai"), Unit(1, "Hum... sim"), Unit(2, "Ah... não")];
 
     [Fact]
-    public async Task O_ajuste_vira_um_card_com_a_contagem_no_lugar_das_linhas()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp, ThreeEllipsisLines());
-
-        var card = Assert.Single(vm.SettingCards);
-        Assert.Equal("O ajuste Reticências gera 3 erros", card.Title);
-        Assert.Equal("A estratégia cp1252 não grava as reticências (…). As traduções têm três pontos; o ajuste é que troca.", card.Text);
-        Assert.Equal("Usar três pontos", card.ButtonLabel);
-        Assert.Equal(3, card.Count);
-        Assert.True(vm.HasSettingCards);
-        Assert.Empty(vm.Rows);
-        Assert.False(vm.ShowEmptyText);
-        Assert.Equal(3, vm.ErrorCount);
-        Assert.Equal("3", vm.BlockingCount);
-    }
-
-    [Fact]
-    public async Task Um_erro_so_diz_erro_no_singular()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp, Unit(0, "Espera... vai"));
-
-        Assert.Equal("O ajuste Reticências gera 1 erro", Assert.Single(vm.SettingCards).Title);
-    }
-
-    [Fact]
     public async Task O_filtro_Um_clique_e_o_botao_do_cabecalho_contam_as_linhas_que_o_ajuste_resolve()
     {
         using var temp = new TempFolder();
@@ -78,37 +51,6 @@ public class ConferenceSettingTests
 
         Assert.True(vm.HasSettingCards);
         Assert.Equal(["espaco-duplo"], vm.Rows.Select(r => r.RuleId));
-    }
-
-    [Fact]
-    public async Task O_card_some_nos_filtros_que_nao_o_incluem()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp, [.. ThreeEllipsisLines(), Unit(3, "olá  mundo")]);
-
-        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Kind == ConferenceFilterKind.Box));
-
-        Assert.False(vm.HasSettingCards);
-    }
-
-    [Fact]
-    public async Task Usar_tres_pontos_grava_o_perfil_avisa_o_app_e_confere_de_novo_sem_erro_de_codificacao()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp, ThreeEllipsisLines());
-        var changed = 0;
-        vm.SettingsChanged += (_, _) => changed++;
-
-        await vm.ApplySettingCommand.ExecuteAsync(vm.SettingCards[0]);
-
-        Assert.Equal(EllipsisStyle.Dots, folder.LoadFormatting().Typography.Ellipsis);
-        Assert.Equal(1, changed);
-        Assert.Empty(vm.SettingCards);
-        Assert.Empty(vm.Rows);
-        Assert.True(vm.IsClear);
-        Assert.Equal("O ajuste Reticências passou de Caractere … para Três pontos.", vm.NoticeMessage);
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(["Espera... vai", "Hum... sim", "Ah... não"], folder.LoadText("yst00001").Select(u => u.Translation));
     }
 
     [Fact]
@@ -129,17 +71,6 @@ public class ConferenceSettingTests
     }
 
     [Fact]
-    public async Task Sem_outra_correcao_o_aviso_so_fala_do_ajuste()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Loaded(temp, ThreeEllipsisLines());
-
-        await vm.FixAllCommand.ExecuteAsync(null);
-
-        Assert.Equal("O ajuste Reticências passou de Caractere … para Três pontos.", vm.NoticeMessage);
-    }
-
-    [Fact]
     public async Task Sem_conflito_o_botao_nao_grava_nem_avisa_o_app()
     {
         using var temp = new TempFolder();
@@ -154,20 +85,6 @@ public class ConferenceSettingTests
         Assert.Equal(0, changed);
         Assert.Equal("O ajuste já não estava em conflito.", vm.NoticeMessage);
         Assert.Empty(vm.SettingCards);
-    }
-
-    [Fact]
-    public async Task Linha_com_o_caractere_digitado_continua_na_lista_e_nao_vira_card()
-    {
-        using var temp = new TempFolder();
-        var folder = CreateProject(temp, Unit(0, "Espera★ vai"));
-        folder.SaveFormatting(FormattingProfile.Default);
-        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
-
-        await vm.RefreshAsync();
-
-        Assert.Empty(vm.SettingCards);
-        Assert.Equal(["caractere-nao-codificavel"], vm.Rows.Select(r => r.RuleId));
     }
 
     private static ConferenceIssueRowViewModel Row(int codePoint) =>

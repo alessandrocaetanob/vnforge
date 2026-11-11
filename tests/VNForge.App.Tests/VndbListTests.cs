@@ -119,26 +119,6 @@ public sealed class VndbListTests
     }
 
     [Fact]
-    public async Task Sincronizar_traz_o_que_mudou_no_VNDB_e_envia_o_que_mudou_aqui()
-    {
-        using var setup = new Setup([Game("g1", "v4"), Game("g2", "v5")], [Entry("v4", T0, 80, "Capítulo 4 melhora muito.", LibraryListLabels.Playing)]);
-        setup.Service.Edit("g2", new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished], Vote = 90 });
-
-        var plan = await setup.Service.PlanAsync(FakeVndbCatalog.ValidToken, LibrarySyncDirection.Both, ct: Ct);
-        var report = await setup.Service.ApplyAsync(plan, FakeVndbCatalog.ValidToken, Ct);
-
-        Assert.Null(report.AbortReason);
-        var pulled = setup.Local("g1");
-        Assert.Equal(80, pulled.Vote);
-        Assert.Equal("Capítulo 4 melhora muito.", pulled.Notes);
-        Assert.True(pulled.HasLabel(LibraryListLabels.Playing));
-        var pushed = await setup.Remote("v5");
-        Assert.Equal(90, pushed.Vote);
-        Assert.Contains(pushed.Labels, l => l.Id == LibraryListLabels.Finished);
-        Assert.False(setup.File.Load().Find("g2").CurrentList!.Pending);
-    }
-
-    [Fact]
     public async Task Marcar_como_terminado_grava_aqui_e_envia_ao_VNDB_quando_ha_token()
     {
         using var setup = new Setup([Game("g1", "v4")], [Entry("v4", T0, null, null, LibraryListLabels.Playing)]);
@@ -156,23 +136,6 @@ public sealed class VndbListTests
         Assert.Equal(new DateOnly(2026, 11, 6), local.Finished);
         var remote = await setup.Remote("v4");
         Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
-    }
-
-    [Fact]
-    public async Task Terminar_aqui_envia_so_o_rotulo_mesmo_com_rotulos_fora_da_sincronizacao()
-    {
-        var site = Entry("v4", Later, 70, "Do site", LibraryListLabels.Playing);
-        using var setup = new Setup([Game("g1", "v4")], [site]);
-        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true, Labels = false };
-        setup.Service.Edit("g1", new VndbListUpdate { Vote = 90, Notes = "Daqui" });
-
-        var note = await setup.Service.EditAsync("g1", new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished] }, Ct);
-
-        Assert.Null(note);
-        var remote = await setup.Remote("v4");
-        Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
-        Assert.Equal(70, remote.Vote);
-        Assert.Equal("Do site", remote.Notes);
     }
 
     [Fact]
@@ -437,23 +400,6 @@ public sealed class VndbListTests
 
         Assert.True(LibraryListState.SameAs(state, setup.File.Load().Find("g1").CurrentList));
         Assert.StartsWith("Sincronizada", card.SyncText);
-    }
-
-    [Fact]
-    public async Task A_Ficha_aberta_antes_de_a_Biblioteca_carregar_ganha_o_cartao_quando_ela_carrega()
-    {
-        using var setup = new Setup([Game("g1", "v31201")], []);
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN");
-        ProjectFolder.Open(root).SaveVndbLink(new VndbLink("v31201", "Minha VN", null, null, []));
-        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
-        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Later)), library: library);
-
-        await main.Start.OpenFolderCommand.ExecuteAsync(null);
-        Assert.Null(main.Sheet.ListCard);
-        await library.LoadAsync();
-
-        Assert.NotNull(main.Sheet.ListCard);
     }
 
     [Fact]

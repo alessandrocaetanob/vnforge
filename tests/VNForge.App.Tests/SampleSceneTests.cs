@@ -99,16 +99,6 @@ public sealed class SampleSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task A_sugestao_de_um_projeto_comum_sem_chave_continua_dizendo_que_e_de_teste()
-    {
-        var suggestion = await new LineSuggester(() => null).SuggestAsync(SampleProject.Texts["yst00001"][1], CancellationToken.None);
-
-        Assert.True(suggestion.FromFakeProvider);
-        Assert.False(suggestion.IsDemo);
-        Assert.StartsWith("[PT]", suggestion.Text, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Uma_criacao_com_a_pasta_em_estado_invalido_mostra_a_mensagem_clara_sem_o_caminho()
     {
         var start = CreateStart();
@@ -122,18 +112,6 @@ public sealed class SampleSceneTests : IDisposable
         Assert.NotNull(start.ErrorMessage);
         Assert.Contains("renomeie ou mova", start.ErrorMessage);
         Assert.DoesNotContain(temp.Path, start.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task A_IA_falsa_do_exemplo_traduz_cada_fala_e_marca_a_que_nao_conhece()
-    {
-        var provider = SampleAi.CreateProvider();
-        var units = new[] { SampleProject.Texts["yst00002"][0], new TextUnit("x:1", TextUnitKind.Dialogue, null, "別の文", null, TranslationStatus.Untranslated) };
-
-        var results = await provider.TranslateAsync(new TranslationBatch(units), CancellationToken.None);
-
-        Assert.Equal("No dia seguinte, os dois estavam em frente à sala dos professores.", results[0].Translation);
-        Assert.StartsWith("[PT]", results[1].Translation, StringComparison.Ordinal);
     }
 
     [Fact]

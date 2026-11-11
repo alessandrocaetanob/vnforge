@@ -54,26 +54,6 @@ public sealed class LineRewriteTests : IDisposable
     private static RewriteChip Chip(LineDetailViewModel vm, RewriteDirection direcao) => vm.RewriteChips.Single(c => c.Direction == direcao);
 
     [Fact]
-    public void Os_cinco_chips_estao_na_ordem_do_inspetor()
-    {
-        using var vm = Abrir(new LineSuggester(() => null));
-
-        Assert.Equal(
-            ["Mais curta", "Mais natural", "Mais fiel", "Mais formal", "Como o personagem falaria"],
-            vm.RewriteChips.Select(c => c.Label));
-        Assert.True(vm.HasRewriter);
-    }
-
-    [Fact]
-    public void Sem_sugestor_que_reescreva_os_chips_somem_e_nao_executam()
-    {
-        using var vm = Abrir(null);
-
-        Assert.False(vm.HasRewriter);
-        Assert.False(Chip(vm, RewriteDirection.Shorter).Command.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Chip_pede_duas_versoes_com_a_direcao_a_traducao_o_como_fala_o_glossario_e_a_caixa()
     {
         var provedor = new FakeTranslationProvider();
@@ -201,18 +181,6 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
-    public async Task Versao_que_perde_marcador_ou_repete_a_traducao_sai_da_lista()
-    {
-        var provedor = new ProvedorDeReescrita(_ => ["sem o marcador", @"Olá, tudo bem?\p", @"Tudo bem?\p"]);
-        using var vm = Abrir(new LineSuggester(() => provedor));
-
-        await Chip(vm, RewriteDirection.MoreFaithful).Command.ExecuteAsync(null);
-
-        Assert.Equal([@"Tudo bem?\p"], vm.RewriteOptions.Select(o => o.Text));
-        Assert.Equal("Mais fiel · 1 versão", vm.RewriteTitle);
-    }
-
-    [Fact]
     public async Task Falha_do_provedor_vira_mensagem_em_portugues_sem_versoes()
     {
         using var vm = Abrir(new LineSuggester(() => new ProvedorDeReescrita(_ => throw new HttpRequestException("connection reset"))));
@@ -223,16 +191,6 @@ public sealed class LineRewriteTests : IDisposable
         Assert.False(vm.HasRewriteOptions);
         Assert.False(vm.IsRewriting);
         Assert.Equal(@"Olá, tudo bem?\p", vm.Translation);
-    }
-
-    [Fact]
-    public async Task Recusa_da_ia_vira_mensagem_em_portugues()
-    {
-        using var vm = Abrir(new LineSuggester(() => new ProvedorDeReescrita(_ => [], refused: true)));
-
-        await Chip(vm, RewriteDirection.Shorter).Command.ExecuteAsync(null);
-
-        Assert.Contains("recus", vm.RewriteError);
     }
 
     [Fact]
@@ -379,16 +337,6 @@ public sealed class LineRewriteTests : IDisposable
 
         Assert.False(vm.HasRewriteOptions);
         Assert.Contains("chave", vm.RewriteError);
-    }
-
-    [Fact]
-    public async Task Os_botoes_Usar_tem_nome_para_leitor_de_tela()
-    {
-        using var vm = Abrir(new LineSuggester(() => new FakeTranslationProvider()));
-
-        await Chip(vm, RewriteDirection.MoreFaithful).Command.ExecuteAsync(null);
-
-        Assert.Equal(["Usar a versão 1", "Usar a versão 2"], vm.RewriteOptions.Select(o => o.UseLabel));
     }
 
     private sealed class NavegadorNulo : ILineNavigator

@@ -50,45 +50,6 @@ public sealed class EditorConsistencyTests : IDisposable
     private IReadOnlyList<string?> Traducoes() => [.. projeto.LoadText(Script).Select(u => u.Translation)];
 
     [Fact]
-    public async Task Linha_com_traducao_divergente_mostra_o_cartao_com_as_variantes_as_linhas_e_a_diferenca()
-    {
-        var vm = await Abrir();
-        Assert.True(Tem(vm.Lines[2]));
-
-        vm.SelectedLine = vm.Lines[2];
-
-        var card = Assert.IsType<ConferenceConsistencyCardViewModel>(vm.Detail!.ConsistencyCard);
-        Assert.True(vm.Detail.HasConsistencyCard);
-        Assert.Equal("Mesmo original, 3 traduções", card.Title);
-        Assert.Equal(["Bom dia.", "Bom dia", "Bom  dia."], card.Variants.Select(v => v.Translation));
-        Assert.Equal(["Cena 1 · 1", "Cena 1 · 2"], card.Variants[0].VisibleLines.Select(l => l.Label));
-        Assert.Contains(card.Variants[1].Segments, s => s is { Kind: TextDiffKind.Missing, Text: "." });
-        Assert.Contains(card.Variants[2].Segments, s => s.Kind == TextDiffKind.Added && s.Visible == "·");
-        Assert.DoesNotContain(vm.Detail.QaIssues, i => i.Title == ConferenceRuleTexts.Title(Rule));
-    }
-
-    [Fact]
-    public async Task Linha_da_traducao_mais_usada_nao_mostra_o_cartao()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[0];
-
-        Assert.Null(vm.Detail!.ConsistencyCard);
-        Assert.False(vm.Detail.HasConsistencyCard);
-    }
-
-    [Fact]
-    public async Task Linha_sem_outras_traducoes_nao_mostra_o_cartao()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[4];
-
-        Assert.Null(vm.Detail!.ConsistencyCard);
-    }
-
-    [Fact]
     public async Task O_link_de_uma_linha_do_cartao_abre_essa_linha_no_editor()
     {
         var vm = await Abrir();

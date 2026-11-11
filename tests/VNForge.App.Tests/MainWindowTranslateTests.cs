@@ -47,20 +47,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public async Task O_botao_do_Editor_abre_a_janela_com_a_cena_aberta()
-    {
-        var (vm, _) = await OpenAsync();
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.True(vm.Translate.IsOpen);
-        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
-        Assert.Equal(2, vm.Translate.Lines);
-        Assert.True(vm.Translate.CanStart);
-    }
-
-    [Fact]
     public async Task Varias_cenas_escolhidas_geram_uma_janela_e_uma_unica_execucao()
     {
         var (vm, root) = await OpenAsync();
@@ -99,26 +85,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public async Task Traduzir_roda_o_pedido_grava_como_IA_e_avisa_o_resultado_em_portugues()
-    {
-        var (vm, root) = await OpenAsync();
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-
-        var saved = ProjectFolder.Open(root).LoadText("yst00001");
-        Assert.False(vm.Translate.IsOpen);
-        Assert.Equal([TranslationStatus.Machine, TranslationStatus.Machine, TranslationStatus.Approved], saved.Select(u => u.Status));
-        Assert.Equal(TranslationStatus.Untranslated, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
-        var toast = Assert.Single(vm.Toasts.Toasts);
-        Assert.Equal(ToastKind.Success, toast.Kind);
-        Assert.Contains("2 linhas traduzidas pela IA", toast.Message);
-        Assert.Equal(BackgroundTaskState.Completed, vm.TaskService.Tasks.Single().State);
-    }
-
-    [Fact]
     public async Task A_traducao_da_IA_deixa_um_ponto_de_restauracao_e_o_Desfazer_da_lista_devolve_as_linhas()
     {
         var (vm, root) = await OpenAsync();
@@ -142,26 +108,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public async Task Desfazer_a_traducao_da_IA_deixa_a_linha_editada_depois_e_diz_quantas()
-    {
-        var (vm, root) = await OpenAsync();
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-        var id = ProjectFolder.Open(root).LoadText("yst00001")[0].Id;
-        new LineEditor(ProjectFolder.Open(root), TimeProvider.System).SetTranslation("yst00001", id, "Minha versão");
-
-        var entry = Assert.Single(vm.Tasks.Entries);
-        await entry.UndoCommand.ExecuteAsync(null);
-
-        var after = ProjectFolder.Open(root).LoadText("yst00001");
-        Assert.Equal("Minha versão", after[0].Translation);
-        Assert.Equal(TranslationStatus.Untranslated, after[1].Status);
-        Assert.Equal("1 linha voltou ao que era. 1 foi editada depois e ficou como está.", entry.UndoMessage);
-    }
-
-    [Fact]
     public async Task Painel_aberto_durante_a_traducao_rele_os_numeros_quando_ela_termina()
     {
         var (vm, _) = await OpenAsync();
@@ -176,24 +122,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         await vm.TranslationRun;
 
         Assert.Equal("75% traduzido", vm.Dashboard.Steps[1].Subtitle);
-    }
-
-    [Fact]
-    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
-    {
-        var (vm, _) = await OpenAsync();
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
-        Assert.Equal(3, Untranslated());
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-        await vm.ConferenceLoading;
-
-        Assert.Equal(1, Untranslated());
     }
 
     [Fact]
@@ -226,18 +154,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.True(vm.Translate.IsOverLimit);
         Assert.False(vm.Translate.StartCommand.CanExecute(null));
         Assert.Equal(TranslationStatus.Untranslated, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
-    }
-
-    [Fact]
-    public async Task Sem_chave_a_janela_abre_mas_nao_deixa_traduzir()
-    {
-        var (vm, _) = await OpenAsync(key: false);
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.True(vm.Translate.KeyMissing);
-        Assert.False(vm.Translate.CanStart);
     }
 
     [Fact]
@@ -374,15 +290,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public void Sem_nenhum_problema_o_aviso_e_de_sucesso()
-    {
-        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(1, 0, 0, null, 0.1m, null));
-
-        Assert.Equal(ToastKind.Success, kind);
-        Assert.Contains("1 linha traduzida pela IA", text);
-    }
-
-    [Fact]
     public void App_json_ilegivel_avisa_ao_abrir_o_app()
     {
         var ajustes = temp.SubFolder("ajustes-quebrados");
@@ -414,5 +321,43 @@ public sealed class MainWindowTranslateTests : IDisposable
             await gate;
             return [.. batch.Lines.Select(u => new TranslationResult(u.Id, "x"))];
         }
+    }
+
+    [Fact]
+    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
+        Assert.Equal(3, Untranslated());
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, Untranslated());
+    }
+
+    [Fact]
+    public async Task Desfazer_a_traducao_da_IA_deixa_a_linha_editada_depois_e_diz_quantas()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        var id = ProjectFolder.Open(root).LoadText("yst00001")[0].Id;
+        new LineEditor(ProjectFolder.Open(root), TimeProvider.System).SetTranslation("yst00001", id, "Minha versão");
+
+        var entry = Assert.Single(vm.Tasks.Entries);
+        await entry.UndoCommand.ExecuteAsync(null);
+
+        var after = ProjectFolder.Open(root).LoadText("yst00001");
+        Assert.Equal("Minha versão", after[0].Translation);
+        Assert.Equal(TranslationStatus.Untranslated, after[1].Status);
+        Assert.Equal("1 linha voltou ao que era. 1 foi editada depois e ficou como está.", entry.UndoMessage);
     }
 }

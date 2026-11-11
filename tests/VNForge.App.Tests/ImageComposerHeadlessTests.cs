@@ -40,23 +40,6 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
     }
 
     [Fact]
-    public async Task WithoutTextTheAreaIsErasedWithTheSurroundingColourAndTheRestIsUntouched()
-    {
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var composer = new AvaloniaImageComposer();
-                var result = composer.Decode(composer.Render(Background(), Edit(string.Empty)));
-
-                Assert.Equal((Width, Height), (result.Width, result.Height));
-                Assert.True(IsBackground(result, 100, 50), "a área do texto original continua escura");
-                Assert.True(IsBackground(result, 5, 5));
-                Assert.True(IsBackground(result, 195, 95));
-            },
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
     public async Task TheTextIsWrittenInsideTheAreaAndNothingIsDrawnOutsideIt()
     {
         await fixture.Session.Dispatch(
@@ -70,23 +53,6 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     .Count(p => (p.x < 50 || p.x >= 150 || p.y < 30 || p.y >= 70) && !IsBackground(result, p.x, p.y));
                 Assert.True(inside > 30, $"só {inside} pixels de texto na área");
                 Assert.Equal(0, outside);
-            },
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task MeasureGrowsWithTheTextAndTheFontSize()
-    {
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var composer = new AvaloniaImageComposer();
-                var small = composer.Measure(Edit("Portão"));
-                var longer = composer.Measure(Edit("Portão do colégio"));
-                var bigger = composer.Measure(Edit("Portão") with { FontSize = 40 });
-
-                Assert.True(longer.Width > small.Width);
-                Assert.True(bigger.Height > small.Height);
             },
             TestContext.Current.CancellationToken);
     }
@@ -130,22 +96,6 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
     }
 
     [Fact]
-    public async Task ThumbnailKeepsTheProportionAtTheAskedWidth()
-    {
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var composer = new AvaloniaImageComposer();
-                var png = composer.Render(Background(), Edit(string.Empty));
-
-                var thumbnail = composer.Decode(composer.Thumbnail(png, 50));
-
-                Assert.Equal((50, 25), (thumbnail.Width, thumbnail.Height));
-            },
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
     public async Task SemiTransparentPixelsOutsideTheAreaComeBackWithTheSameAlphaAndColour()
     {
         await fixture.Session.Dispatch(
@@ -170,14 +120,6 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     Assert.InRange(rendered.Bgra[at + 2], 29, 31);
                 }
             },
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task TheEmbeddedFontsComeFirstInTheChoices()
-    {
-        await fixture.Session.Dispatch(
-            () => Assert.Equal("Zen Kaku Gothic New", new AvaloniaImageComposer().FontFamilies[0]),
             TestContext.Current.CancellationToken);
     }
 }

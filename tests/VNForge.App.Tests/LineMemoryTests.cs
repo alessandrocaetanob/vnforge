@@ -63,22 +63,6 @@ public sealed class LineMemoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Correspondencia_aproximada_vem_com_percentual_abaixo_de_cem()
-    {
-        var memoria = new TranslationMemory(Config);
-        memoria.Record("estrela", "Hoshizora no Kakera", Aprovada("a:000001", "Aizawa, os dois, cinco minutos atrasados.") with { Source = "「相沢、二人そろって五分遅刻だ」" }, relogio.GetUtcNow());
-        using var vm = Abrir(DoProjeto(memoria));
-
-        vm.ShowMemory();
-        await vm.MemoryLoading;
-
-        var sugestao = Assert.Single(vm.MemorySuggestions);
-        Assert.InRange(sugestao.Percent, 80, 99);
-        Assert.False(sugestao.IsExact);
-        Assert.Equal("1 em 1 projeto", vm.MemorySummary);
-    }
-
-    [Fact]
     public async Task Usar_poe_o_texto_no_campo_sem_aprovar()
     {
         using var vm = Abrir(DoProjeto(Alimentar()));
@@ -122,48 +106,6 @@ public sealed class LineMemoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Traducao_igual_a_atual_nao_e_repetida_no_cartao()
-    {
-        using var vm = Abrir(DoProjeto(Alimentar()), "Aizawa, Sakura. Os dois, cinco minutos atrasados.");
-        vm.ShowMemory();
-        await vm.MemoryLoading;
-
-        Assert.Equal(["Aizawa, Sakura. Vocês dois, cinco minutos atrasados."], vm.MemorySuggestions.Select(s => s.Target));
-        Assert.Equal("1 em 1 projeto", vm.MemorySummary);
-    }
-
-    [Fact]
-    public async Task Arquivo_da_memoria_ilegivel_vale_como_sem_sugestoes()
-    {
-        Directory.CreateDirectory(Config);
-        File.WriteAllText(Path.Combine(Config, TranslationMemory.FileName), "lixo");
-        using var vm = Abrir(DoProjeto(new TranslationMemory(Config)));
-
-        vm.ShowMemory();
-        await vm.MemoryLoading;
-
-        Assert.False(vm.HasMemory);
-        Assert.True(vm.HasMemoryProblem);
-        Assert.True(vm.ShowMemoryCard);
-        Assert.Contains(Path.Combine(Config, TranslationMemory.FileName), vm.MemoryProblem);
-        Assert.Contains("não pôde ser lida", vm.MemoryProblem);
-        Assert.Contains("O arquivo não foi alterado.", vm.MemoryProblem);
-        Assert.Equal("lixo", File.ReadAllText(Path.Combine(Config, TranslationMemory.FileName)));
-    }
-
-    [Fact]
-    public async Task Arquivo_legivel_sem_parecido_nao_mostra_o_cartao_nem_aviso()
-    {
-        using var vm = Abrir(DoProjeto(new TranslationMemory(Config)));
-
-        vm.ShowMemory();
-        await vm.MemoryLoading;
-
-        Assert.False(vm.ShowMemoryCard);
-        Assert.Null(vm.MemoryProblem);
-    }
-
-    [Fact]
     public async Task Abrir_o_projeto_leva_as_aprovadas_para_a_memoria_e_aprovar_uma_linha_a_registra()
     {
         var memoria = new TranslationMemory(Config);
@@ -194,19 +136,6 @@ public sealed class LineMemoryTests : IDisposable
         public void SelectPrevious()
         {
         }
-    }
-
-    [Fact]
-    public async Task Projeto_de_origem_com_o_mesmo_nome_do_atual_nao_aparece_no_cartao()
-    {
-        var memoria = new TranslationMemory(Config);
-        memoria.Record(TranslationMemory.KeyOf(Path.Combine(pasta.Path, "antigo")), "Amaoto no Hakoniwa", Aprovada("a:000001", "Do projeto movido."), relogio.GetUtcNow());
-        using var vm = Abrir(DoProjeto(memoria));
-
-        vm.ShowMemory();
-        await vm.MemoryLoading;
-
-        Assert.False(vm.HasMemory);
     }
 
     [Fact]

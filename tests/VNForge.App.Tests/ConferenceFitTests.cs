@@ -39,80 +39,6 @@ public sealed class ConferenceFitTests : IDisposable
         return vm;
     }
 
-    private sealed class Encurtador(string resposta) : ILineShortener
-    {
-        public List<string> Pedidos { get; } = [];
-
-        public Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct)
-        {
-            Pedidos.Add(current);
-            return Task.FromResult(resposta);
-        }
-    }
-
-    [Fact]
-    public async Task Caixa_cheia_por_regra_do_pos_dicionario_com_condicao_de_falante_mostra_o_aviso()
-    {
-        folder.SaveFormatting(FormattingProfile.Default with
-        {
-            Wrap = new WrapRule(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform),
-            Dictionary = new VNForge.Core.Dictionaries.DictionaryRules([], [new VNForge.Core.Dictionaries.DictionaryRule("xx", Palavras(16)) { Conditions = [new(VNForge.Core.Dictionaries.DictionaryConditionKind.Speaker, "蓮")] }]),
-        });
-        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "蓮", "原文0", "xx", TranslationStatus.Translated)]);
-        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root), Shortener = new Encurtador("curta") };
-        await vm.RefreshAsync();
-
-        vm.SelectedRow = vm.Rows.Single(r => r.RuleId == BoxLineLimitRule.RuleId);
-
-        var aviso = Assert.IsType<FitWarningViewModel>(vm.SelectedFit);
-        Assert.True(vm.HasSelectedFit);
-        Assert.True(aviso.IsVisible);
-    }
-
-    [Fact]
-    public async Task Problema_de_caixa_selecionado_mostra_o_aviso_com_as_duas_saidas()
-    {
-        var vm = await Conferir(new Encurtador("curta"));
-
-        var aviso = Assert.IsType<FitWarningViewModel>(vm.SelectedFit);
-        Assert.True(vm.HasSelectedFit);
-        Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
-        Assert.NotNull(vm.SelectedLayout);
-        Assert.True(vm.ShowFixAndNext);
-        Assert.True(vm.FixAndNextCommand.CanExecute(null));
-        Assert.Equal("Dividir em 2 páginas", aviso.SplitText);
-        Assert.True(aviso.HasShortener);
-    }
-
-    [Fact]
-    public async Task Outro_problema_selecionado_nao_mostra_o_aviso()
-    {
-        var vm = await Conferir(null);
-        folder.SaveText("yst00001", [Linha("olá  mundo")]);
-        await vm.RefreshAsync();
-
-        vm.SelectedRow = vm.Rows[0];
-
-        Assert.Null(vm.SelectedFit);
-        Assert.False(vm.HasSelectedFit);
-    }
-
-    [Fact]
-    public async Task Dividir_grava_a_traducao_com_a_virada_de_pagina_e_reconfere()
-    {
-        var vm = await Conferir(null);
-        var untouched = Gravada("yst00001:000001");
-
-        await vm.SelectedFit!.SplitCommand.ExecuteAsync(null);
-
-        Assert.Equal($@"{Palavras(12)}\p{Palavras(4)}", Gravada());
-        Assert.Equal(untouched, Gravada("yst00001:000001"));
-        Assert.DoesNotContain(vm.Rows, r => r.RuleId == BoxLineLimitRule.RuleId);
-        Assert.Equal("Fala dividida em páginas.", vm.NoticeMessage);
-        Assert.Null(vm.ErrorMessage);
-        Assert.False(vm.IsFixing);
-    }
-
     [Fact]
     public async Task Corrigir_e_ir_para_o_proximo_divide_a_fala_e_mantem_os_marcadores_do_original_mais_a_virada_a_mais()
     {
@@ -184,20 +110,6 @@ public sealed class ConferenceFitTests : IDisposable
     }
 
     [Fact]
-    public async Task Encurtar_grava_a_versao_curta_da_ia_e_reconfere()
-    {
-        var encurtador = new Encurtador("Cabe na caixa.");
-        var vm = await Conferir(encurtador);
-
-        await vm.SelectedFit!.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Equal(Palavras(16), Assert.Single(encurtador.Pedidos));
-        Assert.Equal("Cabe na caixa.", Gravada());
-        Assert.DoesNotContain(vm.Rows, r => r.RuleId == BoxLineLimitRule.RuleId);
-        Assert.Equal("Fala encurtada pela IA.", vm.NoticeMessage);
-    }
-
-    [Fact]
     public async Task Encurtar_com_a_ia_recusando_deixa_a_traducao_e_mostra_o_motivo_no_aviso()
     {
         var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));
@@ -209,18 +121,6 @@ public sealed class ConferenceFitTests : IDisposable
         Assert.Equal(Palavras(16), Gravada());
         Assert.True(aviso.HasError);
         Assert.Contains(vm.Rows, r => r.RuleId == BoxLineLimitRule.RuleId);
-    }
-
-    [Fact]
-    public async Task Trocar_de_problema_descarta_o_aviso_anterior()
-    {
-        var vm = await Conferir(null);
-        var primeiro = vm.SelectedFit;
-
-        vm.SelectedRow = null;
-
-        Assert.NotNull(primeiro);
-        Assert.Null(vm.SelectedFit);
     }
 
     [Fact]

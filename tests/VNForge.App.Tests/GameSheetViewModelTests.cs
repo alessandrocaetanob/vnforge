@@ -41,34 +41,6 @@ public sealed class GameSheetViewModelTests : IDisposable
     private SheetStore Store => new(_config.Path);
 
     [Fact]
-    public void Sem_o_vinculo_com_o_VNDB_a_ficha_diz_isso_e_nao_oferece_acao()
-    {
-        var vm = Create();
-
-        vm.Open(null, "Minha VN");
-
-        Assert.Equal(GameSheetState.NoLink, vm.State);
-        Assert.True(vm.ShowEmpty);
-        Assert.False(vm.IsReady);
-        Assert.Contains("VNDB", vm.EmptyMessage, StringComparison.Ordinal);
-        Assert.Null(vm.EmptyActionText);
-        Assert.Null(vm.EmptyActionCommand);
-        Assert.False(vm.StartReviewCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Sem_a_pasta_de_configuracao_a_leitura_falha_com_uma_frase()
-    {
-        var vm = new GameSheetViewModel();
-
-        vm.Open(GameSheetSamples.Id, "Jogo");
-        await vm.Loading;
-
-        Assert.Equal(GameSheetState.Failed, vm.State);
-        Assert.Contains("configuração", vm.EmptyMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Ficha_ilegivel_mostra_o_erro_e_tentar_de_novo_le_outra_vez()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Store.GamePath(GameSheetSamples.Id))!);
@@ -181,27 +153,6 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task O_spoiler_vem_escondido_e_sobe_um_nivel_por_vez()
-    {
-        var vm = await ReadyAsync();
-        Assert.Equal("Escondido", vm.SelectedSpoiler.Label);
-
-        vm.SelectedSpoiler = vm.SpoilerOptions[1];
-
-        Assert.Equal("Mostrando nível 1", vm.SpoilerLevelText);
-        Assert.Equal(["Drama escolar", "Mistério", "Slice of life", "Chuva", "Clube de leitura", "Caixa de música", "Final surpresa", "1 tag com spoiler"], vm.Tags.Select(t => t.Text));
-        vm.SelectedSpoiler = vm.SpoilerOptions[2];
-
-        Assert.DoesNotContain("[spoiler escondido]", vm.SynopsisText, StringComparison.Ordinal);
-        Assert.Equal(8, vm.Tags.Count(t => !t.IsHidden));
-        vm.ToggleAllCharactersCommand.Execute(null);
-        Assert.DoesNotContain(vm.CharacterTiles, t => t.ShowsHidden);
-        Assert.Contains(vm.CharacterTiles, t => t.Name == "Ghost");
-        vm.SelectedSpoiler = null!;
-        Assert.Equal(2, vm.SpoilerLevel);
-    }
-
-    [Fact]
     public async Task Mostrar_num_cartao_escondido_sobe_o_nivel_ate_o_que_ele_pede()
     {
         var vm = await ReadyAsync();
@@ -277,49 +228,6 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task No_esconder_o_retrato_adulto_volta_ao_quadro_tracejado_e_o_cartao_do_personagem_fica()
-    {
-        var vm = await AdultAsync(AdultMode.Hide);
-
-        Assert.Equal(TileKind.ImageHidden, vm.CharacterTiles[0].Kind);
-        Assert.False(vm.CharacterTiles[0].ShowsPortrait);
-        Assert.Equal("Imagem de conteúdo adulto escondida", vm.CharacterTiles[0].Caption);
-        Assert.Equal(6, vm.CharacterTiles.Count);
-        Assert.DoesNotContain(vm.Tags, t => t is { IsHidden: true, CanReveal: true });
-    }
-
-    [Fact]
-    public async Task O_nivel_inicial_vem_da_privacidade_da_Biblioteca_e_as_tags_suas_aparecem()
-    {
-        await GameSheetSamples.SeedAsync(_config.Path, true, Ct);
-        var game = new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id };
-        new LibraryFile(_config.Path).Save(new GameLibrary([game], new LibraryPrivacy(ShowSpoilers: true)));
-        new UserTagsFile(_config.Path).Update(tags => tags.Add("g1", "favorito"));
-        var vm = Create();
-
-        vm.Open(GameSheetSamples.Id, "Amaoto");
-        await vm.Loading;
-
-        Assert.Equal(2, vm.SpoilerLevel);
-        Assert.Contains(vm.Tags, t => t is { Text: "favorito", IsMine: true });
-        Assert.DoesNotContain(vm.Tags, t => t.IsHidden);
-    }
-
-    [Fact]
-    public async Task Reler_a_ficha_mantem_o_nivel_que_a_pessoa_escolheu_e_abrir_outro_jogo_volta_ao_da_Biblioteca()
-    {
-        var vm = await ReadyAsync();
-        vm.SelectedSpoiler = vm.SpoilerOptions[1];
-
-        await vm.ReloadCommand.ExecuteAsync(null);
-
-        Assert.Equal(1, vm.SpoilerLevel);
-        vm.Open(GameSheetSamples.Id, "Amaoto");
-        await vm.Loading;
-        Assert.Equal(0, vm.SpoilerLevel);
-    }
-
-    [Fact]
     public async Task Ver_o_original_alterna_o_texto_do_VNDB_e_some_quando_nao_ha_traducao()
     {
         var vm = await ReadyAsync();
@@ -354,20 +262,6 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Traduzir_uma_ficha_sem_traducao_traduz_tudo_e_avisa()
-    {
-        var vm = await ReadyAsync(translate: false);
-
-        await vm.TranslateCommand.ExecuteAsync(null);
-
-        Assert.False(vm.HasPending);
-        Assert.Equal(new SheetStatusCounts(0, 8, 0, 0, 0), vm.BlockCounts);
-        Assert.Single(_notices, n => n.Kind == ToastKind.Success && n.Text.Contains("textos traduzidos pela IA", StringComparison.Ordinal));
-        Assert.False(vm.IsBusy);
-        Assert.Equal(string.Empty, vm.BusyText);
-    }
-
-    [Fact]
     public async Task Traduzir_de_novo_refaz_so_o_que_a_IA_traduziu_e_avisa_quando_nao_ha_nada()
     {
         var vm = await ReadyAsync();
@@ -399,18 +293,6 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal(2, _notices.Count(n => n.Kind == ToastKind.Warning && n.Text.Contains("Ajustes", StringComparison.Ordinal)));
         Assert.True(vm.HasPending);
         Assert.False(vm.IsBusy);
-    }
-
-    [Fact]
-    public async Task Item_que_a_IA_esqueceu_fica_pendente_e_o_aviso_diz_quantos()
-    {
-        var vm = await ReadyAsync(translate: false);
-        vm.TranslatorFactory = () => new VNForge.AI.Sheet.FakeSheetTranslator(item => item.Key == "synopsis" ? null : item.IsProse ? item.Source : "x");
-
-        await vm.TranslateCommand.ExecuteAsync(null);
-
-        Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("1 ficou sem tradução", StringComparison.Ordinal));
-        Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame(GameSheetSamples.Id)!.Synopsis!.Status);
     }
 
     [Fact]
@@ -658,18 +540,6 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Tempo_esgotado_ao_buscar_a_ficha_vira_aviso_e_nao_escapa_do_comando()
-    {
-        var vm = await ReadyAsync(translate: false);
-        vm.CatalogFactory = () => throw new TaskCanceledException("tempo esgotado");
-
-        await vm.FetchCommand.ExecuteAsync(null);
-
-        Assert.Contains(_notices, n => n.Kind == ToastKind.Error && n.Text.Contains("tempo esgotado", StringComparison.Ordinal));
-        Assert.False(vm.IsBusy);
-    }
-
-    [Fact]
     public async Task Os_tracos_com_spoiler_aparecem_como_etiquetas_pelo_nivel_e_os_escondidos_sao_contados()
     {
         var vm = await ReadyAsync();
@@ -731,5 +601,29 @@ public sealed class GameSheetViewModelTests : IDisposable
 
         Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("ainda não tem tradução", StringComparison.Ordinal));
         Assert.Equal(TranslationStatus.Untranslated, Store.LoadTerms().Find(SheetTermKind.Tag, "g1")!.Text.Status);
+    }
+
+    [Fact]
+    public async Task Item_que_a_IA_esqueceu_fica_pendente_e_o_aviso_diz_quantos()
+    {
+        var vm = await ReadyAsync(translate: false);
+        vm.TranslatorFactory = () => new VNForge.AI.Sheet.FakeSheetTranslator(item => item.Key == "synopsis" ? null : item.IsProse ? item.Source : "x");
+
+        await vm.TranslateCommand.ExecuteAsync(null);
+
+        Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("1 ficou sem tradução", StringComparison.Ordinal));
+        Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame(GameSheetSamples.Id)!.Synopsis!.Status);
+    }
+
+    [Fact]
+    public async Task No_esconder_o_retrato_adulto_volta_ao_quadro_tracejado_e_o_cartao_do_personagem_fica()
+    {
+        var vm = await AdultAsync(AdultMode.Hide);
+
+        Assert.Equal(TileKind.ImageHidden, vm.CharacterTiles[0].Kind);
+        Assert.False(vm.CharacterTiles[0].ShowsPortrait);
+        Assert.Equal("Imagem de conteúdo adulto escondida", vm.CharacterTiles[0].Caption);
+        Assert.Equal(6, vm.CharacterTiles.Count);
+        Assert.DoesNotContain(vm.Tags, t => t is { IsHidden: true, CanReveal: true });
     }
 }

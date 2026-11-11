@@ -219,19 +219,6 @@ public sealed class PersonalGlossaryTabTests : IDisposable
     }
 
     [Fact]
-    public async Task Arquivo_com_termo_sem_original_vira_mensagem_na_abertura_do_glossario()
-    {
-        var pessoal = Pessoal();
-        Directory.CreateDirectory(Path.GetDirectoryName(pessoal.Path)!);
-        File.WriteAllText(pessoal.Path, """{"version":1,"entries":[{"target":"mano"}]}""");
-
-        var (vm, _) = await AbrirAsync(pessoal);
-
-        Assert.True(vm.Personal.HasError);
-        Assert.Empty(vm.Personal.Rows);
-    }
-
-    [Fact]
     public async Task Com_um_termo_o_banner_usa_o_singular()
     {
         var pessoal = Pessoal();

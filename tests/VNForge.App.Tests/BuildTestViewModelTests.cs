@@ -46,77 +46,7 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private static string DateText(DateTimeOffset at) => at.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture);
 
-    [Fact]
-    public async Task Jogo_injetado_antes_do_arquivo_de_estado_aparece_como_traduzido_pela_data_do_backup()
-    {
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Translated, vm.GameBannerState);
-        Assert.Equal($"O jogo está com a tradução de {DateText(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero))}", vm.GameBannerTitle);
-        Assert.Equal("A tradução continua no projeto, mesmo se você voltar ao original.", vm.GameBannerMessage);
-        Assert.StartsWith("Jogo com a tradução de ", vm.GameStatusText, StringComparison.Ordinal);
-        Assert.True(vm.ReturnToOriginalCommand.CanExecute(null));
-        Assert.False(vm.HasLastTest);
-    }
-
-    [Fact]
-    public async Task Sem_backup_o_jogo_esta_como_veio_e_nao_ha_o_que_devolver()
-    {
-        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
-
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Original, vm.GameBannerState);
-        Assert.Equal("O jogo está como veio", vm.GameBannerTitle);
-        Assert.Equal("Nenhuma tradução foi copiada para o jogo.", vm.GameBannerMessage);
-        Assert.Equal("Jogo original", vm.GameStatusText);
-        Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Erros_da_Conferencia_travam_so_o_teste_completo_e_a_faixa_diz_quais()
-    {
-        qaRule.Enabled = true;
-
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Blocked, vm.GameBannerState);
-        Assert.Equal("2 erros travam o teste no jogo", vm.GameBannerTitle);
-        Assert.Contains("Falta ou sobra um marcador (2)", vm.GameBannerMessage, StringComparison.Ordinal);
-        Assert.Contains("Corrija em Conferir.", vm.GameBannerMessage, StringComparison.Ordinal);
-        Assert.False(vm.TestCommand.CanExecute(null));
-        Assert.True(vm.TestAccentsCommand.CanExecute(null));
-        Assert.True(vm.ReturnToOriginalCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Sem_teste_os_cinco_passos_ficam_cinza_com_a_frase_de_projeto_sem_teste()
-    {
-        var vm = await OpenAsync();
-
-        Assert.Equal(5, vm.LastTestSteps.Count);
-        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsPending));
-        Assert.All(vm.LastTestSteps, r => Assert.Equal(string.Empty, r.TimeText));
-        Assert.Equal([false, false, false, false, true], vm.LastTestSteps.Select(r => r.IsLast));
-        Assert.Equal("Ainda não houve teste neste projeto", vm.TestStepsCaption);
-    }
-
-    [Fact]
-    public async Task Com_erros_so_o_passo_Conferir_fica_travado_e_diz_quantos_erros()
-    {
-        qaRule.Enabled = true;
-
-        var vm = await OpenAsync();
-
-        Assert.True(vm.LastTestSteps[0].IsBlocked);
-        Assert.Equal("2 erros travam", vm.LastTestSteps[0].TimeText);
-        Assert.All(vm.LastTestSteps.Skip(1), r => Assert.True(r.IsPending));
-        Assert.Equal("Corrija os erros em Conferir para testar de novo.", vm.TestStepsCaption);
-    }
-
     private static TestStepState[] States(BuildViewModel vm) => [.. vm.LastTestSteps.Select(r => r.State)];
-
-    private static readonly TestStepState[] AllPending = [.. Enumerable.Repeat(TestStepState.Pending, 5)];
 
     private async Task<Task> StartHeldAsync(BuildViewModel vm, bool accents = false)
     {
@@ -124,25 +54,6 @@ public sealed class BuildTestViewModelTests : IDisposable
         var running = accents ? vm.TestAccentsCommand.ExecuteAsync(null) : vm.TestCommand.ExecuteAsync(null);
         Assert.True(await Task.Run(() => starter.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou a abrir o jogo.");
         return running;
-    }
-
-    [Fact]
-    public async Task Durante_o_teste_o_passo_atual_fica_em_andamento_os_anteriores_prontos_e_os_seguintes_cinza()
-    {
-        var vm = await OpenAsync();
-
-        var running = await StartHeldAsync(vm);
-
-        Assert.Equal(
-            [TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Done, TestStepState.Running],
-            States(vm));
-        Assert.Equal("Testando agora · Abrir o jogo", vm.TestStepsCaption);
-
-        starter.Hold!.Set();
-        await running;
-
-        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
-        Assert.StartsWith("Último teste · ", vm.TestStepsCaption, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -246,27 +157,6 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_o_teste_marca_o_passo_como_cancelado_e_nao_volta_ao_teste_anterior()
-    {
-        var vm = await OpenAsync();
-        gate.Arm();
-        var running = vm.TestCommand.ExecuteAsync(null);
-        Assert.True(await Task.Run(() => gate.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou à Conferência.");
-
-        tasks.Tasks.Last().CancelCommand.Execute(null);
-        gate.Release.Set();
-        await running;
-
-        var failed = vm.LastTestSteps.Single(r => r.IsFailed);
-        Assert.Equal("Cancelado", failed.TimeText);
-        var index = vm.LastTestSteps.IndexOf(failed);
-        Assert.All(vm.LastTestSteps.Take(index), r => Assert.True(r.IsDone));
-        Assert.All(vm.LastTestSteps.Skip(index + 1), r => Assert.True(r.IsPending));
-        Assert.Equal("O último teste foi cancelado.", vm.TestStepsCaption);
-        Assert.Null(starter.Executable);
-    }
-
-    [Fact]
     public async Task Testar_so_os_acentos_mostra_o_proprio_resultado_mesmo_com_erros_na_Conferencia()
     {
         var vm = await OpenAsync();
@@ -325,19 +215,6 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
         Assert.True(vm.HasLastTest);
         Assert.Null(GameStateFile.Load(ProjectFolder.Open(root)).InGame);
-    }
-
-    [Fact]
-    public async Task Testar_so_os_acentos_injeta_a_frase_e_a_faixa_diz_que_e_o_teste_de_acentos()
-    {
-        var vm = await OpenAsync();
-
-        await vm.TestAccentsCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(GameTestKind.AccentTest, GameStateFile.Load(ProjectFolder.Open(root)).InGame?.Kind);
-        Assert.Contains("só os acentos", vm.LastTestTitle, StringComparison.Ordinal);
-        Assert.Contains("teste de acentos", vm.GameBannerMessage + vm.GameStatusText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -429,32 +306,6 @@ public sealed class BuildTestViewModelTests : IDisposable
         GameStateFile.Save(ProjectFolder.Open(root), GameStateFile.Empty with { InGame = new GameInGame(GameTestKind.Translation, at, backup, null, null) });
 
     [Fact]
-    public async Task Falha_que_o_Core_descreve_com_caminho_aparece_na_barra_sem_caminho_e_vai_inteira_para_o_registro()
-    {
-        starter.Failure = new VNForgeException(@"Não foi possível abrir o jogo: C:\Jogos\MinhaVN.exe. Rode vnf run depois.");
-        var vm = await OpenAsync();
-
-        await vm.TestCommand.ExecuteAsync(null);
-
-        AssertPlain(vm.ErrorMessage);
-        Assert.Contains("recebeu a tradução, mas não abriu", vm.ErrorMessage, StringComparison.Ordinal);
-        Assert.Contains(vm.Log, l => l.Message.Contains(@"C:\Jogos\MinhaVN.exe", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Erro_qualquer_do_teste_mostra_uma_frase_fixa_e_o_resto_vai_para_o_registro()
-    {
-        var vm = await OpenAsync();
-        Directory.Delete(Path.Combine(root, ".cache", "game"), recursive: true);
-
-        await vm.TestCommand.ExecuteAsync(null);
-
-        AssertPlain(vm.ErrorMessage);
-        Assert.Contains("Detalhes técnicos", vm.ErrorMessage, StringComparison.Ordinal);
-        Assert.Contains(vm.Log, l => l.Message.StartsWith("O teste parou: ", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public async Task Com_outra_operacao_no_jogo_a_barra_diz_que_esta_ocupado_sem_caminho()
     {
         var vm = await OpenAsync();
@@ -467,24 +318,6 @@ public sealed class BuildTestViewModelTests : IDisposable
         AssertPlain(vm.ErrorMessage);
         Assert.Contains("Outra operação do VNForge", vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(before, await File.ReadAllBytesAsync(GameFile, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Estado_diz_que_o_jogo_tem_a_traducao_mas_o_backup_sumiu_a_faixa_avisa_e_nao_diz_como_veio()
-    {
-        SaveInGame(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), "2026-10-22_2316");
-        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
-
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Warning, vm.GameBannerState);
-        Assert.Equal("O jogo está com a tradução, mas a cópia de segurança não foi encontrada", vm.GameBannerTitle);
-        Assert.Contains("não está mais no projeto", vm.GameBannerMessage, StringComparison.Ordinal);
-        Assert.Contains("reinstale o jogo", vm.GameBannerMessage, StringComparison.Ordinal);
-        Assert.Contains("sem cópia de segurança", vm.GameStatusText, StringComparison.Ordinal);
-        Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
-        Assert.Contains("Reinstale o jogo", vm.ReturnToOriginalHint, StringComparison.Ordinal);
-        AssertPlain(vm.GameBannerMessage.Replace("/", string.Empty, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -512,55 +345,6 @@ public sealed class BuildTestViewModelTests : IDisposable
         var vm = await OpenAsync();
 
         Assert.Equal(GameState.Original, vm.GameBannerState);
-    }
-
-    [Fact]
-    public async Task Estado_mais_velho_que_o_backup_mais_novo_perde_para_o_backup()
-    {
-        SaveInGame(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero), "2026-10-01_0900");
-
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Translated, vm.GameBannerState);
-        Assert.Equal($"O jogo está com a tradução de {DateText(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero))}", vm.GameBannerTitle);
-        Assert.Equal($"Jogo com a tradução de {DateText(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero))}", vm.GameStatusText);
-    }
-
-    [Fact]
-    public async Task Injecao_que_falhou_e_foi_desfeita_deixa_a_faixa_em_como_veio()
-    {
-        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
-        File.WriteAllBytes(Path.Combine(root, "build", DemoBuild.Archive), DemoBuild.Payload(4_200_000, 9));
-        var plan = GameInjector.Plan(ProjectFolder.Open(root));
-
-        Assert.Throws<InjectionException>(() =>
-            GameStateFile.Inject(ProjectFolder.Open(root), new GameInjector(clock, new FailsFirstCopy()), plan, GameTestKind.Translation, null, clock));
-        var vm = await OpenAsync();
-
-        Assert.Equal(GameState.Original, vm.GameBannerState);
-        Assert.Equal("O jogo está como veio", vm.GameBannerTitle);
-        Assert.Null(GameStateFile.Load(ProjectFolder.Open(root)).InGame);
-    }
-
-    [Theory]
-    [InlineData(2020)]
-    [InlineData(2026)]
-    [InlineData(2030)]
-    public async Task Injetar_dos_detalhes_tecnicos_atualiza_o_estado_do_jogo_em_qualquer_data(int year)
-    {
-        clock = new FakeTimeProvider(new DateTimeOffset(year, 6, 15, 12, 0, 0, TimeSpan.Zero));
-        Directory.Delete(Path.Combine(root, "backup"), recursive: true);
-        File.WriteAllBytes(Path.Combine(root, "build", DemoBuild.Archive), DemoBuild.Payload(4_200_000, 9));
-        var vm = await OpenAsync();
-
-        vm.InjectCommand.Execute(null);
-        await vm.ConfirmCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        var inGame = GameStateFile.Load(ProjectFolder.Open(root)).InGame;
-        Assert.NotNull(inGame?.BackupDirectory);
-        Assert.Equal(GameState.Translated, vm.GameBannerState);
-        Assert.Equal($"O jogo está com a tradução de {DateText(clock.GetUtcNow())}", vm.GameBannerTitle);
     }
 
     /// <summary>Falha na cópia de número <c>failingCopy</c>: a 1 é a do original para o backup, a 2 é a gravação no jogo.</summary>

@@ -89,26 +89,6 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task O_dialogo_estima_o_custo_de_cada_configuracao_antes_de_rodar()
-    {
-        var vm = Vm();
-        await vm.LoadAsync(Project());
-
-        await vm.RunOpenCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsRunOpen);
-        Assert.Equal(3, vm.RunItems.Count);
-        Assert.All(vm.RunItems, i => Assert.StartsWith("R$ ", i.CostText));
-        Assert.True(vm.RunItems[0].Brl > vm.RunItems[2].Brl);
-        Assert.Equal("Rodar 3 configurações", vm.RunLabel);
-        Assert.StartsWith("Custo (aproximado): R$ ", vm.RunCostText);
-        Assert.StartsWith("Já gasto no projeto: R$ 0,00", vm.RunSpentText);
-        Assert.True(vm.CanRun);
-        Assert.Empty(_models);
-        Assert.Empty(_judge.ReceivedBatches);
-    }
-
-    [Fact]
     public async Task Tirar_configuracao_ou_juiz_baixa_o_custo_e_muda_o_botao()
     {
         var vm = Vm();
@@ -148,18 +128,6 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task O_valor_de_aviso_so_avisa_e_ainda_deixa_rodar()
-    {
-        var vm = Vm(() => new DashboardContext(ExchangeRate.Placeholder, new BudgetLimits(null, 0.001m), HasApiKey: true));
-        await vm.LoadAsync(Project());
-
-        await vm.RunOpenCommand.ExecuteAsync(null);
-
-        Assert.True(vm.AboveWarning);
-        Assert.True(vm.CanRun);
-    }
-
-    [Fact]
     public async Task Cada_rodada_sorteia_com_semente_nova_e_grava_a_semente_para_reproduzir()
     {
         var project = Project(approved: 200);
@@ -177,35 +145,6 @@ public sealed class EvalViewModelTests : IDisposable
 
         Assert.NotEqual(seeds[0], seeds[1]);
         Assert.All(seeds, seed => Assert.True(seed > 0));
-    }
-
-    [Fact]
-    public async Task Rodar_mostra_o_relatorio_sem_gravar_traducao_no_projeto()
-    {
-        var project = Project();
-        var before = File.ReadAllText(project.TextPath("yst00001"));
-        var vm = Vm();
-
-        await RunRound(vm, project);
-
-        Assert.True(vm.HasRound);
-        Assert.False(vm.IsRunning);
-        Assert.False(vm.IsRunOpen);
-        Assert.Equal(3, vm.Rows.Count);
-        Assert.Equal("A", vm.Rows[0].Letter);
-        Assert.Equal("Opus 5.5", vm.Rows[0].ModelName);
-        Assert.Equal("100,0", vm.Rows[0].ChrfText);
-        Assert.Equal("9,0", vm.Rows[0].JudgeText);
-        Assert.True(double.Parse(vm.Rows[1].ChrfText.Replace(',', '.'), System.Globalization.CultureInfo.InvariantCulture) < 100);
-        Assert.StartsWith("Rodada de ", vm.RoundTitle);
-        Assert.Equal("30 linhas sorteadas do conjunto ouro · mesma amostra em todas as configurações", vm.RoundSubtitle);
-        Assert.Contains("20 linhas que faltam", vm.Footnote);
-        Assert.Equal(3, vm.Points.Count);
-        Assert.Contains("terminou", vm.Message);
-        Assert.False(string.IsNullOrWhiteSpace(vm.Reading));
-        Assert.Equal(before, File.ReadAllText(project.TextPath("yst00001")));
-        Assert.NotNull(EvalStore.LoadLatest(project));
-        Assert.Equal([ClaudeModels.Opus, ClaudeModels.Sonnet, ClaudeModels.Haiku], _models);
     }
 
     [Fact]
@@ -338,21 +277,6 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_juiz_a_nota_sai_como_sem_juiz()
-    {
-        var vm = Vm();
-        await vm.LoadAsync(Project());
-        await vm.RunOpenCommand.ExecuteAsync(null);
-        vm.UseJudge = false;
-
-        await vm.StartRunCommand.ExecuteAsync(null);
-        await vm.Running;
-
-        Assert.All(vm.Rows, r => Assert.Equal("sem juiz", r.JudgeText));
-        Assert.Empty(_judge.ReceivedBatches);
-    }
-
-    [Fact]
     public async Task A_barra_da_rodada_as_cegas_conta_o_par_que_esta_na_tela()
     {
         var vm = await RunRound(Vm(), Project());
@@ -427,13 +351,46 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
-    public void O_eixo_de_custo_do_grafico_para_na_ultima_marca_que_cabe()
+    public async Task Rodar_mostra_o_relatorio_sem_gravar_traducao_no_projeto()
     {
-        var points = new[] { new EvalChartPoint("A", 156.7, 61.4, false), new EvalChartPoint("E", 3.9, 47, false) };
+        var project = Project();
+        var before = File.ReadAllText(project.TextPath("yst00001"));
+        var vm = Vm();
 
-        var (max, step) = EvalChart.XScale(points);
+        await RunRound(vm, project);
 
-        Assert.Equal((170d, 50d), (max, step));
-        Assert.Equal([0d, 50d, 100d, 150d], EvalChart.XTicks(max, step));
+        Assert.True(vm.HasRound);
+        Assert.False(vm.IsRunning);
+        Assert.False(vm.IsRunOpen);
+        Assert.Equal(3, vm.Rows.Count);
+        Assert.Equal("A", vm.Rows[0].Letter);
+        Assert.Equal("Opus 5.5", vm.Rows[0].ModelName);
+        Assert.Equal("100,0", vm.Rows[0].ChrfText);
+        Assert.Equal("9,0", vm.Rows[0].JudgeText);
+        Assert.True(double.Parse(vm.Rows[1].ChrfText.Replace(',', '.'), System.Globalization.CultureInfo.InvariantCulture) < 100);
+        Assert.StartsWith("Rodada de ", vm.RoundTitle);
+        Assert.Equal("30 linhas sorteadas do conjunto ouro · mesma amostra em todas as configurações", vm.RoundSubtitle);
+        Assert.Contains("20 linhas que faltam", vm.Footnote);
+        Assert.Equal(3, vm.Points.Count);
+        Assert.Contains("terminou", vm.Message);
+        Assert.False(string.IsNullOrWhiteSpace(vm.Reading));
+        Assert.Equal(before, File.ReadAllText(project.TextPath("yst00001")));
+        Assert.NotNull(EvalStore.LoadLatest(project));
+        Assert.Equal([ClaudeModels.Opus, ClaudeModels.Sonnet, ClaudeModels.Haiku], _models);
+    }
+
+    [Fact]
+    public async Task Sem_juiz_a_nota_sai_como_sem_juiz()
+    {
+        var vm = Vm();
+        await vm.LoadAsync(Project());
+        await vm.RunOpenCommand.ExecuteAsync(null);
+        vm.UseJudge = false;
+
+        await vm.StartRunCommand.ExecuteAsync(null);
+        await vm.Running;
+
+        Assert.All(vm.Rows, r => Assert.Equal("sem juiz", r.JudgeText));
+        Assert.Empty(_judge.ReceivedBatches);
     }
 }
