@@ -75,28 +75,18 @@ public sealed class GameStateFileTests : IDisposable
     [Fact]
     public void Save_espera_a_leitura_em_andamento_e_conclui_quando_a_nova_tentativa_solta_o_arquivo()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS o rename troca o arquivo mesmo aberto, e a espera nunca é chamada.");
         GameStateFile.Save(_project, Sample());
-        var aberto = new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var aberto = new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var esperas = new List<int>();
 
-        try
+        GameStateFile.Save(_project, GameStateFile.Empty, milissegundos =>
         {
-            GameStateFile.Save(_project, GameStateFile.Empty, milissegundos =>
-            {
-                esperas.Add(milissegundos);
-                aberto.Dispose();
-            });
-        }
-        finally
-        {
+            esperas.Add(milissegundos);
             aberto.Dispose();
-        }
+        });
 
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Equal([5], esperas);
-        }
-
+        Assert.Equal([5], esperas);
         Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
         Assert.Empty(Directory.GetFiles(_project.CacheDirectory, "*.tmp"));
     }

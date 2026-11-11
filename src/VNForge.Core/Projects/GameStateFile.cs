@@ -80,7 +80,8 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
         try
         {
             var path = PathFor(project);
-            // Lê com FileShare.Delete: um File.ReadAllText comum segura o arquivo contra a troca por rename de quem grava (Save).
+            // Leitura curta, com nova tentativa se a troca por rename (Save) a pegar no meio. No Windows o rename falha enquanto qualquer leitura está aberta, mesmo com
+            // FileShare.Delete; quem segura é a nova tentativa do ProjectFileIo.Move no Save, que espera a leitura terminar.
             var read = File.Exists(path) ? JsonSerializer.Deserialize<GameStateFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart('﻿'), Json) : null;
             return read is { Version: CurrentVersion } ? read : Empty;
         }

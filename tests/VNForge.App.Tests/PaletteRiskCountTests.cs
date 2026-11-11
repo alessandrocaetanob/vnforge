@@ -10,6 +10,8 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class PaletteRiskCountTests
 {
+    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
+
     private static string CreateProject(TempFolder temp, bool corrupt = false)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
@@ -64,22 +66,27 @@ public sealed class PaletteRiskCountTests
         {
             Editor = new EditorViewModel(_ =>
             {
-                gate.Wait();
+                // Com prazo: se o loader rodasse na thread do teste, a porta nunca abriria e a suíte travaria.
+                if (!gate.Wait(Deadline))
+                {
+                    throw new TimeoutException("A porta do loader não abriu: o loader rodou na thread do teste.");
+                }
+
                 return ProjectLines.Read(ProjectFolder.Open(root));
             }),
         };
 
         try
         {
-            await main.Start.OpenFolderCommand.ExecuteAsync(null);
-            await main.ProjectOpening;
+            await main.Start.OpenFolderCommand.ExecuteAsync(null).WaitAsync(Deadline, TestContext.Current.CancellationToken);
+            await main.ProjectOpening.WaitAsync(Deadline, TestContext.Current.CancellationToken);
             Assert.True(main.Editor.IsLoading);
 
             main.Palette.Open();
             main.Palette.Query = "risco";
             if (main.RiskCounting is { } counting)
             {
-                await counting;
+                await counting.WaitAsync(Deadline, TestContext.Current.CancellationToken);
             }
 
             Assert.Contains(main.Palette.Results, r => r.Title == "Revisar por risco");
@@ -87,7 +94,7 @@ public sealed class PaletteRiskCountTests
         finally
         {
             gate.Set();
-            await main.Editor.Loading;
+            await main.Editor.Loading.WaitAsync(Deadline, TestContext.Current.CancellationToken);
         }
     }
 
