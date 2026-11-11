@@ -48,11 +48,9 @@
       <Setter Property="Margin" Value="0"/>
       <Setter Property="CornerRadius" Value="0"/>
     </Style>
+    <!-- A contagem herda a fonte e o tamanho da aba (15/700): no mesmo corpo e na mesma altura de linha as duas linhas de base coincidem; a 11 px ela ficava pequena e elevada. -->
     <Style Selector="TextBlock.count">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
-      <Setter Property="FontSize" Value="11"/>
-      <Setter Property="LineHeight" Value="16"/>
-      <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <!-- Cabeçalho de coluna do quadro (x-gh): 12/600 em text-secondary, sem caixa alta. -->
@@ -528,10 +526,10 @@
                   </Border>
                   <Border Grid.Row="2" Classes="divider-bottom" Padding="0,10">
                     <Grid ColumnDefinitions="127,147,*,120,222">
-                      <TextBlock Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Em japonês"/>
-                      <TextBlock Grid.Column="1" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Em português"/>
-                      <TextBlock Grid.Column="2" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Observação para a IA"/>
-                      <TextBlock Grid.Column="3" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Vem de" HorizontalAlignment="Right"/>
+                      <TextBlock Classes="caption secondary" Margin="12,0" Text="Em japonês"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" Margin="12,0" Text="Em português"/>
+                      <TextBlock Grid.Column="2" Classes="caption secondary" Margin="12,0" Text="Observação para a IA"/>
+                      <TextBlock Grid.Column="3" Classes="caption secondary" Margin="12,0" Text="Vem de" HorizontalAlignment="Right"/>
                     </Grid>
                   </Border>
                   <TextBlock Grid.Row="3" Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.EmptyText}" IsVisible="{Binding IsEmpty}"/>
