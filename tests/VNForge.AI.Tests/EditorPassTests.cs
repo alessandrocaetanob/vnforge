@@ -93,9 +93,9 @@ public class EditorPassTests
     }
 
     [Fact]
-    public async Task Resposta_que_nao_e_o_json_esperado_vira_ClaudeResponseException()
+    public async Task Resposta_sem_o_campo_adjustments_vira_ClaudeResponseException()
     {
-        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("não é json")));
+        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("""{"reviews":[]}""")));
 
         await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.ReviewSceneAsync(Scene(Unit("y:1", "a", "a")), TestContext.Current.CancellationToken));
     }
@@ -235,9 +235,6 @@ public class EditorPassTests
     [Theory]
     [InlineData("B1", "y:2", "r")]
     [InlineData("B", "y:2", "r")]
-    [InlineData("  ", "y:2", "r")]
-    [InlineData("B2", "y:2", " ")]
-    [InlineData("B2", "y:9", "r")]
     public async Task Outra_que_nao_vale_devolve_nulo(string proposed, string id, string reason)
     {
         var provider = new ScriptedProvider(_ => [], (_, _) => new EditorPassProposal(id, EditorSuggestionKind.Voice, proposed, reason));

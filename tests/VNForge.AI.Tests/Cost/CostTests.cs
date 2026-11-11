@@ -131,19 +131,18 @@ public class CostTests
     }
 
     [Fact]
-    public async Task Duvida_do_provedor_chega_ao_resultado_da_linha_nova_e_a_do_cache_nao_tem_duvida()
+    public async Task Linhas_repetidas_no_lote_dividem_a_resposta_nova_com_a_duvida_e_nao_contam_como_cache()
     {
         var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
-        var provider = new CachingTranslationProvider(new DoubtingProvider(doubt), new TranslationCache(), ClaudeModels.Opus);
-        var batch = new TranslationBatch([Unit("a", "はい")]);
+        var inner = new DoubtingProvider(doubt);
+        var provider = new CachingTranslationProvider(inner, new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]);
 
-        var first = await provider.TranslateAsync(batch, CancellationToken.None);
-        var second = await provider.TranslateAsync(batch, CancellationToken.None);
+        var results = await provider.TranslateAsync(batch, CancellationToken.None);
 
-        Assert.Equal(doubt, Assert.Single(first).Doubt);
-        Assert.Null(Assert.Single(second).Doubt);
-        Assert.False(first[0].FromCache);
-        Assert.True(second[0].FromCache);
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal(doubt, r.Doubt));
+        Assert.All(results, r => Assert.False(r.FromCache));
     }
 
     [Fact]

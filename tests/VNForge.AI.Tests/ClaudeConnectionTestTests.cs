@@ -39,6 +39,19 @@ public class ClaudeConnectionTestTests
     }
 
     [Fact]
+    public async Task Chave_recusada_vira_mensagem_em_portugues()
+    {
+        var rede = new HttpRequestException("401");
+        var client = new ThrowingClient(new AnthropicUnauthorizedException(rede) { StatusCode = HttpStatusCode.Unauthorized, ResponseBody = "sk-ant-segredo" });
+
+        var result = await ClaudeConnectionTest.RunAsync(client, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("A chave de API foi recusada. Confira a chave em Ajustes.", result.Message);
+        Assert.DoesNotContain("segredo", result.Message);
+    }
+
+    [Fact]
     public async Task Falha_de_rede_vira_mensagem_em_portugues()
     {
         var result = await ClaudeConnectionTest.RunAsync(new ThrowingClient(new HttpRequestException("sem rede")), CancellationToken.None);

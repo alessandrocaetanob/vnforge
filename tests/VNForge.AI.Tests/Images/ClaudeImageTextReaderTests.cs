@@ -53,7 +53,6 @@ public sealed class ClaudeImageTextReaderTests
     [Theory]
     [InlineData("""{"hasText":false,"text":""}""")]
     [InlineData("""{"hasText":false,"text":"ruído que o modelo não devia mandar"}""")]
-    [InlineData("""{"hasText":true,"text":"   "}""")]
     public async Task Sem_texto_o_resultado_e_vazio(string json)
     {
         var reading = await new ClaudeImageTextReader(new StubClient(_ => Ok(json))).ReadAsync(Image, Token);

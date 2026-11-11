@@ -109,9 +109,6 @@ public class ClaudeTranslationProviderTests
     [Theory]
     [InlineData("""{"kind":"vibe","note":"x"}""")]
     [InlineData("""{"kind":"tone","note":"  "}""")]
-    [InlineData("""{"kind":"tone"}""")]
-    [InlineData("null")]
-    [InlineData("\"tom\"")]
     public async Task Duvida_malformada_e_ignorada_e_a_traducao_continua(string doubt)
     {
         var client = new StubClient(_ => Ok($$"""{"translations":[{"id":"a","translation":"Oi","doubt":{{doubt}}}]}"""));

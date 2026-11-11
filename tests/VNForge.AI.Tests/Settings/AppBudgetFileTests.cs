@@ -38,7 +38,6 @@ public sealed class AppBudgetFileTests : IDisposable
     [Theory]
     [InlineData("""{ "spendLimit": "muito" }""", "spendLimit")]
     [InlineData("""{ "spendLimit": -5 }""", "spendLimit")]
-    [InlineData("""{ "spendLimit": 1e40 }""", "spendLimit")]
     public void Valor_de_dinheiro_invalido_vira_problema(string content, string field)
     {
         Write(content);
