@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -15,13 +16,13 @@ public sealed class CharactersRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     private static ThemeVariant ThemeOf(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
-    private async Task Abrir(ThemeVariant theme, Func<MainWindow, MainWindowViewModel, Task> verificar)
+    private async Task Abrir(ThemeVariant theme, Func<MainWindow, MainWindowViewModel, Task> verificar, bool manyTraits = false)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
             {
                 using var config = new TempFolder();
-                await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, TestContext.Current.CancellationToken);
+                await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, TestContext.Current.CancellationToken, manyTraits);
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(config.Path), new FixedClock(CharactersSamples.Now));
                 var vm = new MainWindowViewModel(start);
                 vm.Characters.ConfigDirectory = config.Path;
@@ -72,6 +73,28 @@ public sealed class CharactersRenderTests(HeadlessFixture fixture) : IClassFixtu
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-lista", theme)));
             return Task.CompletedTask;
         });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Com_mais_de_seis_tracos_o_link_Ver_os_N_tracos_e_uma_linha_de_texto_e_nao_empurra_o_resto(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, (window, vm) =>
+        {
+            var page = Page(window);
+            var link = page.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MoreTraits" && b.IsEffectivelyVisible);
+            var linkBottom = link.TranslatePoint(default, page)!.Value.Y + link.Bounds.Height;
+            var divider = page.GetVisualDescendants().OfType<Border>()
+                .Where(b => b.Height == 1 && b.IsEffectivelyVisible && b.TranslatePoint(default, page)!.Value.Y > linkBottom - 1)
+                .MinBy(b => b.TranslatePoint(default, page)!.Value.Y)!;
+
+            // No quadro o link é uma linha de texto (20 px) e o divisor vem 16 px depois dele.
+            Assert.Equal(20, link.Bounds.Height, 0.5);
+            Assert.Equal(16, divider.TranslatePoint(default, page)!.Value.Y - linkBottom, 0.5);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-lista-sete-tracos", theme)));
+            return Task.CompletedTask;
+        }, manyTraits: true);
     }
 
     [Theory]

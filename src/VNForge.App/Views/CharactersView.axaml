@@ -34,6 +34,8 @@
     </Style>
     <!-- "Ver os N traços" do quadro: accent, regular e rente à coluna do filtro. -->
     <Style Selector="Button.more-traits">
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Height" Value="20"/>
       <Setter Property="FontWeight" Value="Normal"/>
       <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     </Style>

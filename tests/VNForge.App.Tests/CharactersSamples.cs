@@ -27,10 +27,15 @@ internal static class CharactersSamples
     internal static VndbCharacter Character(string id, string name, string? original, string? gender, VndbCharacterAppearance[] appearances, VndbTrait[] traits) =>
         new(id, name, original, name == "Hana Tsukino" ? ["Hanako"] : [], $"{name}.", null, gender is null ? null : new VndbGender(gender, gender), appearances, traits, name == "Hana Tsukino" ? 17 : null);
 
-    internal static FakeVndbCatalog Catalog() => new(
+    /// <summary>Cinco traços a mais para a Hana (sete no total): com mais de seis, o filtro ganha o link "Ver os N traços".</summary>
+    internal static VndbTrait[] ExtraTraits => [.. Enumerable.Range(1, 5).Select(n => new VndbTrait($"i{100 + n}", $"Traço {n}", "i30", "Roupa", 0, false, Sexual: false))];
+
+    internal static FakeVndbCatalog Catalog() => Catalog(manyTraits: false);
+
+    internal static FakeVndbCatalog Catalog(bool manyTraits) => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
         [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost]),
+            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : []]),
             Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
             Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
             Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),
@@ -41,12 +46,12 @@ internal static class CharactersSamples
         new(id, $"C:\\Jogos\\{folder}", null, LibraryEngine.Unknown, title, null, Now) { VndbId = vndbId, Confirmation = LibraryConfirmation.Manual };
 
     /// <summary>Grava as fichas dos três jogos e uma Biblioteca com os dois primeiros; <paramref name="matched"/> casa a edição r1 com a pasta do jogo 1.</summary>
-    public static async Task SeedAsync(string configDirectory, bool matched = false, bool showSpoilers = false, CancellationToken ct = default)
+    public static async Task SeedAsync(string configDirectory, bool matched = false, bool showSpoilers = false, CancellationToken ct = default, bool manyTraits = false)
     {
         var store = new SheetStore(configDirectory);
         foreach (var id in new[] { Moon, Star, Outside })
         {
-            await SheetFetcher.FetchAsync(Catalog(), store, id, new FixedClock(Now), ct);
+            await SheetFetcher.FetchAsync(Catalog(manyTraits), store, id, new FixedClock(Now), ct);
         }
 
         new LibraryFile(configDirectory).Save(new GameLibrary([Owned("g1", "Moon Flower", Moon, "Moon Flower"), Owned("g2", "Star Garden", Star, "Star Garden")])
