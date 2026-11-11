@@ -1192,4 +1192,24 @@ public class ConferenceViewModelTests
             return [];
         }
     }
+
+    [Fact]
+    public async Task Os_pedidos_da_pagina_avisam_quem_escuta_e_nao_falham_sem_ninguem()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+        var pedido = new LineRequest("yst00001", "yst00001:000002");
+        vm.TestCommand.Execute(null);
+        vm.OpenLineByIdCommand.Execute(pedido);
+        vm.OpenLineByIdCommand.Execute(null);
+        var avisos = new List<string>();
+        vm.TestRequested += (_, _) => avisos.Add("teste");
+        vm.LineRequested += (_, request) => avisos.Add($"linha {request.UnitId}");
+
+        vm.TestCommand.Execute(null);
+        vm.OpenLineByIdCommand.Execute(pedido);
+        vm.OpenLineByIdCommand.Execute(null);
+
+        Assert.Equal(["teste", "linha yst00001:000002"], avisos);
+    }
 }
