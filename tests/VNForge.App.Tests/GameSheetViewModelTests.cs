@@ -223,10 +223,7 @@ public sealed class GameSheetViewModelTests : IDisposable
     /// <summary>A mesma ficha com uma tag erótica e o retrato do primeiro personagem marcado como sexual, no modo adulto da Biblioteca.</summary>
     private async Task<GameSheetViewModel> AdultAsync(AdultMode mode, AdultReveal? reveals = null)
     {
-        var game = GameSheetSamples.Game() with { Tags = [.. GameSheetSamples.Game().Tags, new VndbTag("g9", "Nudity", "ero", 2.5, 0, false)] };
-        var characters = GameSheetSamples.Characters();
-        characters[0] = characters[0] with { Image = new VndbImage("https://t.vndb.org/ch/1.jpg", null, 100, 140, 2, 0) };
-        await SheetFetcher.FetchAsync(new FakeVndbCatalog([game], characters), Store, GameSheetSamples.Id, new FixedClock(GameSheetSamples.Now), Ct);
+        await GameSheetSamples.SeedAsync(_config.Path, translate: false, Ct, GameSheetSamples.AdultCatalog());
         new LibraryFile(_config.Path).Save(new GameLibrary([new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id }], new LibraryPrivacy(Adult: mode)));
         var vm = Create();
         if (reveals is not null)

@@ -104,8 +104,10 @@ internal static class LibrarySamples
     }
 
     /// <summary>Uma fonte de imagens que pinta um degradê por endereço, para a capa aparecer sem rede.</summary>
-    public sealed class Images : IVndbImageSource
+    public sealed class Images(LibraryPrivacy? privacy = null) : IVndbImageSource
     {
+        public LibraryPrivacy Privacy => privacy ?? new LibraryPrivacy();
+
         public event EventHandler? PrivacyChanged
         {
             add { }
