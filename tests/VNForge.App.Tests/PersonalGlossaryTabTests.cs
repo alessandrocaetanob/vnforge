@@ -55,6 +55,18 @@ public sealed class PersonalGlossaryTabTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_um_termo_so_o_resumo_e_o_rodape_ficam_no_singular()
+    {
+        var pessoal = Pessoal();
+        pessoal.Upsert(new PersonalTerm("先輩", "senpai", null, ["a"]));
+        var (vm, _) = await AbrirAsync(pessoal);
+
+        Assert.Equal(1, vm.Personal.Count);
+        Assert.StartsWith("1 termo ·", vm.Personal.Summary, StringComparison.Ordinal);
+        Assert.StartsWith("1 termo", vm.Personal.FooterText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Usar_no_projeto_poe_o_termo_na_tabela_Termos_e_ele_grava_com_o_projeto()
     {
         var (vm, folder) = await AbrirAsync(Alimentar());

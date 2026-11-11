@@ -94,6 +94,7 @@ internal static class ScreenCatalog
         })),
         new("personagens", Characters(manyTraits: true)),
         new("personagem", Characters("Hana Tsukino", manyTraits: true)),
+        new("personagens-busca", Characters(search: "Hana")),
         new("personagem-mika", Characters("Mika Aoba")),
         new("editor-busca", OpenEditorSearch),
         new("jogar-tempo", Play(playing: false)),
@@ -107,6 +108,7 @@ internal static class ScreenCatalog
         new("ajustes-vndb", SettingsTab(8, vndb: true)),
         new("ficha-vndb", Sheet(review: false)),
         new("ficha-revisao", Sheet(review: true)),
+        new("ficha-nao-baixada", Sheet(review: false, seeded: false)),
         new("revisao", OpenReview),
         new("leitura", OpenReading),
         new("paleta", OpenPalette),
@@ -249,7 +251,7 @@ internal static class ScreenCatalog
     }
 
     /// <summary>Os Personagens com as fichas inventadas de <see cref="CharactersSamples"/>; <paramref name="open"/> abre a página de um personagem.</summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false) => async (_, theme) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null) => async (_, theme) =>
     {
         var config = new TempFolder();
         await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits);
@@ -260,6 +262,12 @@ internal static class ScreenCatalog
         await Prepare(host, async () =>
         {
             await host.GoToAsync(NavKey.Characters);
+            if (search is not null)
+            {
+                vm.Characters.SearchText = search;
+                host.Settle();
+            }
+
             if (open is not null)
             {
                 vm.Characters.OpenCharacterCommand.Execute(vm.Characters.Items.Single(i => i.Name == open));
@@ -404,10 +412,14 @@ internal static class ScreenCatalog
     /// A aba Ficha com o projeto de demonstração ligado ao VNDB e a ficha inventada de <see cref="GameSheetSamples"/> (sinopse, tags, personagens, dados), ou a
     /// revisão dela bloco a bloco. O vínculo é gravado na pasta do projeto e tirado quando a janela fecha, para as outras telas verem o projeto como era.
     /// </summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> Sheet(bool review) => async (root, theme) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Sheet(bool review, bool seeded = true) => async (root, theme) =>
     {
         var config = new TempFolder();
-        await GameSheetSamples.SeedAsync(config.Path);
+        if (seeded)
+        {
+            await GameSheetSamples.SeedAsync(config.Path);
+        }
+
         var held = new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto no Hakoniwa", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id };
         new LibraryFile(config.Path).Save(new GameLibrary([held]));
         new UserTagsFile(config.Path).Update(tags => tags.Add("g1", "favorito"));
