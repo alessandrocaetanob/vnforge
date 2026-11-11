@@ -44,16 +44,26 @@ public static class GameTestFailure
 {
     private const string DataKey = "VNForge.GameTestStep";
 
-    /// <summary>O passo em que a falha aconteceu; nulo para uma falha antes do primeiro passo (executável ausente, patch recusado) ou que não veio de <see cref="GameTester.Run"/>.</summary>
+    /// <summary>
+    /// O passo em que a falha aconteceu, também quando a exceção veio embrulhada em outra (<see cref="Exception.InnerException"/>, <see cref="AggregateException"/>);
+    /// nulo para uma falha antes do primeiro passo (executável ausente, patch recusado) ou que não veio de <see cref="GameTester.Run"/>.
+    /// </summary>
     public static GameTestStep? StepOf(Exception failure)
     {
         ArgumentNullException.ThrowIfNull(failure);
-        return failure.Data[DataKey] is GameTestStep step ? step : null;
+        if (failure.Data[DataKey] is GameTestStep step)
+        {
+            return step;
+        }
+
+        var inner = failure is AggregateException aggregate ? aggregate.InnerExceptions : failure.InnerException is { } one ? [one] : [];
+        return inner.Select(StepOf).FirstOrDefault(s => s is not null);
     }
 
     internal static void Tag(Exception failure, GameTestStep? step)
     {
-        if (step is { } running && !failure.Data.Contains(DataKey))
+        // O último passo vale: uma exceção que o chamador reaproveita não carrega o passo da execução anterior.
+        if (step is { } running)
         {
             failure.Data[DataKey] = running;
         }
@@ -136,7 +146,7 @@ public sealed class GameTester(
                 _engines,
                 qa: qa,
                 allowWarnings: options.AllowWarnings,
-                options: BuildFor(options),
+                options: BuildFor(options) with { AfterCheck = () => timeline.Begin(GameTestStep.Build) },
                 progress: new ActionProgress<ScriptWorkProgress>(p =>
                 {
                     // O Core relata o primeiro script depois da Conferência e antes de reconstruir: ali termina um passo e começa o outro.

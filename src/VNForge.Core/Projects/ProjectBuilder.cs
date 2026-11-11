@@ -19,11 +19,13 @@ public sealed record BuiltScript(string Key, string Name, int Lines);
 /// <summary>Opções do build que não são injeção de dependência (<see cref="ProjectBuilder.Build"/>).</summary>
 /// <param name="OnlyChanged">Build incremental (<c>--only-changed</c>): reaproveita o resultado do build anterior dos scripts cujas entradas não mudaram (<see cref="BuildState"/>) e, se nenhum mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.</param>
 /// <param name="EncodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
+/// <param name="AfterCheck">Chamado quando o QA termina sem travar o build, antes de reconstruir o primeiro script; o teste no jogo marca aí o fim da Conferência.</param>
 /// <param name="SelectTexts">Troca os textos de <c>text/*.json</c> que o build e o QA veem (o teste no jogo usa para reconstruir só uma cena ou só a frase dos acentos); os arquivos em disco não mudam. <c>null</c> usa todos.</param>
 public sealed record BuildOptions(
     bool OnlyChanged = false,
     string? EncodingStrategy = null,
-    Func<IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>>? SelectTexts = null);
+    Func<IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>>? SelectTexts = null,
+    Action? AfterCheck = null);
 
 /// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
 /// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
@@ -161,6 +163,7 @@ public static class ProjectBuilder
             throw new QaBlockedException(qaReport, allowWarnings);
         }
 
+        options?.AfterCheck?.Invoke();
         DropWarningsReportedByQa(warnings, qaReport);
 
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;

@@ -226,6 +226,26 @@ public sealed class BuildTestViewModelTests : IDisposable
     private static readonly string[] FailureTexts = ["Não deu para conferir", "Não deu para preparar", "Não deu para guardar", "Não deu para copiar", "O jogo não abriu"];
 
     [Fact]
+    public async Task Cancelar_com_os_avisos_dos_passos_atrasados_marca_o_passo_em_que_o_cancelamento_foi_percebido()
+    {
+        var late = new ConcurrentQueue<Action>();
+        var service = new BackgroundTaskService(late.Enqueue);
+        var vm = await OpenAsync(service: service);
+        gate.Arm();
+        var running = vm.TestCommand.ExecuteAsync(null);
+        Assert.True(await Task.Run(() => gate.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou à Conferência.");
+
+        service.Tasks.Last().CancelCommand.Execute(null);
+        gate.Release.Set();
+        await running;
+
+        Assert.Equal(
+            [TestStepState.Done, TestStepState.Failed, TestStepState.Pending, TestStepState.Pending, TestStepState.Pending],
+            States(vm));
+        Assert.Equal("Cancelado", vm.LastTestSteps[1].TimeText);
+    }
+
+    [Fact]
     public async Task Cancelar_o_teste_marca_o_passo_como_cancelado_e_nao_volta_ao_teste_anterior()
     {
         var vm = await OpenAsync();
