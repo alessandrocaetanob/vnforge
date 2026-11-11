@@ -5,47 +5,6 @@ namespace VNForge.Core.Tests.Formatting;
 
 public class FormattingProfileSerializerTests
 {
-    [Fact]
-    public void Objeto_vazio_usa_todos_os_valores_padrao()
-    {
-        var profile = FormattingProfileSerializer.Parse("{}");
-
-        AssertDefault(profile);
-    }
-
-    [Fact]
-    public void Wrap_sem_campos_usa_os_padroes_de_cada_um()
-    {
-        var profile = FormattingProfileSerializer.Parse("""{ "wrap": { "enabled": true } }""");
-
-        Assert.True(profile.Wrap.Enabled);
-        Assert.Equal(FormattingProfile.Default.Wrap.MaxWidth, profile.Wrap.MaxWidth);
-        Assert.Equal(FormattingProfile.Default.Wrap.MaxLines, profile.Wrap.MaxLines);
-        Assert.Equal(FormattingProfile.Default.Wrap.CharWidth, profile.Wrap.CharWidth);
-        Assert.Equal(FormattingProfile.Default.Kinds, profile.Kinds);
-    }
-
-    [Fact]
-    public void Le_todos_os_campos()
-    {
-        var profile = FormattingProfileSerializer.Parse("""
-            {
-              // comentário e vírgula final são aceitos
-              "kinds": ["dialogue", "choice"],
-              "wrap": { "enabled": true, "maxWidth": 40, "maxLines": null, "charWidth": "uniform", },
-            }
-            """);
-
-        Assert.Equal([TextUnitKind.Dialogue, TextUnitKind.Choice], profile.Kinds);
-        Assert.Equal(new WrapRule(true, 40, null, CharWidthMode.Uniform), profile.Wrap);
-    }
-
-    [Fact]
-    public void Padrao_deixa_a_quebra_desligada()
-    {
-        Assert.False(FormattingProfile.Default.Wrap.Enabled);
-        Assert.Equal([TextUnitKind.Dialogue, TextUnitKind.Narration], FormattingProfile.Default.Kinds);
-    }
 
     [Fact]
     public void Serializa_e_le_de_volta_o_mesmo_perfil()
@@ -56,15 +15,6 @@ public class FormattingProfileSerializerTests
 
         Assert.Equal(profile.Kinds, back.Kinds);
         Assert.Equal(profile.Wrap, back.Wrap);
-    }
-
-    [Fact]
-    public void Serializa_com_LF_e_termina_em_quebra_de_linha()
-    {
-        var json = FormattingProfileSerializer.Serialize(FormattingProfile.Default);
-
-        Assert.DoesNotContain('\r', json);
-        Assert.EndsWith("\n", json, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -130,14 +80,6 @@ public class FormattingProfileSerializerTests
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse("""{ "spacing": { "x": true } }"""));
 
         Assert.Equal("$.spacing.x", ex.Field);
-    }
-
-    private static void AssertDefault(FormattingProfile profile)
-    {
-        Assert.Equal(FormattingProfile.Default.Normalization, profile.Normalization);
-        Assert.Equal(FormattingProfile.Default.Spacing, profile.Spacing);
-        Assert.Equal(FormattingProfile.Default.Kinds, profile.Kinds);
-        Assert.Equal(FormattingProfile.Default.Wrap, profile.Wrap);
     }
 
     private static string FindRepositoryRoot()

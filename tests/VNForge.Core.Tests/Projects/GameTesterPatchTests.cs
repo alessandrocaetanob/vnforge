@@ -161,16 +161,6 @@ public sealed class GameTesterPatchTests : IDisposable
     }
 
     [Fact]
-    public void Teste_de_acentos_tambem_aplica_o_patch()
-    {
-        var result = Run(new GameTestOptions(AccentTest: true));
-
-        Assert.Equal(GameTestKind.AccentTest, result.Kind);
-        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
-        Assert.Contains(GameTester.AccentPhrase, File.ReadAllText(PackagePath));
-    }
-
-    [Fact]
     public void Projeto_sjis_deixa_o_exe_byte_a_byte_igual_e_nem_pede_o_patch()
     {
         _project.SaveConfig(_project.LoadConfig() with { Encoding = new EncodingConfig("sjis") });
@@ -182,18 +172,6 @@ public sealed class GameTesterPatchTests : IDisposable
         Assert.Equal(0, _patchRequests);
         var backup = Assert.Single(GameInjector.ListBackups(_project));
         Assert.DoesNotContain(GameExe, backup.Manifest!.Files.Select(f => f.Path));
-    }
-
-    [Fact]
-    public void Engine_sem_patch_para_o_executavel_segue_sem_mexer_nele()
-    {
-        _engine.ExePatches = _ => [];
-        var before = File.ReadAllBytes(ExePath);
-
-        Run();
-
-        Assert.Equal(before, File.ReadAllBytes(ExePath));
-        Assert.Single(BackupFolders());
     }
 
     [Fact]

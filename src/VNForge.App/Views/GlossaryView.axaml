@@ -655,7 +655,7 @@
               <PathIcon Width="15" Height="15" Margin="12,0,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
             </TextBox.InnerLeftContent>
           </TextBox>
-          <Button Command="{Binding AddCommand}">
+          <Button Classes.accent="{Binding IsPersonalTab}" Command="{Binding AddCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
               <TextBlock Text="{Binding AddLabel}"/>

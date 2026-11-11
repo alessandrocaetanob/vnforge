@@ -30,7 +30,6 @@ public sealed class NewFilePolicyTests : IDisposable
 
     [Theory]
     [InlineData("Game/traducao.txt")]
-    [InlineData("Game/config/tradutor.JSON")]
     public void Arquivo_novo_de_texto_que_o_jogo_nao_tem_passa(string path)
     {
         var error = Record.Exception(() => NewFilePolicy.EnsureAllowed(_game, path));

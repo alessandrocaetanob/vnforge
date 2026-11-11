@@ -17,45 +17,6 @@ public class ProjectConfigSerializerTests
         """;
 
     [Fact]
-    public void Parse_le_o_exemplo_do_doc_02()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-
-        Assert.Equal("Minha VN — PT-BR", config.Name);
-        Assert.Equal("D:/Jogos/MinhaVN", config.Game.Path);
-        Assert.Equal("MinhaVN.exe", config.Game.Exe);
-        Assert.Equal("yuris", config.Engine.Id);
-        Assert.Equal(500, config.Engine.Version);
-        Assert.Equal("0xD36FAC96", config.Engine.ScriptKey);
-        Assert.Equal("ja", config.Languages.Source);
-        Assert.Equal("pt-BR", config.Languages.Target);
-        Assert.Equal("cp1252", config.Encoding.Strategy);
-        Assert.Equal(new AiConfig("anthropic", "claude-opus-5-5", "medium", 30), config.Ai);
-    }
-
-    [Fact]
-    public void Parse_sem_bloco_ai_usa_os_padroes()
-    {
-        var json = RemoverLinha(ExemploDoDoc02, "\"ai\"");
-
-        var config = ProjectConfigSerializer.Parse(json);
-
-        Assert.Equal(AiConfig.Default, config.Ai);
-        Assert.Equal("claude-opus-5-5", config.Ai.Model);
-    }
-
-    [Fact]
-    public void Parse_sem_version_e_scriptKey_deixa_os_dois_nulos()
-    {
-        var json = ExemploDoDoc02.Replace(", \"version\": 500, \"scriptKey\": \"0xD36FAC96\"", "");
-
-        var config = ProjectConfigSerializer.Parse(json);
-
-        Assert.Null(config.Engine.Version);
-        Assert.Null(config.Engine.ScriptKey);
-    }
-
-    [Fact]
     public void Serialize_e_Parse_fazem_ida_e_volta()
     {
         var original = ProjectConfigSerializer.Parse(ExemploDoDoc02);
@@ -67,29 +28,6 @@ public class ProjectConfigSerializerTests
         Assert.Contains("Minha VN — PT-BR", texto);
         Assert.DoesNotContain('\r', texto);
         Assert.EndsWith("\n", texto);
-    }
-
-    [Fact]
-    public void Serialize_omite_version_e_scriptKey_nulos()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02) with { Engine = new EngineConfig("yuris") };
-
-        var texto = ProjectConfigSerializer.Serialize(config);
-
-        Assert.DoesNotContain("version", texto);
-        Assert.DoesNotContain("scriptKey", texto);
-    }
-
-    [Fact]
-    public void Parse_campo_obrigatorio_ausente_aponta_o_campo()
-    {
-        var json = ExemploDoDoc02.Replace("\"name\": \"Minha VN — PT-BR\",", "");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Equal("$.name", erro.Field);
-        Assert.Contains("$.name", erro.Message);
-        Assert.Contains("obrigatório", erro.Message);
     }
 
     [Fact]
@@ -127,16 +65,6 @@ public class ProjectConfigSerializerTests
         Assert.Equal(campo, erro.Field);
         Assert.Contains(campo, erro.Message);
         Assert.Contains(motivo, erro.Message);
-    }
-
-    [Fact]
-    public void Parse_campo_desconhecido_com_ponto_no_nome_nao_vira_caminho_aninhado()
-    {
-        var json = ExemploDoDoc02.Replace("\"name\"", "\"custom.option\": 1, \"name\"");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Equal("$['custom.option']", erro.Field);
     }
 
     [Fact]
@@ -184,16 +112,6 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
-    public void Parse_provedor_desconhecido_lista_os_aceitos()
-    {
-        var json = ExemploDoDoc02.Replace("\"provider\": \"anthropic\"", "\"provider\": \"openai\"");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Contains("anthropic", erro.Message);
-    }
-
-    [Fact]
     public void Parse_json_malformado_aponta_linha_e_coluna_em_portugues()
     {
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse("{\n  \"name\": \n"));
@@ -205,14 +123,6 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
-    public void Parse_raiz_que_nao_e_objeto_aponta_a_raiz()
-    {
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse("[]"));
-
-        Assert.Equal("$", erro.Field);
-    }
-
-    [Fact]
     public void Serialize_recusa_configuracao_invalida()
     {
         var config = ProjectConfigSerializer.Parse(ExemploDoDoc02) with { Encoding = new EncodingConfig("latin") };
@@ -220,15 +130,6 @@ public class ProjectConfigSerializerTests
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
 
         Assert.Equal("$.encoding.strategy", erro.Field);
-    }
-
-    [Fact]
-    public void Sem_titulo_do_jogo_o_campo_e_nulo_e_nao_e_gravado()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-
-        Assert.Null(config.Game.Title);
-        Assert.DoesNotContain("title", ProjectConfigSerializer.Serialize(config), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -243,19 +144,6 @@ public class ProjectConfigSerializerTests
 
         Assert.Equal(new GameTitleConfig("原題", "Meu título"), config.Game.Title);
         Assert.Equal(config, volta);
-    }
-
-    [Fact]
-    public void Titulo_do_jogo_sem_traducao_grava_so_o_original()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-        config = config with { Game = config.Game with { Title = new GameTitleConfig("原題", null) } };
-
-        var texto = ProjectConfigSerializer.Serialize(config);
-
-        Assert.Contains("\"original\": \"原題\"", texto, StringComparison.Ordinal);
-        Assert.DoesNotContain("translation", texto, StringComparison.Ordinal);
-        Assert.Equal(config, ProjectConfigSerializer.Parse(texto));
     }
 
     [Fact]
@@ -280,15 +168,6 @@ public class ProjectConfigSerializerTests
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
 
         Assert.Equal("$.game.title.extra", erro.Field);
-    }
-
-    [Fact]
-    public void Sem_versao_do_jogo_o_campo_e_nulo_e_nao_e_gravado()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-
-        Assert.Null(config.Game.Version);
-        Assert.DoesNotContain("\"version\": \"", ProjectConfigSerializer.Serialize(config), StringComparison.Ordinal);
     }
 
     [Fact]

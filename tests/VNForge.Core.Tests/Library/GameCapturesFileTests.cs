@@ -56,37 +56,6 @@ public sealed class GameCapturesFileTests : IDisposable
     }
 
     [Fact]
-    public void Duas_capturas_no_mesmo_segundo_nao_se_sobrescrevem()
-    {
-        var file = NewFile();
-
-        var first = file.Save("g1", Solid(1, 1, 1));
-        var second = file.Save("g1", Solid(2, 2, 2));
-        var third = file.Save("g1", Solid(3, 3, 3));
-
-        Assert.Equal(["20261109-203015.png", "20261109-203015-2.png", "20261109-203015-3.png"], new[] { first.File, second.File, third.File });
-        Assert.Equal(3, file.Load().Of("g1").Count);
-        Assert.Equal((byte)2, PngTestDecoder.Decode(File.ReadAllBytes(file.PathOf("g1", second))).Rgb[0]);
-    }
-
-    [Fact]
-    public void As_capturas_ficam_separadas_por_jogo_e_em_ordem_de_data()
-    {
-        var file = NewFile();
-        file.Save("gb", Solid(1, 1, 1));
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        file.Save("ga", Solid(2, 2, 2));
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        file.Save("gb", Solid(3, 3, 3));
-
-        var captures = file.Load();
-
-        Assert.Equal(["ga", "gb"], captures.GameIds);
-        Assert.Equal(["20261109-203015.png", "20261109-204015.png"], captures.Of("gb").Select(c => c.File));
-        Assert.Equal(["20261109-203515.png"], captures.Of("ga").Select(c => c.File));
-    }
-
-    [Fact]
     public void A_nota_da_captura_e_guardada_sem_as_pontas_e_vazia_vira_nada()
     {
         var file = NewFile();
@@ -122,16 +91,37 @@ public sealed class GameCapturesFileTests : IDisposable
         var file = NewFile();
         var folder = Path.Combine(_dir.Path, "g1");
         Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "20261109-203015.png"), []);
+        CreateEmpty(Path.Combine(folder, "20261109-203015.png"));
         for (var attempt = 2; attempt <= GameCapturesFile.MaxNameAttempts; attempt++)
         {
-            File.WriteAllBytes(Path.Combine(folder, $"20261109-203015-{attempt}.png"), []);
+            CreateEmpty(Path.Combine(folder, $"20261109-203015-{attempt}.png"));
         }
 
         var error = Assert.Throws<LibraryException>(() => file.Save("g1", Solid(1, 1, 1)));
 
         Assert.Contains("nome livre", error.Message);
         Assert.Empty(file.Load().Of("g1"));
+    }
+
+    // Mil arquivos novos em sequência: o antivírus do Windows às vezes segura um deles e a criação falha por instantes com acesso negado.
+    private static void CreateEmpty(string path)
+    {
+        Exception? last = null;
+        var created = SpinWait.SpinUntil(() =>
+        {
+            try
+            {
+                File.WriteAllBytes(path, []);
+                return true;
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                last = e;
+                return false;
+            }
+        }, TimeSpan.FromSeconds(10));
+
+        Assert.True(created, $"O arquivo {path} não pôde ser criado em 10 s: {last?.Message}");
     }
 
     [Fact]

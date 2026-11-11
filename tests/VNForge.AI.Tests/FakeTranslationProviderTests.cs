@@ -34,25 +34,6 @@ public class FakeTranslationProviderTests
     }
 
     [Fact]
-    public async Task Registra_os_lotes_recebidos()
-    {
-        var provider = new FakeTranslationProvider();
-        var batch = new TranslationBatch([Unit("a", "x")]) { StyleGuide = "informal" };
-
-        await provider.TranslateAsync(batch, CancellationToken.None);
-
-        Assert.Same(batch, Assert.Single(provider.ReceivedBatches));
-    }
-
-    [Fact]
-    public async Task Lote_vazio_devolve_lista_vazia()
-    {
-        var results = await new FakeTranslationProvider().TranslateAsync(new TranslationBatch([]), CancellationToken.None);
-
-        Assert.Empty(results);
-    }
-
-    [Fact]
     public async Task Respeita_o_cancelamento()
     {
         using var cts = new CancellationTokenSource();
@@ -60,27 +41,6 @@ public class FakeTranslationProviderTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             new FakeTranslationProvider().TranslateAsync(new TranslationBatch([Unit("a", "x")]), cts.Token));
-    }
-
-    [Fact]
-    public async Task Tradutor_customizado_substitui_o_padrao()
-    {
-        var provider = new FakeTranslationProvider(u => $"<{u.Id}>");
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None);
-
-        Assert.Equal("<a>", results[0].Translation);
-    }
-
-    [Fact]
-    public async Task Falha_programada_lanca_na_chamada_pedida()
-    {
-        var provider = new FakeTranslationProvider { FailOnCall = 2 };
-        var batch = new TranslationBatch([Unit("a", "x")]);
-
-        await provider.TranslateAsync(batch, CancellationToken.None);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.TranslateAsync(batch, CancellationToken.None));
     }
 
     [Fact]

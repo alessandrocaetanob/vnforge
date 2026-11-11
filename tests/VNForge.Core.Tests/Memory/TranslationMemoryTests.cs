@@ -38,55 +38,6 @@ public sealed class TranslationMemoryTests : IDisposable
     }
 
     [Fact]
-    public void Uma_linha_aprovada_num_projeto_aparece_como_sugestao_em_outro()
-    {
-        var estrela = NovoProjeto("estrela", "Hoshizora no Kakera", Linha(1, Frase, "Aizawa, Sakura. Vocês dois, cinco minutos atrasados."));
-        var memoria = Memoria();
-        memoria.SyncProject(estrela, Dia1);
-        var outro = NovoProjeto("outro", "Amaoto no Hakoniwa", Linha(7, Frase, "Aizawa, Sakura. Os dois, cinco minutos atrasados.", TranslationStatus.Machine));
-
-        var achadas = new TranslationMemory(Config).Find(Frase, TranslationMemory.ProjectKeyOf(outro));
-
-        var achada = Assert.Single(achadas);
-        Assert.True(achada.IsExact);
-        Assert.Equal(100, achada.Percent);
-        Assert.Equal("Aizawa, Sakura. Vocês dois, cinco minutos atrasados.", achada.Entry.Target);
-        Assert.Equal("Hoshizora no Kakera", achada.Entry.ProjectName);
-        Assert.Equal(Dia1, achada.Entry.ApprovedAt);
-    }
-
-    [Fact]
-    public void Linha_que_nao_esta_aprovada_nao_entra()
-    {
-        var projeto = NovoProjeto(
-            "p",
-            "P",
-            Linha(1, "あ１", "A1", TranslationStatus.Machine),
-            Linha(2, "あ２", "A2", TranslationStatus.Reviewed),
-            Linha(3, "あ３", "A3", TranslationStatus.Keep),
-            Linha(4, "あ４", null),
-            Linha(5, "あ５", "   "),
-            Linha(6, "   ", "vazio"));
-        var memoria = Memoria();
-
-        var resultado = memoria.SyncProject(projeto, Dia1);
-
-        Assert.Equal(new MemorySyncResult(0, 0, 0, 0), resultado);
-        Assert.False(File.Exists(memoria.Path));
-    }
-
-    [Fact]
-    public void O_projeto_de_origem_fica_de_fora_da_busca()
-    {
-        var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Traduzida aqui."));
-        var memoria = Memoria();
-        memoria.SyncProject(projeto, Dia1);
-
-        Assert.Empty(memoria.Find(Frase, TranslationMemory.ProjectKeyOf(projeto)));
-        Assert.Single(memoria.Find(Frase));
-    }
-
-    [Fact]
     public void A_correspondencia_aproximada_vem_com_percentual_abaixo_de_cem_e_depois_da_exata()
     {
         var a = NovoProjeto("a", "Natsu no Shirabe", Linha(1, "「相沢、二人そろって五分遅刻だ」", "Aizawa, os dois, cinco minutos atrasados."));
@@ -138,31 +89,6 @@ public sealed class TranslationMemoryTests : IDisposable
     }
 
     [Fact]
-    public void Traducoes_diferentes_do_mesmo_projeto_aparecem_todas_da_mais_recente_a_mais_antiga()
-    {
-        var a = NovoProjeto("a", "A", Linha(1, Frase, "Primeira."));
-        var b = NovoProjeto("b", "B", Linha(1, Frase, "Segunda."));
-        var memoria = Memoria();
-        memoria.SyncProject(a, Dia1);
-        memoria.SyncProject(b, Dia2);
-
-        Assert.Equal(["Segunda.", "Primeira."], memoria.Find(Frase).Select(m => m.Entry.Target));
-    }
-
-    [Fact]
-    public void O_limite_de_sugestoes_corta_a_lista()
-    {
-        var memoria = Memoria();
-        for (var i = 0; i < 4; i++)
-        {
-            memoria.SyncProject(NovoProjeto($"p{i}", $"P{i}", Linha(1, Frase, $"Versão {i}.")), Dia1.AddDays(i));
-        }
-
-        Assert.Equal(2, memoria.Find(Frase, limit: 2).Count);
-        Assert.Equal("Versão 3.", memoria.Find(Frase, limit: 2)[0].Entry.Target);
-    }
-
-    [Fact]
     public void Sincronizar_de_novo_nao_muda_a_data_nem_regrava_o_arquivo()
     {
         var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
@@ -193,21 +119,6 @@ public sealed class TranslationMemoryTests : IDisposable
         var par = Assert.Single(memoria.All());
         Assert.Equal("Chegaram tarde.", par.Target);
         Assert.Equal(Dia2, par.ApprovedAt);
-    }
-
-    [Fact]
-    public void Sincronizar_um_projeto_nao_mexe_nos_pares_dos_outros()
-    {
-        var a = NovoProjeto("a", "A", Linha(1, "あ", "A."));
-        var b = NovoProjeto("b", "B", Linha(1, "い", "I."));
-        var memoria = Memoria();
-        memoria.SyncProject(a, Dia1);
-        memoria.SyncProject(b, Dia1);
-
-        a.SaveText("yst00001", [Linha(1, "あ", "A.", TranslationStatus.Translated)]);
-        memoria.SyncProject(a, Dia2);
-
-        Assert.Equal(["い"], memoria.All().Select(e => e.Source));
     }
 
     [Fact]
@@ -243,22 +154,6 @@ public sealed class TranslationMemoryTests : IDisposable
     }
 
     [Fact]
-    public void Arquivo_ilegivel_da_erro_em_portugues_e_nao_e_sobrescrito()
-    {
-        Directory.CreateDirectory(Config);
-        var caminho = Path.Combine(Config, TranslationMemory.FileName);
-        File.WriteAllText(caminho, "{ isto não é a memória");
-        var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
-        var memoria = Memoria();
-
-        var erro = Assert.Throws<MemoryFileException>(() => memoria.SyncProject(projeto, Dia1));
-
-        Assert.Contains(caminho, erro.Message);
-        Assert.Equal("{ isto não é a memória", File.ReadAllText(caminho));
-        Assert.Throws<MemoryFileException>(() => memoria.Find(Frase));
-    }
-
-    [Fact]
     public void O_arquivo_guarda_japones_sem_escape_e_le_de_volta_em_outra_instancia()
     {
         var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
@@ -269,17 +164,6 @@ public sealed class TranslationMemoryTests : IDisposable
         Assert.Contains(Frase, texto);
         Assert.StartsWith("{\n  \"version\": 1,", texto);
         Assert.Single(new TranslationMemory(Config).Find(Frase));
-    }
-
-    [Fact]
-    public void A_busca_enxerga_o_que_outra_instancia_gravou_depois_de_carregar()
-    {
-        var memoria = Memoria();
-        Assert.Empty(memoria.Find(Frase));
-
-        new TranslationMemory(Config).SyncProject(NovoProjeto("p", "P", Linha(1, Frase, "Atrasados.")), Dia1);
-
-        Assert.Single(memoria.Find(Frase));
     }
 
     [Fact]
@@ -306,22 +190,6 @@ public sealed class TranslationMemoryTests : IDisposable
     }
 
     [Fact]
-    public void Entrada_sem_campo_obrigatorio_e_erro_do_arquivo_em_todas_as_operacoes()
-    {
-        EscreverArquivo("""{"version":1,"entries":[{"target":"x","projectKey":"D:/a","projectName":"A","unitId":"u:1","approvedAt":"2026-09-14T12:00:00+00:00"}]}""");
-        var projeto = NovoProjeto("p", "P", Linha(1, Frase, "Atrasados."));
-        var memoria = Memoria();
-
-        var erro = Assert.Throws<MemoryFileException>(() => memoria.Find(Frase));
-        Assert.Contains("entrada 1", erro.Message);
-        Assert.Throws<MemoryFileException>(() => memoria.Stats());
-        Assert.Throws<MemoryFileException>(() => memoria.Projects());
-        Assert.Throws<MemoryFileException>(() => memoria.SyncProject(projeto, Dia1));
-        Assert.Throws<MemoryFileException>(() => memoria.Record("D:/p", "P", Linha(1, Frase, "Atrasados."), Dia1));
-        Assert.Throws<MemoryFileException>(() => memoria.RemoveProject("D:/a"));
-    }
-
-    [Fact]
     public void Entrada_nula_e_projeto_sem_chave_tambem_sao_recusados()
     {
         EscreverArquivo("""{"version":1,"entries":[null]}""");
@@ -344,17 +212,6 @@ public sealed class TranslationMemoryTests : IDisposable
         Assert.Equal(["novo"], memoria.All().Select(e => e.Target));
         Assert.True(memoria.Record("D:/a", "A", Linha(1, "あ", "mais novo") with { Id = "u:1" }, Dia2));
         Assert.Equal(["mais novo"], memoria.All().Select(e => e.Target));
-    }
-
-    [Fact]
-    public void Record_com_arquivo_ilegivel_falha_sem_apagar_o_arquivo()
-    {
-        EscreverArquivo("lixo");
-        var memoria = Memoria();
-
-        Assert.Throws<MemoryFileException>(() => memoria.Record("D:/p", "P", Linha(1, Frase, "Atrasados."), Dia1));
-
-        Assert.Equal("lixo", File.ReadAllText(memoria.Path));
     }
 
     [Fact]

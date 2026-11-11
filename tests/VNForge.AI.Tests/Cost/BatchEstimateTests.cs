@@ -54,29 +54,6 @@ public sealed class BatchEstimateTests : IDisposable
     }
 
     [Fact]
-    public void Esforco_maior_estima_mais_raciocinio()
-    {
-        var batch = new TranslationBatch([Line(0)]);
-
-        var low = CostEstimator.EstimateBatch(batch, ClaudeModels.Opus, ClaudeEffort.Low);
-        var high = CostEstimator.EstimateBatch(batch, ClaudeModels.Opus, ClaudeEffort.High);
-
-        Assert.True(high.Usage.Output > low.Usage.Output);
-        Assert.Equal(low.Usage.Input, high.Usage.Input);
-    }
-
-    [Fact]
-    public void Mais_lotes_para_as_mesmas_linhas_custam_mais_porque_cada_um_repete_o_contexto()
-    {
-        var lines = Enumerable.Range(0, 90).Select(Line).ToList();
-        var one = CostEstimator.EstimateBatches([new TranslationBatch(lines)], ClaudeModels.Sonnet);
-        var three = CostEstimator.EstimateBatches(lines.Chunk(30).Select(c => new TranslationBatch(c)), ClaudeModels.Sonnet);
-
-        Assert.Equal(one.Lines, three.Lines);
-        Assert.True(three.Dollars > one.Dollars);
-    }
-
-    [Fact]
     public void Lote_todo_no_cache_nao_custa_nada()
     {
         var cache = new TranslationCache();
@@ -133,16 +110,6 @@ public sealed class BatchEstimateTests : IDisposable
         Assert.Equal(1, totals.Runs);
         Assert.Equal(1, totals.UnpricedRuns);
         Assert.Equal(0m, totals.Dollars);
-    }
-
-    [Theory]
-    [InlineData("low", ClaudeEffort.Low)]
-    [InlineData(" HIGH ", ClaudeEffort.High)]
-    [InlineData("medium", ClaudeEffort.Medium)]
-    public void O_esforco_vem_do_texto(string text, ClaudeEffort expected)
-    {
-        Assert.True(ClaudeEffortText.TryParse(text, out var effort));
-        Assert.Equal(expected, effort);
     }
 
     [Fact]

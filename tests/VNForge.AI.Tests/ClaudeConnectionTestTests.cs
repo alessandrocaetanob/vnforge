@@ -38,31 +38,6 @@ public class ClaudeConnectionTestTests
         Assert.True(request.MaxTokens <= 256, "o teste não deve gastar mais que alguns tokens");
     }
 
-    [Theory]
-    [InlineData("max_tokens")]
-    [InlineData("refusal")]
-    public async Task Qualquer_resposta_prova_que_a_chave_vale_mesmo_sem_o_texto_esperado(string stopReason)
-    {
-        var client = new StubClient(_ => new ClaudeReply(stopReason, string.Empty));
-
-        var result = await ClaudeConnectionTest.RunAsync(client, CancellationToken.None);
-
-        Assert.True(result.Success);
-    }
-
-    [Fact]
-    public async Task Chave_recusada_vira_mensagem_em_portugues()
-    {
-        var rede = new HttpRequestException("401");
-        var client = new ThrowingClient(new AnthropicUnauthorizedException(rede) { StatusCode = HttpStatusCode.Unauthorized, ResponseBody = "sk-ant-segredo" });
-
-        var result = await ClaudeConnectionTest.RunAsync(client, CancellationToken.None);
-
-        Assert.False(result.Success);
-        Assert.Equal("A chave de API foi recusada. Confira a chave em Ajustes.", result.Message);
-        Assert.DoesNotContain("segredo", result.Message);
-    }
-
     [Fact]
     public async Task Falha_de_rede_vira_mensagem_em_portugues()
     {

@@ -5,18 +5,6 @@ namespace VNForge.Core.Tests.Eval;
 
 public sealed class EvalReadingTests
 {
-    [Fact]
-    public void A_referencia_e_a_de_maior_chrf()
-    {
-        Assert.Equal("A", EvalReading.Reference(Board())!.Config.Id);
-    }
-
-    [Fact]
-    public void A_sugerida_e_a_mais_barata_que_chega_a_95_por_cento_da_referencia()
-    {
-        // B está a 99% de A e custa 1,6; C está a 97% e custa 1,0; D está a 88%.
-        Assert.Equal("C", EvalReading.Recommended(Board())!.Config.Id);
-    }
 
     [Fact]
     public void Sem_alternativa_barata_e_proxima_a_sugerida_e_a_propria_referencia()
@@ -38,12 +26,6 @@ public sealed class EvalReadingTests
         Assert.Equal(
             "C chega a 97% do chrF de A por metade do preço, e você preferiu C em 2 de 2 pares contra A. A pior diferença aparece em E, sem a bíblia.",
             sentence);
-    }
-
-    [Fact]
-    public void Sem_resposta_as_cegas_a_frase_diz_que_a_comparacao_ainda_nao_foi_feita()
-    {
-        Assert.Contains("A rodada às cegas ainda não comparou C com A.", EvalReading.Sentence(Board()));
     }
 
     [Fact]

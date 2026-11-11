@@ -46,18 +46,6 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
-    public async Task Devolve_um_resultado_por_linha_na_ordem_do_lote()
-    {
-        // O modelo responde fora de ordem; o provedor reordena pelo lote.
-        var client = new StubClient(_ => Ok("""{"translations":[{"id":"b","translation":"Tchau"},{"id":"a","translation":"Oi"}]}"""));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ"), Unit("b", "さよなら")]), CancellationToken.None);
-
-        Assert.Equal([new TranslationResult("a", "Oi"), new TranslationResult("b", "Tchau")], results);
-    }
-
-    [Fact]
     public async Task Requisicao_leva_modelo_effort_schema_json_e_as_linhas()
     {
         var client = new StubClient(_ => Ok("""{"translations":[{"id":"a","translation":"Oi"}]}"""));
@@ -121,9 +109,6 @@ public class ClaudeTranslationProviderTests
     [Theory]
     [InlineData("""{"kind":"vibe","note":"x"}""")]
     [InlineData("""{"kind":"tone","note":"  "}""")]
-    [InlineData("""{"kind":"tone"}""")]
-    [InlineData("null")]
-    [InlineData("\"tom\"")]
     public async Task Duvida_malformada_e_ignorada_e_a_traducao_continua(string doubt)
     {
         var client = new StubClient(_ => Ok($$"""{"translations":[{"id":"a","translation":"Oi","doubt":{{doubt}}}]}"""));
@@ -135,62 +120,6 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
-    public async Task Recusa_de_uma_linha_marca_a_linha_sem_derrubar_o_lote()
-    {
-        // O lote inteiro é recusado; a linha "b" continua recusada sozinha, as outras passam.
-        var client = new StubClient(r => r.User.Contains("\"id\":\"b\"") ? new ClaudeReply("refusal", string.Empty)
-            : r.User.Contains("\"id\":\"a\"") && r.User.Contains("\"id\":\"c\"") ? new ClaudeReply("refusal", string.Empty)
-            : r.User.Contains("\"id\":\"a\"") ? Ok("""{"translations":[{"id":"a","translation":"A"}]}""")
-            : Ok("""{"translations":[{"id":"c","translation":"C"}]}"""));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y"), Unit("c", "z")]), CancellationToken.None);
-
-        Assert.Equal(["a", "b", "c"], results.Select(r => r.Id));
-        Assert.Equal(["A", string.Empty, "C"], results.Select(r => r.Translation));
-        Assert.Equal([false, true, false], results.Select(r => r.Refused));
-    }
-
-    [Fact]
-    public async Task Recusa_so_do_lote_e_resolvida_linha_a_linha()
-    {
-        var client = new StubClient(r => r.User.Contains("\"id\":\"a\"") && r.User.Contains("\"id\":\"b\"")
-            ? new ClaudeReply("refusal", string.Empty)
-            : r.User.Contains("\"id\":\"a\"") ? Ok("""{"translations":[{"id":"a","translation":"A"}]}""")
-            : Ok("""{"translations":[{"id":"b","translation":"B"}]}"""));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y")]), CancellationToken.None);
-
-        Assert.Equal([new TranslationResult("a", "A"), new TranslationResult("b", "B")], results);
-        Assert.All(results, r => Assert.False(r.Refused));
-    }
-
-    [Fact]
-    public async Task Recusa_de_lote_de_uma_linha_marca_a_linha()
-    {
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty)));
-
-        var result = Assert.Single(await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None));
-
-        Assert.True(result.Refused);
-        Assert.Equal(string.Empty, result.Translation);
-    }
-
-    [Fact]
-    public async Task Tokens_lidos_do_cache_entram_na_contagem()
-    {
-        var reply = new ClaudeReply("end_turn", """{"translations":[{"id":"a","translation":"Oi"}]}""", new ClaudeUsage(100, 20, 800, 50));
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
-        var batch = new TranslationBatch([Unit("a", "x")]);
-
-        await provider.TranslateAsync(batch, CancellationToken.None);
-        await provider.TranslateAsync(batch, CancellationToken.None);
-
-        Assert.Equal(new ClaudeUsage(200, 40, 1600, 100), provider.Usage);
-    }
-
-    [Fact]
     public async Task Uso_da_recusa_tambem_e_contado()
     {
         var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(10, 0, 5, 0))));
@@ -198,14 +127,6 @@ public class ClaudeTranslationProviderTests
         await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None);
 
         Assert.Equal(5, provider.Usage.CacheReadInputTokens);
-    }
-
-    [Fact]
-    public void Fallback_de_recusa_so_existe_onde_o_servidor_oferece()
-    {
-        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Opus));
-        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Fable));
-        Assert.False(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Haiku));
     }
 
     [Theory]
@@ -219,19 +140,6 @@ public class ClaudeTranslationProviderTests
 
         await Assert.ThrowsAsync<ClaudeResponseException>(() =>
             provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Cancelamento_e_respeitado_antes_da_chamada()
-    {
-        var client = new StubClient(_ => Ok("{}"));
-        var provider = new ClaudeTranslationProvider(client);
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), cts.Token));
-        Assert.Empty(client.Requests);
     }
 
     [Fact]

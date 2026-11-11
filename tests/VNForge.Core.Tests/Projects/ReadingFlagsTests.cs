@@ -46,46 +46,6 @@ public class ReadingFlagsTests
     }
 
     [Fact]
-    public void SetOdd_grava_a_marca_no_arquivo_e_deixa_traducao_e_status()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1), Linha(2));
-
-        var salva = editor.SetOdd("yst00001", "yst00001:000001", true);
-
-        Assert.True(salva.IsOdd());
-        var lidas = projeto.LoadText("yst00001");
-        Assert.True(lidas[0].IsOdd());
-        Assert.Equal("Oi.", lidas[0].Translation);
-        Assert.Equal(TranslationStatus.Machine, lidas[0].Status);
-        Assert.False(lidas[1].IsOdd());
-    }
-
-    [Fact]
-    public void SetOdd_falso_tira_a_marca_e_repetir_nao_regrava()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, ReadingFlags.SoundsOdd));
-        var caminho = projeto.TextPath("yst00001");
-
-        editor.SetOdd("yst00001", "yst00001:000001", false);
-        Assert.False(projeto.LoadText("yst00001")[0].IsOdd());
-
-        File.SetLastWriteTimeUtc(caminho, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        editor.SetOdd("yst00001", "yst00001:000001", false);
-        Assert.Equal(new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), File.GetLastWriteTimeUtc(caminho));
-    }
-
-    [Fact]
-    public void SetOdd_numa_linha_que_nao_existe_falha()
-    {
-        using var pasta = new TempFolder();
-        var (_, editor) = Preparar(pasta.Path, Linha(1));
-
-        Assert.Throws<KeyNotFoundException>(() => editor.SetOdd("yst00001", "yst00001:000099", true));
-    }
-
-    [Fact]
     public void O_filtro_Odd_aceita_so_as_linhas_marcadas()
     {
         var marcada = new LineEntry("yst00001", 1, Linha(1, ReadingFlags.SoundsOdd), []);

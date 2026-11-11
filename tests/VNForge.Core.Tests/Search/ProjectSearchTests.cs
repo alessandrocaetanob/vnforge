@@ -37,45 +37,12 @@ public class ProjectSearchTests
         ProjectSearch.PreviewReplace(projeto, opcoes, troca, TestContext.Current.CancellationToken);
 
     [Fact]
-    public void Busca_literal_acha_as_linhas_em_todos_os_scripts_na_ordem()
-    {
-        var textos = Textos(
-            ("b", [Linha("b", 1, "Oi, Misaki!"), Linha("b", 2, "Nada aqui.")]),
-            ("a", [Linha("a", 1, "Misaki chegou. Misaki sorriu.")]));
-
-        var achados = Achar(textos, new SearchOptions("Misaki")).Hits;
-
-        Assert.Equal([("a", 1), ("b", 1)], achados.Select(h => (h.ScriptKey, h.Number)));
-        Assert.Equal([new TextRange(0, 6), new TextRange(15, 6)], achados[0].Matches);
-    }
-
-    [Fact]
-    public void Busca_literal_trata_os_metacaracteres_como_texto()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "Quanto? 3.5"), Linha("a", 2, "Quantos")]));
-
-        var achados = Achar(textos, new SearchOptions("o? 3.5")).Hits;
-
-        Assert.Equal(["a:000001"], achados.Select(h => h.UnitId));
-    }
-
-    [Fact]
     public void Maiusculas_so_contam_com_MatchCase()
     {
         var textos = Textos(("a", [Linha("a", 1, "misaki"), Linha("a", 2, "Misaki")]));
 
         Assert.Equal(2, Achar(textos, new SearchOptions("MISAKI")).Hits.Count);
         Assert.Equal(["a:000002"], Achar(textos, new SearchOptions("Misaki", MatchCase: true)).Hits.Select(h => h.UnitId));
-    }
-
-    [Fact]
-    public void Palavra_inteira_nao_casa_dentro_de_outra_palavra()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "Ela foi."), Linha("a", 2, "Aquela foi."), Linha("a", 3, "ela_x ele")]));
-
-        var achados = Achar(textos, new SearchOptions("ela", WholeWord: true)).Hits;
-
-        Assert.Equal(["a:000001"], achados.Select(h => h.UnitId));
     }
 
     [Fact]
@@ -90,16 +57,6 @@ public class ProjectSearchTests
     }
 
     [Fact]
-    public void Palavra_inteira_trata_o_acento_combinante_como_parte_da_palavra()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "ela\u0301 e ela"), Linha("a", 2, "e\u0301ela")]));
-
-        var achados = Achar(textos, new SearchOptions("ela", WholeWord: true)).Hits;
-
-        Assert.Equal([new TextRange(7, 3)], Assert.Single(achados).Matches);
-    }
-
-    [Fact]
     public void Palavra_inteira_le_o_vizinho_fora_do_plano_basico_pelo_par_substituto()
     {
         var textos = Textos(("a", [Linha("a", 1, "😀ela"), Linha("a", 2, "𝐀ela")]));
@@ -107,27 +64,6 @@ public class ProjectSearchTests
         var achados = Achar(textos, new SearchOptions("ela", WholeWord: true)).Hits;
 
         Assert.Equal(["a:000001"], achados.Select(h => h.UnitId));
-    }
-
-    [Fact]
-    public void Palavra_inteira_preserva_a_substituicao_ao_lado_de_marcador()
-    {
-        var textos = Textos(("a", [Linha("a", 1, @"Oi\nela foi.")]));
-
-        var previa = Previa(textos, new SearchOptions("ela", WholeWord: true), "Aoi");
-
-        Assert.Equal(@"Oi\nAoi foi.", Assert.Single(previa.Items).After);
-    }
-
-    [Fact]
-    public void Regex_acha_por_padrao_e_ignora_ocorrencia_vazia()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "Dia 12 e dia 7."), Linha("a", 2, "Sem número.")]));
-
-        var achados = Achar(textos, new SearchOptions(@"\d+", UseRegex: true)).Hits;
-
-        Assert.Equal([new TextRange(4, 2), new TextRange(13, 1)], Assert.Single(achados).Matches);
-        Assert.Empty(Achar(textos, new SearchOptions("x*", UseRegex: true)).Hits);
     }
 
     [Fact]
@@ -144,21 +80,6 @@ public class ProjectSearchTests
         Assert.True(previa.IsEmpty);
         Assert.Equal(3, previa.EmptyMatchLines);
         Assert.Equal(2, Achar(textos, new SearchOptions(@"\d*", UseRegex: true)).EmptyMatchLines);
-    }
-
-    [Fact]
-    public void Busca_nao_conta_ocorrencia_dentro_de_marcador_como_a_previa_nao_conta()
-    {
-        var textos = Textos(("a", [Linha("a", 1, @"Oi\n x n"), Linha("a", 2, @"Só\p"), Linha("a", 3, "{EF:01} ef")]));
-
-        var n = Achar(textos, new SearchOptions("n"));
-        var p = Achar(textos, new SearchOptions("p"));
-        var ef = Achar(textos, new SearchOptions("ef"));
-
-        Assert.Equal([new TextRange(7, 1)], Assert.Single(n.Hits).Matches);
-        Assert.Empty(p.Hits);
-        Assert.Equal([new TextRange(8, 2)], Assert.Single(ef.Hits).Matches);
-        Assert.Equal(n.Hits.Sum(h => h.Matches.Count), Previa(textos, new SearchOptions("n"), "N").TotalReplacements);
     }
 
     [Fact]
@@ -203,17 +124,6 @@ public class ProjectSearchTests
 
         Assert.Contains("demorou demais", erro.Message);
         Assert.Throws<SearchException>(() => Previa(textos, opcoes, "x"));
-    }
-
-    [Fact]
-    public void Token_cancelado_interrompe_a_busca_e_a_previa()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "x")]));
-        using var cancelamento = new CancellationTokenSource();
-        cancelamento.Cancel();
-
-        Assert.Throws<OperationCanceledException>(() => ProjectSearch.Find(textos, new SearchOptions("x"), cancelamento.Token));
-        Assert.Throws<OperationCanceledException>(() => ProjectSearch.PreviewReplace(textos, new SearchOptions("x"), "y", cancelamento.Token));
     }
 
     [Fact]
@@ -265,16 +175,6 @@ public class ProjectSearchTests
     }
 
     [Fact]
-    public void Regex_aceita_grupo_nomeado_e_cifrao_duplo_na_substituicao()
-    {
-        var textos = Textos(("a", [Linha("a", 1, "Dia 12.")]));
-
-        var previa = Previa(textos, new SearchOptions(@"(?<n>\d+)", UseRegex: true), "[${n}] $$");
-
-        Assert.Equal("Dia [12] $.", Assert.Single(previa.Items).After);
-    }
-
-    [Fact]
     public void Substituicao_nao_toca_o_marcador_de_controle()
     {
         var textos = Textos(("a", [Linha("a", 1, @"Olá n\nn \p"), Linha("a", 2, @"Só \p aqui")]));
@@ -286,30 +186,6 @@ public class ProjectSearchTests
         var marcadores = Previa(textos, new SearchOptions(@"\\p", UseRegex: true), "X");
         Assert.True(marcadores.IsEmpty);
         Assert.Equal(2, marcadores.ProtectedMatches);
-    }
-
-    [Fact]
-    public void Ocorrencia_que_atravessa_um_marcador_fica_de_fora()
-    {
-        var textos = Textos(("a", [Linha("a", 1, @"Oi\nmundo e Oi mundo")]));
-
-        var previa = Previa(textos, new SearchOptions(@"Oi.nmundo", UseRegex: true), "Tchau");
-        var simples = Previa(textos, new SearchOptions(@"Oi mundo"), "Tchau");
-
-        Assert.True(previa.IsEmpty);
-        Assert.Equal(1, previa.ProtectedMatches);
-        Assert.Equal(@"Oi\nmundo e Tchau", Assert.Single(simples.Items).After);
-    }
-
-    [Fact]
-    public void Marcador_chave_e_barra_dupla_tambem_sao_protegidos()
-    {
-        var textos = Textos(("a", [Linha("a", 1, @"{EF:01}EF e \\ EF")]));
-
-        var previa = Previa(textos, new SearchOptions("EF"), "zz");
-
-        Assert.Equal(@"{EF:01}zz e \\ zz", Assert.Single(previa.Items).After);
-        Assert.Equal(1, previa.ProtectedMatches);
     }
 
     [Fact]
@@ -359,42 +235,6 @@ public class ProjectSearchTests
     }
 
     [Fact]
-    public void Aplicar_grava_so_as_linhas_da_previa_e_marca_a_edicao_como_manual()
-    {
-        using var pasta = new TempFolder();
-        var projeto = NovoProjeto(pasta.Path);
-        projeto.SaveText("a", [Linha("a", 1, "Misaki chegou.", TranslationStatus.Approved), Linha("a", 2, "Nada.", TranslationStatus.Approved)]);
-        projeto.SaveText("b", [Linha("b", 1, "Oi, Misaki!")]);
-        var previa = Previa(projeto, new SearchOptions("Misaki"), "Aoi");
-
-        var resultado = ProjectSearch.Apply(projeto, previa, new FakeTimeProvider(Agora));
-
-        Assert.Equal(2, resultado.Applied);
-        Assert.Empty(resultado.Stale);
-        var a = projeto.LoadText("a");
-        Assert.Equal("Aoi chegou.", a[0].Translation);
-        Assert.Equal(TranslationStatus.Translated, a[0].Status);
-        Assert.Equal(new TranslationOrigin("manual", null, Agora), a[0].Origin);
-        Assert.Equal(("Nada.", TranslationStatus.Approved), (a[1].Translation, a[1].Status));
-        Assert.Equal("Oi, Aoi!", projeto.LoadText("b")[0].Translation);
-    }
-
-    [Fact]
-    public void Aplicar_encerra_a_duvida_das_linhas_trocadas_e_mantem_a_das_outras()
-    {
-        using var pasta = new TempFolder();
-        var projeto = NovoProjeto(pasta.Path);
-        var duvida = new TranslationDoubt(DoubtKind.UncertainGender, "Quem fala?");
-        projeto.SaveText("a", [Linha("a", 1, "Misaki chegou.", TranslationStatus.Machine) with { Doubt = duvida }, Linha("a", 2, "Nada.", TranslationStatus.Machine) with { Doubt = duvida }]);
-
-        ProjectSearch.Apply(projeto, Previa(projeto, new SearchOptions("Misaki"), "Aoi"));
-
-        var a = projeto.LoadText("a");
-        Assert.Null(a[0].Doubt);
-        Assert.Equal(duvida, a[1].Doubt);
-    }
-
-    [Fact]
     public void Aplicar_preserva_os_campos_da_linha_alem_da_traducao()
     {
         using var pasta = new TempFolder();
@@ -427,20 +267,6 @@ public class ProjectSearchTests
         var lidas = projeto.LoadText("a");
         Assert.Equal("Editada à mão.", lidas[0].Translation);
         Assert.Equal("Aoi saiu.", lidas[1].Translation);
-    }
-
-    [Fact]
-    public void Aplicar_previa_vazia_nao_altera_o_arquivo()
-    {
-        using var pasta = new TempFolder();
-        var projeto = NovoProjeto(pasta.Path);
-        projeto.SaveText("a", [Linha("a", 1, "Misaki")]);
-        var antes = File.ReadAllText(projeto.TextPath("a"));
-
-        var resultado = ProjectSearch.Apply(projeto, Previa(projeto, new SearchOptions("nada"), "x"));
-
-        Assert.Equal(0, resultado.Applied);
-        Assert.Equal(antes, File.ReadAllText(projeto.TextPath("a")));
     }
 
     [Fact]

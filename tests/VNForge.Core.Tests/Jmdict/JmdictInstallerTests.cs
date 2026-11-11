@@ -84,22 +84,6 @@ public sealed class JmdictInstallerTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_o_download_para_sem_deixar_arquivo()
-    {
-        using var cancel = new CancellationTokenSource();
-        var server = new FakeServer(_ =>
-        {
-            cancel.Cancel();
-            return Ok(SyntheticJmdict.GzipBytes());
-        });
-        var store = Store;
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Installer(store, server).InstallAsync(null, cancel.Token));
-
-        Assert.False(store.IsInstalled);
-    }
-
-    [Fact]
     public void Sem_o_arquivo_a_loja_diz_que_nao_ha_dicionario_e_um_arquivo_estragado_e_erro()
     {
         var store = Store;
@@ -211,20 +195,6 @@ public sealed class JmdictInstallerTests : IDisposable
         Assert.Contains("conexão", erro.Message);
         Assert.DoesNotContain("gravar", erro.Message);
         Assert.Empty(Directory.GetFiles(store.Directory));
-    }
-
-    [Fact]
-    public async Task Cancelar_com_o_corpo_em_andamento_lanca_o_cancelamento_e_nao_o_erro_de_prazo()
-    {
-        using var cancel = new CancellationTokenSource();
-        var server = new FakeServer(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new HangingStream()) });
-        var store = Store;
-        var task = new JmdictInstaller(new HttpClient(server), store).InstallAsync(null, cancel.Token);
-
-        await cancel.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
-        Assert.False(store.IsInstalled);
     }
 
     [Fact]

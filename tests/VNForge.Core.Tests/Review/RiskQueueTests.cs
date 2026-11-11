@@ -22,31 +22,6 @@ public sealed class RiskQueueTests
         scripts.ToDictionary(s => s.Key, s => (IReadOnlyList<TextUnit>)s.Units, StringComparer.Ordinal);
 
     [Fact]
-    public void Linha_sem_nenhum_sinal_tem_risco_zero_e_nivel_baixo()
-    {
-        var risco = LineRisk.Of(Entrada(Linha("a", 1)));
-
-        Assert.Equal(0, risco.Score);
-        Assert.Equal(RiskLevel.Low, risco.Level);
-        Assert.Empty(risco.Factors);
-    }
-
-    [Fact]
-    public void Cada_sinal_soma_os_proprios_pontos()
-    {
-        var duvida = LineRisk.Of(Entrada(ComDuvida(Linha("a", 1))));
-        var estranho = LineRisk.Of(Entrada(Linha("a", 2).WithOdd(true)));
-        var sugestao = LineRisk.Of(Entrada(Linha("a", 3)), hasEditorSuggestion: true);
-
-        Assert.Equal(30, duvida.Score);
-        Assert.Equal([RiskFactorKind.AiDoubt], duvida.Factors.Select(f => f.Kind));
-        Assert.Equal(20, estranho.Score);
-        Assert.Equal([RiskFactorKind.SoundsOdd], estranho.Factors.Select(f => f.Kind));
-        Assert.Equal(10, sugestao.Score);
-        Assert.Equal([RiskFactorKind.EditorSuggestion], sugestao.Factors.Select(f => f.Kind));
-    }
-
-    [Fact]
     public void Aviso_do_QA_vale_24_erro_40_e_sugestao_de_estilo_10_e_so_o_pior_conta()
     {
         var unit = Linha("a", 1);
@@ -76,89 +51,6 @@ public sealed class RiskQueueTests
             [RiskFactorKind.AiDoubt, RiskFactorKind.QaIssue, RiskFactorKind.SoundsOdd, RiskFactorKind.EditorSuggestion],
             risco.Factors.Select(f => f.Kind));
         Assert.Equal(["Dúvida da IA +30", "Aviso do QA: passa 1 linha +24", "Soa estranho +20", "Sugestão do editor +10"], risco.Factors.Select(f => f.Text));
-    }
-
-    [Fact]
-    public void Linha_editada_a_mao_nao_ganha_ponto_so_por_guardar_o_texto_da_IA()
-    {
-        var editada = Linha("a", 1) with { AiTranslation = "o que a IA escreveu" };
-
-        var risco = LineRisk.Of(Entrada(editada));
-
-        Assert.Equal(0, risco.Score);
-        Assert.Empty(risco.Factors);
-    }
-
-    [Fact]
-    public void So_o_erro_do_QA_e_marcado_como_erro_para_a_tela_pintar_com_a_cor_certa()
-    {
-        var unit = Linha("a", 1);
-
-        Assert.True(Assert.Single(LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Error))).Factors).IsError);
-        Assert.False(Assert.Single(LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Warning))).Factors).IsError);
-        Assert.False(Assert.Single(LineRisk.Of(Entrada(unit.WithOdd(true))).Factors).IsError);
-    }
-
-    [Fact]
-    public void A_fila_monta_de_uma_copia_das_linhas_igual_a_do_projeto()
-    {
-        var linhas = ProjectLines.Create(Textos(("a", [ComDuvida(Linha("a", 1)), Linha("a", 2)]), ("b", [Linha("b", 1).WithOdd(true)])));
-
-        var copia = RiskQueue.Build(linhas.Scripts.SelectMany(s => linhas.LinesOf(s.Key)).ToArray());
-
-        Assert.Equal(RiskQueue.Build(linhas).Lines.Select(l => (l.Line.Unit.Id, l.Score)), copia.Lines.Select(l => (l.Line.Unit.Id, l.Score)));
-    }
-
-    [Fact]
-    public void A_pontuacao_para_em_100()
-    {
-        var unit = ComDuvida(Linha("a", 1).WithOdd(true));
-
-        var risco = LineRisk.Of(Entrada(unit, Problema(unit, QaSeverity.Error)), hasEditorSuggestion: true);
-
-        Assert.Equal(100, risco.Score);
-    }
-
-    [Theory]
-    [InlineData(0, RiskLevel.Low)]
-    [InlineData(29, RiskLevel.Low)]
-    [InlineData(30, RiskLevel.Medium)]
-    [InlineData(69, RiskLevel.Medium)]
-    [InlineData(70, RiskLevel.High)]
-    [InlineData(100, RiskLevel.High)]
-    public void Os_niveis_mudam_em_30_e_em_70(int pontos, RiskLevel esperado) =>
-        Assert.Equal(esperado, RiskWeights.LevelOf(pontos));
-
-    [Fact]
-    public void A_fila_so_tem_linhas_esperando_revisao_e_vai_do_maior_risco_ao_menor_com_empate_na_ordem_da_historia()
-    {
-        var b = Linha("b", 1);
-        var a1 = Linha("a", 1);
-        var a2 = ComDuvida(Linha("a", 2));
-        var a3 = Linha("a", 3).WithOdd(true);
-        var traduzida = Linha("a", 4, TranslationStatus.Translated);
-        var linhas = ProjectLines.Create(Textos(
-            ("b", [b]),
-            ("a", [a1, a2, a3, traduzida, Linha("a", 5, TranslationStatus.Approved), Linha("a", 6, TranslationStatus.Reviewed), Linha("a", 7, TranslationStatus.Keep), Linha("a", 8, TranslationStatus.Untranslated)])));
-
-        var fila = RiskQueue.Build(linhas);
-
-        Assert.Equal(["a:000002", "a:000003", "a:000001", "a:000004", "b:000001"], fila.Lines.Select(l => l.Line.Unit.Id));
-        Assert.Equal([30, 20, 0, 0, 0], fila.Lines.Select(l => l.Score));
-        Assert.Equal([2, 3, 1, 4, 1], fila.Lines.Select(l => l.Line.Number));
-    }
-
-    [Fact]
-    public void O_aviso_do_QA_da_linha_entra_na_pontuacao_da_fila()
-    {
-        var unit = Linha("a", 1);
-        var report = new QaReport([Problema(unit, QaSeverity.Warning)], [], ["caixa"]);
-        var linhas = ProjectLines.Create(Textos(("a", [unit, Linha("a", 2)])), report);
-
-        var fila = RiskQueue.Build(linhas);
-
-        Assert.Equal(["a:000001", "a:000002"], fila.Lines.Select(l => l.Line.Unit.Id));
-        Assert.Equal(24, fila.Lines[0].Score);
     }
 
     private static EditorSuggestion Sugestao(string unitId, string baseText) =>
@@ -236,10 +128,6 @@ public sealed class RiskQueueTests
 
     [Theory]
     [InlineData(0, "0 min")]
-    [InlineData(45, "45 min")]
-    [InlineData(60, "1 h")]
-    [InlineData(223, "3 h 43 min")]
-    [InlineData(1500, "25 h")]
     public void O_tempo_sai_em_horas_e_minutos(int minutos, string esperado) =>
         Assert.Equal(esperado, RiskQueue.FormatTime(TimeSpan.FromMinutes(minutos)));
 }

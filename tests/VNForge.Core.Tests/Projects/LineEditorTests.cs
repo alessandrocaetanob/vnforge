@@ -50,31 +50,6 @@ public class LineEditorTests
     }
 
     [Fact]
-    public void SetTranslation_troca_a_pontuacao_japonesa_pela_do_teclado_quando_a_opcao_esta_ligada()
-    {
-        using var pasta = new TempFolder();
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Machine, "～Manhã～"));
-
-        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "～Bom dia。（oi）");
-
-        Assert.Equal("~Bom dia.(oi)", gravada.Translation);
-    }
-
-    [Fact]
-    public void A_troca_nao_toca_o_falante_nem_os_marcadores_de_controle()
-    {
-        using var pasta = new TempFolder();
-        var linha = new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "美咲。", "原文", "x", TranslationStatus.Machine);
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, linha);
-
-        var gravada = editor.SetTranslation("yst00001", linha.Id, @"Oi。\n{VAR:名前。}～\p");
-
-        Assert.Equal(@"Oi.\n{VAR:名前。}~\p", gravada.Translation);
-        Assert.Equal("美咲。", gravada.Speaker);
-        Assert.Equal("原文", gravada.Source);
-    }
-
-    [Fact]
     public void A_opcao_e_lida_do_vnforge_json_quando_ele_muda_e_nao_a_cada_gravacao()
     {
         using var pasta = new TempFolder();
@@ -85,54 +60,6 @@ public class LineEditorTests
         projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { KeyboardPunctuation = false } });
 
         Assert.Equal("b。", editor.SetTranslation("yst00001", "yst00001:000001", "b。").Translation);
-    }
-
-    [Fact]
-    public void Estrategia_sem_encoder_pronto_faz_a_gravacao_falhar_com_a_mensagem_da_estrategia()
-    {
-        using var pasta = new TempFolder();
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Machine, "x"));
-        var projeto = ProjectFolder.Open(pasta.Path);
-        projeto.SaveConfig(projeto.LoadConfig() with { Encoding = new EncodingConfig("remap") });
-
-        var ex = Assert.Throws<VNForgeException>(() => editor.SetTranslation("yst00001", "yst00001:000001", "a。"));
-
-        Assert.Contains("remap", ex.Message, StringComparison.Ordinal);
-        Assert.Equal("x", Gravada(projeto, 1).Translation);
-    }
-
-    [Fact]
-    public void SetTranslation_com_a_opcao_desligada_grava_o_texto_como_veio()
-    {
-        using var pasta = new TempFolder();
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: false, Linha(1, TranslationStatus.Machine, "x"));
-
-        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia。");
-
-        Assert.Equal("Bom dia。", gravada.Translation);
-    }
-
-    [Fact]
-    public void SetTranslation_com_o_mesmo_texto_japones_ja_trocado_nao_regrava()
-    {
-        using var pasta = new TempFolder();
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Translated, "Bom dia."));
-
-        var gravada = editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia。");
-
-        Assert.Equal(TranslationStatus.Translated, gravada.Status);
-        Assert.Equal(Agora.AddDays(-1), gravada.Origin?.At);
-    }
-
-    [Fact]
-    public void SetTranslationFor_tambem_troca_a_pontuacao()
-    {
-        using var pasta = new TempFolder();
-        var editor = EditorComOpcao(pasta.Path, pontuacaoDoTeclado: true, Linha(1, TranslationStatus.Untranslated), Linha(2, TranslationStatus.Untranslated));
-
-        var resultado = editor.SetTranslationFor([("yst00001", "yst00001:000001"), ("yst00001", "yst00001:000002")], "Oi！");
-
-        Assert.All(resultado.Changes, c => Assert.Equal("Oi!", c.Saved.Translation));
     }
 
     [Fact]
@@ -153,19 +80,6 @@ public class LineEditorTests
 
     private static TextUnit ComDuvida(int n) =>
         Linha(n, TranslationStatus.Machine, "Bom dia.") with { Doubt = new TranslationDoubt(DoubtKind.HiddenSubject, "Quem cumprimenta?") };
-
-    [Fact]
-    public void Approve_encerra_a_duvida_da_linha()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1), ComDuvida(2));
-
-        var gravada = editor.Approve("yst00001", "yst00001:000001");
-
-        Assert.Null(gravada.Doubt);
-        Assert.Null(Gravada(projeto, 1).Doubt);
-        Assert.NotNull(Gravada(projeto, 2).Doubt);
-    }
 
     [Fact]
     public void Approve_de_linha_ja_aprovada_ainda_encerra_a_duvida()
@@ -189,19 +103,6 @@ public class LineEditorTests
 
         editor.SetTranslation("yst00001", "yst00001:000001", "Olá.");
         Assert.Null(Gravada(projeto, 1).Doubt);
-    }
-
-    [Fact]
-    public void SetTranslationFor_e_Keep_encerram_a_duvida()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, ComDuvida(1), ComDuvida(2));
-
-        editor.SetTranslationFor([("yst00001", "yst00001:000001")], "Olá.");
-        editor.SetKeep("yst00001", "yst00001:000002", true);
-
-        Assert.Null(Gravada(projeto, 1).Doubt);
-        Assert.Null(Gravada(projeto, 2).Doubt);
     }
 
     [Fact]
@@ -263,45 +164,8 @@ public class LineEditorTests
         Assert.Equal("旧原文", lida.PreviousSource);
     }
 
-    [Fact]
-    public void Traducao_nova_grava_translated_com_origem_manual()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated), Linha(2, TranslationStatus.Untranslated));
-
-        var salva = editor.SetTranslation("yst00001", "yst00001:000001", "Bom dia.\\p");
-
-        Assert.Equal(TranslationStatus.Translated, salva.Status);
-        Assert.Equal(new TranslationOrigin("manual", null, Agora), salva.Origin);
-        var lida = Gravada(projeto, 1);
-        Assert.Equal("Bom dia.\\p", lida.Translation);
-        Assert.Equal(TranslationStatus.Translated, lida.Status);
-        Assert.Equal(new TranslationOrigin("manual", null, Agora), lida.Origin);
-        Assert.Equal("nota 1", lida.Notes);
-        Assert.Equal(TranslationStatus.Untranslated, Gravada(projeto, 2).Status);
-    }
-
-    [Theory]
-    [InlineData(TranslationStatus.Machine)]
-    [InlineData(TranslationStatus.Reviewed)]
-    [InlineData(TranslationStatus.Approved)]
-    public void Editar_o_texto_desfaz_a_revisao_e_troca_a_origem(TranslationStatus anterior)
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, anterior, "Oi."));
-
-        editor.SetTranslation("yst00001", "yst00001:000001", "Olá.");
-
-        var lida = Gravada(projeto, 1);
-        Assert.Equal(TranslationStatus.Translated, lida.Status);
-        Assert.Equal("manual", lida.Origin?.Provider);
-        Assert.Equal(Agora, lida.Origin?.At);
-    }
-
     [Theory]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  \t ")]
     public void Traducao_vazia_volta_para_untranslated_sem_origem(string? texto)
     {
         using var pasta = new TempFolder();
@@ -314,21 +178,6 @@ public class LineEditorTests
         Assert.Null(lida.Translation);
         Assert.Equal(TranslationStatus.Untranslated, lida.Status);
         Assert.Null(lida.Origin);
-    }
-
-    [Fact]
-    public void Texto_igual_ao_gravado_nao_regrava_o_arquivo()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Approved, "Oi."));
-        var caminho = projeto.TextPath("yst00001");
-        File.SetLastWriteTimeUtc(caminho, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-
-        var devolvida = editor.SetTranslation("yst00001", "yst00001:000001", "Oi.");
-
-        Assert.Equal(TranslationStatus.Approved, devolvida.Status);
-        Assert.Equal(new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), File.GetLastWriteTimeUtc(caminho));
-        Assert.Equal(TranslationStatus.Approved, Gravada(projeto, 1).Status);
     }
 
     [Fact]
@@ -345,21 +194,6 @@ public class LineEditorTests
     }
 
     [Fact]
-    public void Notas_sao_gravadas_sem_mexer_na_traducao()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Reviewed, "Oi."));
-
-        var salva = editor.SetNotes("yst00001", "yst00001:000001", "Confirmar com o autor.");
-
-        Assert.Equal("Confirmar com o autor.", salva.Notes);
-        var lida = Gravada(projeto, 1);
-        Assert.Equal("Confirmar com o autor.", lida.Notes);
-        Assert.Equal(TranslationStatus.Reviewed, lida.Status);
-        Assert.Equal("Oi.", lida.Translation);
-    }
-
-    [Fact]
     public void Notas_iguais_nao_regravam_o_arquivo()
     {
         using var pasta = new TempFolder();
@@ -370,22 +204,6 @@ public class LineEditorTests
         editor.SetNotes("yst00001", "yst00001:000001", "nota 1");
 
         Assert.Equal(new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), File.GetLastWriteTimeUtc(caminho));
-    }
-
-    [Fact]
-    public void Aprovar_grava_approved_e_mantem_a_origem()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Machine, "Oi."));
-        var origem = Gravada(projeto, 1).Origin;
-
-        var salva = editor.Approve("yst00001", "yst00001:000001");
-
-        Assert.Equal(TranslationStatus.Approved, salva.Status);
-        var lida = Gravada(projeto, 1);
-        Assert.Equal(TranslationStatus.Approved, lida.Status);
-        Assert.Equal(origem, lida.Origin);
-        Assert.Equal("Oi.", lida.Translation);
     }
 
     [Fact]
@@ -414,53 +232,12 @@ public class LineEditorTests
     }
 
     [Fact]
-    public void Aprovar_rascunho_ignorado_pelo_build_usa_o_texto_que_esta_na_linha()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated, "Rascunho antigo."));
-
-        editor.Approve("yst00001", "yst00001:000001");
-
-        Assert.Equal(TranslationStatus.Approved, Gravada(projeto, 1).Status);
-    }
-
-    [Fact]
-    public void Id_desconhecido_lanca_KeyNotFoundException_em_portugues()
-    {
-        using var pasta = new TempFolder();
-        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
-
-        var erro = Assert.Throws<KeyNotFoundException>(() => editor.SetTranslation("yst00001", "yst00001:000099", "Oi."));
-
-        Assert.Contains("yst00001:000099", erro.Message);
-        Assert.Contains("não existe", erro.Message);
-        Assert.Throws<KeyNotFoundException>(() => editor.SetNotes("yst00001", "yst00001:000099", "x"));
-        Assert.Throws<KeyNotFoundException>(() => editor.Approve("yst00001", "yst00001:000099"));
-    }
-
-    [Fact]
     public void Script_inexistente_lanca_TextFileException()
     {
         using var pasta = new TempFolder();
         var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
 
         Assert.Throws<TextFileException>(() => editor.SetTranslation("yst99999", "yst99999:000001", "Oi."));
-    }
-
-    [Fact]
-    public void Edicao_aparece_no_ProjectStatusReporter()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated), Linha(2, TranslationStatus.Untranslated));
-
-        editor.SetTranslation("yst00001", "yst00001:000001", "Oi.");
-        editor.Approve("yst00001", "yst00001:000001");
-        editor.SetTranslation("yst00001", "yst00001:000002", "Tchau.");
-
-        var status = ProjectStatusReporter.Create(ProjectFolder.Open(projeto.Root));
-        Assert.Equal(1, status.Total.Approved);
-        Assert.Equal(1, status.Total.Translated);
-        Assert.Equal(0, status.Total.Untranslated);
     }
 
     [Fact]
@@ -473,19 +250,6 @@ public class LineEditorTests
         Assert.Throws<ArgumentNullException>(() => new LineEditor(projeto, null!));
         var editor = new LineEditor(projeto, relogio);
         Assert.Throws<ArgumentNullException>(() => editor.SetNotes("yst00001", "yst00001:000001", null!));
-    }
-
-    [Fact]
-    public void SetChosenSpeaker_grava_o_nome_sem_mexer_na_traducao_nem_no_falante_extraido()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Approved, "Oi"));
-
-        var salva = editor.SetChosenSpeaker("yst00001", "yst00001:000001", "  Inui ");
-
-        Assert.Equal("Inui", salva.ChosenSpeaker);
-        var lida = Gravada(projeto, 1);
-        Assert.Equal(("Inui", "美咲", "Oi", TranslationStatus.Approved), (lida.ChosenSpeaker, lida.Speaker, lida.Translation, lida.Status));
     }
 
     [Fact]

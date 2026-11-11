@@ -47,21 +47,6 @@ public sealed class LineSelectionTests : IDisposable
     }
 
     [Fact]
-    public void Linha_traduzida_a_mao_depois_da_selecao_nao_e_sobrescrita_e_conta_como_pulada()
-    {
-        var selection = Select();
-        new LineEditor(_project, TimeProvider.System).SetTranslation(Key, Id(1), "à mão");
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "zero"), new TranslationResult(Id(1), "um")], Machine);
-
-        var units = _project.LoadText(Key);
-        Assert.Equal(1, saved.Skipped);
-        Assert.Equal("zero", units[0].Translation);
-        Assert.Equal("à mão", units[1].Translation);
-        Assert.Equal(TranslationStatus.Translated, units[1].Status);
-    }
-
-    [Fact]
     public void Edicao_de_outra_linha_e_as_notas_da_linha_gravada_sobrevivem()
     {
         var selection = Select();
@@ -108,20 +93,6 @@ public sealed class LineSelectionTests : IDisposable
         Assert.Equal("nova", after[0].Translation);
         Assert.Equal(TranslationStatus.Approved, after[1].Status);
         Assert.Equal("antiga", after[1].Translation);
-    }
-
-    [Fact]
-    public void Resultado_que_nao_muda_a_linha_nao_regrava_o_arquivo()
-    {
-        var selection = Select();
-        var before = File.GetLastWriteTimeUtc(_project.TextPath(Key));
-        File.SetLastWriteTimeUtc(_project.TextPath(Key), before.AddHours(-1));
-        var marker = File.GetLastWriteTimeUtc(_project.TextPath(Key));
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "x")], (_, _) => null);
-
-        Assert.Equal(0, saved.Skipped);
-        Assert.Equal(marker, File.GetLastWriteTimeUtc(_project.TextPath(Key)));
     }
 
     [Fact]

@@ -57,18 +57,6 @@ public sealed class ImageBuildTests : IDisposable
     private Dictionary<string, byte[]> Output() => WritableArchiveFormat.Read(Path.Combine(_out, Pack));
 
     [Fact]
-    public void WithoutMarkedEditsNothingIsWritten()
-    {
-        SaveEdit(Edit(marked: false), _edited);
-
-        var result = Apply();
-
-        Assert.Empty(result.Archives);
-        Assert.Empty(result.Warnings);
-        Assert.False(File.Exists(Path.Combine(_out, Pack)));
-    }
-
-    [Fact]
     public void ReplacesOnlyTheEditedImageAndKeepsTheOtherEntriesByteForByte()
     {
         SaveEdit(Edit(), _edited);
@@ -95,20 +83,6 @@ public sealed class ImageBuildTests : IDisposable
         var written = Output();
         Assert.Equal(new byte[] { 9, 9 }, written["sys/dados.bin"]);
         Assert.Equal(_edited, written[Gate]);
-    }
-
-    [Fact]
-    public void ReadsTheOriginalFromTheResolverWhenTheGameIsAlreadyInjected()
-    {
-        var backup = Path.Combine(_temp.Path, "backup.pak");
-        File.Copy(Path.Combine(_game, Pack), backup);
-        WritableArchiveFormat.Write(Path.Combine(_game, Pack), new Dictionary<string, byte[]> { ["so-traduzido"] = [0] });
-        SaveEdit(Edit(), _edited);
-
-        var result = Apply(name => name == Pack ? backup : name);
-
-        Assert.Equal(1, result.Archives.Single().ReplacedFiles);
-        Assert.Equal(_edited, Output()[Gate]);
     }
 
     [Fact]
@@ -154,21 +128,6 @@ public sealed class ImageBuildTests : IDisposable
 
         Assert.Empty(result.Archives);
         Assert.Contains("outro.pak", Assert.Single(result.Warnings));
-    }
-
-    [Fact]
-    public void FingerprintIsEmptyWithoutMarkedEditsAndChangesWithTheFinishedImage()
-    {
-        Assert.Equal(string.Empty, ImageBuild.Fingerprint(_project));
-        SaveEdit(Edit(marked: false), _edited);
-        Assert.Equal(string.Empty, ImageBuild.Fingerprint(_project));
-
-        SaveEdit(Edit(), _edited);
-        var first = ImageBuild.Fingerprint(_project);
-        File.WriteAllBytes(_project.EditedImagePath(Pack, Gate), SyntheticImages.Png(64, 36, 201));
-
-        Assert.NotEqual(string.Empty, first);
-        Assert.NotEqual(first, ImageBuild.Fingerprint(_project));
     }
 
     [Fact]

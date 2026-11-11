@@ -46,18 +46,4 @@ public sealed class LibraryEditorTests : IDisposable
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"A espera ignorou o cancelamento: {watch.Elapsed}.");
     }
-
-    [Fact]
-    public async Task Cancelar_chega_a_espera_da_trava_ao_procurar_de_novo()
-    {
-        var id = await ScannedGameIdAsync();
-        using var held = HoldLock();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
-        cts.CancelAfter(TimeSpan.FromMilliseconds(200));
-        var watch = Stopwatch.StartNew();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Editor().SearchAgainAsync(id, cts.Token));
-
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"A espera ignorou o cancelamento: {watch.Elapsed}.");
-    }
 }

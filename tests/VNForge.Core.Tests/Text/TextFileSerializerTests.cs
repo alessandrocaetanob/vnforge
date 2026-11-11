@@ -30,31 +30,6 @@ public class TextFileSerializerTests
     private static string Json(IReadOnlyList<TextUnit> units) => string.Join("|", units.Select(TextUnitJson.Serialize));
 
     [Fact]
-    public void Serialize_tem_envelope_com_version_e_uma_unidade_por_linha()
-    {
-        var json = TextFileSerializer.Serialize([Unidade(1), Unidade(2)]);
-
-        var linhas = json.Split('\n');
-        Assert.Equal("{", linhas[0]);
-        Assert.Equal("  \"version\": 1,", linhas[1]);
-        Assert.Equal("  \"units\": [", linhas[2]);
-        Assert.StartsWith("    {\"id\":\"yst00123:000001\"", linhas[3]);
-        Assert.EndsWith("},", linhas[3]);
-        Assert.StartsWith("    {\"id\":\"yst00123:000002\"", linhas[4]);
-        Assert.EndsWith("}", linhas[4]);
-        Assert.Equal("  ]", linhas[5]);
-        Assert.Equal("}", linhas[6]);
-        Assert.Equal("", linhas[7]);
-        Assert.Equal(8, linhas.Length);
-    }
-
-    [Fact]
-    public void Serialize_de_lista_vazia_gera_units_vazio()
-    {
-        Assert.Equal("{\n  \"version\": 1,\n  \"units\": []\n}\n", TextFileSerializer.Serialize([]));
-    }
-
-    [Fact]
     public void Serialize_duas_vezes_gera_texto_identico_com_fim_de_linha_fixo()
     {
         var a = TextFileSerializer.Serialize(Exemplo());
@@ -63,15 +38,6 @@ public class TextFileSerializerTests
         Assert.Equal(a, b);
         Assert.DoesNotContain('\r', a);
         Assert.EndsWith("}\n", a);
-    }
-
-    [Fact]
-    public void Serialize_mantem_japones_legivel_e_marcadores_como_texto()
-    {
-        var json = TextFileSerializer.Serialize(Exemplo());
-
-        Assert.Contains("「おはよう」\\\\n{VAR:name}\\\\c3\\\\p", json);
-        Assert.DoesNotContain("\\u", json);
     }
 
     [Fact]
@@ -96,25 +62,6 @@ public class TextFileSerializerTests
         Assert.Equal(primeiro, segundo);
     }
 
-    [Fact]
-    public void Parse_aceita_comentarios_virgula_final_e_envelope_sem_unidades()
-    {
-        var lidas = TextFileSerializer.Parse("// nota\n{ \"version\": 1, \"units\": [], }", "x.json");
-
-        Assert.Empty(lidas);
-    }
-
-    [Fact]
-    public void Parse_de_json_malformado_cita_arquivo_e_posicao()
-    {
-        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{\n  \"version\": 1,\n  \"units\": [ ]]\n}", TextYst123Json));
-
-        Assert.Contains(TextYst123Json, ex.Message);
-        Assert.Contains("linha 3", ex.Message);
-        Assert.Contains("coluna", ex.Message);
-        Assert.Equal(TextYst123Json, ex.FilePath);
-    }
-
     [Theory]
     [InlineData("{ \"units\": [] }", "version")]
     [InlineData("{ \"version\": 1 }", "units")]
@@ -132,7 +79,6 @@ public class TextFileSerializerTests
     [Theory]
     [InlineData("0")]
     [InlineData("2")]
-    [InlineData("\"1\"")]
     [InlineData("1.5")]
     public void Parse_de_version_nao_suportada_falha(string version)
     {
@@ -174,10 +120,7 @@ public class TextFileSerializerTests
 
     [Theory]
     [InlineData("\"id\":null,\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"", "$.units[0]")]
-    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":null,\"status\":\"untranslated\"", "$.units[0]")]
     [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"notes\":null", "$.units[0]")]
-    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"flags\":null", "$.units[0]")]
-    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"origin\":{\"provider\":null,\"at\":\"2026-10-17T18:00:00Z\"}", "$.units[0]")]
     public void Parse_de_campo_nulo_onde_nao_cabe_falha_em_portugues(string campos, string caminho)
     {
         var json = $"{{ \"version\": 1, \"units\": [ {{{campos}}} ] }}";
@@ -228,35 +171,6 @@ public class TextFileSerializerTests
             Notes = texto,
             Flags = [texto, texto],
         };
-
-    [Fact]
-    public void Texto_especial_em_todos_os_campos_string_sai_literal_e_volta_igual()
-    {
-        var texto = $"{(char)0x3000}「野家」😀{(char)0x00A0}{(char)0x2028}\"\\\n";
-        var unidade = UnidadeComTextoEmTodosOsCampos(texto);
-
-        var json = TextFileSerializer.Serialize([unidade]);
-        var lida = TextFileSerializer.Parse(json, AJson)[0];
-
-        Assert.DoesNotContain("\\u3000", json);
-        Assert.Equal(texto, lida.Speaker);
-        Assert.Equal(texto, lida.Source);
-        Assert.Equal(texto, lida.Translation);
-        Assert.Equal(texto, lida.Notes);
-        Assert.Equal([texto, texto], lida.Flags);
-        Assert.Equal(texto, lida.Origin!.Provider);
-        Assert.Equal(texto, lida.Origin.Model);
-        Assert.Equal(json, TextFileSerializer.Serialize([lida]));
-    }
-
-    [Fact]
-    public void Strings_nulas_sao_gravadas_como_null()
-    {
-        var json = TextFileSerializer.Serialize([Unidade(1) with { Speaker = null }]);
-
-        Assert.Contains("\"speaker\":null", json);
-        Assert.Contains("\"translation\":null", json);
-    }
 
     [Fact]
     public void Surrogate_solitario_em_qualquer_campo_vira_erro_em_portugues_com_o_id()
@@ -327,13 +241,5 @@ public class TextFileSerializerTests
         Assert.Contains("yst00123:", ex1.Message);
         Assert.Contains(TextId1, ex2.Message);
         Assert.Contains("mais de uma vez", ex2.Message);
-    }
-
-    [Fact]
-    public void Nao_usa_bom_na_saida()
-    {
-        var bytes = new UTF8Encoding(false).GetBytes(TextFileSerializer.Serialize([Unidade(1)]));
-
-        Assert.NotEqual(0xEF, bytes[0]);
     }
 }

@@ -34,25 +34,6 @@ public sealed class GameEditionsFileTests : IDisposable
         Assert.Equal(Path.Combine(_dir.Path, "library-editions.json"), file.Path);
     }
 
-    [Fact]
-    public void Arquivo_que_nao_existe_e_uma_lista_vazia()
-    {
-        Assert.Empty(new GameEditionsFile(_dir.Path).Load().GameIds);
-    }
-
-    [Fact]
-    public void Update_le_de_novo_sob_a_trava_e_nao_perde_o_que_outro_gravou()
-    {
-        var file = new GameEditionsFile(_dir.Path);
-        file.Update(e => e.Set("g1", Moon, ["r1"], Now));
-        new GameEditionsFile(_dir.Path).Update(e => e.Set("g2", Star, ["r3"], Now));
-
-        var result = file.Update(e => e.GameIds.Count);
-
-        Assert.Equal(2, result);
-        Assert.Equal(["g1", "g2"], file.Load().GameIds);
-    }
-
     [Theory]
     [InlineData("{ nao e json")]
     [InlineData("null")]

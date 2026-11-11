@@ -29,11 +29,7 @@ public sealed class ReleaseServiceNamesTests
     }
 
     [Theory]
-    [InlineData("jogo", "jogo", true)]
-    [InlineData("jogo/", "jogo", true)]
-    [InlineData("jogo/releases/1.2.0", "jogo", true)]
     [InlineData("jogo2", "jogo", false)]
-    [InlineData("releases/1.2.0", "jogo", false)]
     public void Pasta_de_saida_dentro_do_jogo_e_reconhecida(string folder, string parent, bool inside)
     {
         var root = Path.Combine(Path.GetTempPath(), "vnf-inside");

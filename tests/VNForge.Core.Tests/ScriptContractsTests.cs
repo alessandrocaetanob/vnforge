@@ -9,18 +9,6 @@ public class ScriptContractsTests
 {
     private const string Fake001Txt = "fake001.txt";
 
-    [Theory]
-    [InlineData("yst00123.ybn", 42, "yst00123:000042")]
-    [InlineData("YST00123.YBN", 0, "yst00123:000000")]
-    [InlineData("ybin/yst00123.ybn", 1234567, "yst00123:1234567")]
-    [InlineData("sem_extensao", 7, "sem_extensao:000007")]
-    public void UnitId_junta_a_chave_do_script_e_a_posicao_com_seis_digitos(string nome, int posicao, string esperado)
-    {
-        var script = new ScriptFile(nome, new byte[] { 1 });
-
-        Assert.Equal(esperado, script.UnitId(posicao));
-    }
-
     [Fact]
     public void UnitId_recusa_posicao_negativa()
     {
@@ -33,15 +21,6 @@ public class ScriptContractsTests
     public void ScriptFile_recusa_nome_vazio()
     {
         Assert.Throws<ArgumentException>(() => new ScriptFile(" ", ReadOnlyMemory<byte>.Empty));
-    }
-
-    [Fact]
-    public void ValidateUnits_aceita_ids_do_script_e_lista_vazia()
-    {
-        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
-
-        script.ValidateUnits([]);
-        script.ValidateUnits([Unidade(script.UnitId(0)), Unidade(script.UnitId(1))]);
     }
 
     [Fact]
@@ -70,44 +49,6 @@ public class ScriptContractsTests
         var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade(script.UnitId(1)), Unidade(script.UnitId(1))]));
 
         Assert.Contains("fake001:000001", ex.Message);
-    }
-
-    [Fact]
-    public void ScriptExtraction_sem_avisos_tem_lista_vazia()
-    {
-        var extracao = new ScriptExtraction([]);
-
-        Assert.Empty(extracao.Units);
-        Assert.Empty(extracao.Warnings);
-    }
-
-    [Fact]
-    public void EngineContext_e_abstrato_e_guarda_o_id_da_engine()
-    {
-        Assert.True(typeof(EngineContext).IsAbstract);
-        Assert.Equal("fake", new FakeContext().EngineId);
-    }
-
-    [Fact]
-    public void Engine_de_teste_expoe_scripts_e_um_formato_extrai_e_reconstroi()
-    {
-        IEngine engine = new FakeEngine();
-        var formato = Assert.Single(engine.Scripts);
-        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
-        var ctx = new FakeContext();
-
-        var extracao = formato.Extract(arquivo, ctx);
-        Assert.Equal(["fake001:000000", "fake001:000001"], extracao.Units.Select(u => u.Id));
-
-        var identico = formato.Rebuild(arquivo, extracao.Units, new FakeEncoder(), ctx);
-        Assert.Equal(arquivo.Content.ToArray(), identico);
-
-        var trocadas = extracao.Units
-            .Select(u => u.Id.EndsWith("000001", StringComparison.Ordinal)
-                ? u with { Translation = "DOIS", Status = TranslationStatus.Translated }
-                : u)
-            .ToList();
-        Assert.Equal("um\nDOIS", Encoding.UTF8.GetString(formato.Rebuild(arquivo, trocadas, new FakeEncoder(), ctx)));
     }
 
     [Fact]

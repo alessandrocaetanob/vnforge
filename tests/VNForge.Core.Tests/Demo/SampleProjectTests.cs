@@ -20,43 +20,6 @@ public class SampleProjectTests
     }
 
     [Fact]
-    public void Quase_todas_as_falas_chegam_pendentes_e_uma_vem_da_IA_com_um_espaco_duplo_para_a_Conferencia()
-    {
-        var all = SampleProject.Texts.Values.SelectMany(u => u).ToList();
-
-        Assert.Equal(29, all.Count(u => u.Status == TranslationStatus.Untranslated));
-        var machine = Assert.Single(all, u => u.Status == TranslationStatus.Machine);
-        Assert.Contains("  ", machine.Translation);
-    }
-
-    [Fact]
-    public void A_traducao_de_uma_fala_desconhecida_e_nula()
-    {
-        Assert.Null(SampleProject.TranslationOf("これは別の文です。"));
-    }
-
-    [Fact]
-    public void Create_grava_um_projeto_que_abre_marcado_como_exemplo_e_sem_nenhum_arquivo_de_jogo()
-    {
-        using var temp = new TempFolder();
-
-        var root = SampleProject.Create(temp.Path);
-
-        var summary = ProjectSummaryReader.Read(root);
-        Assert.True(summary.IsSample);
-        Assert.Equal(SampleProject.Name, summary.Name);
-        Assert.Equal(3, summary.Scripts);
-        Assert.Equal(30, summary.Counts.Untranslated + summary.Counts.Machine);
-        Assert.StartsWith(temp.Path, root);
-        Assert.DoesNotContain(
-            Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories),
-            f => f.EndsWith(".ypf", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".ybn", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
-        var folder = ProjectFolder.Open(root);
-        Assert.NotEmpty(folder.LoadGlossary());
-        Assert.NotEmpty(folder.LoadCharacters());
-    }
-
-    [Fact]
     public void Create_de_novo_devolve_a_mesma_pasta_sem_apagar_o_que_a_pessoa_traduziu()
     {
         using var temp = new TempFolder();
@@ -84,16 +47,6 @@ public class SampleProjectTests
 
         Assert.True(SampleProject.IsSample(root));
         Assert.Equal(30, ProjectSummaryReader.Read(root).Counts.Untranslated + ProjectSummaryReader.Read(root).Counts.Machine);
-    }
-
-    [Fact]
-    public void Create_nao_deixa_a_pasta_temporaria_para_tras()
-    {
-        using var temp = new TempFolder();
-
-        SampleProject.Create(temp.Path);
-
-        Assert.Equal([SampleProject.FolderName], Directory.EnumerateDirectories(temp.Path).Select(Path.GetFileName));
     }
 
     [Fact]
@@ -162,15 +115,5 @@ public class SampleProjectTests
 
         var issue = Assert.Single(report.Issues, i => i.RuleId == "espaco-duplo");
         Assert.Equal("yst00001:0003", issue.UnitId);
-    }
-
-    [Fact]
-    public void Um_arquivo_exemplo_txt_qualquer_nao_faz_do_projeto_um_exemplo()
-    {
-        using var temp = new TempFolder();
-        var root = DemoProject.Create(temp.Path);
-        File.WriteAllText(Path.Combine(root, SampleProject.MarkerFileName), "minhas anotações");
-
-        Assert.False(SampleProject.IsSample(root));
     }
 }

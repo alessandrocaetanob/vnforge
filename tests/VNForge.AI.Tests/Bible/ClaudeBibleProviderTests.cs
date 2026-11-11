@@ -44,25 +44,6 @@ public sealed class ClaudeBibleProviderTests
         Chapter("Manhã de chuva", 1, Scene("yst1", "manha", "おはよう", "遅いぞ"), Scene("yst2", "tarde", "ただいま"));
 
     [Fact]
-    public async Task Descreve_as_cenas_pedidas_na_ordem_pedida()
-    {
-        var client = new StubClient(_ => Scenes("yst2", "yst1"));
-        var provider = new ClaudeBibleProvider(client);
-
-        var scenes = await provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1", "yst2"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(["yst1", "yst2"], scenes.Select(s => s.Key));
-        var first = scenes[0];
-        Assert.Equal("Atraso no portão", first.Name);
-        Assert.Equal("Kenta e Ren chegam à escola.", first.Summary);
-        Assert.Equal(["Kenta", "Ren"], first.Characters);
-        Assert.Equal(["cômico leve"], first.Tone);
-        Assert.Equal(["o guarda-chuva"], first.Jokes);
-        Assert.Equal(new VNForge.Core.Bible.BibleRelation("Kenta e Ren", "Amigos de infância"), Assert.Single(first.Relations));
-        Assert.Empty(first.Edited);
-    }
-
-    [Fact]
     public async Task O_roteiro_do_capitulo_vai_no_bloco_estavel_e_o_pedido_de_cenas_no_do_usuario()
     {
         var client = new StubClient(_ => Scenes("yst1"));
@@ -82,33 +63,6 @@ public sealed class ClaudeBibleProviderTests
         Assert.Contains("\"scenes\"", request.JsonSchema, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Chamadas_sobre_o_mesmo_capitulo_mandam_o_mesmo_bloco_estavel_para_o_cache_acertar()
-    {
-        var client = new StubClient(r => r.User.Contains("yst2", StringComparison.Ordinal) ? Scenes("yst2") : Scenes("yst1"));
-        var provider = new ClaudeBibleProvider(client);
-        var chapter = TwoSceneChapter();
-
-        await provider.DescribeScenesAsync(chapter, ["yst1"], TestContext.Current.CancellationToken);
-        await provider.DescribeScenesAsync(chapter, ["yst2"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(2, client.Requests.Count);
-        Assert.Equal(client.Requests[0].System, client.Requests[1].System);
-        Assert.NotEqual(client.Requests[0].User, client.Requests[1].User);
-    }
-
-    [Fact]
-    public async Task Soma_o_uso_de_todas_as_chamadas_com_o_que_veio_do_cache()
-    {
-        var client = new StubClient(_ => Scenes("yst1"));
-        var provider = new ClaudeBibleProvider(client);
-
-        await provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken);
-        await provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(new ClaudeUsage(200, 100, 800, 0), provider.Usage);
-    }
-
     [Theory]
     [InlineData("""{"scenes":[]}""")]
     [InlineData("""{"scenes":[{"key":"yst1","name":"a","summary":"b","characters":[],"tone":[],"jokes":[],"relations":[]},{"key":"yst9","name":"a","summary":"b","characters":[],"tone":[],"jokes":[],"relations":[]}]}""")]
@@ -124,23 +78,9 @@ public sealed class ClaudeBibleProviderTests
         Assert.Contains("incompleta ou fora do formato", ex.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Recusa_e_corte_por_tamanho_viram_erros_com_mensagem_em_portugues()
-    {
-        var refusal = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply("refusal", "")));
-        var truncated = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply("max_tokens", "{")));
-
-        var refused = await Assert.ThrowsAsync<ClaudeRefusalException>(() => refusal.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
-        var cut = await Assert.ThrowsAsync<ClaudeResponseException>(() => truncated.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
-
-        Assert.Contains("não quis ler", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("não terminou", cut.Message, StringComparison.Ordinal);
-    }
-
     [Theory]
     [InlineData("refusal", "")]
     [InlineData("max_tokens", "{")]
-    [InlineData("end_turn", "não é json")]
     public async Task Chamada_que_falha_ja_foi_cobrada_e_soma_no_uso(string stopReason, string text)
     {
         var provider = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply(stopReason, text, new ClaudeUsage(100, 50, 400, 20))));

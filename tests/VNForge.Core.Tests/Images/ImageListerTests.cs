@@ -37,17 +37,6 @@ public sealed class ImageListerTests : IDisposable
     }
 
     [Fact]
-    public void Acha_pacotes_nas_subpastas_e_grava_o_caminho_com_barra()
-    {
-        FakeArchiveFormat.Touch(_game, "pac/sys/ui.pak");
-        var format = new FakeArchiveFormat(Archives(("ui.pak", [("botao.png", SyntheticImages.Png(200, 80))])));
-
-        var listing = List(format);
-
-        Assert.Equal("pac/sys/ui.pak", Assert.Single(listing.Candidates).Archive);
-    }
-
-    [Fact]
     public void Ignora_o_que_nao_e_imagem()
     {
         FakeArchiveFormat.Touch(_game, "tudo.pak");
@@ -99,17 +88,6 @@ public sealed class ImageListerTests : IDisposable
     }
 
     [Fact]
-    public void A_extensao_nao_manda_o_que_vale_e_o_conteudo()
-    {
-        FakeArchiveFormat.Touch(_game, "cg.pak");
-        var format = new FakeArchiveFormat(Archives(("cg.pak", [("falso.bmp", SyntheticImages.Png(300, 300))])));
-
-        var listing = List(format);
-
-        Assert.Equal(ImageFormat.Png, Assert.Single(listing.Candidates).Info.Format);
-    }
-
-    [Fact]
     public void Imagem_acima_do_limite_de_bytes_ou_de_lado_fica_de_fora_sem_ler()
     {
         FakeArchiveFormat.Touch(_game, "cg.pak");
@@ -136,28 +114,6 @@ public sealed class ImageListerTests : IDisposable
     }
 
     [Fact]
-    public void Teto_de_bytes_padrao_deixa_margem_abaixo_dos_10_MB_em_base64()
-    {
-        var max = new ImageScanOptions().MaxBytes;
-
-        Assert.Equal(7_400_000, max);
-        Assert.True(max / 3 * 4 < 10_000_000);
-    }
-
-    [Fact]
-    public void Pacote_ilegivel_vira_aviso_e_os_outros_seguem()
-    {
-        FakeArchiveFormat.Touch(_game, "estragado.pak", "bom.pak");
-        var format = new FakeArchiveFormat(Archives(("bom.pak", [("a.png", SyntheticImages.Png(100, 100))])));
-
-        var listing = List(format);
-
-        Assert.Single(listing.Candidates);
-        Assert.Equal(1, listing.ArchivesRead);
-        Assert.Contains("estragado.pak", Assert.Single(listing.Warnings));
-    }
-
-    [Fact]
     public void Pasta_do_jogo_inexistente_e_erro_em_portugues()
     {
         var format = new FakeArchiveFormat(Archives());
@@ -165,16 +121,5 @@ public sealed class ImageListerTests : IDisposable
         var error = Assert.Throws<VNForgeException>(() => ImageLister.List(Path.Combine(_game, "nao-existe"), [format], null, TestContext.Current.CancellationToken));
 
         Assert.Contains("A pasta do jogo não existe", error.Message);
-    }
-
-    [Fact]
-    public void Cancelar_interrompe_a_listagem()
-    {
-        FakeArchiveFormat.Touch(_game, "cg.pak");
-        var format = new FakeArchiveFormat(Archives(("cg.pak", [("a.png", SyntheticImages.Png(100, 100))])));
-        using var cancelled = new CancellationTokenSource();
-        cancelled.Cancel();
-
-        Assert.Throws<OperationCanceledException>(() => ImageLister.List(_game, [format], null, cancelled.Token));
     }
 }

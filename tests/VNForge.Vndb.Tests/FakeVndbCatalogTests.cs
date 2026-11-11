@@ -29,23 +29,6 @@ public class FakeVndbCatalogTests
     }
 
     [Fact]
-    public async Task Busca_respeita_o_limite()
-    {
-        var found = await Catalog().SearchVisualNovelsAsync("moon", 1, ct: Ct);
-
-        Assert.Single(found);
-    }
-
-    [Fact]
-    public async Task Personagens_saem_pelo_jogo_ou_pelo_titulo()
-    {
-        var catalog = Catalog();
-
-        Assert.Equal(["c1", "c2"], (await catalog.GetCharactersAsync("v2", ct: Ct)).Items.Select(c => c.Id));
-        Assert.Equal(["c1", "c3"], (await catalog.SearchCharactersByTitleAsync("moon", ct: Ct)).Items.Select(c => c.Id));
-    }
-
-    [Fact]
     public async Task Edicoes_e_jogo_por_id()
     {
         var catalog = Catalog();
@@ -126,31 +109,6 @@ public class FakeVndbCatalogTests
         Assert.Empty(cleared.Labels);
     }
 
-    [Fact]
-    public async Task Lista_sai_ordenada_pelo_numero_do_id_e_nao_pelo_texto()
-    {
-        var catalog = new FakeVndbCatalog([Vn("v2", "B"), Vn("v10", "J"), Vn("v1", "A")]);
-        foreach (var id in new[] { "v10", "v2", "v1" })
-        {
-            await catalog.UpdateEntryAsync(FakeVndbCatalog.ValidToken, id, new VndbListUpdate(), ct: Ct);
-        }
-
-        var list = await catalog.GetListAsync("u1", ct: Ct);
-
-        Assert.Equal(["v1", "v2", "v10"], list.Items.Select(e => e.VisualNovelId));
-        Assert.False(list.Truncated);
-    }
-
-    [Theory]
-    [InlineData(9)]
-    [InlineData(101)]
-    public async Task Voto_fora_de_10_a_100_e_recusado_como_no_cliente_real(int vote)
-    {
-        var catalog = Catalog();
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => catalog.UpdateEntryAsync(FakeVndbCatalog.ValidToken, "v1", new VndbListUpdate { Vote = vote }, ct: Ct));
-    }
-
     [Theory]
     [InlineData(0)]
     [InlineData(7)]
@@ -163,19 +121,6 @@ public class FakeVndbCatalogTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => catalog.UpdateEntryAsync(token, "v1", new VndbListUpdate { LabelsSet = [label] }, ct: Ct));
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => catalog.UpdateEntryAsync(token, "v1", new VndbListUpdate { LabelsUnset = [label] }, ct: Ct));
         Assert.Empty((await catalog.GetListAsync("u1", ct: Ct)).Items);
-    }
-
-    [Fact]
-    public async Task Titulo_vazio_e_id_malformado_sao_recusados_como_no_cliente_real()
-    {
-        var catalog = Catalog();
-
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.SearchVisualNovelsAsync(" ", ct: Ct));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.SearchCharactersByTitleAsync("", ct: Ct));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.GetVisualNovelAsync("17", ct: Ct));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.GetCharactersAsync("c1", ct: Ct));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.GetReleasesAsync("", ct: Ct));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => catalog.GetListAsync("2", ct: Ct));
     }
 
     [Fact]

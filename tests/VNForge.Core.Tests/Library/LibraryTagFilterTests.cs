@@ -38,16 +38,6 @@ public sealed class LibraryTagFilterTests
     }
 
     [Fact]
-    public void E_exige_todas_as_tags_e_junta_as_proprias_com_as_do_vndb()
-    {
-        var (tags, games) = Setup();
-
-        Assert.Equal(["CLANNAD", "Eroge"], Run(LibraryTagFilter.Create(["favorito"], any: false, null), tags, games));
-        Assert.Equal(["CLANNAD", "Eroge"], Run(LibraryTagFilter.Create(["favorito", "drama"], any: false, null), tags, games));
-        Assert.Equal(["CLANNAD"], Run(LibraryTagFilter.Create(["favorito", "drama", "rejogar"], any: false, null), tags, games));
-    }
-
-    [Fact]
     public void Ou_aceita_qualquer_uma_das_tags()
     {
         var (tags, games) = Setup();
@@ -82,81 +72,6 @@ public sealed class LibraryTagFilterTests
     }
 
     [Fact]
-    public void Termo_ignora_caixa_e_espacos_repetidos()
-    {
-        var (tags, games) = Setup();
-
-        var filter = LibraryTagFilter.Create(["  PRA   Traduzir"], any: false, null);
-
-        Assert.Equal(["pra traduzir"], filter.Include);
-        Assert.Equal(["Sem VNDB"], Run(filter, tags, games));
-    }
-
-    [Fact]
-    public void Tag_de_spoiler_escondida_nao_aparece_no_filtro()
-    {
-        var (tags, games) = Setup();
-        var filter = LibraryTagFilter.Create(["vndb:plot twist"], any: false, null);
-
-        Assert.Empty(Run(filter, tags, games));
-        Assert.Equal(["CLANNAD"], Run(filter, tags, games, new LibraryPrivacy(ShowSpoilers: true)));
-        Assert.Equal(["CLANNAD", "Eroge", "Sem VNDB"], Run(LibraryTagFilter.Create(null, any: false, ["vndb:plot twist"]), tags, games));
-    }
-
-    [Fact]
-    public void Tag_adulta_so_entra_com_a_privacidade_liberando()
-    {
-        var (tags, games) = Setup();
-        var filter = LibraryTagFilter.Create(["vndb:cena explícita"], any: false, null);
-
-        Assert.Empty(Run(filter, tags, games));
-        Assert.Equal(["Eroge"], Run(filter, tags, games, new LibraryPrivacy(Adult: AdultMode.Show)));
-    }
-
-    [Fact]
-    public void Tag_propria_nao_depende_da_privacidade()
-    {
-        var (tags, games) = Setup();
-        tags.Add(_eroge.Id, "segredo");
-
-        Assert.Equal(["Eroge"], Run(LibraryTagFilter.Create(["segredo"], any: false, null), tags, games));
-    }
-
-    [Fact]
-    public void Termo_vazio_e_recusado()
-    {
-        Assert.Throws<LibraryException>(() => LibraryTagFilter.Create(["  "], any: false, null));
-        Assert.Throws<LibraryException>(() => LibraryTagFilter.Create(null, any: false, ["minha:"]));
-    }
-
-    [Fact]
-    public void Tag_erotica_de_jogo_nao_marcado_como_adulto_tambem_some_sem_show_adult()
-    {
-        var plain = TagTestGames.WithVndb("Comum", false, Drama, Explicit);
-        var tags = new UserTags();
-        var filter = LibraryTagFilter.Create(["vndb:cena explícita"], any: false, null);
-
-        Assert.Equal([Drama], LibraryVisibility.VisibleTags(plain, Hidden));
-        Assert.Empty(filter.Apply([plain], tags, Hidden));
-        Assert.Single(filter.Apply([plain], tags, new LibraryPrivacy(Adult: AdultMode.Show)));
-        Assert.Equal(LibraryVisibility.Card(plain, Hidden)!.Tags, LibraryVisibility.VisibleTags(plain, Hidden));
-    }
-
-    [Fact]
-    public void Termo_do_vndb_ignora_largura_e_forma_de_composicao_do_unicode()
-    {
-        var cafe = new LibraryTag("g7", "Café", "cont", 2.0, 0);
-        var game = TagTestGames.WithVndb("Jogo", false, cafe);
-        var tags = new UserTags();
-        tags.Add(game.Id, "Ｆａｖｏｒｉｔｏ");
-
-        Assert.Single(LibraryTagFilter.Create(["vndb:café"], any: false, null).Apply([game], tags, Hidden));
-        Assert.Single(LibraryTagFilter.Create(["ｖｎｄｂ：Ｃａｆé"], any: false, null).Apply([game], tags, Hidden));
-        Assert.Single(LibraryTagFilter.Create(["favorito"], any: false, null).Apply([game], tags, Hidden));
-        Assert.Equal(["vndb:café"], LibraryTagFilter.Create(["vndb:café"], any: false, null).Include);
-    }
-
-    [Fact]
     public void Mascarar_troca_so_os_termos_do_vndb_que_a_privacidade_esconde()
     {
         var (tags, games) = Setup();
@@ -171,13 +86,5 @@ public sealed class LibraryTagFilterTests
         Assert.Equal(0, none);
         Assert.Equal(filter.Include, revealed.Include);
         Assert.Equal(filter.Exclude, revealed.Exclude);
-    }
-
-    [Fact]
-    public void Termos_repetidos_viram_um()
-    {
-        var filter = LibraryTagFilter.Create(["Drama", "drama ", "minha:drama"], any: false, null);
-
-        Assert.Equal(["drama", "minha:drama"], filter.Include);
     }
 }

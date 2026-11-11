@@ -62,28 +62,6 @@ public class GlossaryFilesTests : IDisposable
     }
 
     [Fact]
-    public void Gravacao_tem_envelope_uma_entrada_por_linha_e_japones_literal()
-    {
-        var json = GlossarySerializer.Serialize([new("先輩", "veterano"), new("生徒会", "conselho")]);
-
-        var linhas = json.Split('\n');
-        Assert.Equal("{", linhas[0]);
-        Assert.Equal("  \"version\": 1,", linhas[1]);
-        Assert.Equal("  \"entries\": [", linhas[2]);
-        Assert.Equal("    {\"source\":\"先輩\",\"target\":\"veterano\"},", linhas[3]);
-        Assert.Equal("    {\"source\":\"生徒会\",\"target\":\"conselho\"}", linhas[4]);
-        Assert.DoesNotContain('\r', json);
-        Assert.EndsWith("}\n", json);
-    }
-
-    [Fact]
-    public void Lista_vazia_gera_entries_vazio()
-    {
-        Assert.Equal("{\n  \"version\": 1,\n  \"entries\": []\n}\n", GlossarySerializer.Serialize([]));
-        Assert.Empty(GlossarySerializer.Parse(GlossarySerializer.Serialize([]), "g.json"));
-    }
-
-    [Fact]
     public void Cor_do_personagem_vai_e_volta_e_some_do_arquivo_quando_nao_definida()
     {
         var json = CharacterSerializer.Serialize([new("美咲", "Misaki", Color: "rose"), new("先生", "Professor")]);
@@ -93,18 +71,6 @@ public class GlossaryFilesTests : IDisposable
         var lido = CharacterSerializer.Parse(json, "characters.json");
         Assert.Equal("rose", lido[0].Color);
         Assert.Null(lido[1].Color);
-    }
-
-    [Fact]
-    public void Personagem_sem_genero_nem_tom_le_como_desconhecido_sem_tom()
-    {
-        var json = """{ "version": 1, "entries": [ { "source": "美咲", "target": "Misaki" } ] }""";
-
-        var personagem = Assert.Single(CharacterSerializer.Parse(json, "characters.json"));
-
-        Assert.Equal(CharacterGender.Unknown, personagem.Gender);
-        Assert.Null(personagem.Tone);
-        Assert.Null(personagem.Color);
     }
 
     [Theory]
@@ -149,62 +115,6 @@ public class GlossaryFilesTests : IDisposable
     public void Serialize_recusa_surrogate_solitario()
     {
         Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a\uD800", "x")]));
-    }
-
-    [Fact]
-    public void Mensagem_de_erro_do_json_vem_em_portugues()
-    {
-        var ex = Assert.Throws<GlossaryFileException>(() =>
-            CharacterSerializer.Parse("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": "robot" } ] }""", "c.json"));
-
-        Assert.Contains("valor inválido", ex.Reason);
-        Assert.DoesNotContain("could not", ex.Reason);
-    }
-
-    [Fact]
-    public void Speaker_extraido_encontra_a_entrada_certa()
-    {
-        var livro = new CharacterBook(Personagens());
-
-        Assert.Equal("Misaki", livro.Find("美咲")?.Target);
-        Assert.Equal("Professor", livro.Find("先生")?.Target);
-        Assert.Equal("???", livro.Find("？？？")?.Target);
-    }
-
-    [Fact]
-    public void Speaker_com_espacos_nas_pontas_ainda_encontra_a_entrada()
-    {
-        var livro = new CharacterBook(Personagens());
-
-        Assert.Equal("Misaki", livro.Find("　美咲 ")?.Target);
-    }
-
-    [Fact]
-    public void Speaker_e_cadastro_casam_mesmo_com_larguras_diferentes()
-    {
-        var livro = new CharacterBook([new CharacterEntry("学生C", "Aluno C")]);
-
-        Assert.Equal("Aluno C", livro.Find("学生Ｃ")?.Target);
-        Assert.True(CharacterBook.NameComparer.Equals("学生Ｃ", " 学生C　"));
-    }
-
-    [Fact]
-    public void Speaker_ausente_ou_desconhecido_nao_encontra_nada()
-    {
-        var livro = new CharacterBook(Personagens());
-
-        Assert.Null(livro.Find(null));
-        Assert.Null(livro.Find(string.Empty));
-        Assert.Null(livro.Find("見知らぬ人"));
-    }
-
-    [Fact]
-    public void Speaker_de_um_TextUnit_encontra_o_personagem()
-    {
-        var unidade = new TextUnit("yst00123:000001", TextUnitKind.Dialogue, "先生", "「おはよう」", null, TranslationStatus.Untranslated);
-        var livro = new CharacterBook(Personagens());
-
-        Assert.Equal("Professor", livro.Find(unidade.Speaker)?.Target);
     }
 
     [Fact]

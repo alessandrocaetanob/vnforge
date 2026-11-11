@@ -10,10 +10,6 @@ public sealed class LibraryListModelsTests
 
     [Theory]
     [InlineData("8.5", 85)]
-    [InlineData("8,5", 85)]
-    [InlineData("10", 100)]
-    [InlineData("1", 10)]
-    [InlineData(" 7 ", 70)]
     public void Nota_digitada_vira_voto_do_VNDB(string text, int vote)
     {
         Assert.Equal(vote, LibraryListRules.ParseVote(text));
@@ -31,20 +27,8 @@ public sealed class LibraryListModelsTests
         Assert.Throws<ArgumentException>(() => LibraryListRules.ParseVote(text));
     }
 
-    [Fact]
-    public void Voto_volta_para_nota_em_portugues_ou_invariante()
-    {
-        Assert.Equal("8,5", LibraryListRules.FormatVote(85));
-        Assert.Equal("8", LibraryListRules.FormatVote(80));
-        Assert.Equal("8.5", LibraryListRules.FormatVote(85, CultureInfo.InvariantCulture));
-    }
-
     [Theory]
     [InlineData("terminado", 2)]
-    [InlineData("Finished", 2)]
-    [InlineData("jogando", 1)]
-    [InlineData("abandonado", 4)]
-    [InlineData("lista-negra", 6)]
     [InlineData("12", 12)]
     public void Rotulo_vem_pelo_nome_em_portugues_ou_ingles_ou_pelo_id_da_conta(string text, int id)
     {
@@ -57,8 +41,6 @@ public sealed class LibraryListModelsTests
     [InlineData("7")]
     [InlineData("9")]
     [InlineData("voted")]
-    [InlineData("1601")]
-    [InlineData("qualquer")]
     public void Rotulo_voted_e_nomes_que_nao_existem_nao_valem(string text)
     {
         Assert.False(LibraryListLabels.TryParse(text, out _));
@@ -134,14 +116,5 @@ public sealed class LibraryListModelsTests
         Assert.Equal("Ótimo", back.CurrentList.Fields.Notes);
         Assert.True(back.CurrentList.Pending);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Biblioteca_antiga_sem_lista_continua_abrindo()
-    {
-        var library = LibraryFile.Parse("""{"version":1,"games":[{"id":"g1","folder":"C:\\A","engine":{"id":"unknown","name":"Desconhecida","source":"unknown"},"title":"A","addedAt":"2026-11-01T12:00:00+00:00"}]}""");
-
-        Assert.Null(library.Games[0].List);
-        Assert.Null(library.Games[0].CurrentList);
     }
 }

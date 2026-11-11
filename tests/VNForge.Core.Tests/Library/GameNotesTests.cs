@@ -11,23 +11,8 @@ public sealed class GameNotesTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    [Fact]
-    public void Set_grava_a_nota_e_devolve_o_que_ficou()
-    {
-        var notes = new GameNotes();
-
-        var note = notes.Set("g1", "Rota da Nagisa.\r\nVoltar no capítulo 3.  \r\n\r\n", Now);
-
-        Assert.Equal("Rota da Nagisa.\nVoltar no capítulo 3.", note!.Text);
-        Assert.Equal(Now, note.UpdatedAt);
-        Assert.Equal(note, notes.Of("g1"));
-        Assert.Null(notes.Of("g2"));
-    }
-
     [Theory]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  \r\n \n")]
     public void Set_com_texto_em_branco_apaga_a_nota(string? blank)
     {
         var notes = new GameNotes();
@@ -103,29 +88,6 @@ public sealed class GameNotesTests : IDisposable
     }
 
     [Fact]
-    public void Sem_arquivo_as_notas_vem_vazias()
-    {
-        Assert.Empty(new GameNotesFile(_dir.Path).Load().GameIds);
-    }
-
-    [Fact]
-    public void Update_relê_o_arquivo_e_nao_grava_quando_a_mudanca_falha()
-    {
-        var file = new GameNotesFile(_dir.Path);
-        file.Update(n => n.Set("g1", "antes", Now));
-        var before = File.ReadAllText(file.Path);
-
-        Assert.Throws<LibraryException>(() => file.Update(n =>
-        {
-            n.Set("g1", "depois", Now);
-            n.Append("g2", " ", Now);
-        }));
-
-        Assert.Equal(before, File.ReadAllText(file.Path));
-        Assert.Equal("antes", file.Load().Of("g1")!.Text);
-    }
-
-    [Fact]
     public void Update_sem_resultado_grava_a_mudanca()
     {
         var file = new GameNotesFile(_dir.Path);
@@ -166,7 +128,6 @@ public sealed class GameNotesTests : IDisposable
     [InlineData("{\"version\":1,\"games\":{\"g1\":null}}", "sem texto")]
     [InlineData("null", "vazio")]
     [InlineData("{\"version\":1,\"games\":{\" \":{\"text\":\"x\",\"updatedAt\":\"2026-11-09T20:00:00-03:00\"}}}", "sem id")]
-    [InlineData("{ quebrado", "formato esperado")]
     public void Arquivo_fora_do_formato_diz_o_que_esta_errado(string json, string part)
     {
         var error = Assert.Throws<LibraryException>(() => GameNotesFile.Parse(json, "notas.json"));

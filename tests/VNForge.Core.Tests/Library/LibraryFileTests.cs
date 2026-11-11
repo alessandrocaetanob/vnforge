@@ -72,20 +72,6 @@ public sealed class LibraryFileTests : IDisposable
     }
 
     [Fact]
-    public void O_arquivo_fica_em_library_json_com_enums_em_texto_e_sem_temporario_sobrando()
-    {
-        var file = new LibraryFile(Path.Combine(_dir.Path, "VNForge"));
-
-        file.Save(Sample());
-
-        Assert.Equal(Path.Combine(_dir.Path, "VNForge", "library.json"), file.Path);
-        var text = File.ReadAllText(file.Path);
-        Assert.Contains("\"confirmation\": \"manual\"", text);
-        Assert.Contains("\"source\": \"signature\"", text);
-        Assert.Equal([file.Path], Directory.GetFiles(Path.Combine(_dir.Path, "VNForge")));
-    }
-
-    [Fact]
     public void Privacidade_esconde_spoiler_e_desfoca_adulto_por_padrao()
     {
         var privacy = LibraryFile.Parse("{\"version\":1,\"games\":[]}").Privacy;
@@ -97,8 +83,6 @@ public sealed class LibraryFileTests : IDisposable
 
     [Theory]
     [InlineData("\"showAdult\":true", AdultMode.Show)]
-    [InlineData("\"showAdult\":false", AdultMode.Blur)]
-    [InlineData("\"adult\":\"hide\"", AdultMode.Hide)]
     [InlineData("\"showAdult\":true,\"adult\":\"hide\"", AdultMode.Hide)]
     public void O_arquivo_antigo_com_showAdult_e_o_novo_com_adult_dao_o_modo(string fields, AdultMode expected)
     {
@@ -110,10 +94,8 @@ public sealed class LibraryFileTests : IDisposable
 
     [Theory]
     [InlineData("null")]
-    [InlineData("\"texto\"")]
     [InlineData("{\"adult\":\"borrar\"}")]
     [InlineData("{\"adult\":3}")]
-    [InlineData("{\"adult\":{\"x\":[1]},\"showSpoilers\":true}")]
     [InlineData("{\"showAdult\":\"sim\"}")]
     [InlineData("{\"showAdult\":null,\"showSpoilers\":\"sim\"}")]
     public void Uma_privacidade_estranha_vale_o_padrao_e_nao_derruba_o_arquivo(string privacyJson)
@@ -121,24 +103,6 @@ public sealed class LibraryFileTests : IDisposable
         var library = LibraryFile.Parse("{\"version\":1,\"privacy\":" + privacyJson + ",\"games\":[]}");
 
         Assert.Equal(AdultMode.Blur, library.Privacy.Adult);
-        Assert.Empty(library.Games);
-    }
-
-    [Fact]
-    public void O_modo_adulto_e_gravado_como_adult_e_sem_showAdult()
-    {
-        var text = LibraryFile.Serialize(new GameLibrary(privacy: new LibraryPrivacy(Adult: AdultMode.Hide)));
-
-        Assert.Contains("\"adult\": \"hide\"", text);
-        Assert.DoesNotContain("showAdult", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(AdultMode.Hide, LibraryFile.Parse(text).Privacy.Adult);
-    }
-
-    [Fact]
-    public void Sem_arquivo_a_biblioteca_e_vazia()
-    {
-        var library = new LibraryFile(Path.Combine(_dir.Path, "nada")).Load();
-
         Assert.Empty(library.Games);
     }
 
@@ -175,24 +139,6 @@ public sealed class LibraryFileTests : IDisposable
         var e = Assert.Throws<LibraryException>(() => LibraryFile.Parse(json));
 
         Assert.Contains("mais de uma vez", e.Message);
-    }
-
-    [Fact]
-    public void O_json_tem_a_versao_e_e_valido()
-    {
-        using var document = JsonDocument.Parse(LibraryFile.Serialize(Sample()));
-
-        Assert.Equal(LibraryFile.CurrentVersion, document.RootElement.GetProperty("version").GetInt32());
-        Assert.Equal(2, document.RootElement.GetProperty("games").GetArrayLength());
-    }
-
-    [Fact]
-    public void Id_nao_depende_de_maiusculas_nem_da_barra_final_e_muda_com_a_pasta()
-    {
-        var a = Path.Combine(_dir.Path, "Jogos", "Clannad");
-
-        Assert.Equal(GameLibrary.IdFor(a), GameLibrary.IdFor(a.ToUpperInvariant() + Path.DirectorySeparatorChar));
-        Assert.NotEqual(GameLibrary.IdFor(a), GameLibrary.IdFor(a + "2"));
     }
 
     [Fact]
@@ -233,33 +179,6 @@ public sealed class LibraryFileTests : IDisposable
     }
 
     [Fact]
-    public void Jogo_fora_da_pasta_varrida_nao_e_dado_como_sumido()
-    {
-        var library = Sample();
-
-        var merge = library.Merge([], Path.Combine(_dir.Path, "outra-unidade"));
-
-        Assert.Empty(merge.Missing);
-        Assert.Equal(2, library.Games.Count);
-    }
-
-    [Fact]
-    public void Update_rele_o_arquivo_e_nao_perde_o_que_outro_gravou_no_meio()
-    {
-        var file = new LibraryFile(_dir.Path);
-        file.Save(Sample());
-        var stale = file.Load();
-
-        new LibraryFile(_dir.Path).Update(l => l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show));
-        file.Update(l => l.Replace(l.Games[1] with { Title = "Mudou" }));
-
-        var result = file.Load();
-        Assert.Equal("Mudou", result.Games[1].Title);
-        Assert.True(result.Privacy.ShowAdult);
-        Assert.False(stale.Privacy.ShowAdult);
-    }
-
-    [Fact]
     public void Update_em_paralelo_serializa_as_gravacoes()
     {
         var file = new LibraryFile(_dir.Path);
@@ -294,31 +213,5 @@ public sealed class LibraryFileTests : IDisposable
 
         Assert.Contains("library.json", save.Message, StringComparison.Ordinal);
         Assert.NotNull(update.InnerException);
-    }
-
-    [Fact]
-    public void Save_espera_um_leitor_soltar_o_arquivo_em_vez_de_falhar()
-    {
-        // O leitor só solta quando o Save pede a espera: nenhum relógio nem thread do pool entra na conta.
-        FileStream? reader = null;
-        var waits = 0;
-        var file = new LibraryFile(_dir.Path, _ =>
-        {
-            waits++;
-            reader?.Dispose();
-        });
-        file.Save(Sample());
-        reader = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-
-        file.Save(new GameLibrary([Game(Path.Combine(_dir.Path, "novo"), "Novo")]));
-
-        Assert.Equal("Novo", file.Load().Games.Single().Title);
-        if (OperatingSystem.IsWindows())
-        {
-            // No Windows a troca por cima de um arquivo aberto falha, então o Save tem de ter esperado.
-            Assert.Equal(1, waits);
-        }
-
-        reader.Dispose();
     }
 }

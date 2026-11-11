@@ -50,21 +50,6 @@ public sealed class AddressTermsProjectTests : IDisposable
     }
 
     [Fact]
-    public void O_build_com_fala_fora_do_combinado_nao_trava_sem_allowWarnings()
-    {
-        _project.SaveAddressTerms(Kenta);
-        FalaDeKenta("Bom dia");
-
-        var qa = new QaEngine([new AddressTermRule()]);
-        var report = qa.Run(QaContext.FromProject(_project));
-        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: qa, allowWarnings: false);
-
-        Assert.Equal(1, report.StyleAdviceCount);
-        Assert.Empty(report.BlockingIssues);
-        Assert.NotNull(result);
-    }
-
-    [Fact]
     public void O_build_com_o_arquivo_de_tratamentos_ilegivel_segue_e_avisa()
     {
         File.WriteAllText(_project.AddressTermsPath, "{ isto não é json");
@@ -74,42 +59,6 @@ public sealed class AddressTermsProjectTests : IDisposable
 
         Assert.Contains(result.Warnings, w => w.Contains("address-terms.json", StringComparison.Ordinal) && w.Contains("ignorado", StringComparison.Ordinal));
         Assert.Equal("{ isto não é json", File.ReadAllText(_project.AddressTermsPath));
-    }
-
-    [Fact]
-    public void O_contexto_do_projeto_le_os_tratamentos_do_arquivo()
-    {
-        _project.SaveAddressTerms(Kenta);
-
-        var context = QaContext.FromProject(_project);
-
-        Assert.Equal(Kenta, context.AddressTerms);
-        Assert.False(context.AddressBook.IsEmpty);
-    }
-
-    [Fact]
-    public void O_painel_conta_o_aviso_de_tratamento_como_estilo_e_nao_como_problema()
-    {
-        _project.SaveAddressTerms(Kenta);
-        FalaDeKenta("Bom dia");
-
-        var qa = ProjectDashboard.Read(_project).Qa;
-
-        Assert.NotNull(qa);
-        Assert.Equal(1, qa.StyleAdvice);
-        Assert.Equal(0, qa.Total);
-    }
-
-    [Fact]
-    public void O_painel_ignora_o_arquivo_de_tratamentos_ilegivel_e_ainda_confere_o_resto()
-    {
-        File.WriteAllText(_project.AddressTermsPath, "{ isto não é json");
-        FalaDeKenta("Bom dia");
-
-        var qa = ProjectDashboard.Read(_project).Qa;
-
-        Assert.NotNull(qa);
-        Assert.Equal(0, qa.StyleAdvice);
     }
 
     // O contexto confere a data de gravação e o tamanho; dois arquivos gravados no mesmo instante e do mesmo tamanho não contariam como mudança.

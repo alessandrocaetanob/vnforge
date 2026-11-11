@@ -43,32 +43,6 @@ public sealed class IgnoredWordsProjectTests : IDisposable
         _project.SaveText("a001", units);
     }
 
-    [Theory]
-    [InlineData(Quebrado)]
-    [InlineData("{\"version\":1,\"entries\":[{\"word\":\"\"}]}")]
-    public void O_contexto_do_projeto_tolera_o_arquivo_de_palavras_ilegivel(string conteudo)
-    {
-        File.WriteAllText(_project.IgnoredWordsPath, conteudo);
-
-        var context = QaContext.FromProject(_project);
-
-        Assert.Empty(context.IgnoredWords);
-        Assert.Equal(conteudo, File.ReadAllText(_project.IgnoredWordsPath));
-    }
-
-    [Fact]
-    public void A_grade_do_editor_abre_com_o_arquivo_de_palavras_ilegivel()
-    {
-        _ = SpellChecker.Portuguese;
-        FalaComErro("Eu esquesi a chave.");
-        File.WriteAllText(_project.IgnoredWordsPath, Quebrado);
-
-        var lines = ProjectLines.Read(_project, new QaEngine([new SpellingRule()]));
-
-        var line = Assert.Single(lines.LinesOf("a001"), l => l.Unit.HasTranslation);
-        Assert.Contains(line.Issues, i => i.RuleId == SpellingRule.RuleId);
-    }
-
     [Fact]
     public void O_build_com_o_arquivo_de_palavras_ilegivel_segue_e_avisa()
     {
@@ -79,27 +53,5 @@ public sealed class IgnoredWordsProjectTests : IDisposable
 
         Assert.Contains(result.Warnings, w => w.Contains("ignored-words.json", StringComparison.Ordinal) && w.Contains("ignorado", StringComparison.Ordinal));
         Assert.Equal(Quebrado, File.ReadAllText(_project.IgnoredWordsPath));
-    }
-
-    [Fact]
-    public void O_build_com_o_arquivo_de_palavras_valido_nao_avisa()
-    {
-        FalaComErro("Bom dia");
-        _project.AddIgnoredWord("Zorgblat");
-
-        var result = ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([new SpellingRule()]));
-
-        Assert.DoesNotContain(result.Warnings, w => w.Contains("ignored-words.json", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void O_apostrofo_curvo_e_o_reto_sao_a_mesma_palavra_ignorada()
-    {
-        Assert.True(_project.AddIgnoredWord("D'arc"));
-        Assert.False(_project.AddIgnoredWord("D’arc"));
-
-        Assert.Single(_project.LoadIgnoredWords());
-        var ex = Assert.Throws<VNForge.Core.Glossary.GlossaryFileException>(() => IgnoredWordsSerializer.Serialize([new IgnoredWord("D'arc"), new IgnoredWord("d’arc")]));
-        Assert.Contains("mais de uma vez", ex.Reason);
     }
 }

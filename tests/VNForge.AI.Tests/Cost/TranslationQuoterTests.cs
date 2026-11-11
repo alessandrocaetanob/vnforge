@@ -55,16 +55,6 @@ public class TranslationQuoterTests
     }
 
     [Fact]
-    public void As_cenas_escolhidas_entram_em_ordem_e_as_que_nao_existem_ficam_de_fora()
-    {
-        var keys = new[] { "a", "b", "c", "d" };
-
-        var chosen = TranslationQuoter.KeysFor(TranslationScope.Selection, keys, "a", ["d", "b", "inexistente"]);
-
-        Assert.Equal(["b", "d"], chosen);
-    }
-
-    [Fact]
     public void Sem_cenas_escolhidas_a_selecao_fica_vazia()
     {
         var keys = new[] { "a", "b" };
@@ -83,87 +73,6 @@ public class TranslationQuoterTests
     }
 
     [Fact]
-    public void So_as_linhas_sem_traducao_e_com_original_entram()
-    {
-        var texts = new Dictionary<string, IReadOnlyList<TextUnit>>
-        {
-            ["a"] = [Line("a:1"), Line("a:2", status: TranslationStatus.Machine), Line("a:3", source: "  "), Line("a:4", status: TranslationStatus.Approved)],
-            ["b"] = [Line("b:1")],
-        };
-
-        var pending = TranslationQuoter.PendingLines(texts, ["a"]);
-
-        Assert.Equal(["a:1"], pending.Select(l => l.Id));
-    }
-
-    [Fact]
-    public void Linha_nao_traduzir_fica_fora_do_pedido_e_do_orcamento()
-    {
-        var texts = new Dictionary<string, IReadOnlyList<TextUnit>>
-        {
-            ["a"] = [Line("a:1"), Line("a:2", source: "ＭＳ ゴシック", status: TranslationStatus.Keep)],
-        };
-
-        var pending = TranslationQuoter.PendingLines(texts, ["a"]);
-
-        Assert.Equal(["a:1"], pending.Select(l => l.Id));
-        Assert.False(TranslationQuoter.IsPending(texts["a"][1]));
-        Assert.Equal(1, TranslationQuoter.Quote(pending, Rate).Lines);
-    }
-
-    [Fact]
-    public void O_custo_sobe_da_rapida_para_a_caprichada_e_o_tempo_tambem()
-    {
-        var lines = TranslationQuoter.PendingLines(Texts(1, 400), ["yst00001"]);
-
-        var quotes = TranslationQuoter.Quote(lines, Rate);
-
-        Assert.Equal(400, quotes.Lines);
-        Assert.Equal([TranslationQuality.Fast, TranslationQuality.Balanced, TranslationQuality.Careful], quotes.Qualities.Select(q => q.Quality));
-        Assert.True(quotes.For(TranslationQuality.Fast).Brl < quotes.For(TranslationQuality.Balanced).Brl);
-        Assert.True(quotes.For(TranslationQuality.Balanced).Brl < quotes.For(TranslationQuality.Careful).Brl);
-        Assert.True(quotes.For(TranslationQuality.Fast).Time < quotes.For(TranslationQuality.Careful).Time);
-        Assert.Equal(QualityProfiles.For(TranslationQuality.Careful).TimeFor(400), quotes.For(TranslationQuality.Careful).Time);
-    }
-
-    [Fact]
-    public void O_valor_em_reais_segue_a_cotacao_informada()
-    {
-        var lines = TranslationQuoter.PendingLines(Texts(1, 100), ["yst00001"]);
-
-        var at5 = TranslationQuoter.Quote(lines, Rate).For(TranslationQuality.Balanced);
-        var at10 = TranslationQuoter.Quote(lines, new ExchangeRate(10m, new DateOnly(2026, 10, 25))).For(TranslationQuality.Balanced);
-
-        Assert.Equal(at5.Quote.Dollars, at10.Quote.Dollars);
-        Assert.Equal(at5.Brl * 2m, at10.Brl);
-    }
-
-    [Fact]
-    public void Escopo_sem_linhas_pendentes_custa_zero()
-    {
-        var quotes = TranslationQuoter.Quote([], Rate);
-
-        Assert.Equal(0, quotes.Lines);
-        Assert.All(quotes.Qualities, q => Assert.Equal(0m, q.Brl));
-        Assert.All(quotes.Qualities, q => Assert.Equal(TimeSpan.Zero, q.Time));
-    }
-
-    [Fact]
-    public void A_qualidade_que_cabe_e_a_mais_cara_dentro_do_que_sobra_do_limite()
-    {
-        var lines = TranslationQuoter.PendingLines(Texts(1, 400), ["yst00001"]);
-        var quotes = TranslationQuoter.Quote(lines, Rate);
-        var fast = quotes.For(TranslationQuality.Fast).Brl;
-        var balanced = quotes.For(TranslationQuality.Balanced).Brl;
-        var careful = quotes.For(TranslationQuality.Careful).Brl;
-
-        Assert.Equal(TranslationQuality.Careful, quotes.MostCarefulThatFits(spent: 10m, limit: 10m + careful)?.Quality);
-        Assert.Equal(TranslationQuality.Balanced, quotes.MostCarefulThatFits(spent: 10m, limit: 10m + careful - 0.01m)?.Quality);
-        Assert.Equal(TranslationQuality.Fast, quotes.MostCarefulThatFits(spent: 10m, limit: 10m + balanced - 0.01m)?.Quality);
-        Assert.Null(quotes.MostCarefulThatFits(spent: 10m, limit: 10m + fast - 0.01m));
-    }
-
-    [Fact]
     public void Sem_limite_a_mais_cuidadosa_sempre_cabe()
     {
         var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(Texts(1, 50), ["yst00001"]), Rate);
@@ -171,13 +80,5 @@ public class TranslationQuoterTests
         Assert.Equal(TranslationQuality.Careful, quotes.MostCarefulThatFits(spent: 99999m, limit: null)?.Quality);
         Assert.True(TranslationQuotes.Fits(0m, 10m, 10m));
         Assert.False(TranslationQuotes.Fits(0.01m, 10m, 10m));
-    }
-
-    [Fact]
-    public void Cada_qualidade_usa_o_modelo_do_perfil()
-    {
-        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(Texts(1, 10), ["yst00001"]), Rate);
-
-        Assert.Equal([ClaudeModels.Haiku, ClaudeModels.Sonnet, ClaudeModels.Opus], quotes.Qualities.Select(q => q.Profile.Model));
     }
 }

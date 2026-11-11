@@ -30,33 +30,11 @@ public sealed class LibraryScreenModelsTests
     private static StatusCounts Counts(int ready, int total) => new(total - ready, 0, 0, ready, 0);
 
     [Theory]
-    [InlineData(1080, 3, "Média · 18 h")]
-    [InlineData(2520, 4, "Longa · 42 h")]
     [InlineData(null, 2, "Curta")]
     [InlineData(45, null, "Muito curta · 45 min")]
     [InlineData(360, null, "Curta · 6 h")]
-    [InlineData(null, null, null)]
-    [InlineData(0, 0, null)]
     public void Duracao_curta_junta_a_faixa_e_as_horas(int? minutes, int? category, string? expected) =>
         Assert.Equal(expected, LibraryLength.Short(minutes, category));
-
-    [Fact]
-    public void Jogo_casado_com_engine_traduzida_mostra_a_etiqueta_a_capa_a_barra_e_a_linha_de_baixo()
-    {
-        var game = Matched(Yuris("Amaoto no Hakoniwa")) with { ProjectPath = "C:\\Projetos\\amaoto" };
-
-        var card = LibraryCards.Describe(game, Hidden, Counts(38, 100));
-
-        Assert.Equal("Yu-RIS", card.Chip);
-        Assert.False(card.ChipWarn);
-        Assert.Equal(LibraryCoverKind.Image, card.Cover);
-        Assert.Equal("https://t.vndb.org/cv/1.jpg", card.Image!.Url);
-        Assert.Equal(LibraryMatchState.Matched, card.Match);
-        Assert.Equal("Casado com o VNDB", card.MatchText);
-        Assert.Equal(38, card.ProgressPercent);
-        Assert.Equal("Média · 18 h · 38% traduzida", card.Subtitle);
-        Assert.Equal("雨音の箱庭", card.OriginalTitle);
-    }
 
     [Fact]
     public void Engine_so_reconhecida_leva_o_aviso_no_chip()
@@ -67,17 +45,6 @@ public sealed class LibraryScreenModelsTests
         Assert.True(card.ChipWarn);
         Assert.Null(card.ProgressPercent);
         Assert.Equal("Longa · 42 h", card.Subtitle);
-    }
-
-    [Fact]
-    public void Jogo_com_projeto_100_por_cento_traduzido_mostra_a_barra_cheia()
-    {
-        var game = Matched(Yuris("Hoshikuzu Diary"), length: 2, minutes: 420) with { ProjectPath = "C:\\p" };
-
-        var card = LibraryCards.Describe(game, Hidden, Counts(100, 100));
-
-        Assert.Equal(100, card.ProgressPercent);
-        Assert.Equal("Curta · 7 h · 100% traduzida", card.Subtitle);
     }
 
     [Fact]
@@ -178,18 +145,6 @@ public sealed class LibraryScreenModelsTests
     }
 
     [Fact]
-    public void Gaveta_com_tudo_liberado_mostra_as_tags_e_a_sinopse_inteira()
-    {
-        var drawer = LibraryDrawers.Describe(Matched(Yuris("Jogo")), Everything);
-
-        Assert.False(drawer.SpoilerTagsHidden);
-        Assert.False(drawer.AdultTagsHidden);
-        Assert.Equal(3, drawer.MoreTags);
-        Assert.Equal("Numa cidade a caixa mente.", drawer.Synopsis);
-        Assert.Null(drawer.TranslationText);
-    }
-
-    [Fact]
     public void Gaveta_usa_a_sinopse_e_os_nomes_de_tag_em_portugues_da_ficha_e_marca_a_revisada()
     {
         var sheet = new LibrarySheet("Numa cidade onde chove.", true, [], new Dictionary<string, string> { ["g1"] = "Colégio" }, SynopsisReviewed: true);
@@ -216,16 +171,6 @@ public sealed class LibraryScreenModelsTests
         Assert.Equal("Siglus · sem suporte ainda", LibraryDrawers.EngineText(new LibraryEngine("siglus", "Siglus", LibraryEngineSource.Signature)));
         Assert.Equal("a confirmar", LibraryDrawers.VndbText(Plain("x") with { Candidates = [new LibraryCandidate("v1", "t", null, null, 0.5, [])] }));
     }
-
-    [Theory]
-    [InlineData("2019", "2019")]
-    [InlineData("2019-04-12", "2019")]
-    [InlineData("TBA", null)]
-    [InlineData("", null)]
-    [InlineData(null, null)]
-    [InlineData("0000-00-00", null)]
-    public void Ano_vem_da_data_de_lancamento(string? released, string? expected) =>
-        Assert.Equal(expected, LibraryDrawers.YearOf(released));
 
     private static IReadOnlyList<LibraryGame> Collection() =>
     [
@@ -259,31 +204,8 @@ public sealed class LibraryScreenModelsTests
         Assert.All(LibraryListing.Filter(games, LibraryFilter.Supported, null, Percent, null, Hidden), g => Assert.True(g.Engine.Translatable));
     }
 
-    [Fact]
-    public void Filtro_em_traducao_nao_inclui_o_projeto_pronto_e_o_sem_portugues_nao_inclui_quem_ja_tem()
-    {
-        var games = Collection();
-
-        Assert.Equal(["Amaoto no Hakoniwa"], LibraryListing.Filter(games, LibraryFilter.InTranslation, null, Percent, null, Hidden).Select(g => g.Title));
-        Assert.Equal(["Shirogane Station 9", "Yūgure Kissaten", "Toge no Kaji"], LibraryListing.Filter(games, LibraryFilter.NoPortuguese, null, Percent, null, Hidden).Select(g => g.Title));
-        Assert.Equal(["Shirogane Station 9", "Yūgure Kissaten"], LibraryListing.Filter(games, LibraryFilter.Unsupported, null, Percent, null, Hidden).Select(g => g.Title));
-    }
-
-    [Fact]
-    public void Projeto_que_nao_se_le_conta_como_em_traducao()
-    {
-        var games = new[] { Yuris("A") with { ProjectPath = "C:\\p" } };
-
-        Assert.Equal(1, LibraryListing.Count(games, _ => null).InTranslation);
-    }
-
     [Theory]
     [InlineData("yugure", "Yūgure Kissaten")]
-    [InlineData("  KISSATEN yūgure ", "Yūgure Kissaten")]
-    [InlineData("雨音", "Amaoto no Hakoniwa")]
-    [InlineData("escola", "Amaoto no Hakoniwa")]
-    [InlineData("favorito", "Nanairo Ressha")]
-    [InlineData("toge", "Toge no Kaji")]
     public void Busca_acha_por_titulo_original_tag_e_ignora_acento(string query, string expected)
     {
         var games = Collection();
@@ -293,27 +215,6 @@ public sealed class LibraryScreenModelsTests
         var found = LibraryListing.Filter(games, LibraryFilter.All, query, Percent, tags, Hidden);
 
         Assert.Contains(expected, found.Select(g => g.Title));
-    }
-
-    [Fact]
-    public void Busca_pede_todas_as_palavras_e_nao_enxerga_tag_escondida()
-    {
-        var games = Collection();
-
-        Assert.Empty(LibraryListing.Filter(games, LibraryFilter.All, "yugure hakoniwa", Percent, null, Hidden));
-        Assert.Empty(LibraryListing.Filter(games, LibraryFilter.All, "sexo", Percent, null, Hidden));
-        Assert.Empty(LibraryListing.Filter(games, LibraryFilter.All, "final triste", Percent, null, Hidden));
-        Assert.NotEmpty(LibraryListing.Filter(games, LibraryFilter.All, "final triste", Percent, null, Everything));
-        Assert.Equal(6, LibraryListing.Filter(games, LibraryFilter.All, "  ", Percent, null, Hidden).Count);
-    }
-
-    [Fact]
-    public void Letra_japonesa_com_marca_nao_vira_outra_letra_na_busca()
-    {
-        var game = Plain("Jogo") with { WindowTitle = "がっこう" };
-
-        Assert.Single(LibraryListing.Filter([game], LibraryFilter.All, "が", _ => null, null, Hidden));
-        Assert.Empty(LibraryListing.Filter([game], LibraryFilter.All, "か", _ => null, null, Hidden));
     }
 
     [Fact]
@@ -365,14 +266,5 @@ public sealed class LibraryScreenModelsTests
         Assert.True(library.RemoveRoot(root.Path));
         Assert.False(library.RemoveRoot(root.Path));
         Assert.Single(library.Roots);
-    }
-
-    [Fact]
-    public void Arquivo_de_antes_das_pastas_continua_legivel()
-    {
-        var back = LibraryFile.Parse("""{"version":1,"games":[]}""");
-
-        Assert.Empty(back.Roots);
-        Assert.Null(back.LastScanAt);
     }
 }

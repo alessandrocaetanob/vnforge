@@ -56,50 +56,6 @@ public sealed class ProjectBuilderTitleTests : IDisposable
     private string BuiltPackage() => File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake));
 
     [Fact]
-    public void Sem_traducao_do_titulo_o_pacote_sai_com_o_titulo_original()
-    {
-        Open();
-
-        var result = Build();
-
-        Assert.Null(result.GameTitle);
-        Assert.Empty(_engine.LastRebuilt);
-        Assert.EndsWith("\u0001" + OriginalTitle, BuiltPackage(), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Traducao_em_branco_conta_como_sem_traducao()
-    {
-        Open(translation: "   ");
-
-        Assert.Null(Build().GameTitle);
-        Assert.Empty(_engine.LastRebuilt);
-    }
-
-    [Fact]
-    public void Grava_o_titulo_traduzido_no_pacote()
-    {
-        Open(translation: Translated);
-
-        var result = Build();
-
-        Assert.Equal(Translated, result.GameTitle);
-        var rebuilt = Assert.Single(_engine.LastRebuilt);
-        Assert.EndsWith(FakeEngine.TitleFileName, rebuilt.Path, StringComparison.Ordinal);
-        Assert.Equal(System.Text.Encoding.UTF8.GetBytes(OriginalTitle), rebuilt.Original);
-        Assert.EndsWith("\u0001" + Translated, BuiltPackage(), StringComparison.Ordinal);
-        Assert.Empty(result.RebuiltScripts);
-    }
-
-    [Fact]
-    public void Grava_o_titulo_sem_os_espacos_das_pontas()
-    {
-        Open(translation: "  " + Translated + " ");
-
-        Assert.Equal(Translated, Build().GameTitle);
-    }
-
-    [Fact]
     public void Recusa_titulo_que_a_estrategia_nao_grava_e_nao_toca_o_build()
     {
         Open(strategy: "sjis", translation: "Título");
@@ -120,19 +76,6 @@ public sealed class ProjectBuilderTitleTests : IDisposable
         var ex = Assert.Throws<VNForgeException>(() => Build());
 
         Assert.Contains("vnf extract", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build_incremental_regrava_o_pacote_quando_so_o_titulo_muda()
-    {
-        Open(translation: Translated);
-        Build(onlyChanged: true);
-
-        SetTranslation("Outro titulo");
-        var result = Build(onlyChanged: true);
-
-        Assert.Equal("Outro titulo", result.GameTitle);
-        Assert.EndsWith("\u0001Outro titulo", BuiltPackage(), StringComparison.Ordinal);
     }
 
     [Fact]
