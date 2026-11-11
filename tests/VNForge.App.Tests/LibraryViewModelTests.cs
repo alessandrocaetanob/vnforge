@@ -194,18 +194,66 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Conteudo_adulto_fica_escondido_na_grade_e_na_gaveta_ate_a_pessoa_liberar()
+    public async Task No_desfocar_o_jogo_adulto_fica_na_grade_com_selo_e_borrao_e_o_mostrar_revela_so_ele()
     {
         var vm = await Loaded();
 
         var card = Card(vm, "Kuroneko Archive");
-        Assert.True(card.IsAdultVeil);
-        Assert.False(card.HasImage);
-        Assert.Null(card.Image);
-
+        Assert.Equal(AdultMode.Blur, vm.AdultMode);
+        Assert.True(card.IsAdult);
+        Assert.True(card.IsBlurred);
+        Assert.True(card.HasImage);
         vm.Select(card);
-        Assert.False(vm.Drawer!.Card.HasImage);
+        Assert.True(vm.Drawer!.Card.IsBlurred);
         Assert.DoesNotContain(vm.Drawer.Chips, c => c.Text == "Final trágico");
+        Assert.Contains(vm.Drawer.Chips, c => c is { Text: "Adulto escondido", IsHidden: true });
+
+        vm.RevealGameCommand.Execute(card);
+
+        var revealed = Card(vm, "Kuroneko Archive");
+        Assert.False(revealed.IsBlurred);
+        Assert.True(revealed.CanConceal);
+        Assert.True(revealed.IsAdult);
+        Assert.False(vm.Drawer!.ShowAdultMarker);
+        Assert.False(Card(vm, "Amaoto no Hakoniwa").Card.Adult);
+
+        vm.ConcealGameCommand.Execute(revealed);
+
+        Assert.True(Card(vm, "Kuroneko Archive").IsBlurred);
+    }
+
+    [Fact]
+    public async Task No_esconder_o_jogo_adulto_sai_da_grade_dos_contadores_e_do_subtitulo_e_o_cabecalho_diz_quantos()
+    {
+        var vm = await Loaded();
+        var all = vm.Cards.Count;
+        var allChip = vm.Filters[0].Count;
+
+        vm.ChooseAdultMode(AdultMode.Hide);
+
+        Assert.DoesNotContain(vm.Cards, c => c.Title == "Kuroneko Archive");
+        Assert.Equal(all - 1, vm.Cards.Count);
+        Assert.Equal(allChip - 1, vm.Filters[0].Count);
+        Assert.StartsWith($"{all - 1} jogos", vm.Subtitle, StringComparison.Ordinal);
+        Assert.Equal("1 adulto escondido", vm.HiddenAdultText);
+        Assert.Equal(AdultMode.Hide, File.Load().Privacy.Adult);
+
+        vm.ChooseAdultMode(AdultMode.Show);
+
+        Assert.False(Card(vm, "Kuroneko Archive").IsBlurred);
+        Assert.Equal(string.Empty, vm.HiddenAdultText);
+    }
+
+    [Fact]
+    public async Task Trocar_o_modo_zera_os_jogos_revelados()
+    {
+        var vm = await Loaded();
+        vm.RevealGameCommand.Execute(Card(vm, "Kuroneko Archive"));
+
+        vm.ChooseAdultMode(AdultMode.Show);
+        vm.ChooseAdultMode(AdultMode.Blur);
+
+        Assert.True(Card(vm, "Kuroneko Archive").IsBlurred);
     }
 
     [Fact]
