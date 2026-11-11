@@ -10,6 +10,7 @@ using VNForge.App.Services;
 using VNForge.App.Tests.Demo;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
+using VNForge.Core;
 using VNForge.Core.Demo;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
@@ -231,7 +232,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     private sealed class RefusingStarter : IGameProcessStarter
     {
-        public void Start(string executablePath, string workingDirectory) => throw new IOException("o jogo recusou abrir");
+        public void Start(string executablePath, string workingDirectory) => throw new VNForgeException("o jogo recusou abrir");
     }
 
     private sealed class NoLaunchStarter : IGameProcessStarter
