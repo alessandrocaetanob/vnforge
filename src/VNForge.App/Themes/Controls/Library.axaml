@@ -71,17 +71,22 @@
       </ControlTemplate>
     </Setter>
   </Style>
-  <!-- O ToggleSwitch do Fluent reserva 12 px depois do botão e uma folga acima e abaixo mesmo sem texto; o quadro põe o rótulo a 8 px do botão. -->
+  <!-- O ToggleSwitch do Fluent reserva 12 px depois do botão e uma folga acima e abaixo mesmo sem texto; o quadro põe o rótulo a 8 px do botão, então a largura fica presa ao trilho. -->
   <Style Selector="ToggleSwitch.lib-switch">
     <Setter Property="MinWidth" Value="0"/>
-    <Setter Property="Margin" Value="0,-6,-12,-6"/>
+    <Setter Property="Width" Value="36"/>
+    <Setter Property="Margin" Value="0,-6,0,-6"/>
+  </Style>
+  <Style Selector="ToggleSwitch.lib-switch /template/ Grid#SwitchAreaGrid">
+    <Setter Property="Width" Value="36"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
   </Style>
   <!-- O quadro desenha o trilho com 36 de largura e 20 de altura; o do Fluent tem 40. -->
   <Style Selector="ToggleSwitch.lib-switch /template/ Border#OuterBorder, ToggleSwitch.lib-switch /template/ Border#SwitchKnobBounds">
     <Setter Property="Width" Value="36"/>
   </Style>
-  <Style Selector="ToggleSwitch.lib-switch:checked /template/ Grid#PART_MovingKnobs">
-    <Setter Property="RenderTransform" Value="translate(-4px, 0px)"/>
+  <Style Selector="ToggleSwitch.lib-switch /template/ Canvas#PART_SwitchKnob">
+    <Setter Property="Width" Value="16"/>
   </Style>
   <!-- O contorno da capa escolhida passa da caixa do cartão: nenhum apresentador no caminho pode cortá-lo. -->
   <Style Selector="ContentControl.libcover /template/ ContentPresenter">

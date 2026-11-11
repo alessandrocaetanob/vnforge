@@ -350,6 +350,52 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public async Task Interruptor_da_biblioteca_mantem_a_bolinha_centrada_ao_alternar_em_tempo_de_execucao(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var toggle = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = false };
+            ui.Show(toggle);
+
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = true;
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = false;
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = true;
+            AssertKnobCentered(toggle, ui);
+        });
+    }
+
+    private static void AssertKnobCentered(ToggleSwitch toggle, Ui ui)
+    {
+        // A bolinha desliza por uma transição de Canvas.Left: espera ela parar antes de medir.
+        var moving = Part<Grid>(toggle, "PART_MovingKnobs");
+        var previous = double.NaN;
+        for (var i = 0; i < 100; i++)
+        {
+            ui.Settle();
+            var left = Avalonia.Controls.Canvas.GetLeft(moving);
+            if (left == previous)
+            {
+                break;
+            }
+
+            previous = left;
+            System.Threading.Thread.Sleep(30);
+        }
+
+        var track = Part<Border>(toggle, "OuterBorder");
+        var knob = Part<Avalonia.Controls.Shapes.Ellipse>(toggle, toggle.IsChecked == true ? "SwitchKnobOn" : "SwitchKnobOff");
+        var center = knob.TranslatePoint(new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), track);
+        Assert.NotNull(center);
+        var inset = toggle.IsChecked == true ? track.Bounds.Width - center.Value.X : center.Value.X;
+        Assert.Equal(10, inset, 1);
+        Assert.Equal(10, center.Value.Y, 1);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Interruptor_da_biblioteca_tem_trilho_de_36_e_bolinha_centrada(string theme)
     {
         await OnUi(theme, ui =>
@@ -358,6 +404,9 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             var on = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = true };
             ui.Show(new StackPanel { Children = { off, on } });
 
+            Assert.Equal(36, off.Bounds.Width);
+            Assert.Equal(36, on.Bounds.Width);
+            Assert.Equal(36, Part<Grid>(off, "SwitchAreaGrid").Bounds.Width);
             Assert.Equal(36, Part<Border>(off, "OuterBorder").Bounds.Width);
             Assert.Equal(36, Part<Border>(on, "SwitchKnobBounds").Bounds.Width);
             var track = Part<Border>(off, "OuterBorder").Bounds;
@@ -439,7 +488,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Segmentado_Semanas_Lista_tem_34_de_altura_e_padding_de_18(string theme)
+    public async Task Segmentado_Semanas_Lista_tem_34_de_altura_e_largura_proxima_de_161(string theme)
     {
         await OnUi(theme, ui =>
         {
@@ -449,8 +498,8 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
             ui.Show(seg);
 
-            // O quadro desenha 161. Com padding de 18 o texto (56 e 29 px de largura) fecha em 160: o layout arredonda cada item para cima e nenhum padding simétrico dá 161.
-            Assert.Equal(160, seg.Bounds.Width);
+            // O quadro desenha 161. Com padding de 18 o Noto Sans fecha em 160 no Windows; a margem cobre a métrica de fonte do Linux.
+            Assert.InRange(seg.Bounds.Width, 158, 163);
             Assert.Equal(34, seg.Bounds.Height);
         });
     }
