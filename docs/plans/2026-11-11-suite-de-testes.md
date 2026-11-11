@@ -29,42 +29,42 @@ Valem para todas as tarefas e entram em `docs/04-testes.md` na T1.
 
 Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/maratona`. Toda tarefa só fica pronta com a cobertura de linhas e de ramos do projeto igual ou maior que a da base da T1, medida com o mesmo comando (`dotnet-coverage collect` sobre o projeto de testes, relatório Cobertura). O builder registra no relatório o antes e o depois: testes, tempo, cobertura de linhas e de ramos e, no App, memória do processo. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
 
-- [ ] **T1 · Regras e medição da base**
-  - Issue: abrir (`infra`, `docs`)
+- [x] **T1 · Regras e medição da base**
+  - Issue: #655 (`infra`, `docs`)
   - Prova: `bash .circleci/run-tests.sh` local no Linux do CI (ou o job `linux`) com o resumo por projeto
   - Pronto: `docs/04-testes.md` com as regras acima; `docs/testes/base-2026-11-11.md` com, por projeto, a contagem, o tempo, a memória e a cobertura de linhas e de ramos sobre o código de produção, mais as 30 classes mais lentas do App; o script `tools/cobertura.sh <projeto>` que mede a cobertura do mesmo jeito em toda tarefa. A medição usa as mesmas exclusões do Sonar no `.circleci/config.yml` (`sonar.coverage.exclusions`: `tools/**`, `App.axaml.cs`, `Program.cs`, `Views/**`, `Controls/**`, `AvaloniaFolderPicker.cs`), decidido pelo Alessandro em 11/11.
 - [ ] **T2 · App: render vira smoke por tela e as capturas saem da suíte**
-  - Issue: abrir (`infra`)
+  - Issue: #656 (`infra`)
   - Prova: `dotnet test tests/VNForge.App.Tests` e a ferramenta de capturas gerando os PNG das telas em `.tmp/capturas`
   - Pronto: a pasta `tests/VNForge.App.Tests/Rendering` some, com o `PixelProbe` e as asserções de medida. Um `ScreenSmokeTests` cobre cada tela num tema, sem exceção e sem texto cortado. As capturas viram um comando à parte (projeto de ferramenta ou opção da Cli) que o designer roda, fora do CI. O processo do App fica abaixo de 600 MB de memória.
   - Depende de: T1
 - [ ] **T3 · Core**
-  - Issue: abrir (`infra`)
+  - Issue: #657 (`infra`)
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: no máximo 500 testes, com as idas e voltas e a concorrência do `ProjectFileIo` mantidas, e o tempo e a contagem no relatório.
   - Depende de: T1
 - [ ] **T4 · Engines.YuRis**
-  - Issue: abrir (`infra`)
+  - Issue: #658 (`infra`)
   - Prova: `dotnet test tests/VNForge.Engines.YuRis.Tests`
   - Pronto: no máximo 250 testes, cada formato (YPF, YBN e o que mais houver) com ida e volta byte a byte e um teste por campo reescrito.
   - Depende de: T1
 - [ ] **T5 · App: testes de ViewModel**
-  - Issue: abrir (`infra`)
+  - Issue: #659 (`infra`)
   - Prova: `dotnet test tests/VNForge.App.Tests`
   - Pronto: App inteiro com no máximo 350 testes, um por comportamento de cada tela; headless só nos smoke da T2 e em interação que não dá para testar pelo ViewModel; suíte do App local em até 60 s.
   - Depende de: T2
 - [ ] **T6 · Cli**
-  - Issue: abrir (`infra`)
+  - Issue: #660 (`infra`)
   - Prova: `dotnet test tests/VNForge.Cli.Tests`
   - Pronto: no máximo 200 testes, um por comando e por saída de erro que o usuário vê.
   - Depende de: T3
 - [ ] **T7 · AI, Vndb, Installer, Platform.Windows e Patching**
-  - Issue: abrir (`infra`)
+  - Issue: #661 (`infra`)
   - Prova: `dotnet test` em cada um dos cinco projetos
   - Pronto: no máximo 200 testes nos cinco, com o provedor falso da IA mantido (regra da IA no CLAUDE.md).
   - Depende de: T4
 - [ ] **T8 · CI: script simples e orçamento**
-  - Issue: abrir (`infra`)
+  - Issue: #662 (`infra`)
   - Prova: job `linux` verde num PR, com o passo Testes em até 3 min e o job em até 5 min
   - Pronto: `run-tests.sh` sem fatias nem `tempos-app.txt` (sai também o `-class` com código de cor ANSI). O job reprova quando a cobertura de linhas de um projeto cai abaixo da base, com o número. `docs/testes/depois.md` traz o antes e o depois, com a cobertura igual ou maior em todos os projetos.
   - Depende de: T5, T6, T7
@@ -78,6 +78,8 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ```
 
 ## Progresso
+
+- T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
 
 ## Fora da corrida
 

@@ -35,6 +35,7 @@ publish/
 *.DotSettings.user
 TestResults/
 test-results/
+.tmp/
 coverage*/
 *.coverage
 *.trx
