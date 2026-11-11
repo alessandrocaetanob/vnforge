@@ -80,7 +80,9 @@ public class TaskEntriesTests
         await Fails("Injetar no jogo", Test).Completion;
         await Done("Aplicar patch no executável", Test);
 
-        Assert.Equal(BackgroundTaskState.Failed, Assert.Single(bar.Entries).State);
+        var entry = Assert.Single(bar.Entries);
+        Assert.Equal(BackgroundTaskState.Failed, entry.State);
+        Assert.True(entry.IsFailed);
     }
 
     [Fact]
@@ -185,6 +187,18 @@ public class TaskEntriesTests
         Assert.Equal(["Teste no jogo", "Extrair Jogo"], bar.Entries.Select(e => e.Title));
         Assert.True(bar.Entries[0].IsRunning);
         Assert.Equal("14:32 · Build de Jogo", bar.Entries[0].Subtitle);
+
+        // Uma etapa avulsa em andamento não é lote: não tem detalhe, barra nem ação de lote, e o desfazer é o comum.
+        var running = bar.Entries[0];
+        Assert.False(running.HasDetail);
+        Assert.Equal(string.Empty, running.Detail);
+        Assert.False(running.ShowsProgress);
+        Assert.False(running.CanCheckNow);
+        Assert.False(running.CanCancelBatch);
+        Assert.False(running.HasBatchActions);
+        Assert.Equal("Desfazer", running.UndoLabel);
+        Assert.Equal(0, running.Percent);
+        Assert.NotNull(running.CancelBatchCommand);
 
         gate.SetResult();
         await step.Completion;

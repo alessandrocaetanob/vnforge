@@ -1,7 +1,9 @@
 using Avalonia.Styling;
+using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
+using VNForge.Core.Bible;
 using VNForge.Core.Demo;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
@@ -69,7 +71,9 @@ internal static class ScreenCatalog
         {
             l.Tags.ToggleOptionCommand.Execute(l.Tags.OwnOptions.Single(o => o.Text == "favorito"));
             l.Tags.ToggleOptionCommand.Execute(l.Tags.VndbOptions.Single(o => o.Text == "Escola"));
-            l.Tags.IsOpen = true;
+            l.Tags.ToggleOpenCommand.Execute(null);
+            l.Tags.ToggleOpenCommand.Execute(null);
+            l.Tags.ToggleOpenCommand.Execute(null);
         })),
         new("biblioteca-gerenciar-tags", Library(l =>
         {
@@ -80,6 +84,12 @@ internal static class ScreenCatalog
             l.Tags.AskDeleteCommand.Execute(l.Tags.Rows.Single(r => r.Name == "pra traduzir"));
         })),
         new("biblioteca-vazia", Library(empty: true)),
+        new("biblioteca-adulto-mostrar", Library(l => l.SetAdultModeCommand.Execute(l.AdultModes.Single(m => m.Mode == AdultMode.Show)), adultMode: AdultMode.Hide)),
+        new("biblioteca-adulto-esconder", Library(l =>
+        {
+            l.IsAdultPopoverOpen = true;
+            l.SetAdultModeCommand.Execute(l.AdultModes.Single(m => m.Mode == AdultMode.Hide));
+        })),
         new("personagens", Characters(manyTraits: true)),
         new("personagem", Characters("Hana Tsukino", manyTraits: true)),
         new("personagem-mika", Characters("Mika Aoba")),
@@ -111,6 +121,7 @@ internal static class ScreenCatalog
             ["健太"] = "seco e resmungão; frases curtas",
             ["先生"] = "formal; chama os alunos pelo sobrenome",
         };
+        SaveBible(folder);
         folder.SaveCharacters([.. folder.LoadCharacters().Select(c => tones.TryGetValue(c.Source, out var tone) ? c with { Tone = tone } : c)]);
         return root;
     }
@@ -244,6 +255,33 @@ internal static class ScreenCatalog
         });
         return host;
     };
+
+    /// <summary>A bíblia do jogo do projeto de demonstração: uma versão anterior guardada, duas cenas com campos editados, a sinopse, a linha do tempo e o custo da geração.</summary>
+    private static void SaveBible(ProjectFolder folder)
+    {
+        folder.SaveBible(GameBible.From([new BibleScene("yst00012") { Summary = "Versão anterior." }]));
+        folder.KeepPreviousBible();
+        folder.SaveBible(GameBible.From(
+        [
+            new BibleScene("yst00012")
+            {
+                Name = "Atraso no portão",
+                Summary = "Na chuva da manhã, Kenta chega ao portão da escola e encontra a professora de braços cruzados.",
+                Characters = ["Kenta", "Misaki"],
+                Tone = ["cômico leve", "tenso no fim"],
+                Jokes = ["o guarda-chuva"],
+                Relations = [new BibleRelation("Kenta e Misaki", "Amigos de infância, se provocam o tempo todo.")],
+                Edited = [BibleField.Name],
+            },
+            new BibleScene("yst00013") { Name = "Volta para casa", Summary = "Kenta volta sozinho.", Jokes = ["o guarda-chuva"] },
+        ]) with
+        {
+            Synopsis = "Kenta se muda para uma cidade onde chove todo semestre e descobre que um guarda-chuva perdido liga três colegas de turma.",
+            Timeline = [new BibleTimelineEntry("Prólogo", "A chuva e a mudança de cidade"), new BibleTimelineEntry("Capítulo 1", "Um semestre começa molhado"), new BibleTimelineEntry("Capítulo 2", "O festival da escola")],
+            Generation = new BibleGeneration(ScreenHost.Now, "claude-opus-5-5", 2, 1, 1.8m),
+        });
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 0.8m, 1));
+    }
 
     private static async Task<ScreenHost> OpenEditorSearch(string root, ThemeVariant theme)
     {
