@@ -59,6 +59,23 @@ public sealed class LibraryScanServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Le_os_projetos_recentes_na_thread_de_quem_chama_e_nao_no_pool_da_varredura()
+    {
+        Collection(_games.Path);
+        var caller = Environment.CurrentManagedThreadId;
+        int? readOn = null;
+        var service = new LibraryScanService(File, Scanner(), null, () =>
+        {
+            readOn = Environment.CurrentManagedThreadId;
+            return [];
+        }, new FixedTime());
+
+        await service.RunAsync(new LibraryRoot(_games.Path, MatchVndb: false), cancellationToken: Ct);
+
+        Assert.Equal(caller, readOn);
+    }
+
+    [Fact]
     public async Task Sem_subpastas_olha_so_a_pasta_apontada()
     {
         Collection(_games.Path);

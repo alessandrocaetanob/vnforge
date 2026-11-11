@@ -16,7 +16,8 @@ public sealed class LibraryScanService(LibraryFile file, LibraryScanner scanner,
 
     /// <summary>
     /// Varre <paramref name="root"/>. Parar pelo <paramref name="cancellationToken"/> não lança: o que já foi achado entra na biblioteca (<see cref="LibraryScanResult.Cancelled"/>) e o casamento
-    /// não começa. O casamento parado no meio também guarda o que casou. <paramref name="onScanned"/> avisa que a leitura das pastas terminou e o casamento (se houver) vai começar.
+    /// não começa. O casamento parado no meio também guarda o que casou. <paramref name="onScanned"/> avisa que a leitura das pastas terminou e o casamento (se houver) vai começar; roda na thread do pool, então quem mexe na tela por ele leva a ação à thread da tela.
+    /// A lista dos projetos recentes é lida na chamada, na thread de quem chama.
     /// </summary>
     /// <exception cref="LibraryException">A pasta não existe ou o <c>library.json</c> está ilegível.</exception>
     public async Task<LibraryScanOutcome> RunAsync(
@@ -27,17 +28,21 @@ public sealed class LibraryScanService(LibraryFile file, LibraryScanner scanner,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(root);
+        // Na thread de quem chama, antes do primeiro await: o App lê os recentes do estado da tela, que não pode ser lido do pool.
+        var recent = recentProjects();
         var options = new LibraryScanOptions(root.IncludeSubfolders ? new LibraryScanOptions().MaxDepth : 0, IncludeUnknown: true, EstimateFolders: true);
         var scan = await Task.Run(() => scanner.Scan(root.Path, options, scanProgress, cancellationToken), CancellationToken.None).ConfigureAwait(false);
 
         onScanned?.Invoke(scan);
-        var recent = recentProjects();
-        var (merge, linked) = file.Update(library =>
-        {
-            library.SetRoot(root with { ScannedAt = _time.GetUtcNow() });
-            var merged = library.Merge(scan.Games, root.Path);
-            return (merged, LibraryProjectLinker.LinkAll(library, recent));
-        });
+        // Sem o token de propósito: pausar a varredura guarda o que já foi achado, então esta gravação tem que acontecer mesmo com o token cancelado.
+        var (merge, linked) = file.Update(
+            library =>
+            {
+                library.SetRoot(root with { ScannedAt = _time.GetUtcNow() });
+                var merged = library.Merge(scan.Games, root.Path);
+                return (merged, LibraryProjectLinker.LinkAll(library, recent));
+            },
+            CancellationToken.None);
 
         LibraryMatchRun? match = null;
         if (root.MatchVndb && matcherFactory is not null && !scan.Cancelled)
