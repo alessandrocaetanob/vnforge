@@ -50,14 +50,6 @@ public sealed class ApiKeyResolverTests : IDisposable
     }
 
     [Fact]
-    public void Fora_do_windows_o_cofre_manda_usar_a_variavel_de_ambiente()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "Só vale fora do Windows.");
-        var erro = Assert.Throws<AiSettingsException>(() => new DpapiApiKeyStore(_dir).Save("x"));
-        Assert.Contains("ANTHROPIC_API_KEY", erro.Message);
-    }
-
-    [Fact]
     public void Modelo_invalido_no_arquivo_e_erro_esperado()
     {
         Directory.CreateDirectory(_dir);

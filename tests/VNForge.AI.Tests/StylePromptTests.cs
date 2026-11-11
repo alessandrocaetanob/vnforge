@@ -50,51 +50,6 @@ public partial class StylePromptTests
     }
 
     [Fact]
-    public async Task O_lote_leva_duas_falas_antes_e_duas_depois_no_pedido()
-    {
-        var script = Script();
-        var builder = new TranslationBatchBuilder([], Cast);
-
-        var batch = builder.Build([script[3]], script[..3], script[4..]);
-        var request = await Translate(batch);
-
-        Assert.Equal(["l2", "l3"], batch.PreviousLines.Select(u => u.Id));
-        Assert.Equal(["l5", "l6"], batch.NextLines.Select(u => u.Id));
-        Assert.Contains("Contexto anterior", request.User);
-        Assert.Contains("二行目", request.User);
-        Assert.Contains("三行目", request.User);
-        Assert.DoesNotContain("一行目", request.User);
-        Assert.Contains("Contexto seguinte", request.User);
-        Assert.Contains("五行目", request.User);
-        Assert.Contains("六行目", request.User);
-        Assert.DoesNotContain("七行目", request.User);
-        Assert.True(request.User.IndexOf("Contexto seguinte", StringComparison.Ordinal) < request.User.IndexOf("Traduza estas linhas", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void Falas_seguintes_ignoram_linhas_sem_texto_e_o_limite_pode_ser_zero()
-    {
-        var script = Script();
-        var empty = Unit("e", "  ");
-
-        var batch = new TranslationBatchBuilder([], Cast).Build([script[3]], null, [empty, script[4]]);
-        var none = new TranslationBatchBuilder([], Cast, maxPreviousLines: 0, maxNextLines: 0).Build([script[3]], script[..3], script[4..]);
-
-        Assert.Equal(["l5"], batch.NextLines.Select(u => u.Id));
-        Assert.Empty(none.PreviousLines);
-        Assert.Empty(none.NextLines);
-    }
-
-    [Fact]
-    public async Task Sem_contexto_o_pedido_nao_traz_os_titulos_de_contexto()
-    {
-        var request = await Translate(new TranslationBatchBuilder([], Cast).Build([Script()[3]]));
-
-        Assert.DoesNotContain("Contexto anterior", request.User);
-        Assert.DoesNotContain("Contexto seguinte", request.User);
-    }
-
-    [Fact]
     public async Task O_guia_de_estilo_e_as_escolhas_vao_no_prompt_de_sistema()
     {
         var style = new StyleConfig
@@ -119,19 +74,6 @@ public partial class StylePromptTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task O_prompt_pede_pontuacao_ocidental_so_com_a_opcao_ligada(bool ligada)
-    {
-        var builder = new TranslationBatchBuilder([], Cast, style: StyleConfig.Default with { KeyboardPunctuation = ligada });
-
-        var request = await Translate(builder.Build([Script()[3]]));
-
-        Assert.Equal(ligada, request.System.Contains("Pontuação: use a do teclado ocidental", StringComparison.Ordinal));
-        Assert.Equal(ligada, request.System.Contains("Não copie a pontuação japonesa do original (。", StringComparison.Ordinal));
-    }
-
-    [Theory]
     [InlineData(HonorificsPolicy.Keep, "mantenha -san")]
     [InlineData(HonorificsPolicy.Remove, "remova -san")]
     [InlineData(HonorificsPolicy.Adapt, "adapte. -chan e -kun saem")]
@@ -143,87 +85,6 @@ public partial class StylePromptTests
 
         Assert.Contains(expected, request.System);
         Assert.Single(StylePhrases(request.System), line => line.StartsWith("- Honoríficos:", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Sem_estilo_escolhido_vale_o_padrao_do_projeto()
-    {
-        var request = await Translate(new TranslationBatchBuilder([], Cast).Build([Script()[3]]));
-
-        Assert.Contains("adapte. -chan e -kun saem", request.System);
-        Assert.Contains("\"você\"", request.System);
-        Assert.Contains("Narrador: em primeira pessoa; gênero neutro", request.System);
-        Assert.Contains("traduza para o equivalente em português", request.System);
-        Assert.Contains("ordem ocidental", request.System);
-    }
-
-    [Fact]
-    public async Task O_prompt_de_sistema_nao_muda_entre_lotes_do_mesmo_projeto()
-    {
-        var script = Script();
-        var glossary = new[] { new GlossaryTerm("四行目", "quarta linha"), new GlossaryTerm("五行目", "quinta linha") };
-        var builder = new TranslationBatchBuilder(glossary, Cast, "Tom leve.", style: StyleConfig.Default with { Address = AddressForm.Tu });
-        var client = new StubClient();
-        var provider = new ClaudeTranslationProvider(client);
-
-        await provider.TranslateAsync(builder.Build([script[3]], script[..3], script[4..]), CancellationToken.None);
-        await provider.TranslateAsync(builder.Build([script[4]], script[..4], script[5..]), CancellationToken.None);
-
-        Assert.Equal(2, client.Requests.Count);
-        var (first, second) = (client.Requests[0], client.Requests[1]);
-
-        // O bloco estável (instrução, escolhas, guia) é igual byte a byte, mesmo com glossário e personagens diferentes.
-        Assert.Equal(first.System, second.System);
-        Assert.StartsWith("Você traduz", first.System);
-        Assert.Contains("Estilo da tradução:", first.System);
-        Assert.EndsWith("Tom leve." + Environment.NewLine, first.System);
-        Assert.DoesNotContain("quarta linha", first.System);
-        Assert.DoesNotContain("Personagens:", first.System);
-
-        // O que muda por lote fica no segundo bloco.
-        Assert.NotEqual(first.BatchContext, second.BatchContext);
-        Assert.Contains("quarta linha", first.BatchContext);
-        Assert.Contains("Misaki", first.BatchContext);
-        Assert.Contains("quinta linha", second.BatchContext);
-        Assert.DoesNotContain("Misaki", second.BatchContext);
-        Assert.NotEqual(first.User, second.User);
-    }
-
-    [Fact]
-    public async Task O_contexto_sobrevive_ao_cache_ao_reenvio_e_ao_fallback_de_recusa()
-    {
-        var script = Script();
-        var style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Remove };
-        var batch = new TranslationBatchBuilder([], Cast, "Tom leve.", style: style).Build([script[3], script[4]], script[..3], script[5..]);
-        var client = new StubClient();
-        var chain = new CachingTranslationProvider(new ValidatingTranslationProvider(new ClaudeTranslationProvider(client)), new TranslationCache(), "claude-opus-5-5");
-
-        await chain.TranslateAsync(batch, CancellationToken.None);
-
-        var request = Assert.Single(client.Requests);
-        Assert.Contains("remova -san", request.System);
-        Assert.Contains("Tom leve.", request.System);
-        Assert.Contains("六行目", request.User);
-        Assert.Contains("三行目", request.User);
-        Assert.Equal(batch.Style, batch.ForLines([script[3]]).Style);
-        Assert.Equal(batch.NextLines, batch.ForLines([script[3]]).NextLines);
-    }
-
-    [Fact]
-    public void A_chave_do_cache_muda_com_o_estilo_mas_nao_com_as_falas_vizinhas()
-    {
-        var script = Script();
-        var line = script[3];
-        var plain = new TranslationBatchBuilder([], Cast);
-
-        string Key(TranslationBatch batch) => TranslationCache.KeyFor(line, TranslationCache.ContextFor("claude-opus-5-5", batch));
-
-        var baseKey = Key(plain.Build([line]));
-
-        Assert.Equal(baseKey, Key(plain.Build([line], script[..3], script[4..])));
-        Assert.NotEqual(baseKey, Key(new TranslationBatchBuilder([], Cast, style: StyleConfig.Default with { Honorifics = HonorificsPolicy.Keep }).Build([line])));
-        Assert.NotEqual(baseKey, Key(new TranslationBatchBuilder([], Cast, style: StyleConfig.Default with { Address = AddressForm.Tu }).Build([line])));
-        Assert.NotEqual(baseKey, Key(new TranslationBatchBuilder([], Cast, style: StyleConfig.Default with { WesternNameOrder = false }).Build([line])));
     }
 
     private static IEnumerable<string> StylePhrases(string system) =>

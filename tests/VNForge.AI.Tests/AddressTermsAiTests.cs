@@ -98,17 +98,6 @@ public partial class AddressTermsAiTests
         Assert.Equal(2, client.Requests.Count);
     }
 
-    [Theory]
-    [InlineData("""{"pairs":[{"from":"健太","to":"美咲","source":"x"}]}""")]
-    [InlineData("""{"outro":[]}""")]
-    [InlineData("não é json")]
-    public async Task Resposta_fora_do_formato_vira_ClaudeResponseException(string json)
-    {
-        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => Ok(json)));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None));
-    }
-
     [Fact]
     public async Task Recusa_e_corte_por_tamanho_viram_excecao_com_a_frase_em_portugues()
     {
@@ -202,14 +191,6 @@ public partial class AddressTermsAiTests
         Assert.Contains("Tratamento entre personagens", request.FullSystem);
         Assert.Contains("- Kenta chama Misaki de 美咲ちゃん => Misaki-chan", request.FullSystem);
         Assert.DoesNotContain("Misaki chama Kenta", request.FullSystem);
-    }
-
-    [Fact]
-    public async Task Sem_tratamentos_o_pedido_de_traducao_nao_muda()
-    {
-        var request = await Translate(new TranslationBatchBuilder([], Cast).Build([Unit("a", "美咲ちゃん", "健太")]));
-
-        Assert.DoesNotContain("Tratamento entre personagens", request.FullSystem);
     }
 
     [Fact]

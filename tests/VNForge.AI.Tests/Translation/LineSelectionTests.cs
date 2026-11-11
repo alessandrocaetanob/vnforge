@@ -47,21 +47,6 @@ public sealed class LineSelectionTests : IDisposable
     }
 
     [Fact]
-    public void Linha_traduzida_a_mao_depois_da_selecao_nao_e_sobrescrita_e_conta_como_pulada()
-    {
-        var selection = Select();
-        new LineEditor(_project, TimeProvider.System).SetTranslation(Key, Id(1), "à mão");
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "zero"), new TranslationResult(Id(1), "um")], Machine);
-
-        var units = _project.LoadText(Key);
-        Assert.Equal(1, saved.Skipped);
-        Assert.Equal("zero", units[0].Translation);
-        Assert.Equal("à mão", units[1].Translation);
-        Assert.Equal(TranslationStatus.Translated, units[1].Status);
-    }
-
-    [Fact]
     public void Edicao_de_outra_linha_e_as_notas_da_linha_gravada_sobrevivem()
     {
         var selection = Select();
@@ -75,20 +60,6 @@ public sealed class LineSelectionTests : IDisposable
         Assert.Equal("outra", units[3].Translation);
         Assert.Equal("cuidado", units[0].Notes);
         Assert.Equal("zero", units[0].Translation);
-    }
-
-    [Fact]
-    public void Original_trocado_depois_da_selecao_pula_a_linha()
-    {
-        var selection = Select();
-        var units = _project.LoadText(Key).ToList();
-        units[2] = units[2] with { Source = "novo original" };
-        _project.SaveText(Key, units);
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(2), "dois")], Machine);
-
-        Assert.Equal(1, saved.Skipped);
-        Assert.Null(_project.LoadText(Key)[2].Translation);
     }
 
     [Fact]

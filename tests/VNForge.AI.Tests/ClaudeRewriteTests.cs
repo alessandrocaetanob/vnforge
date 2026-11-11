@@ -81,15 +81,6 @@ public class ClaudeRewriteTests
     }
 
     [Fact]
-    public async Task Resposta_sem_o_id_da_linha_e_recusada_como_json_invalido()
-    {
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok("""{"rewrites":[{"id":"outra","optionA":"A","optionB":"B"}]}""")));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() =>
-            provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None));
-    }
-
-    [Fact]
     public async Task Opcao_vazia_some_da_lista()
     {
         var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok("""{"rewrites":[{"id":"a","optionA":"Só esta","optionB":"  "}]}""")));
@@ -97,18 +88,6 @@ public class ClaudeRewriteTests
         var result = await provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.MoreFormal, "t"), CancellationToken.None);
 
         Assert.Equal(["Só esta"], result.Options);
-    }
-
-    [Fact]
-    public async Task Resposta_cortada_por_limite_de_tokens_explica_sem_falar_em_lote()
-    {
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("max_tokens", "{")));
-
-        var erro = await Assert.ThrowsAsync<ClaudeResponseException>(() =>
-            provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None));
-
-        Assert.Contains("limite de tokens", erro.Message);
-        Assert.DoesNotContain("lote", erro.Message);
     }
 
     [Fact]

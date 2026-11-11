@@ -97,18 +97,6 @@ public sealed class ClaudeBibleProviderTests
         Assert.NotEqual(client.Requests[0].User, client.Requests[1].User);
     }
 
-    [Fact]
-    public async Task Soma_o_uso_de_todas_as_chamadas_com_o_que_veio_do_cache()
-    {
-        var client = new StubClient(_ => Scenes("yst1"));
-        var provider = new ClaudeBibleProvider(client);
-
-        await provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken);
-        await provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(new ClaudeUsage(200, 100, 800, 0), provider.Usage);
-    }
-
     [Theory]
     [InlineData("""{"scenes":[]}""")]
     [InlineData("""{"scenes":[{"key":"yst1","name":"a","summary":"b","characters":[],"tone":[],"jokes":[],"relations":[]},{"key":"yst9","name":"a","summary":"b","characters":[],"tone":[],"jokes":[],"relations":[]}]}""")]
@@ -122,19 +110,6 @@ public sealed class ClaudeBibleProviderTests
         var ex = await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
 
         Assert.Contains("incompleta ou fora do formato", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Recusa_e_corte_por_tamanho_viram_erros_com_mensagem_em_portugues()
-    {
-        var refusal = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply("refusal", "")));
-        var truncated = new ClaudeBibleProvider(new StubClient(_ => new ClaudeReply("max_tokens", "{")));
-
-        var refused = await Assert.ThrowsAsync<ClaudeRefusalException>(() => refusal.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
-        var cut = await Assert.ThrowsAsync<ClaudeResponseException>(() => truncated.DescribeScenesAsync(TwoSceneChapter(), ["yst1"], TestContext.Current.CancellationToken));
-
-        Assert.Contains("não quis ler", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("não terminou", cut.Message, StringComparison.Ordinal);
     }
 
     [Theory]

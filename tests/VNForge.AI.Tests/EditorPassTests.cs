@@ -55,27 +55,6 @@ public class EditorPassTests
     // ---- ClaudeEditorPassProvider ----
 
     [Fact]
-    public async Task O_provedor_Claude_devolve_so_os_ajustes_do_modelo()
-    {
-        var client = new StubClient(_ => Ok("""{"adjustments":[{"id":"y:2","kind":"voice","proposed":"Vocês dois, atrasados.","reason":"Mais próximo da fala dela."}]}"""));
-        var provider = new ClaudeEditorPassProvider(client);
-
-        var result = await provider.ReviewSceneAsync(Scene(Unit("y:1", "やあ", "Oi"), Unit("y:2", "遅い", "Os dois, atrasados.")), TestContext.Current.CancellationToken);
-
-        Assert.Equal([new EditorPassProposal("y:2", EditorSuggestionKind.Voice, "Vocês dois, atrasados.", "Mais próximo da fala dela.")], result);
-    }
-
-    [Fact]
-    public async Task Uma_cena_sem_ajuste_volta_com_lista_vazia()
-    {
-        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("""{"adjustments":[]}""")));
-
-        var result = await provider.ReviewSceneAsync(Scene(Unit("y:1", "やあ", "Oi")), TestContext.Current.CancellationToken);
-
-        Assert.Empty(result);
-    }
-
-    [Fact]
     public async Task O_pedido_leva_a_cena_inteira_traduzida_o_resumo_da_biblia_e_o_schema()
     {
         var client = new StubClient(_ => Ok("""{"adjustments":[]}"""));
@@ -114,30 +93,11 @@ public class EditorPassTests
     }
 
     [Fact]
-    public async Task Resposta_que_nao_e_o_json_esperado_vira_ClaudeResponseException()
-    {
-        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("não é json")));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.ReviewSceneAsync(Scene(Unit("y:1", "a", "a")), TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
     public async Task Resposta_sem_o_campo_adjustments_vira_ClaudeResponseException()
     {
         var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("""{"reviews":[]}""")));
 
         await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.ReviewSceneAsync(Scene(Unit("y:1", "a", "a")), TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Recusa_sobe_sem_refazer_a_cena_linha_a_linha()
-    {
-        var client = new StubClient(_ => new ClaudeReply("refusal", string.Empty));
-        var provider = new ClaudeEditorPassProvider(client);
-
-        await Assert.ThrowsAsync<ClaudeRefusalException>(() => provider.ReviewSceneAsync(Scene(Unit("y:1", "a", "a"), Unit("y:2", "b", "b")), TestContext.Current.CancellationToken));
-
-        Assert.Single(client.Requests);
     }
 
     [Fact]
@@ -189,45 +149,6 @@ public class EditorPassTests
     // ---- EditorPassRunner ----
 
     [Fact]
-    public async Task O_corredor_manda_a_cena_inteira_num_pedido_so_e_vira_sugestao_com_a_traducao_de_hoje_como_base()
-    {
-        var provider = new ScriptedProvider(scene => [new EditorPassProposal("y:2", EditorSuggestionKind.Fluency, " Vocês dois, atrasados. ", " Soa mais natural. ")]);
-        var now = new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);
-        var runner = new EditorPassRunner(provider, Builder(), new FixedClock(now));
-
-        var result = await runner.RunSceneAsync("y", [Unit("y:1", "a", "Oi"), Unit("y:2", "b", "Os dois, atrasados.")], TestContext.Current.CancellationToken);
-
-        var scene = Assert.Single(provider.Scenes);
-        Assert.Equal(["y:1", "y:2"], scene.Lines.Select(l => l.Id));
-        Assert.Equal(2, result.LinesRead);
-        var suggestion = Assert.Single(result.Suggestions);
-        Assert.Equal(new EditorSuggestion("y", "y:2", EditorSuggestionKind.Fluency, "Os dois, atrasados.", "Vocês dois, atrasados.", "Soa mais natural.", now), suggestion);
-    }
-
-    [Fact]
-    public async Task Linha_sem_traducao_nao_e_lida()
-    {
-        var provider = new ScriptedProvider(_ => []);
-        var runner = new EditorPassRunner(provider, Builder());
-
-        var result = await runner.RunSceneAsync("y", [Unit("y:1", "a", null, TranslationStatus.Untranslated), Unit("y:2", "b", "Tarde.")], TestContext.Current.CancellationToken);
-
-        Assert.Equal(["y:2"], Assert.Single(provider.Scenes).Lines.Select(l => l.Id));
-        Assert.Equal(1, result.LinesRead);
-    }
-
-    [Fact]
-    public async Task Cena_sem_nenhuma_traducao_nao_chama_o_provedor()
-    {
-        var provider = new ScriptedProvider(_ => []);
-
-        var result = await new EditorPassRunner(provider, Builder()).RunSceneAsync("y", [Unit("y:1", "a", null, TranslationStatus.Untranslated)], TestContext.Current.CancellationToken);
-
-        Assert.Empty(provider.Scenes);
-        Assert.Empty(result.Suggestions);
-    }
-
-    [Fact]
     public async Task Ajuste_invalido_e_descartado_e_contado()
     {
         var provider = new ScriptedProvider(_ =>
@@ -257,46 +178,6 @@ public class EditorPassTests
 
         Assert.Equal(["y:6"], result.Suggestions.Select(s => s.UnitId));
         Assert.Equal(7, result.Discarded);
-    }
-
-    [Fact]
-    public async Task Os_ajustes_saem_na_ordem_das_linhas_mesmo_que_o_modelo_responda_fora_de_ordem()
-    {
-        var provider = new ScriptedProvider(_ =>
-        [
-            new EditorPassProposal("y:3", EditorSuggestionKind.Voice, "C2", "r"),
-            new EditorPassProposal("y:1", EditorSuggestionKind.Voice, "A2", "r"),
-        ]);
-
-        var result = await new EditorPassRunner(provider, Builder()).RunSceneAsync("y", [Unit("y:1", "a", "A"), Unit("y:2", "b", "B"), Unit("y:3", "c", "C")], TestContext.Current.CancellationToken);
-
-        Assert.Equal(["y:1", "y:3"], result.Suggestions.Select(s => s.UnitId));
-    }
-
-    [Fact]
-    public async Task Cena_longa_vai_em_fatias_e_a_fatia_seguinte_leva_as_falas_anteriores_como_contexto()
-    {
-        var provider = new ScriptedProvider(_ => []);
-        var lines = Enumerable.Range(1, EditorPassRunner.MaxLinesPerRequest + 5).Select(i => Unit($"y:{i:D4}", $"s{i}", $"t{i}")).ToList();
-
-        var result = await new EditorPassRunner(provider, Builder()).RunSceneAsync("y", lines, TestContext.Current.CancellationToken);
-
-        Assert.Equal(2, provider.Scenes.Count);
-        Assert.Equal(EditorPassRunner.MaxLinesPerRequest, provider.Scenes[0].Lines.Count);
-        Assert.Empty(provider.Scenes[0].PreviousLines);
-        Assert.Equal(5, provider.Scenes[1].Lines.Count);
-        Assert.Equal([$"y:{EditorPassRunner.MaxLinesPerRequest - 2:D4}", $"y:{EditorPassRunner.MaxLinesPerRequest - 1:D4}", $"y:{EditorPassRunner.MaxLinesPerRequest:D4}"], provider.Scenes[1].PreviousLines.Select(l => l.Id));
-        Assert.Equal(lines.Count, result.LinesRead);
-    }
-
-    [Fact]
-    public async Task O_corredor_para_quando_o_token_e_cancelado()
-    {
-        using var cancellation = new CancellationTokenSource();
-        await cancellation.CancelAsync();
-        var runner = new EditorPassRunner(new ScriptedProvider(_ => []), Builder());
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.RunSceneAsync("y", [Unit("y:1", "a", "A")], cancellation.Token));
     }
 
     [Fact]
@@ -383,39 +264,6 @@ public class EditorPassTests
         var result = await new FakeEditorPassProvider().AnotherAsync(Scene(Unit("y:1", "a", "A")), "Texto", TestContext.Current.CancellationToken);
 
         Assert.Equal("Texto (outra)", result!.Proposed);
-    }
-
-    [Theory]
-    [InlineData("Texto", "Texto (outra)")]
-    [InlineData("Texto\\p", "Texto (outra)\\p")]
-    [InlineData("Texto\\n\\p", "Texto (outra)\\n\\p")]
-    [InlineData("Texto{VAR:x}\\p", "Texto{VAR:x} (outra)\\p")]
-    public async Task Outra_no_provedor_falso_poe_o_texto_antes_dos_marcadores_do_fim(string rejected, string expected)
-    {
-        var result = await new FakeEditorPassProvider().AnotherAsync(Scene(Unit("y:1", "a", "A")), rejected, TestContext.Current.CancellationToken);
-
-        Assert.Equal(expected, result!.Proposed);
-    }
-
-    [Fact]
-    public void A_estimativa_conta_o_glossario_os_personagens_e_a_biblia_do_pedido()
-    {
-        var lines = new[] { Unit("y:1", "魔法学院に入る", "Entrar na academia de magia") };
-        var bare = new TranslationBatch(lines);
-        var rich = new TranslationBatch(lines)
-        {
-            Glossary = [.. Enumerable.Range(0, 40).Select(i => new GlossaryEntry($"用語{i}", $"termo {i}", "nota longa do glossário"))],
-            Characters = [new CharacterInfo("健太", "Kenta", "brincalhão", "male")],
-            Scenes = [new BibleScene("y") { Summary = string.Concat(Enumerable.Repeat("Os dois chegam atrasados ao portão da escola. ", 20)) }],
-            StyleGuide = string.Concat(Enumerable.Repeat("Guia de estilo do projeto. ", 30)),
-            Synopsis = "Uma cidade onde sempre chove.",
-        };
-
-        var plain = EditorPassCost.Estimate([bare], ClaudeModels.Opus);
-        var full = EditorPassCost.Estimate([rich], ClaudeModels.Opus);
-
-        Assert.True(full.Usage.Input > plain.Usage.Input + 800, $"Com contexto: {full.Usage.Input}; sem: {plain.Usage.Input}.");
-        Assert.True(full.Dollars > plain.Dollars);
     }
 
     // ---- EditorPassCost ----

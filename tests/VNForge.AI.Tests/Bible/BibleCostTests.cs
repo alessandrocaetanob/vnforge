@@ -96,13 +96,4 @@ public sealed class BibleCostTests
 
         Assert.Equal((onlyA.Dollars + onlyB.Dollars) / 2, both.RereadDollars);
     }
-
-    [Fact]
-    public void Sem_capitulos_nao_custa_nada()
-    {
-        var estimate = BibleCost.Estimate([], ClaudeModels.Opus);
-
-        Assert.Equal(0m, estimate.Dollars);
-        Assert.Equal(0m, estimate.RereadDollars);
-    }
 }

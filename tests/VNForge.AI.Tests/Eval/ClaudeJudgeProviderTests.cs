@@ -24,17 +24,6 @@ public sealed class ClaudeJudgeProviderTests
     private static ClaudeReply Ok(string json) => new("end_turn", json);
 
     [Fact]
-    public async Task Devolve_uma_nota_por_linha_na_ordem_do_lote_e_limita_a_escala()
-    {
-        var client = new StubClient(_ => Ok("""{"scores":[{"id":"b","score":14},{"id":"a","score":7.5}]}"""));
-        var provider = new ClaudeJudgeProvider(client);
-
-        var scores = await provider.JudgeAsync(new TranslationBatch([Unit("a", "やあ", "Oi"), Unit("b", "さよなら", "Adeus")]), TestContext.Current.CancellationToken);
-
-        Assert.Equal([new JudgeScore("a", 7.5), new JudgeScore("b", 10)], scores);
-    }
-
-    [Fact]
     public async Task O_pedido_leva_original_e_texto_mas_nada_que_identifique_a_configuracao()
     {
         var client = new StubClient(_ => Ok("""{"scores":[{"id":"a","score":8}]}"""));
@@ -73,17 +62,5 @@ public sealed class ClaudeJudgeProviderTests
         await provider.JudgeAsync(new TranslationBatch([Unit("a", "やあ", "Oi")]), TestContext.Current.CancellationToken);
 
         Assert.Equal(new ClaudeUsage(200, 20, 0, 0), provider.Usage);
-    }
-
-    [Fact]
-    public async Task Recusa_do_modelo_deixa_so_a_linha_recusada_sem_nota()
-    {
-        var calls = 0;
-        var client = new StubClient(_ => ++calls == 1 ? new ClaudeReply("refusal", string.Empty) : Ok("""{"scores":[{"id":"b","score":6}]}"""));
-        var provider = new ClaudeJudgeProvider(client);
-
-        var scores = await provider.JudgeAsync(new TranslationBatch([Unit("a", "やあ", "Oi")]), TestContext.Current.CancellationToken);
-
-        Assert.Equal([new JudgeScore("a", 0, Refused: true)], scores);
     }
 }

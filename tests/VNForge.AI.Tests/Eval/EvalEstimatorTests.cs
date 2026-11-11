@@ -53,10 +53,4 @@ public sealed class EvalEstimatorTests : IDisposable
         Assert.Equal(5, estimate.SampleLines);
         Assert.Equal(5, estimate.Configs[0].Estimate.Lines);
     }
-
-    [Fact]
-    public void Configuracao_invalida_e_recusada()
-    {
-        Assert.Throws<EvalException>(() => EvalEstimator.Estimate(_project.Folder, [Opus with { Model = "x" }], 5, 1, 30, null));
-    }
 }

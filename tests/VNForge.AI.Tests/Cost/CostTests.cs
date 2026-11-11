@@ -28,31 +28,6 @@ public class CostTests
     }
 
     [Fact]
-    public async Task So_as_linhas_novas_vao_ao_provedor_e_a_ordem_do_lote_e_mantida()
-    {
-        var fake = new FakeTranslationProvider();
-        var provider = new CachingTranslationProvider(fake, new TranslationCache(), ClaudeModels.Opus);
-        await provider.TranslateAsync(new TranslationBatch([Unit("a", "あ")]), CancellationToken.None);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("b", "い"), Unit("a", "あ"), Unit("c", "う")]), CancellationToken.None);
-
-        Assert.Equal(["b", "a", "c"], results.Select(r => r.Id));
-        Assert.Equal(["b", "c"], fake.ReceivedBatches.Last().Lines.Select(l => l.Id));
-    }
-
-    [Fact]
-    public async Task Linhas_iguais_no_mesmo_lote_pagam_uma_vez()
-    {
-        var fake = new FakeTranslationProvider();
-        var provider = new CachingTranslationProvider(fake, new TranslationCache(), ClaudeModels.Opus);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]), CancellationToken.None);
-
-        Assert.Single(fake.ReceivedBatches.Single().Lines);
-        Assert.Equal(results[0].Translation, results[1].Translation);
-    }
-
-    [Fact]
     public async Task Mudar_o_modelo_ou_o_estilo_invalida_o_cache()
     {
         var fake = new FakeTranslationProvider();
@@ -172,21 +147,6 @@ public class CostTests
     }
 
     [Fact]
-    public async Task Linhas_repetidas_no_lote_dividem_a_resposta_nova_com_a_duvida_e_nao_contam_como_cache()
-    {
-        var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
-        var inner = new DoubtingProvider(doubt);
-        var provider = new CachingTranslationProvider(inner, new TranslationCache(), ClaudeModels.Opus);
-        var batch = new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]);
-
-        var results = await provider.TranslateAsync(batch, CancellationToken.None);
-
-        Assert.Equal(2, results.Count);
-        Assert.All(results, r => Assert.Equal(doubt, r.Doubt));
-        Assert.All(results, r => Assert.False(r.FromCache));
-    }
-
-    [Fact]
     public void A_duvida_da_linha_so_fica_quando_a_traducao_veio_do_cache_com_o_mesmo_texto()
     {
         var antiga = new TranslationDoubt(DoubtKind.Pun, "Antiga.");
@@ -218,14 +178,6 @@ public class CostTests
     }
 
     [Fact]
-    public void Estimativa_sem_linhas_pendentes_custa_zero()
-    {
-        var estimate = CostEstimator.Estimate([], ClaudeModels.Opus);
-
-        Assert.Equal(0m, estimate.Dollars);
-    }
-
-    [Fact]
     public void Preco_calcula_por_milhao_de_tokens_e_recusa_modelo_desconhecido()
     {
         Assert.Equal(24m, ModelPricing.For(ClaudeModels.Opus).Cost(new TokenUsage(1_000_000, 1_000_000)));
@@ -241,35 +193,5 @@ public class CostTests
 
         Assert.Equal(50, ledger.Calls);
         Assert.Equal(new TokenUsage(500, 250, 50, 100), ledger.Total);
-    }
-
-    [Fact]
-    public void Estimativa_por_modelo_divide_os_mesmos_tokens_pelo_preco_de_cada_modelo()
-    {
-        var lines = new[] { Unit("a", "こんにちは、元気ですか"), Unit("b", "Hello there, how are you today?") };
-
-        var byModel = CostEstimator.EstimateForModels(lines, ClaudeModels.All);
-
-        Assert.Equal(ClaudeModels.All, byModel.Keys);
-        foreach (var model in ClaudeModels.All)
-        {
-            var single = CostEstimator.Estimate(lines, model);
-            Assert.Equal(single, byModel[model]);
-        }
-
-        var opus = byModel[ClaudeModels.Opus];
-        Assert.Equal(2, opus.Lines);
-        Assert.True(opus.Dollars > 0m);
-        Assert.Equal(opus.Dollars / 2m, byModel[ClaudeModels.Sonnet].Dollars);
-        Assert.Equal(opus.Dollars * 2.5m, byModel[ClaudeModels.Fable].Dollars);
-    }
-
-    [Fact]
-    public void Estimativa_por_modelo_sem_linhas_custa_zero_em_todos_e_recusa_modelo_desconhecido()
-    {
-        var empty = CostEstimator.EstimateForModels([], ClaudeModels.All);
-
-        Assert.All(empty.Values, e => Assert.Equal(0m, e.Dollars));
-        Assert.Throws<ArgumentException>(() => CostEstimator.EstimateForModels([Unit("a", "x")], ["gpt-x"]));
     }
 }

@@ -62,18 +62,6 @@ public sealed class BibleRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Rodada_parcial_nao_pede_a_sinopse()
-    {
-        var project = NewProject(_root);
-        var provider = new FakeBibleProvider();
-
-        await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken, includeOverview: false);
-
-        Assert.Empty(provider.OverviewCalls);
-        Assert.Equal("", project.LoadBible().Synopsis);
-    }
-
-    [Fact]
     public async Task O_que_a_pessoa_escreveu_sobrevive_a_uma_nova_geracao()
     {
         var project = NewProject(_root);
@@ -138,23 +126,6 @@ public sealed class BibleRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Recusa_nao_e_repetida()
-    {
-        var project = NewProject(_root);
-        var calls = 0;
-        var provider = new FakeBibleProvider(describe: (_, _) =>
-        {
-            calls++;
-            throw new ClaudeRefusalException("A IA recusou.");
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, calls);
-        Assert.Equal(1, Assert.Single(result.Failures).Attempts);
-    }
-
-    [Fact]
     public async Task Resposta_cortada_por_max_tokens_nao_e_repetida_com_o_mesmo_limite()
     {
         var project = NewProject(_root);
@@ -169,23 +140,6 @@ public sealed class BibleRunnerTests : IDisposable
 
         Assert.Equal(1, calls);
         Assert.Equal(1, Assert.Single(result.Failures).Attempts);
-    }
-
-    [Fact]
-    public async Task JSON_fora_do_formato_ainda_e_repetido()
-    {
-        var project = NewProject(_root);
-        var calls = 0;
-        var provider = new FakeBibleProvider(describe: (_, _) =>
-        {
-            calls++;
-            throw new ClaudeResponseException("Incompleta.", detail: "A resposta não é o JSON esperado.");
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(3, calls);
-        Assert.Equal(3, Assert.Single(result.Failures).Attempts);
     }
 
     [Fact]

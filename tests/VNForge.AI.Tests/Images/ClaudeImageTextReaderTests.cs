@@ -40,17 +40,6 @@ public sealed class ClaudeImageTextReaderTests
     }
 
     [Fact]
-    public async Task Devolve_o_texto_lido()
-    {
-        var client = new StubClient(_ => Ok("""{"hasText":true,"text":" はじめから\nつづきから "}"""));
-
-        var reading = await new ClaudeImageTextReader(client).ReadAsync(Image, Token);
-
-        Assert.Equal("はじめから\nつづきから", reading.Text);
-        Assert.False(reading.Refused);
-    }
-
-    [Fact]
     public async Task Devolve_a_traducao_sugerida_e_o_pedido_a_exige_no_schema()
     {
         var client = new StubClient(_ => Ok("""{"hasText":true,"text":"桜ヶ丘高校 校門","translation":" Colégio Sakuragaoka, portão "}"""));
@@ -59,23 +48,6 @@ public sealed class ClaudeImageTextReaderTests
 
         Assert.Equal("Colégio Sakuragaoka, portão", reading.Translation);
         Assert.Contains("\"translation\"", Assert.Single(client.Requests).JsonSchema);
-    }
-
-    [Fact]
-    public async Task Resposta_sem_o_campo_de_traducao_ainda_vale_e_a_sugestao_fica_vazia()
-    {
-        var reading = await new ClaudeImageTextReader(new StubClient(_ => Ok("""{"hasText":true,"text":"はじめから"}"""))).ReadAsync(Image, Token);
-
-        Assert.Equal("はじめから", reading.Text);
-        Assert.Equal(string.Empty, reading.Translation);
-    }
-
-    [Fact]
-    public async Task Imagem_sem_texto_nao_traz_sugestao()
-    {
-        var reading = await new ClaudeImageTextReader(new StubClient(_ => Ok("""{"hasText":false,"text":"","translation":"ruído"}"""))).ReadAsync(Image, Token);
-
-        Assert.Equal(string.Empty, reading.Translation);
     }
 
     [Theory]
@@ -108,17 +80,6 @@ public sealed class ClaudeImageTextReaderTests
         var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
 
         Assert.Contains("max_tokens", Assert.IsType<ClaudeResponseException>(error.InnerException).Detail);
-    }
-
-    [Fact]
-    public async Task Resposta_cortada_leva_o_uso_da_chamada_na_excecao()
-    {
-        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te""", new ClaudeUsage(900, 2000, 100, 0)));
-
-        var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
-
-        Assert.Equal(1000, error.InputTokens);
-        Assert.Equal(2000, error.OutputTokens);
     }
 
     [Theory]

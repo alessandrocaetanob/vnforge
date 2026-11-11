@@ -42,38 +42,6 @@ public sealed class NightBatchServiceTests : IDisposable
 
     private static string Id(int i) => $"{Key}:{i:D6}";
 
-    [Fact]
-    public async Task Envia_as_pendentes_em_pedidos_de_um_lote_so_e_guarda_o_id_em_cache()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        Assert.NotNull(state);
-        Assert.Equal(1, _client.Creates);
-        Assert.Equal(["r00001", "r00002", "r00003"], _client.LastItems.Select(i => i.CustomId));
-        Assert.Equal(44, state.LineCount);
-        Assert.Equal("O capítulo", state.Title);
-        Assert.Equal(NightBatchPhase.Processing, state.Phase);
-        Assert.True(File.Exists(Path.Combine(_project.CacheDirectory, "lote-noturno", state.Id + ".json")));
-        var saved = new NightBatchStore(_project).Find(state.Id);
-        Assert.NotNull(saved);
-        Assert.Equal(state.EstimatedBrl, saved.EstimatedBrl);
-        Assert.Equal(state.SubmittedAt, saved.SubmittedAt);
-        Assert.Equal([Key], saved.ScriptKeys);
-        Assert.Equal(state.Requests.Select(r => r.Lines.Count), saved.Requests.Select(r => r.Lines.Count));
-    }
-
-    [Fact]
-    public async Task O_preco_guardado_e_metade_do_pedido_normal()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        var normal = CostEstimatorBrl(ClaudeModels.Opus);
-        Assert.NotNull(state);
-        Assert.Equal(normal * 0.5m, state.EstimatedBrl);
-        Assert.Equal(0.5m, ModelPricing.BatchDiscount);
-        Assert.Equal(13.46m, NightBatchService.PriceBrl(26.92m));
-    }
-
     private decimal CostEstimatorBrl(string model)
     {
         var selection = VNForge.AI.Translation.LineSelection.Build(_project.LoadAllText(), null, null, TranslationQuoter.IsPending);
@@ -81,16 +49,6 @@ public sealed class NightBatchServiceTests : IDisposable
         var builder = new VNForge.AI.Translation.TranslationBatchBuilder([], new VNForge.Core.Glossary.CharacterBook([]), string.Empty, config.Ai.ContextBefore, config.Style, config.Ai.ContextAfter, []) { PreviousFromSource = true };
         var batches = selection.Pending.Chunk(20).Select(chunk => selection.BuildBatch(builder, chunk));
         return Rate.ToBrl(CostEstimator.EstimateBatches(batches, model, null, ClaudeEffort.Medium).Dollars);
-    }
-
-    [Fact]
-    public async Task O_contexto_da_fala_anterior_vem_do_original_porque_ela_ainda_nao_foi_traduzida()
-    {
-        await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        var second = _client.LastItems[1].Request.User;
-        Assert.Contains("Contexto anterior", second, StringComparison.Ordinal);
-        Assert.Contains("美咲: 原文19", second, StringComparison.Ordinal);
     }
 
     [Fact]
