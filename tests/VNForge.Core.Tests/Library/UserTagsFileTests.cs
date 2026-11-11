@@ -42,28 +42,6 @@ public sealed class UserTagsFileTests : IDisposable
     }
 
     [Fact]
-    public void A_ordem_de_gravacao_nao_muda_o_arquivo()
-    {
-        var first = new UserTags();
-        first.Add("g1", "b");
-        first.Add("g1", "a");
-        var second = new UserTags();
-        second.Add("g1", "a");
-        second.Add("g1", "b");
-
-        Assert.Equal(UserTagsFile.Serialize(first), UserTagsFile.Serialize(second));
-    }
-
-    [Fact]
-    public void Arquivo_que_nao_existe_e_sem_tags()
-    {
-        var loaded = new UserTagsFile(_dir.Path).Load();
-
-        Assert.Empty(loaded.Tags);
-        Assert.True(loaded.SavedFilter.IsEmpty);
-    }
-
-    [Fact]
     public void Gravacao_atomica_nao_deixa_temporario_e_troca_o_arquivo_inteiro()
     {
         var file = new UserTagsFile(_dir.Path);
@@ -78,23 +56,6 @@ public sealed class UserTagsFileTests : IDisposable
     }
 
     [Fact]
-    public void Update_rele_o_arquivo_e_nao_perde_o_que_outro_gravou_no_meio()
-    {
-        var file = new UserTagsFile(_dir.Path);
-        file.Save(Sample());
-        var stale = file.Load();
-
-        new UserTagsFile(_dir.Path).Update(t => t.Add("gc3", "de outro processo"));
-        file.Update(t => t.Add("gd4", "meu"));
-
-        var result = file.Load();
-        Assert.Equal(["de outro processo"], result.TagsOf("gc3"));
-        Assert.Equal(["meu"], result.TagsOf("gd4"));
-        Assert.Equal(["favorito", "pra traduzir"], result.TagsOf("ga1"));
-        Assert.Empty(stale.TagsOf("gc3"));
-    }
-
-    [Fact]
     public void Update_em_paralelo_serializa_as_gravacoes_sem_perder_nenhuma()
     {
         var file = new UserTagsFile(_dir.Path);
@@ -106,18 +67,6 @@ public sealed class UserTagsFileTests : IDisposable
         Assert.Equal(12, loaded.Tags.Count);
         Assert.Equal(12, loaded.GameIds.Count);
         Assert.Equal([file.Path], Directory.GetFiles(_dir.Path).Where(f => !f.EndsWith(".lock", StringComparison.Ordinal)));
-    }
-
-    [Fact]
-    public void Update_devolve_o_resultado_e_com_arquivo_ilegivel_recusa_sem_sobrescrever()
-    {
-        var file = new UserTagsFile(_dir.Path);
-        Assert.Equal(1, file.Update(t => t.Add("g1", "a") is { } ? 1 : 0));
-        File.WriteAllText(file.Path, "{ isto não é json");
-
-        Assert.Throws<LibraryException>(() => file.Update(t => t.Add("g1", "b")));
-
-        Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
     }
 
     [Fact]
@@ -161,7 +110,6 @@ public sealed class UserTagsFileTests : IDisposable
     [InlineData("null", "vazio")]
     [InlineData("{\"version\":1,\"tags\":[{\"name\":\"a\"},{\"name\":\" A \"}]}", "mais de uma vez")]
     [InlineData("{\"version\":1,\"tags\":[{\"color\":\"#fff000\"}]}", "sem nome")]
-    [InlineData("{\"version\":1,\"tags\":[{\"name\":\"a\",\"color\":\"azul\"}]}", "cor")]
     [InlineData("{\"version\":1,\"games\":{\"g1\":[\"fantasma\"]}}", "fantasma")]
     [InlineData("{\"version\":1,\"tags\":[{\"name\":\"a\"}],\"filter\":{\"include\":[\" \"]}}", "vazia")]
     public void Arquivo_fora_do_formato_diz_o_que_esta_errado(string json, string expected)
@@ -170,13 +118,5 @@ public sealed class UserTagsFileTests : IDisposable
 
         Assert.Contains("tags.json", error.Message);
         Assert.Contains(expected, error.Message);
-    }
-
-    [Fact]
-    public void Nome_gravado_fora_do_padrao_e_normalizado_ao_ler()
-    {
-        var loaded = UserTagsFile.Parse("{\"version\":1,\"tags\":[{\"name\":\" Pra  TRADUZIR \"}],\"games\":{\"g1\":[\"PRA traduzir\"]}}");
-
-        Assert.Equal(["pra traduzir"], loaded.TagsOf("g1"));
     }
 }

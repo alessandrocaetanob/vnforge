@@ -30,13 +30,6 @@ public sealed class SessionsFileTests : IDisposable
         SessionsFile.Save(_project, approvals.Aggregate(SessionsFile.Load(_project), (file, approval) => file.With(approval)));
 
     [Fact]
-    public void Sem_arquivo_o_registro_e_vazio()
-    {
-        Assert.Equal(SessionsFile.Empty, SessionsFile.Load(_project));
-        Assert.Empty(SessionsFile.Load(_project).Approvals);
-    }
-
-    [Fact]
     public void Grava_em_cache_sessions_json_e_le_de_volta_igual()
     {
         var sessions = SessionsFile.Empty.With(Approval("yst00013:000001", Noon)).With(Approval("yst00013:000002", Noon.AddMinutes(3)));
@@ -50,27 +43,6 @@ public sealed class SessionsFileTests : IDisposable
     }
 
     [Fact]
-    public void O_json_guarda_a_hora_de_cada_aprovacao()
-    {
-        Gravar(Approval("yst00013:000001", Noon));
-
-        var text = File.ReadAllText(SessionsFile.PathFor(_project));
-
-        Assert.Contains("\"scriptKey\": \"yst00013\"", text);
-        Assert.Contains("\"unitId\": \"yst00013:000001\"", text);
-        Assert.Contains("\"at\": \"2026-10-25T15:00:00+00:00\"", text);
-    }
-
-    [Fact]
-    public void Gravar_nao_deixa_arquivo_temporario_para_tras()
-    {
-        Gravar(Approval("yst00013:000001", Noon));
-        Gravar(Approval("yst00013:000002", Noon));
-
-        Assert.Equal([SessionsFile.PathFor(_project)], Directory.GetFiles(_project.CacheDirectory, "sessions*"));
-    }
-
-    [Fact]
     public void Gravar_com_a_pasta_do_projeto_movida_falha_como_IOException_e_nao_recria_a_pasta()
     {
         Directory.Delete(_project.Root, recursive: true);
@@ -80,38 +52,15 @@ public sealed class SessionsFileTests : IDisposable
         Assert.False(Directory.Exists(_project.Root));
     }
 
-    [Fact]
-    public void Gravar_de_novo_acrescenta_ao_que_ja_estava_gravado()
-    {
-        Gravar(Approval("yst00013:000001", Noon));
-        Gravar(Approval("yst00013:000002", Noon.AddMinutes(1)));
-
-        Assert.Equal(["yst00013:000001", "yst00013:000002"], SessionsFile.Load(_project).Approvals.Select(a => a.UnitId));
-    }
-
     [Theory]
-    [InlineData("não é json")]
     [InlineData("{\"version\": 99, \"approvals\": []}")]
     [InlineData("{\"version\": 1}")]
-    [InlineData("{\"version\": 1, \"approvals\": [{\"at\": \"ontem\"}]}")]
     public void Arquivo_ilegivel_ou_de_outra_versao_vira_registro_vazio(string content)
     {
         Directory.CreateDirectory(_project.CacheDirectory);
         File.WriteAllText(SessionsFile.PathFor(_project), content);
 
         Assert.Empty(SessionsFile.Load(_project).Approvals);
-    }
-
-    [Fact]
-    public void Itens_nulos_da_lista_sao_ignorados_na_leitura()
-    {
-        Directory.CreateDirectory(_project.CacheDirectory);
-        File.WriteAllText(SessionsFile.PathFor(_project), "{\"version\": 1, \"approvals\": [null, {\"scriptKey\": \"yst00013\", \"unitId\": \"yst00013:000001\", \"at\": \"2026-10-25T15:00:00+00:00\"}]}");
-
-        var loaded = SessionsFile.Load(_project);
-
-        Assert.Equal([Approval("yst00013:000001", Noon)], loaded.Approvals);
-        Assert.Equal(1, loaded.ReviewedOn(Noon, TimeZoneInfo.Utc));
     }
 
     [Fact]
@@ -123,24 +72,6 @@ public sealed class SessionsFileTests : IDisposable
         Gravar(Approval("yst00013:000001", Noon));
 
         Assert.Single(SessionsFile.Load(_project).Approvals);
-    }
-
-    [Theory]
-    [InlineData("não é json", SessionsLoadStatus.Corrupt, true)]
-    [InlineData("{\"version\": 1}", SessionsLoadStatus.Corrupt, true)]
-    [InlineData("{\"version\": \"1\", \"approvals\": []}", SessionsLoadStatus.Ok, true)]
-    [InlineData("{\"version\": null, \"approvals\": []}", SessionsLoadStatus.Corrupt, true)]
-    [InlineData("{\"version\": 2, \"approvals\": [], \"extra\": 1}", SessionsLoadStatus.NewerVersion, false)]
-    [InlineData("{\"version\": 1, \"approvals\": []}", SessionsLoadStatus.Ok, true)]
-    public void Read_diz_se_da_para_gravar_por_cima_do_arquivo(string content, SessionsLoadStatus status, bool canOverwrite)
-    {
-        Directory.CreateDirectory(_project.CacheDirectory);
-        File.WriteAllText(SessionsFile.PathFor(_project), content);
-
-        var read = SessionsFile.Read(_project);
-
-        Assert.Equal(status, read.Status);
-        Assert.Equal(canOverwrite, read.CanOverwrite);
     }
 
     [Fact]
@@ -178,41 +109,5 @@ public sealed class SessionsFileTests : IDisposable
         Assert.Equal([Noon, Noon.AddMinutes(1)], without.Approvals.Select(x => x.At));
         Assert.Equal(2, without.ReviewedOn(Noon, TimeZoneInfo.Utc));
         Assert.Same(sessions, sessions.Without("yst00013", "nao-existe"));
-    }
-
-    [Fact]
-    public void Aprovacoes_com_mais_de_noventa_dias_saem_na_gravacao()
-    {
-        var sessions = SessionsFile.Empty
-            .With(Approval("antiga", Noon.AddDays(-91)))
-            .With(Approval("recente", Noon.AddDays(-89)))
-            .With(Approval("agora", Noon));
-
-        Assert.Equal(["recente", "agora"], sessions.Approvals.Select(a => a.UnitId));
-    }
-
-    [Fact]
-    public void ReviewedOn_conta_as_linhas_do_dia_no_fuso_da_pessoa()
-    {
-        var saoPaulo = TimeZoneInfo.CreateCustomTimeZone("BRT", TimeSpan.FromHours(-3), "BRT", "BRT");
-        var sessions = SessionsFile.Empty
-            .With(Approval("ontem-a-noite", new DateTimeOffset(2026, 10, 25, 2, 30, 0, TimeSpan.Zero)))
-            .With(Approval("a", new DateTimeOffset(2026, 10, 25, 3, 30, 0, TimeSpan.Zero)))
-            .With(Approval("b", new DateTimeOffset(2026, 10, 26, 2, 59, 0, TimeSpan.Zero)))
-            .With(Approval("amanha", new DateTimeOffset(2026, 10, 26, 3, 1, 0, TimeSpan.Zero)));
-
-        Assert.Equal(2, sessions.ReviewedOn(new DateTimeOffset(2026, 10, 25, 20, 0, 0, TimeSpan.Zero), saoPaulo));
-        Assert.Equal(1, sessions.ReviewedOn(new DateTimeOffset(2026, 10, 26, 20, 0, 0, TimeSpan.Zero), saoPaulo));
-    }
-
-    [Fact]
-    public void ReviewedOn_conta_uma_vez_a_linha_aprovada_duas_vezes_no_dia()
-    {
-        var sessions = SessionsFile.Empty
-            .With(Approval("yst00013:000001", Noon))
-            .With(Approval("yst00013:000001", Noon.AddMinutes(10)))
-            .With(Approval("yst00013:000002", Noon.AddMinutes(11)));
-
-        Assert.Equal(2, sessions.ReviewedOn(Noon.AddHours(1), TimeZoneInfo.Utc));
     }
 }

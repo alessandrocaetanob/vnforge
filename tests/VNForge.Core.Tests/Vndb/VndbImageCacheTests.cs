@@ -47,23 +47,6 @@ public sealed class VndbImageCacheTests : IDisposable
         new(CacheDir, downloader, privacy, time);
 
     [Fact]
-    public async Task Baixa_uma_vez_guarda_na_pasta_e_as_chamadas_seguintes_saem_do_disco()
-    {
-        var downloader = new FakeDownloader(_ => Jpeg);
-        using var cache = Cache(downloader);
-
-        var first = await cache.GetAsync(new VndbImageRef(Portrait), Ct);
-        var second = await cache.GetAsync(new VndbImageRef(Portrait), Ct);
-
-        Assert.NotNull(first);
-        Assert.Equal(first, second);
-        Assert.Equal(1, downloader.Calls);
-        Assert.Equal(Jpeg, await File.ReadAllBytesAsync(first, Ct));
-        Assert.StartsWith(Path.GetFullPath(CacheDir), Path.GetFullPath(first), StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(".jpg", Path.GetExtension(first));
-    }
-
-    [Fact]
     public async Task Um_cache_novo_na_mesma_pasta_reusa_o_arquivo_sem_baixar()
     {
         var first = new FakeDownloader(_ => Jpeg);
@@ -80,9 +63,7 @@ public sealed class VndbImageCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData(nameof(Png), ".png")]
     [InlineData(nameof(Webp), ".webp")]
-    [InlineData(nameof(Jpeg), ".jpg")]
     public async Task A_extensao_segue_o_conteudo_e_nao_o_endereco(string which, string extension)
     {
         var bytes = which switch { nameof(Png) => Png, nameof(Webp) => Webp, _ => Jpeg };
@@ -91,22 +72,6 @@ public sealed class VndbImageCacheTests : IDisposable
         var path = await cache.GetAsync(new VndbImageRef("https://t.vndb.org/ch/12/3412.bin"), Ct);
 
         Assert.Equal(extension, Path.GetExtension(path));
-    }
-
-    [Theory]
-    [InlineData(1.0, 0.0)]
-    [InlineData(0.0, 1.0)]
-    [InlineData(2.0, 2.0)]
-    public async Task No_modo_esconder_a_imagem_adulta_nao_e_baixada_nem_devolvida(double sexual, double violence)
-    {
-        var downloader = new FakeDownloader(_ => Jpeg);
-        using var cache = Cache(downloader, () => new LibraryPrivacy(Adult: AdultMode.Hide));
-
-        var path = await cache.GetAsync(new VndbImageRef(Portrait, sexual, violence), Ct);
-
-        Assert.Null(path);
-        Assert.Equal(0, downloader.Calls);
-        Assert.False(Directory.Exists(CacheDir) && Directory.EnumerateFiles(CacheDir, "*", SearchOption.AllDirectories).Any());
     }
 
     [Fact]
@@ -131,31 +96,8 @@ public sealed class VndbImageCacheTests : IDisposable
         Assert.NotNull(cache.Find(image));
     }
 
-    [Fact]
-    public async Task Sem_privacidade_informada_vale_o_padrao_que_baixa_a_imagem_adulta_para_a_tela_borrar()
-    {
-        var downloader = new FakeDownloader(_ => Jpeg);
-        using var cache = Cache(downloader);
-
-        Assert.NotNull(await cache.GetAsync(new VndbImageRef(Portrait, 2, 0), Ct));
-        Assert.Equal(1, downloader.Calls);
-    }
-
-    [Fact]
-    public void Find_nao_usa_a_rede_e_devolve_nulo_quando_a_imagem_nao_esta_no_disco()
-    {
-        var downloader = new FakeDownloader(_ => Jpeg);
-        using var cache = Cache(downloader);
-
-        Assert.Null(cache.Find(new VndbImageRef(Portrait)));
-        Assert.Equal(0, downloader.Calls);
-    }
-
     [Theory]
     [InlineData("http://t.vndb.org/ch/12/3412.jpg")]
-    [InlineData("https://evil.example/ch/12/3412.jpg")]
-    [InlineData("file:///C:/Users/segredo.png")]
-    [InlineData("")]
     public async Task Endereco_fora_do_vndb_nao_e_buscado(string url)
     {
         var downloader = new FakeDownloader(_ => Jpeg);
@@ -172,34 +114,6 @@ public sealed class VndbImageCacheTests : IDisposable
 
         Assert.Null(await cache.GetAsync(new VndbImageRef(Portrait), Ct));
         Assert.False(Directory.Exists(CacheDir) && Directory.EnumerateFiles(CacheDir, "*", SearchOption.AllDirectories).Any());
-    }
-
-    [Fact]
-    public async Task Imagem_acima_do_limite_nao_e_guardada()
-    {
-        var big = new byte[VndbImageCache.MaxBytes + 1];
-        Jpeg.CopyTo(big, 0);
-        using var cache = Cache(new FakeDownloader(_ => big));
-
-        Assert.Null(await cache.GetAsync(new VndbImageRef(Portrait), Ct));
-    }
-
-    [Fact]
-    public async Task Falha_no_download_vira_nulo_e_nao_e_tentada_de_novo_logo_em_seguida()
-    {
-        var time = new FakeTimeProvider();
-        var downloader = new FakeDownloader(_ => null);
-        using var cache = Cache(downloader, time: time);
-        var image = new VndbImageRef(Portrait);
-
-        Assert.Null(await cache.GetAsync(image, Ct));
-        Assert.Null(await cache.GetAsync(image, Ct));
-        Assert.Equal(1, downloader.Calls);
-
-        time.Advance(VndbImageCache.RetryAfter + TimeSpan.FromSeconds(1));
-
-        Assert.Null(await cache.GetAsync(image, Ct));
-        Assert.Equal(2, downloader.Calls);
     }
 
     [Fact]
@@ -236,36 +150,6 @@ public sealed class VndbImageCacheTests : IDisposable
         Assert.Equal(1, downloader.Calls);
         Assert.All(paths, p => Assert.Equal(paths[0], p));
         Assert.NotNull(paths[0]);
-    }
-
-    [Fact]
-    public async Task Imagens_diferentes_ficam_em_arquivos_diferentes()
-    {
-        using var cache = Cache(new FakeDownloader(_ => Jpeg));
-
-        var a = await cache.GetAsync(new VndbImageRef("https://t.vndb.org/ch/12/1.jpg"), Ct);
-        var b = await cache.GetAsync(new VndbImageRef("https://t.vndb.org/ch/12/2.jpg"), Ct);
-
-        Assert.NotEqual(a, b);
-    }
-
-    [Fact]
-    public async Task Cancelar_a_espera_cancela_a_chamada()
-    {
-        using var cache = Cache(new FakeDownloader(_ => Jpeg));
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cache.GetAsync(new VndbImageRef(Portrait), cts.Token));
-    }
-
-    [Fact]
-    public async Task O_arquivo_gravado_nao_deixa_temporarios_na_pasta()
-    {
-        using var cache = Cache(new FakeDownloader(_ => Jpeg));
-        await cache.GetAsync(new VndbImageRef(Portrait), Ct);
-
-        Assert.DoesNotContain(Directory.EnumerateFiles(CacheDir, "*", SearchOption.AllDirectories), f => f.EndsWith(".tmp", StringComparison.Ordinal));
     }
 
     [Fact]

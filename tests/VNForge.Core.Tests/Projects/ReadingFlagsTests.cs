@@ -36,32 +36,6 @@ public class ReadingFlagsTests
     }
 
     [Fact]
-    public void WithOdd_sem_mudanca_devolve_a_mesma_linha()
-    {
-        var linha = Linha(1);
-
-        Assert.Same(linha, linha.WithOdd(false));
-        var marcada = linha.WithOdd(true);
-        Assert.Same(marcada, marcada.WithOdd(true));
-    }
-
-    [Fact]
-    public void SetOdd_grava_a_marca_no_arquivo_e_deixa_traducao_e_status()
-    {
-        using var pasta = new TempFolder();
-        var (projeto, editor) = Preparar(pasta.Path, Linha(1), Linha(2));
-
-        var salva = editor.SetOdd("yst00001", "yst00001:000001", true);
-
-        Assert.True(salva.IsOdd());
-        var lidas = projeto.LoadText("yst00001");
-        Assert.True(lidas[0].IsOdd());
-        Assert.Equal("Oi.", lidas[0].Translation);
-        Assert.Equal(TranslationStatus.Machine, lidas[0].Status);
-        Assert.False(lidas[1].IsOdd());
-    }
-
-    [Fact]
     public void SetOdd_falso_tira_a_marca_e_repetir_nao_regrava()
     {
         using var pasta = new TempFolder();

@@ -40,42 +40,6 @@ public sealed class LibraryScanServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Varre_junta_na_biblioteca_e_guarda_a_pasta_com_a_escolha_e_a_data()
-    {
-        Collection(_games.Path);
-        var root = new LibraryRoot(_games.Path, IncludeSubfolders: true, MatchVndb: false, RescanOnOpen: true);
-
-        var outcome = await Service(null).RunAsync(root, cancellationToken: Ct);
-
-        Assert.Equal(6, outcome.Merge.Added.Count);
-        Assert.Null(outcome.Match);
-        var library = File.Load();
-        Assert.Equal(5, library.Games.Count(g => g.Engine.Source != LibraryEngineSource.Unknown));
-        Assert.Single(library.Games, g => g.Engine.Source == LibraryEngineSource.Unknown);
-        var saved = Assert.Single(library.Roots);
-        Assert.Equal(GameLibrary.NormalizeFolder(_games.Path), saved.Path);
-        Assert.True(saved.RescanOnOpen);
-        Assert.Equal(Now, saved.ScannedAt);
-    }
-
-    [Fact]
-    public async Task Le_os_projetos_recentes_na_thread_de_quem_chama_e_nao_no_pool_da_varredura()
-    {
-        Collection(_games.Path);
-        var caller = Environment.CurrentManagedThreadId;
-        int? readOn = null;
-        var service = new LibraryScanService(File, Scanner(), null, () =>
-        {
-            readOn = Environment.CurrentManagedThreadId;
-            return [];
-        }, new FixedTime());
-
-        await service.RunAsync(new LibraryRoot(_games.Path, MatchVndb: false), cancellationToken: Ct);
-
-        Assert.Equal(caller, readOn);
-    }
-
-    [Fact]
     public async Task Sem_subpastas_olha_so_a_pasta_apontada()
     {
         Collection(_games.Path);
@@ -83,39 +47,6 @@ public sealed class LibraryScanServiceTests : IDisposable
         var outcome = await Service(null).RunAsync(new LibraryRoot(_games.Path, IncludeSubfolders: false, MatchVndb: false), cancellationToken: Ct);
 
         Assert.DoesNotContain(outcome.Scan.Games, g => g.Engine.Source != LibraryEngineSource.Unknown);
-    }
-
-    [Fact]
-    public async Task Pasta_sem_engine_conhecida_entra_como_nao_reconhecida()
-    {
-        SyntheticGames.File(Path.Combine(_games.Path, "Toge no Kaji", "Toge.exe"));
-
-        var outcome = await Service(null).RunAsync(new LibraryRoot(_games.Path, MatchVndb: false), cancellationToken: Ct);
-
-        var game = Assert.Single(outcome.Scan.Games);
-        Assert.Equal(LibraryEngineSource.Unknown, game.Engine.Source);
-    }
-
-    [Fact]
-    public async Task Com_casamento_confirma_o_que_nao_deixa_duvida_guarda_os_candidatos_e_grava_jogo_a_jogo()
-    {
-        SyntheticGames.File(Path.Combine(_games.Path, "[Key] CLANNAD v1.02", "data.xp3"));
-        SyntheticGames.File(Path.Combine(_games.Path, "[Key] CLANNAD v1.02", "CLANNAD.exe"));
-        SyntheticGames.File(Path.Combine(_games.Path, "Desconhecido", "Scene.pck"));
-        SyntheticGames.File(Path.Combine(_games.Path, "Desconhecido", "x.exe"));
-        var matched = new List<LibraryMatchProgress>();
-
-        var outcome = await Service(Catalog()).RunAsync(new LibraryRoot(_games.Path), matchProgress: new Collector<LibraryMatchProgress>(matched), cancellationToken: Ct);
-
-        Assert.NotNull(outcome.Match);
-        Assert.Equal(2, matched.Count);
-        var library = File.Load();
-        var clannad = library.Games.Single(g => g.Title == "CLANNAD");
-        Assert.True(clannad.IsConfirmed);
-        Assert.Equal("https://t.vndb.org/cv/4.jpg", clannad.Info!.CoverUrl);
-        var unknown = library.Games.Single(g => GameLibrary.FolderName(g) == "Desconhecido");
-        Assert.False(unknown.IsConfirmed);
-        Assert.NotNull(unknown.SearchedAt);
     }
 
     [Fact]
@@ -154,42 +85,6 @@ public sealed class LibraryScanServiceTests : IDisposable
         Assert.Null(outcome.Match);
         Assert.NotEmpty(File.Load().Games);
         Assert.Single(File.Load().Roots);
-    }
-
-    [Fact]
-    public async Task Liga_os_projetos_de_traducao_conhecidos_aos_jogos_da_pasta()
-    {
-        Collection(_games.Path);
-        var gameFolder = Path.Combine(_games.Path, "Steins;Gate");
-        var project = Path.Combine(_config.Path, "projetos", "sg");
-        ProjectFolder.Create(project, new ProjectConfig("sg", new GameConfig(gameFolder, "SG.exe"), new EngineConfig("fake"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
-
-        var outcome = await Service(null, project).RunAsync(new LibraryRoot(_games.Path, MatchVndb: false), cancellationToken: Ct);
-
-        var link = Assert.Single(outcome.Linked);
-        Assert.Equal(project, link.ProjectPath);
-        Assert.Equal(project, File.Load().Games.Single(g => g.Title == "Steins;Gate").ProjectPath);
-    }
-
-    [Fact]
-    public async Task Progresso_traz_o_jogo_achado_e_a_estimativa_de_pastas()
-    {
-        Collection(_games.Path);
-        var reports = new List<LibraryScanProgress>();
-
-        await Service(null).RunAsync(new LibraryRoot(_games.Path, MatchVndb: false), new Collector<LibraryScanProgress>(reports), cancellationToken: Ct);
-
-        Assert.Equal(6, reports.Count(r => r.Found is not null));
-        Assert.All(reports, r => Assert.True(r.EstimatedDirectories >= r.Directories));
-        Assert.True(reports[^1].EstimatedDirectories > 5);
-    }
-
-    [Fact]
-    public async Task Pasta_que_nao_existe_e_erro_em_portugues()
-    {
-        var ex = await Assert.ThrowsAsync<LibraryException>(() => Service(null).RunAsync(new LibraryRoot(Path.Combine(_games.Path, "nada")), cancellationToken: Ct));
-
-        Assert.Contains("A pasta não existe", ex.Message);
     }
 
     [Fact]

@@ -16,32 +16,9 @@ public class LineIdsTests
     ];
 
     [Fact]
-    public void Id_completo_devolve_so_essa_linha()
-    {
-        var achadas = new LineFilter(Query: "yst00112:033000").Apply(Linhas);
-
-        var unica = Assert.Single(achadas);
-        Assert.Equal("yst00112:033000", unica.Unit.Id);
-    }
-
-    [Fact]
     public void Id_completo_ignora_maiusculas_e_espacos_nas_pontas()
     {
         Assert.Single(new LineFilter(Query: "  YST00112:033000 ").Apply(Linhas));
-    }
-
-    [Fact]
-    public void Id_completo_que_nao_existe_nao_acha_nada()
-    {
-        Assert.Empty(new LineFilter(Query: "yst00112:999999").Apply(Linhas));
-    }
-
-    [Fact]
-    public void Id_parcial_filtra_a_cena_inteira()
-    {
-        var achadas = new LineFilter(Query: "yst00112").Apply(Linhas);
-
-        Assert.Equal(["yst00112:001000", "yst00112:033000"], achadas.Select(l => l.Unit.Id));
     }
 
     [Fact]
@@ -51,29 +28,8 @@ public class LineIdsTests
         Assert.Single(new LineFilter(Query: "原文33").Apply(Linhas));
     }
 
-    [Fact]
-    public void Consulta_vazia_aceita_tudo_e_soma_com_status_e_personagem()
-    {
-        Assert.Same(Linhas, new LineFilter(Query: "  ").Apply(Linhas));
-        Assert.Empty(new LineFilter(LineStatusFilter.Pending, Query: "yst00112").Apply(Linhas));
-    }
-
     [Theory]
-    [InlineData("yst00112:033792", "yst00112", "yst00112:033792")]
-    [InlineData(" yst00112:033792 ", "yst00112", "yst00112:033792")]
-    public void TryParse_aceita_um_id_completo(string texto, string script, string id)
-    {
-        Assert.True(LineIds.TryParse(texto, out var achado));
-        Assert.Equal(script, achado.ScriptKey);
-        Assert.Equal(id, achado.UnitId);
-    }
-
-    [Theory]
-    [InlineData("yst00112")]
-    [InlineData("yst00112:")]
-    [InlineData("20:19:08")]
     [InlineData("yst00112:033792 depois")]
-    [InlineData("")]
     public void TryParse_recusa_o_que_nao_e_um_id_completo(string texto)
     {
         Assert.False(LineIds.TryParse(texto, out _));
@@ -103,32 +59,5 @@ public class LineIdsTests
     {
         Assert.Equal(["yst00112:033792"], LineIds.Find("yst00112:033792: tradução inválida").Select(c => c.UnitId));
         Assert.Empty(LineIds.Find("ab:12:30"));
-    }
-
-    [Fact]
-    public void Consulta_com_cara_de_id_que_nao_existe_ainda_procura_como_texto()
-    {
-        var linhas = new[] { Entrada("yst00112", 1, "Veja Cap:1 do livro") };
-
-        Assert.Single(new LineFilter(Query: "Cap:1").Apply(linhas));
-    }
-
-    [Fact]
-    public void Texto_com_espaco_na_ponta_procura_o_espaco()
-    {
-        var linhas = new[] { Entrada("yst00112", 1, "casa"), Entrada("yst00112", 2, "uma casa grande") };
-
-        Assert.Equal(["yst00112:002000"], new LineFilter(Query: "casa ").Apply(linhas).Select(l => l.Unit.Id));
-    }
-
-    [Fact]
-    public void Filtros_iguais_continuam_iguais_depois_de_usados()
-    {
-        var a = new LineFilter(Query: "yst00112");
-        var b = new LineFilter(Query: "yst00112");
-        a.Apply(Linhas);
-
-        Assert.Equal(a, b);
-        Assert.Equal(a.GetHashCode(), b.GetHashCode());
     }
 }

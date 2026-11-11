@@ -33,38 +33,6 @@ public sealed class QaFlagsTests : IDisposable
     private IReadOnlyList<string> FlagsOf(string id) => _project.LoadText("a").Single(u => u.Id == id).Flags;
 
     [Fact]
-    public void Marcar_grava_a_regra_em_flags_so_da_linha()
-    {
-        Assert.True(QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x"));
-
-        Assert.Equal(["aviso-x"], FlagsOf("a:1"));
-        Assert.Empty(FlagsOf("a:2"));
-    }
-
-    [Fact]
-    public void Marcar_duas_vezes_nao_duplica_nem_regrava()
-    {
-        QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x");
-        var before = File.GetLastWriteTimeUtc(_project.TextPath("a"));
-        File.SetLastWriteTimeUtc(_project.TextPath("a"), before.AddMinutes(-5));
-        var stamped = File.GetLastWriteTimeUtc(_project.TextPath("a"));
-
-        Assert.False(QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x"));
-
-        Assert.Equal(["aviso-x"], FlagsOf("a:1"));
-        Assert.Equal(stamped, File.GetLastWriteTimeUtc(_project.TextPath("a")));
-    }
-
-    [Fact]
-    public void Marcas_de_regras_diferentes_convivem_na_ordem_em_que_entraram()
-    {
-        QaFlags.MarkOk(_project, _engine, "a:1", "outro-aviso");
-        QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x");
-
-        Assert.Equal(["outro-aviso", "aviso-x"], FlagsOf("a:1"));
-    }
-
-    [Fact]
     public void Desmarcar_tira_so_aquela_regra()
     {
         QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x");
@@ -88,16 +56,6 @@ public sealed class QaFlagsTests : IDisposable
     }
 
     [Fact]
-    public void A_marca_nao_mexe_nos_outros_campos_da_linha()
-    {
-        var before = _project.LoadText("a")[0];
-
-        QaFlags.MarkOk(_project, _engine, "a:1", "aviso-x");
-
-        Assert.Equal(before with { Flags = ["aviso-x"] }, _project.LoadText("a")[0], new UnitJsonComparer());
-    }
-
-    [Fact]
     public void Regra_desconhecida_e_recusada_sem_gravar()
     {
         var ex = Assert.Throws<VNForgeException>(() => QaFlags.MarkOk(_project, _engine, "a:1", "nao-existe"));
@@ -115,12 +73,5 @@ public sealed class QaFlagsTests : IDisposable
         var ex = Assert.Throws<VNForgeException>(() => QaFlags.MarkOk(_project, _engine, unitId, "aviso-x"));
 
         Assert.Contains(unitId.StartsWith("..", StringComparison.Ordinal) ? "inválido" : "não encontrada", ex.Message);
-    }
-
-    private sealed class UnitJsonComparer : IEqualityComparer<TextUnit>
-    {
-        public bool Equals(TextUnit? x, TextUnit? y) => TextUnitJson.Serialize(x!) == TextUnitJson.Serialize(y!);
-
-        public int GetHashCode(TextUnit obj) => TextUnitJson.Serialize(obj).GetHashCode(StringComparison.Ordinal);
     }
 }

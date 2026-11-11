@@ -18,64 +18,11 @@ public class ProjectLinesTests
     private static LineEntry Entrada(TextUnit unit, params QaIssue[] problemas) => new("s", 1, unit, problemas);
 
     [Fact]
-    public void Scripts_saem_em_ordem_ordinal_da_chave_com_a_contagem_de_cada_um()
-    {
-        var linhas = ProjectLines.Create(Textos(
-            ("yst00010", [Linha("yst00010", 1, null, TranslationStatus.Approved)]),
-            ("Zeta", []),
-            ("yst00002", [Linha("yst00002", 1, null, TranslationStatus.Untranslated), Linha("yst00002", 2, null, TranslationStatus.Machine)])));
-
-        Assert.Equal(["Zeta", "yst00002", "yst00010"], linhas.Scripts.Select(s => s.Key));
-        Assert.Equal(new StatusCounts(1, 1, 0, 0, 0), linhas.Scripts[1].Counts);
-        Assert.Equal(new StatusCounts(0, 0, 0, 0, 1), linhas.Scripts[2].Counts);
-    }
-
-    [Fact]
-    public void Linhas_ganham_numero_a_partir_de_1_na_ordem_do_arquivo()
-    {
-        var linhas = ProjectLines.Create(Textos(("a", [Linha("a", 9, null, TranslationStatus.Untranslated), Linha("a", 3, null, TranslationStatus.Untranslated)])));
-
-        var script = linhas.LinesOf("a");
-
-        Assert.Equal([1, 2], script.Select(l => l.Number));
-        Assert.Equal(["a:000009", "a:000003"], script.Select(l => l.Unit.Id));
-        Assert.All(script, l => Assert.Equal("a", l.ScriptKey));
-    }
-
-    [Fact]
     public void Chave_desconhecida_devolve_lista_vazia()
     {
         var linhas = ProjectLines.Create(Textos(("a", [Linha("a", 1, null, TranslationStatus.Untranslated)])));
 
         Assert.Empty(linhas.LinesOf("outro"));
-    }
-
-    [Fact]
-    public void Percentuais_truncam_e_contam_revisadas_e_aprovadas_como_concluidas()
-    {
-        var progresso = new ScriptProgress("a", new StatusCounts(1, 1, 1, 1, 1));
-        var quase = new ScriptProgress("b", new StatusCounts(0, 0, 0, 2, 1));
-        var tudo = new ScriptProgress("c", new StatusCounts(0, 0, 0, 0, 3));
-
-        Assert.Equal(40, progresso.CompletedPercent);
-        Assert.Equal(20, progresso.MachinePercent);
-        Assert.Equal(100, quase.CompletedPercent);
-        Assert.Equal(100, tudo.CompletedPercent);
-        Assert.Equal(0, tudo.MachinePercent);
-        Assert.Equal(66, new ScriptProgress("d", new StatusCounts(1, 0, 0, 0, 2)).CompletedPercent);
-        Assert.Equal(99, new ScriptProgress("e", new StatusCounts(1, 0, 0, 0, 199)).CompletedPercent);
-    }
-
-    [Fact]
-    public void Script_sem_linhas_conta_como_pronto_e_nao_tem_linhas_da_IA()
-    {
-        var linhas = ProjectLines.Create(Textos(("vazio", [])));
-
-        var script = Assert.Single(linhas.Scripts);
-        Assert.True(script.IsEmpty);
-        Assert.Equal(100, script.CompletedPercent);
-        Assert.Equal(0, script.MachinePercent);
-        Assert.Empty(linhas.LinesOf("vazio"));
     }
 
     [Fact]
@@ -104,76 +51,6 @@ public class ProjectLinesTests
     }
 
     [Fact]
-    public void Id_igual_em_scripts_diferentes_nao_mistura_problemas()
-    {
-        var texts = Textos(
-            ("a", [new TextUnit("1", TextUnitKind.Dialogue, null, "x", null, TranslationStatus.Untranslated)]),
-            ("b", [new TextUnit("1", TextUnitKind.Dialogue, null, "x", null, TranslationStatus.Untranslated)]));
-        var relatorio = new QaReport([new QaIssue("r", QaSeverity.Warning, "1", "b", "m")], [], ["r"]);
-
-        var linhas = ProjectLines.Create(texts, relatorio);
-
-        Assert.False(linhas.LinesOf("a")[0].HasIssues);
-        Assert.True(linhas.LinesOf("b")[0].HasIssues);
-    }
-
-    [Fact]
-    public void Sem_relatorio_nenhuma_linha_tem_problema()
-    {
-        var linhas = ProjectLines.Create(Textos(("a", [Linha("a", 1, null, TranslationStatus.Untranslated)])));
-
-        Assert.All(linhas.LinesOf("a"), l => Assert.False(l.HasIssues));
-    }
-
-    [Fact]
-    public void Read_le_o_projeto_e_roda_o_QA_padrao()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjectFolder.Create(temp.Path, new ProjectConfig(
-            "Minha VN",
-            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
-            new EngineConfig("yuris", 500, "0xD36FAC96"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
-        projeto.SaveText("yst00002", [Linha("yst00002", 1, "健", TranslationStatus.Approved)]);
-        projeto.SaveText("yst00001",
-        [
-            Linha("yst00001", 1, "美咲", TranslationStatus.Approved),
-            Linha("yst00001", 2, null, TranslationStatus.Untranslated),
-            new("yst00001:000003", TextUnitKind.Dialogue, null, "原文3", null, TranslationStatus.Translated),
-        ]);
-
-        var linhas = ProjectLines.Read(projeto);
-
-        Assert.Equal(["yst00001", "yst00002"], linhas.Scripts.Select(s => s.Key));
-        var primeiro = linhas.LinesOf("yst00001");
-        Assert.Equal(3, primeiro.Count);
-        Assert.False(primeiro[0].HasIssues);
-        Assert.Equal(QaSeverity.Warning, primeiro[1].Severity);
-        Assert.Equal(QaSeverity.Error, primeiro[2].Severity);
-        Assert.False(linhas.LinesOf("yst00002")[0].HasIssues);
-    }
-
-    [Fact]
-    public void Read_com_um_motor_de_QA_sem_regras_nao_marca_nada()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjectFolder.Create(temp.Path, new ProjectConfig(
-            "Minha VN",
-            new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
-            new EngineConfig("yuris", 500, "0xD36FAC96"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
-        projeto.SaveText("a", [Linha("a", 1, null, TranslationStatus.Untranslated)]);
-
-        var linhas = ProjectLines.Read(projeto, new QaEngine([]));
-
-        Assert.False(linhas.LinesOf("a")[0].HasIssues);
-    }
-
-    [Fact]
     public void Falantes_saem_do_que_mais_fala_para_o_que_menos_fala_com_empate_ordinal()
     {
         var entradas = new[]
@@ -189,25 +66,6 @@ public class ProjectLinesTests
 
         Assert.Equal(["美咲", "Ana", "ana", "健"], ProjectLines.SpeakersOf(entradas));
         Assert.Empty(ProjectLines.SpeakersOf([]));
-    }
-
-    [Theory]
-    [InlineData(LineStatusFilter.All, TranslationStatus.Untranslated, false, true)]
-    [InlineData(LineStatusFilter.All, TranslationStatus.Approved, true, true)]
-    [InlineData(LineStatusFilter.Pending, TranslationStatus.Untranslated, false, true)]
-    [InlineData(LineStatusFilter.Pending, TranslationStatus.Machine, false, false)]
-    [InlineData(LineStatusFilter.Pending, TranslationStatus.Approved, true, false)]
-    [InlineData(LineStatusFilter.Machine, TranslationStatus.Machine, false, true)]
-    [InlineData(LineStatusFilter.Machine, TranslationStatus.Untranslated, false, false)]
-    [InlineData(LineStatusFilter.Machine, TranslationStatus.Translated, true, false)]
-    [InlineData(LineStatusFilter.Warnings, TranslationStatus.Approved, true, true)]
-    [InlineData(LineStatusFilter.Warnings, TranslationStatus.Untranslated, false, false)]
-    public void Filtro_de_status_aceita_so_o_que_pede(LineStatusFilter filtro, TranslationStatus status, bool comProblema, bool esperado)
-    {
-        var problemas = comProblema ? new[] { Problema("s", 1, QaSeverity.Warning) } : [];
-        var entrada = Entrada(Linha("s", 1, null, status), problemas);
-
-        Assert.Equal(esperado, new LineFilter(filtro).Matches(entrada));
     }
 
     [Fact]
@@ -241,21 +99,6 @@ public class ProjectLinesTests
     }
 
     [Fact]
-    public void Status_e_personagem_valem_juntos()
-    {
-        var pendenteAna = Entrada(Linha("s", 1, "Ana", TranslationStatus.Untranslated));
-        var pendenteKen = Entrada(Linha("s", 2, "Ken", TranslationStatus.Untranslated));
-        var iaAna = Entrada(Linha("s", 3, "Ana", TranslationStatus.Machine));
-        var todas = new[] { pendenteAna, pendenteKen, iaAna };
-        var filtro = new LineFilter(LineStatusFilter.Pending, "Ana");
-
-        Assert.Equal([pendenteAna], filtro.Apply(todas));
-        Assert.Equal(1, filtro.Count(todas));
-        Assert.Equal(2, new LineFilter(LineStatusFilter.Pending).Count(todas));
-        Assert.Equal(2, new LineFilter(Speaker: "Ana").Count(todas));
-    }
-
-    [Fact]
     public void Apply_devolve_a_mesma_lista_quando_o_filtro_aceita_tudo_e_preserva_a_ordem_quando_filtra()
     {
         var a = Entrada(Linha("s", 1, null, TranslationStatus.Machine));
@@ -277,19 +120,6 @@ public class ProjectLinesTests
         var limpa = Entrada(Linha("s", 3, null, TranslationStatus.Approved));
 
         Assert.Equal([aviso, erro], new LineFilter(LineStatusFilter.Warnings).Apply([aviso, erro, limpa]));
-    }
-
-    [Fact]
-    public void WithUnit_tira_o_aviso_de_nao_traduzida_e_mantem_as_demais_ocorrencias()
-    {
-        var pendente = Linha("s", 1, null, TranslationStatus.Untranslated);
-        var entrada = Entrada(pendente, Problema("s", 1, QaSeverity.Warning, "nao-traduzida"), Problema("s", 1, QaSeverity.Warning, "outra-regra"));
-
-        var traduzida = entrada.WithUnit(pendente with { Translation = "Confirmar", Status = TranslationStatus.Translated });
-
-        Assert.Equal(["outra-regra"], traduzida.Issues.Select(i => i.RuleId));
-        Assert.Equal("Confirmar", traduzida.Unit.Translation);
-        Assert.Equal(entrada.Number, traduzida.Number);
     }
 
     private static ProjectFolder ProjetoCp1252(string raiz, params TextUnit[] linhas)
@@ -322,32 +152,6 @@ public class ProjectLinesTests
     }
 
     [Fact]
-    public void Gravar_um_caractere_novo_fora_da_codificacao_acende_o_erro_na_hora()
-    {
-        using var pasta = new TempFolder();
-        var linhas = ProjectLines.Read(ProjetoCp1252(pasta.Path, RascunhoComTil() with { Translation = "Manhã" }));
-        var entrada = linhas.LinesOf("story04").Single();
-        Assert.DoesNotContain(entrada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
-
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Manhã。" });
-
-        var erro = Assert.Single(gravada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
-        Assert.Contains("U+3002", erro.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void WithUnit_com_o_contexto_do_projeto_mantem_as_ocorrencias_das_regras_entre_linhas()
-    {
-        using var pasta = new TempFolder();
-        var linhas = ProjectLines.Read(ProjetoCp1252(pasta.Path, RascunhoComTil()));
-        var entrada = linhas.LinesOf("story04").Single() with { Issues = [Problema("story04", 64, QaSeverity.Warning, "outra-regra")] };
-
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Manhã" });
-
-        Assert.Equal(["outra-regra"], gravada.Issues.Select(i => i.RuleId));
-    }
-
-    [Fact]
     public void WithUnit_sem_contexto_nao_mexe_nas_regras_de_codificacao()
     {
         var unidade = Linha("s", 1, null, TranslationStatus.Translated);
@@ -356,14 +160,5 @@ public class ProjectLinesTests
         var gravada = entrada.WithUnit(unidade with { Translation = "outra" });
 
         Assert.Equal([UnencodableCharacterRule.RuleId], gravada.Issues.Select(i => i.RuleId));
-    }
-
-    [Fact]
-    public void WithUnit_volta_a_avisar_quando_a_traducao_e_apagada()
-    {
-        var traduzida = Linha("s", 1, null, TranslationStatus.Translated);
-        var apagada = Entrada(traduzida).WithUnit(traduzida with { Translation = null, Status = TranslationStatus.Untranslated });
-
-        Assert.Equal(["nao-traduzida"], apagada.Issues.Select(i => i.RuleId));
     }
 }

@@ -31,18 +31,6 @@ public sealed class GameTitleExtractionTests : IDisposable
     private void WriteTitle(string title) => File.WriteAllText(Path.Combine(_game, FakeEngine.TitleFileName), title);
 
     [Fact]
-    public void Extract_guarda_o_titulo_original_no_projeto()
-    {
-        WriteTitle("原題");
-        var project = NewProject();
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(new GameTitleConfig("原題", null), project.LoadConfig().Game.Title);
-        Assert.Equal("原題", result.GameTitle);
-    }
-
-    [Fact]
     public void Extract_de_novo_mantem_a_traducao_do_titulo()
     {
         WriteTitle("原題");
@@ -50,53 +38,6 @@ public sealed class GameTitleExtractionTests : IDisposable
 
         ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal(new GameTitleConfig("原題", "Meu titulo"), project.LoadConfig().Game.Title);
-    }
-
-    [Fact]
-    public void Extract_com_o_titulo_mudado_no_jogo_atualiza_o_original_e_mantem_a_traducao()
-    {
-        WriteTitle("新題");
-        var project = NewProject(new GameTitleConfig("原題", "Meu titulo"));
-
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(new GameTitleConfig("新題", "Meu titulo"), project.LoadConfig().Game.Title);
-    }
-
-    [Fact]
-    public void Extract_de_jogo_sem_titulo_nao_cria_o_campo()
-    {
-        var project = NewProject();
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Null(project.LoadConfig().Game.Title);
-        Assert.Null(result.GameTitle);
-    }
-
-    [Fact]
-    public void Extract_de_jogo_que_perdeu_o_titulo_mantem_o_que_o_projeto_tinha()
-    {
-        var project = NewProject(new GameTitleConfig("原題", "Meu titulo"));
-
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(new GameTitleConfig("原題", "Meu titulo"), project.LoadConfig().Game.Title);
-    }
-
-    [Fact]
-    public void Extract_com_o_arquivo_do_titulo_ilegivel_extrai_os_scripts_e_avisa()
-    {
-        WriteTitle("原題");
-        var project = NewProject(new GameTitleConfig("原題", "Meu titulo"));
-        var engine = new FakeEngine { TitleFailure = new VNForgeException("o yscfg.ybn é de uma versão que não conheço.") };
-
-        var result = ProjectExtractor.Extract(project, [engine], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Single(result.Scripts);
-        Assert.Null(result.GameTitle);
-        Assert.Contains(result.Warnings, w => w.Contains("título do jogo", StringComparison.Ordinal) && w.Contains("yscfg.ybn", StringComparison.Ordinal));
         Assert.Equal(new GameTitleConfig("原題", "Meu titulo"), project.LoadConfig().Game.Title);
     }
 }

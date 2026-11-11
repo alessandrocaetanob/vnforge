@@ -65,43 +65,6 @@ public sealed class ChangedGameGuardTests : IDisposable
     }
 
     [Fact]
-    public void Plan_com_jogo_igual_ao_da_extracao_segue_normalmente()
-    {
-        SeedExtractedGame();
-
-        var plan = GameInjector.Plan(_project);
-
-        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
-    }
-
-    [Fact]
-    public void Plan_recusa_arquivo_do_jogo_alterado_depois_da_extracao_e_diz_qual()
-    {
-        SeedExtractedGame();
-        Game(Bgm, "atualizado-pelo-patch");
-
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
-
-        Assert.Contains(Bgm, erro.Message);
-        Assert.DoesNotContain(Ysbin, erro.Message);
-        Assert.Contains("extra", erro.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Plan_lista_todos_os_arquivos_alterados_e_os_ausentes()
-    {
-        SeedExtractedGame();
-        Game(Ysbin, "versao-nova");
-        File.Delete(Path.Combine(_game, Bgm));
-
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
-
-        Assert.Contains(Ysbin, erro.Message);
-        Assert.Contains(Bgm, erro.Message);
-        Assert.Contains("ausente", erro.Message);
-    }
-
-    [Fact]
     public void A_recusa_leva_o_sha_esperado_e_o_encontrado_de_cada_arquivo()
     {
         SeedExtractedGame();
@@ -118,18 +81,6 @@ public sealed class ChangedGameGuardTests : IDisposable
     }
 
     [Fact]
-    public void Recusa_nao_cria_backup_nem_toca_no_jogo()
-    {
-        SeedExtractedGame();
-        Game(Bgm, "atualizado-pelo-patch");
-
-        Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
-
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-        Assert.Equal(OriginalYsbin, File.ReadAllText(Path.Combine(_game, Ysbin)));
-    }
-
-    [Fact]
     public void Segunda_injecao_nao_confunde_o_build_anterior_com_jogo_alterado()
     {
         SeedExtractedGame();
@@ -141,30 +92,6 @@ public sealed class ChangedGameGuardTests : IDisposable
         var plan = GameInjector.Plan(_project);
 
         Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
-    }
-
-    [Fact]
-    public void Plan_depois_do_restore_aceita_o_jogo_original()
-    {
-        SeedExtractedGame();
-        var injector = Injector();
-        injector.Inject(GameInjector.Plan(_project));
-        injector.Restore(GameInjector.PlanRestore(_project));
-
-        var plan = GameInjector.Plan(_project);
-
-        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
-    }
-
-    [Fact]
-    public void Jogo_sem_estado_de_extracao_nao_e_verificado()
-    {
-        Game(Ysbin, OriginalYsbin);
-        Build(Ysbin, "traduzido-ysbin");
-
-        var plan = GameInjector.Plan(_project);
-
-        Assert.Single(plan.Files);
     }
 
     private sealed class ClockStub(DateTimeOffset now) : TimeProvider

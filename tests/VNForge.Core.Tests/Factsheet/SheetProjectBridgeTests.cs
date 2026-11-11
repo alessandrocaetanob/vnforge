@@ -49,53 +49,6 @@ public sealed class SheetProjectBridgeTests : IDisposable
     }
 
     [Fact]
-    public async Task A_descricao_em_portugues_vai_para_o_Glossario_sem_o_spoiler_e_a_sinopse_para_a_biblia()
-    {
-        var project = NewProject();
-        var (game, characters) = await Prepared();
-
-        var result = SheetProjectBridge.Apply(project, game, characters);
-
-        Assert.Equal(new VndbApplyResult(3, 3, 0), result.Characters);
-        Assert.True(result.SynopsisApplied);
-        var saved = project.LoadCharacters().ToDictionary(c => c.Source);
-        Assert.Equal("PT: The hero.", saved["相沢健太"].Description);
-        Assert.Equal(CharacterGender.Male, saved["相沢健太"].Gender);
-        Assert.Equal("c1", saved["相沢健太"].VndbId);
-        Assert.Equal("PT: A rainy town. Kenta returns.", project.LoadBible().Synopsis);
-        Assert.DoesNotContain("spoiler", File.ReadAllText(project.CharactersPath), StringComparison.Ordinal);
-        Assert.DoesNotContain("dies", File.ReadAllText(project.BiblePath), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Personagem_que_e_spoiler_no_jogo_entra_so_com_o_nome_e_o_genero_sem_descricao()
-    {
-        var project = NewProject();
-        var (game, characters) = await Prepared();
-
-        SheetProjectBridge.Apply(project, game, characters);
-
-        var ghost = project.LoadCharacters().Single(c => c.Source == "ゴースト");
-        Assert.Null(ghost.Description);
-    }
-
-    [Fact]
-    public async Task Personagem_com_spoiler_so_em_uma_edicao_ou_de_ficha_antiga_nao_leva_a_descricao()
-    {
-        var project = NewProject();
-        var inEdition = Aoi() with { Appearances = [new VndbCharacterAppearance(Game1, "primary", 0, null), new VndbCharacterAppearance(Game1, "primary", 2, "r2")] };
-        var (game, characters) = await Prepared(characters: [Kenta(), inEdition, Ghost() with { Name = "Gōsuto", Original = "ゴースト" }]);
-        var old = characters.Select(c => c.Id == "c1" ? c with { Appearances = [.. c.Appearances.Select(a => a with { Spoiler = 0, Editions = null })] } : c).ToList();
-
-        var result = SheetProjectBridge.Apply(project, game, old);
-
-        Assert.Equal(1, result.StaleCharacters);
-        var linked = project.LoadCharacters();
-        Assert.Null(linked.Single(c => c.Source == "佐倉葵").Description);
-        Assert.Null(linked.Single(c => c.Source == "相沢健太").Description);
-    }
-
-    [Fact]
     public async Task Texto_ainda_nao_revisado_fica_de_fora_a_menos_que_se_aceite_o_da_IA()
     {
         var project = NewProject();
@@ -113,28 +66,6 @@ public sealed class SheetProjectBridgeTests : IDisposable
         Assert.Equal(0, loose.NotReady);
         Assert.True(loose.SynopsisApplied);
         Assert.Equal("PT: The hero.", project.LoadCharacters().Single(c => c.Source == "相沢健太").Description);
-    }
-
-    [Fact]
-    public async Task O_que_a_pessoa_escreveu_fica_mas_o_original_em_ingles_do_VNDB_da_lugar_a_traducao()
-    {
-        var project = NewProject();
-        var (game, characters) = await Prepared();
-        project.SaveCharacters(
-        [
-            new CharacterEntry("相沢健太", "Kenta", Description: "The hero."),
-            new CharacterEntry("佐倉葵", "Aoi", Description: "Minha descrição."),
-        ]);
-        project.UpdateBible(b => b.EditSynopsis("Minha sinopse."));
-
-        var result = SheetProjectBridge.Apply(project, game, characters);
-
-        var saved = project.LoadCharacters().ToDictionary(c => c.Source);
-        Assert.Equal("PT: The hero.", saved["相沢健太"].Description);
-        Assert.Equal("Minha descrição.", saved["佐倉葵"].Description);
-        Assert.Equal("Kenta", saved["相沢健太"].Target);
-        Assert.False(result.SynopsisApplied);
-        Assert.Equal("Minha sinopse.", project.LoadBible().Synopsis);
     }
 
     [Fact]

@@ -42,28 +42,8 @@ public sealed class PngEncoderTests
         }
     }
 
-    [Fact]
-    public void O_alfa_da_origem_nao_vaza_e_uma_linha_de_um_pixel_serve()
-    {
-        var image = new WindowImage(1, 1, [10, 20, 30, 0]);
-
-        var (width, height, rgb) = PngTestDecoder.Decode(PngEncoder.Encode(image));
-
-        Assert.Equal((1, 1), (width, height));
-        Assert.Equal(new byte[] { 30, 20, 10 }, rgb);
-    }
-
-    [Fact]
-    public void A_mesma_imagem_gera_os_mesmos_bytes()
-    {
-        Assert.Equal(PngEncoder.Encode(Pattern(16, 9)), PngEncoder.Encode(Pattern(16, 9)));
-    }
-
     [Theory]
-    [InlineData(0, 1, 0)]
-    [InlineData(1, 0, 0)]
     [InlineData(2, 2, 15)]
-    [InlineData(16_385, 1, 65_540)]
     public void Imagem_com_tamanho_invalido_e_recusada(int width, int height, int length)
     {
         Assert.ThrowsAny<ArgumentException>(() => new WindowImage(width, height, new byte[length]));

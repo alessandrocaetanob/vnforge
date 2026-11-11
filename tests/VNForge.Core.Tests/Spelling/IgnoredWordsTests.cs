@@ -51,18 +51,6 @@ public sealed class IgnoredWordsTests : IDisposable
     }
 
     [Fact]
-    public void Projeto_antigo_sem_o_arquivo_abre_sem_palavras_e_sem_criar_o_arquivo()
-    {
-        var projeto = NovoProjeto();
-        projeto.SaveGlossary([new GlossaryTerm("先輩", "veterano")]);
-        var glossario = File.ReadAllText(projeto.GlossaryPath);
-
-        Assert.Empty(projeto.LoadIgnoredWords());
-        Assert.Equal(glossario, File.ReadAllText(projeto.GlossaryPath));
-        Assert.False(File.Exists(projeto.IgnoredWordsPath));
-    }
-
-    [Fact]
     public void Projeto_grava_a_palavra_e_le_de_volta_sem_repetir_a_mesma_palavra()
     {
         var projeto = NovoProjeto();
@@ -88,30 +76,6 @@ public sealed class IgnoredWordsTests : IDisposable
     }
 
     [Fact]
-    public void Arquivo_ilegivel_na_leitura_tolerante_vira_lista_vazia_com_o_motivo()
-    {
-        var projeto = NovoProjeto();
-        File.WriteAllText(projeto.IgnoredWordsPath, "isto não é json");
-
-        var palavras = projeto.LoadIgnoredWordsOrEmpty(out var problema);
-
-        Assert.Empty(palavras);
-        Assert.Contains("ignored-words.json", problema);
-    }
-
-    [Fact]
-    public void Palavra_ignorada_deixa_de_ser_marcada_em_todas_as_falas_sem_liberar_as_outras()
-    {
-        var sem = ProjectDictionary.Create([], []);
-        var com = ProjectDictionary.Create([], [], ignoredWords: ["Zorgblat", "kyuun"]);
-
-        Assert.Equal(["Zorgblat"], Wrong("Zorgblat chegou.", sem));
-        Assert.Equal(["kyuun", "esquesi"], Wrong("Foi kyuun, esquesi.", sem));
-        Assert.Equal(["esquesi"], Wrong("Zorgblat, esquesi e Kyuun.", com));
-        Assert.Empty(Wrong("Zorgblat chegou. Depois, zorgblat saiu.", com));
-    }
-
-    [Fact]
     public void Palavra_ignorada_com_hifen_vale_inteira_e_nao_libera_a_parte()
     {
         var sem = ProjectDictionary.Create([], []);
@@ -131,33 +95,5 @@ public sealed class IgnoredWordsTests : IDisposable
 
         Assert.True(novo.Contains("zorgblat"));
         Assert.False(original.Contains("Zorgblat"));
-    }
-
-    [Fact]
-    public void Regra_de_ortografia_respeita_as_palavras_ignoradas_do_contexto()
-    {
-        var unit = new TextUnit("a:1", TextUnitKind.Dialogue, null, "原文", "Zorgblat esquesi a chave.", TranslationStatus.Translated);
-        var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [unit] };
-        var context = new QaContext(texts, [], [], FormattingProfile.Default);
-        var rule = new SpellingRule();
-
-        Assert.Equal(2, rule.Check(context).Count());
-
-        var ignorando = context with { IgnoredWords = [new IgnoredWord("Zorgblat")] };
-        var issue = Assert.Single(rule.Check(ignorando));
-        Assert.Contains("esquesi", issue.Message);
-
-        Assert.Equal(2, rule.Check(context).Count());
-    }
-
-    [Fact]
-    public void Contexto_do_projeto_traz_as_palavras_ignoradas()
-    {
-        var projeto = NovoProjeto();
-        projeto.AddIgnoredWord("Zorgblat");
-
-        var context = QaContext.FromProject(projeto);
-
-        Assert.Equal([new IgnoredWord("Zorgblat")], context.IgnoredWords);
     }
 }

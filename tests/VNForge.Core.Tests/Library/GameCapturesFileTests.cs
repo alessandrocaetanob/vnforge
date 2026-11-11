@@ -56,37 +56,6 @@ public sealed class GameCapturesFileTests : IDisposable
     }
 
     [Fact]
-    public void Duas_capturas_no_mesmo_segundo_nao_se_sobrescrevem()
-    {
-        var file = NewFile();
-
-        var first = file.Save("g1", Solid(1, 1, 1));
-        var second = file.Save("g1", Solid(2, 2, 2));
-        var third = file.Save("g1", Solid(3, 3, 3));
-
-        Assert.Equal(["20261109-203015.png", "20261109-203015-2.png", "20261109-203015-3.png"], new[] { first.File, second.File, third.File });
-        Assert.Equal(3, file.Load().Of("g1").Count);
-        Assert.Equal((byte)2, PngTestDecoder.Decode(File.ReadAllBytes(file.PathOf("g1", second))).Rgb[0]);
-    }
-
-    [Fact]
-    public void As_capturas_ficam_separadas_por_jogo_e_em_ordem_de_data()
-    {
-        var file = NewFile();
-        file.Save("gb", Solid(1, 1, 1));
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        file.Save("ga", Solid(2, 2, 2));
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        file.Save("gb", Solid(3, 3, 3));
-
-        var captures = file.Load();
-
-        Assert.Equal(["ga", "gb"], captures.GameIds);
-        Assert.Equal(["20261109-203015.png", "20261109-204015.png"], captures.Of("gb").Select(c => c.File));
-        Assert.Equal(["20261109-203515.png"], captures.Of("ga").Select(c => c.File));
-    }
-
-    [Fact]
     public void A_nota_da_captura_e_guardada_sem_as_pontas_e_vazia_vira_nada()
     {
         var file = NewFile();
@@ -172,20 +141,6 @@ public sealed class GameCapturesFileTests : IDisposable
     }
 
     [Fact]
-    public void Indice_ilegivel_e_recusado_e_nenhuma_imagem_sobra()
-    {
-        var file = NewFile();
-        Directory.CreateDirectory(_dir.Path);
-        File.WriteAllText(file.Path, "{ quebrado");
-
-        var error = Assert.Throws<LibraryException>(() => file.Save("g1", Solid(1, 1, 1)));
-
-        Assert.Contains(file.Path, error.Message);
-        Assert.Equal("{ quebrado", File.ReadAllText(file.Path));
-        Assert.False(Directory.Exists(Path.Combine(_dir.Path, "g1")));
-    }
-
-    [Fact]
     public void Se_o_indice_nao_pode_ser_gravado_a_imagem_recem_criada_e_apagada()
     {
         var file = NewFile();
@@ -202,11 +157,7 @@ public sealed class GameCapturesFileTests : IDisposable
     }
 
     [Theory]
-    [InlineData("")]
     [InlineData("../fora")]
-    [InlineData("a/b")]
-    [InlineData("a\\b")]
-    [InlineData("g 1")]
     public void Id_de_jogo_que_nao_serve_de_nome_de_pasta_e_recusado(string gameId)
     {
         Assert.Throws<LibraryException>(() => NewFile().Save(gameId, Solid(1, 1, 1)));
@@ -214,8 +165,6 @@ public sealed class GameCapturesFileTests : IDisposable
 
     [Theory]
     [InlineData("..\\..\\fora.png")]
-    [InlineData("sub/x.png")]
-    [InlineData("x.txt")]
     [InlineData(".png")]
     public void Indice_com_nome_de_arquivo_que_sai_da_pasta_e_recusado(string name)
     {

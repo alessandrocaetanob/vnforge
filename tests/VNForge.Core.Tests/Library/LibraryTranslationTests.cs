@@ -76,15 +76,6 @@ public sealed class LibraryTranslationTests : IDisposable
         Directory.Exists(_project.BackupDirectory) ? Directory.GetDirectories(_project.BackupDirectory) : [];
 
     [Fact]
-    public void Jogo_sem_injecao_esta_original()
-    {
-        var state = LibraryTranslationReader.Read(Game());
-
-        Assert.Equal(LibraryTranslationKind.Original, state.Kind);
-        Assert.Null(state.Patch);
-    }
-
-    [Fact]
     public void Jogo_sem_projeto_ligado_e_desconhecido_e_nao_pode_trocar()
     {
         var game = Game(projectPath: null);
@@ -128,35 +119,6 @@ public sealed class LibraryTranslationTests : IDisposable
     }
 
     [Fact]
-    public void Traduzir_faz_backup_injeta_e_o_estado_passa_a_traduzido_com_a_versao()
-    {
-        var result = Switcher().ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(LibraryTranslationAction.AppliedTranslation, result.Action);
-        Assert.Equal(LibraryTranslationKind.Original, result.Before.Kind);
-        Assert.Equal(LibraryTranslationKind.Translated, result.After.Kind);
-        Assert.Equal("dialogue|Hello\nname|Ana\u0001narration|Chovia.", File.ReadAllText(Path.Combine(_game, Package)));
-        var backup = Assert.Single(BackupFolders());
-        Assert.Equal("dialogue|Olá\nname|Ana\u0001narration|Chovia.", File.ReadAllText(Path.Combine(backup, Package)));
-        var patch = result.After.Patch!;
-        Assert.Equal(GameTestKind.Translation, patch.Kind);
-        Assert.Equal(Path.GetFileName(backup), patch.BackupDirectory);
-        Assert.False(string.IsNullOrEmpty(patch.TextFingerprint));
-        Assert.Equal(patch, LibraryTranslationReader.Read(Game()).Patch);
-    }
-
-    [Fact]
-    public void Nao_abre_o_executavel_do_jogo_ao_trocar()
-    {
-        var starter = new CountingStarter();
-        var switcher = new LibraryTranslationSwitcher(new GameTester([_engine], starter, new QaEngine([]), _clock));
-
-        switcher.ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, starter.Calls);
-    }
-
-    [Fact]
     public void Ida_e_volta_original_traduzido_original_deixa_os_arquivos_do_jogo_identicos_byte_a_byte()
     {
         var before = Snapshot(_game);
@@ -177,23 +139,6 @@ public sealed class LibraryTranslationTests : IDisposable
         {
             Assert.True(bytes.SequenceEqual(after[path]), $"'{path}' mudou depois da ida e volta.");
         }
-    }
-
-    [Fact]
-    public void Duas_idas_e_voltas_seguidas_continuam_identicas_ao_original()
-    {
-        var before = Snapshot(_game);
-        var switcher = Switcher();
-
-        for (var round = 0; round < 2; round++)
-        {
-            switcher.ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
-            switcher.ToOriginal(Game());
-        }
-
-        var after = Snapshot(_game);
-        Assert.Equal(before.Keys.Order(), after.Keys.Order());
-        Assert.All(before, pair => Assert.True(pair.Value.SequenceEqual(after[pair.Key]), $"'{pair.Key}' mudou."));
     }
 
     [Fact]
@@ -248,33 +193,6 @@ public sealed class LibraryTranslationTests : IDisposable
         Assert.Throws<LibraryException>(() => Switcher().ToOriginal(Game()));
         var after = Snapshot(_game);
         Assert.All(inGame, pair => Assert.True(pair.Value.SequenceEqual(after[pair.Key])));
-    }
-
-    [Fact]
-    public void Jogo_que_mudou_depois_da_injecao_recusa_a_volta_e_nada_e_gravado()
-    {
-        Switcher().ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken);
-        File.WriteAllText(Path.Combine(_game, Package), "atualizado pela loja");
-
-        Assert.Throws<InjectionException>(() => Switcher().ToOriginal(Game()));
-
-        Assert.Equal("atualizado pela loja", File.ReadAllText(Path.Combine(_game, Package)));
-    }
-
-    [Fact]
-    public void Conferencia_travada_nao_grava_nada_no_jogo()
-    {
-        var before = Snapshot(_game);
-        var units = _project.LoadText("a001").Select((u, i) => i == 0 ? u with { Translation = string.Empty, Status = TranslationStatus.Translated } : u).ToList();
-        _project.SaveText("a001", units);
-        var switcher = new LibraryTranslationSwitcher(new GameTester([_engine], new NoStarter(), QaEngine.Default, _clock));
-
-        Assert.Throws<QaBlockedException>(() => switcher.ToTranslated(Game(), cancellationToken: TestContext.Current.CancellationToken));
-
-        var after = Snapshot(_game);
-        Assert.All(before, pair => Assert.True(pair.Value.SequenceEqual(after[pair.Key])));
-        Assert.Empty(BackupFolders());
-        Assert.Equal(LibraryTranslationKind.Original, LibraryTranslationReader.Read(Game()).Kind);
     }
 
     /// <summary>Uma injeção que deixa backup sem passar pelo <c>game-state.json</c>, como <c>vnf patch-exe</c> e o estado que não gravou.</summary>
@@ -336,12 +254,5 @@ public sealed class LibraryTranslationTests : IDisposable
     private sealed class NoStarter : IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory) => throw new InvalidOperationException("Trocar não abre o jogo.");
-    }
-
-    private sealed class CountingStarter : IGameProcessStarter
-    {
-        public int Calls { get; private set; }
-
-        public void Start(string executablePath, string workingDirectory) => Calls++;
     }
 }

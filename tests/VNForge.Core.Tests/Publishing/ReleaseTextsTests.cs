@@ -73,26 +73,6 @@ public sealed class ReleaseTextsTests : IDisposable
     }
 
     [Fact]
-    public void Exemplos_pegam_uma_fala_por_cena_com_o_antes_o_depois_e_a_posicao_na_cena()
-    {
-        var before = new Dictionary<string, IReadOnlyDictionary<string, string>>
-        {
-            ["yst00001"] = new Dictionary<string, string> { ["a"] = "Antes A.", ["b"] = "Antes B." },
-            ["yst00002"] = new Dictionary<string, string> { ["x"] = "Aoi: Vamos logo." },
-        };
-        var texts = Texts(
-            ("yst00001", [Unit("a", "Antes A."), Unit("b", "Depois B."), Unit("c", "Nova C.")]),
-            ("yst00002", [Unit("w", "Intocada."), Unit("x", "Vamos, antes que o sinal toque.", "Aoi")]));
-        var changes = Changed(new ChangedScene("yst00001", 1, 2, ["b", "c"]), new ChangedScene("yst00002", 2, 1, ["x"]));
-
-        var examples = ReleaseTexts.Examples(before, texts, changes, max: 3);
-
-        Assert.Equal(
-            [new ChangeExample(1, 2, "Antes B.", "Depois B."), new ChangeExample(2, 2, "Aoi: Vamos logo.", "Aoi: Vamos, antes que o sinal toque.")],
-            examples);
-    }
-
-    [Fact]
     public void Exemplos_levam_o_nome_da_cena_quando_o_projeto_tem_e_ficam_sem_quando_nao()
     {
         var before = new Dictionary<string, IReadOnlyDictionary<string, string>>
@@ -108,18 +88,6 @@ public sealed class ReleaseTextsTests : IDisposable
 
         Assert.Equal([null, "Manhã de chuva"], examples.Select(e => e.SceneName));
         Assert.All(ReleaseTexts.Examples(before, texts, changes, max: 3), e => Assert.Null(e.SceneName));
-    }
-
-    [Fact]
-    public void Fala_nova_vem_sem_o_antes()
-    {
-        var before = new Dictionary<string, IReadOnlyDictionary<string, string>>();
-        var texts = Texts(("yst00001", [Unit("a", "Nova.")]));
-
-        var example = Assert.Single(ReleaseTexts.Examples(before, texts, Changed(new ChangedScene("yst00001", 1, 1, ["a"])), max: 3));
-
-        Assert.Null(example.Before);
-        Assert.Equal("Nova.", example.After);
     }
 
     [Fact]

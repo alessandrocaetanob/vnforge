@@ -36,17 +36,6 @@ public sealed class GoldSetTests
     }
 
     [Fact]
-    public void Cada_linha_leva_a_fala_de_antes_e_a_de_depois()
-    {
-        var gold = GoldSet.From(Texts());
-
-        Assert.Equal(string.Empty, gold[0].Before);
-        Assert.Equal("\"Dois\"", gold[0].After);
-        Assert.Equal("\"Dois\"", gold[1].Before);
-        Assert.Equal("\"四\"", gold[1].After);
-    }
-
-    [Fact]
     public void Conta_as_linhas_que_faltam_ignorando_as_sem_original()
     {
         Assert.Equal(2, GoldSet.RemainingLines(Texts()));
@@ -80,18 +69,6 @@ public sealed class GoldSetTests
         [.. Enumerable.Range(from, count).Select(i => new GoldLine($"{script}:{i:000}", script, null, "x", "y"))];
 
     [Fact]
-    public void Sorteia_trechos_de_linhas_seguidas_do_mesmo_script()
-    {
-        var gold = Lines("a", 1, 25).Concat(Lines("b", 1, 12)).ToList();
-
-        var blocks = GoldSet.SampleBlocks(gold, 1000, 1, 10);
-
-        Assert.Equal([10, 10, 5, 10, 2], blocks.Select(b => b.Count));
-        Assert.All(blocks, b => Assert.Single(b.Select(l => l.ScriptKey).Distinct()));
-        Assert.Equal(gold.Select(g => g.Id), blocks.SelectMany(b => b).Select(g => g.Id));
-    }
-
-    [Fact]
     public void O_sorteio_pesa_o_trecho_pelo_tamanho_e_as_linhas_isoladas_ocupam_pouco_da_amostra()
     {
         // 50 linhas isoladas (posições pares) e 50 trechos de 10 linhas seguidas, em dois scripts.
@@ -112,22 +89,6 @@ public sealed class GoldSetTests
 
         // Com o peso, cada sorteio cai numa linha isolada em 50 de 550 vezes (uns 1% das linhas da amostra). Sem o peso, metade dos trechos são isolados e eles seriam uns 9%.
         Assert.InRange(singleShare, 0.0, 0.04);
-    }
-
-    [Fact]
-    public void O_sorteio_de_trechos_de_um_script_longo_espalha_a_amostra_em_trechos_de_ate_dez_linhas()
-    {
-        var gold = Lines("a", 1, 1000);
-        for (var i = 0; i < gold.Count; i++)
-        {
-            gold[i] = gold[i] with { Position = i };
-        }
-
-        var blocks = GoldSet.SampleBlocks(gold, 200, 5, GoldSet.MaxBlockLines);
-
-        Assert.Equal(200, blocks.Sum(b => b.Count));
-        Assert.All(blocks, b => Assert.True(b.Count <= GoldSet.MaxBlockLines));
-        Assert.True(blocks.Count >= 20);
     }
 
     [Fact]

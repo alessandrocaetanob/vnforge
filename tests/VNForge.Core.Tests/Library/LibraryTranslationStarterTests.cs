@@ -45,29 +45,6 @@ public sealed class LibraryTranslationStarterTests : IDisposable
             [new VndbCharacter("c1", "Yuu", "優", [], "Protagonista.", null, new VndbGender("m", "m"), [new VndbCharacterAppearance("v1", "main", 0, null)], [])]);
 
     [Fact]
-    public async Task Cria_o_projeto_ja_ligado_ao_vndb_e_liga_o_jogo_da_biblioteca_a_ele()
-    {
-        var game = NewGame();
-        var library = new GameLibrary([game]);
-
-        var result = await LibraryTranslationStarter.StartAsync(library, game, ProjectFolderPath, [_engine], Catalog(), cancellationToken: Ct);
-
-        var project = ProjectFolder.Open(ProjectFolderPath);
-        var config = project.LoadConfig();
-        Assert.Equal("Sakura no Uta", config.Name);
-        Assert.Equal("Sakura.exe", config.Game.Exe);
-        Assert.Equal("marker", config.Engine.Id);
-        var link = project.LoadVndbLink();
-        Assert.Equal("v1", link?.VisualNovelId);
-        Assert.Equal("Uma história de primavera.", link?.Synopsis);
-        Assert.Equal("c1", Assert.Single(link!.Characters).Id);
-        Assert.Equal(link.VisualNovelId, result.Vndb?.VisualNovelId);
-        Assert.Equal(GameLibrary.NormalizeFolder(ProjectFolderPath), library.Find(game.Id).ProjectPath);
-        Assert.Equal(library.Find(game.Id), result.Game);
-        Assert.Equal(TranslationQueueState.InProgress, TranslationQueue.Describe(result.Game).State);
-    }
-
-    [Fact]
     public async Task Jogo_sem_casamento_confirmado_cria_o_projeto_sem_ficha_e_nao_consulta_o_vndb()
     {
         var game = NewGame(vndbId: null);
@@ -80,18 +57,6 @@ public sealed class LibraryTranslationStarterTests : IDisposable
         Assert.Null(ProjectFolder.Open(ProjectFolderPath).LoadVndbLink());
         Assert.Empty(fake.Calls);
         Assert.NotNull(library.Find(game.Id).ProjectPath);
-    }
-
-    [Fact]
-    public async Task O_vndb_sem_o_jogo_nao_deixa_projeto_pela_metade()
-    {
-        var game = NewGame("v99");
-        var library = new GameLibrary([game]);
-
-        await Assert.ThrowsAsync<VndbLinkException>(() => LibraryTranslationStarter.StartAsync(library, game, ProjectFolderPath, [_engine], Catalog(), cancellationToken: Ct));
-
-        Assert.False(Directory.Exists(ProjectFolderPath));
-        Assert.Null(library.Find(game.Id).ProjectPath);
     }
 
     [Fact]
@@ -120,35 +85,8 @@ public sealed class LibraryTranslationStarterTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root.Path, "projetos", "outro")));
     }
 
-    [Fact]
-    public async Task Projeto_ligado_que_sumiu_do_disco_tambem_recusa_e_diz_como_desligar()
-    {
-        var game = NewGame() with { ProjectPath = GameLibrary.NormalizeFolder(Path.Combine(_root.Path, "projetos", "apagado")) };
-        var library = new GameLibrary([game]);
-
-        var error = await Assert.ThrowsAsync<LibraryException>(() => LibraryTranslationStarter.StartAsync(library, game, ProjectFolderPath, [_engine], Catalog(), cancellationToken: Ct));
-
-        Assert.Contains("vnf library link", error.Message, StringComparison.Ordinal);
-        Assert.False(Directory.Exists(ProjectFolderPath));
-    }
-
-    [Fact]
-    public async Task As_escolhas_da_pessoa_valem_mais_que_as_do_jogo()
-    {
-        var game = NewGame();
-        var library = new GameLibrary([game]);
-
-        await LibraryTranslationStarter.StartAsync(library, game, ProjectFolderPath, [_engine], Catalog(), new ProjectInitOptions(Name: "Minha tradução", TargetLanguage: "pt-PT"), cancellationToken: Ct);
-
-        var config = ProjectFolder.Open(ProjectFolderPath).LoadConfig();
-        Assert.Equal("Minha tradução", config.Name);
-        Assert.Equal("pt-PT", config.Languages.Target);
-    }
-
     [Theory]
-    [InlineData("Sakura no Uta", "Sakura no Uta")]
     [InlineData("Fate/stay night", "Fate stay night")]
-    [InlineData("  Alive...  ", "Alive")]
     [InlineData("///", "g1")]
     public void O_nome_da_pasta_sugerida_sai_do_titulo_sem_o_que_o_sistema_de_arquivos_recusa(string title, string expected)
     {

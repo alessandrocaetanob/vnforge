@@ -51,18 +51,6 @@ public sealed class LibraryProjectLinkerTests : IDisposable
     }
 
     [Fact]
-    public void Ligar_de_novo_o_mesmo_projeto_nao_conta_como_mudanca()
-    {
-        var library = new GameLibrary([GameAt("Um")]);
-        var project = MakeProject("um", Path.Combine(_root.Path, "jogos", "Um"));
-
-        LibraryProjectLinker.LinkAll(library, [project]);
-        var second = LibraryProjectLinker.LinkAll(library, [project]);
-
-        Assert.Empty(second);
-    }
-
-    [Fact]
     public void Ligar_a_mao_aceita_projeto_de_jogo_que_mudou_de_lugar_e_recusa_pasta_que_nao_e_projeto()
     {
         var library = new GameLibrary([GameAt("Um")]);

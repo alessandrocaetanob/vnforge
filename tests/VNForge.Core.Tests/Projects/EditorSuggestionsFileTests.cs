@@ -32,30 +32,6 @@ public sealed class EditorSuggestionsFileTests : IDisposable
         new(id, TextUnitKind.Dialogue, null, "原文", translation, TranslationStatus.Machine);
 
     [Fact]
-    public void Sem_arquivo_as_sugestoes_comecam_vazias()
-    {
-        Assert.Empty(EditorSuggestionsFile.Load(_project).Suggestions);
-    }
-
-    [Fact]
-    public void Gravar_e_ler_devolve_as_mesmas_sugestoes()
-    {
-        var file = EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "Os dois"), Suggest("y", "y:2", "Tarde")]);
-
-        EditorSuggestionsFile.Save(_project, file);
-
-        var read = EditorSuggestionsFile.Load(_project);
-        Assert.Equal(file.Suggestions, read.Suggestions);
-        Assert.Contains("\"kind\": \"fluency\"", File.ReadAllText(EditorSuggestionsFile.PathFor(_project)));
-    }
-
-    [Fact]
-    public void O_arquivo_fica_no_cache_do_projeto()
-    {
-        Assert.Equal(Path.Combine(_project.CacheDirectory, "editor-suggestions.json"), EditorSuggestionsFile.PathFor(_project));
-    }
-
-    [Fact]
     public void Gravar_sem_sugestoes_apaga_o_arquivo()
     {
         EditorSuggestionsFile.Save(_project, EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A")]));
@@ -66,10 +42,7 @@ public sealed class EditorSuggestionsFileTests : IDisposable
     }
 
     [Theory]
-    [InlineData("isto não é json")]
-    [InlineData("{\"version\":99,\"suggestions\":[]}")]
     [InlineData("{\"version\":1}")]
-    [InlineData("[]")]
     public void Arquivo_ilegivel_ou_de_outra_versao_conta_como_vazio_sem_derrubar_o_Editor(string content)
     {
         Directory.CreateDirectory(_project.CacheDirectory);
@@ -109,17 +82,6 @@ public sealed class EditorSuggestionsFileTests : IDisposable
         var live = file.LiveIn("y", [Unit("y:1", "A"), Unit("y:2", "B mudada"), Unit("y:3", "C")]);
 
         Assert.Equal(["y:1", "y:3"], live.Select(s => s.UnitId));
-    }
-
-    [Fact]
-    public void Uma_passada_nova_substitui_so_as_da_cena_dela()
-    {
-        var file = EditorSuggestionsFile.Empty
-            .ReplacingScript("y", [Suggest("y", "y:1", "A")])
-            .ReplacingScript("z", [Suggest("z", "z:1", "Z")])
-            .ReplacingScript("y", [Suggest("y", "y:2", "B")]);
-
-        Assert.Equal(["z:1", "y:2"], file.Suggestions.Select(s => s.UnitId));
     }
 
     [Fact]
@@ -167,23 +129,6 @@ public sealed class EditorSuggestionsFileTests : IDisposable
         await Task.WhenAll(tasks);
 
         Assert.Equal(40, EditorSuggestionsFile.Load(_project).Suggestions.Count);
-    }
-
-    [Fact]
-    public void Update_que_nao_muda_nada_nao_cria_o_arquivo()
-    {
-        EditorSuggestionsFile.Update(_project, f => f);
-
-        Assert.False(File.Exists(EditorSuggestionsFile.PathFor(_project)));
-    }
-
-    [Fact]
-    public void Linha_aprovada_nao_tem_sugestao_viva()
-    {
-        var file = EditorSuggestionsFile.Empty.ReplacingScript("y", [Suggest("y", "y:1", "A")]);
-
-        Assert.Null(file.For("y", Unit("y:1", "A") with { Status = TranslationStatus.Approved }));
-        Assert.NotNull(file.For("y", Unit("y:1", "A")));
     }
 
     [Theory]

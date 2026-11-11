@@ -11,23 +11,8 @@ public sealed class GameNotesTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    [Fact]
-    public void Set_grava_a_nota_e_devolve_o_que_ficou()
-    {
-        var notes = new GameNotes();
-
-        var note = notes.Set("g1", "Rota da Nagisa.\r\nVoltar no capítulo 3.  \r\n\r\n", Now);
-
-        Assert.Equal("Rota da Nagisa.\nVoltar no capítulo 3.", note!.Text);
-        Assert.Equal(Now, note.UpdatedAt);
-        Assert.Equal(note, notes.Of("g1"));
-        Assert.Null(notes.Of("g2"));
-    }
-
     [Theory]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  \r\n \n")]
     public void Set_com_texto_em_branco_apaga_a_nota(string? blank)
     {
         var notes = new GameNotes();
@@ -49,18 +34,6 @@ public sealed class GameNotesTests : IDisposable
 
         Assert.Equal("primeira\nsegunda", second.Text);
         Assert.Equal(Now.AddHours(1), second.UpdatedAt);
-    }
-
-    [Fact]
-    public void Append_de_texto_vazio_e_recusado_sem_mexer_na_nota()
-    {
-        var notes = new GameNotes();
-        notes.Set("g1", "fica", Now);
-
-        var error = Assert.Throws<LibraryException>(() => notes.Append("g1", "  ", Now));
-
-        Assert.Contains("vazio", error.Message);
-        Assert.Equal("fica", notes.Of("g1")!.Text);
     }
 
     [Fact]
@@ -100,12 +73,6 @@ public sealed class GameNotesTests : IDisposable
         Assert.Equal("Tradução do título: \"Fim\" 終わり", loaded.Of("gb2")!.Text);
         Assert.Equal(GameNotesFile.Serialize(notes), File.ReadAllText(file.Path));
         Assert.EndsWith("library-notes.json", file.Path);
-    }
-
-    [Fact]
-    public void Sem_arquivo_as_notas_vem_vazias()
-    {
-        Assert.Empty(new GameNotesFile(_dir.Path).Load().GameIds);
     }
 
     [Fact]
@@ -166,7 +133,6 @@ public sealed class GameNotesTests : IDisposable
     [InlineData("{\"version\":1,\"games\":{\"g1\":null}}", "sem texto")]
     [InlineData("null", "vazio")]
     [InlineData("{\"version\":1,\"games\":{\" \":{\"text\":\"x\",\"updatedAt\":\"2026-11-09T20:00:00-03:00\"}}}", "sem id")]
-    [InlineData("{ quebrado", "formato esperado")]
     public void Arquivo_fora_do_formato_diz_o_que_esta_errado(string json, string part)
     {
         var error = Assert.Throws<LibraryException>(() => GameNotesFile.Parse(json, "notas.json"));

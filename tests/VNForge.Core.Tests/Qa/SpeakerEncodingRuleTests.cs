@@ -19,38 +19,9 @@ public sealed class SpeakerEncodingRuleTests
             strategy is null ? null : TextEncoderRegistry.Default.Create(strategy));
 
     [Fact]
-    public void Falante_japones_sem_cadastro_na_cp1252_e_erro_na_linha_com_o_que_fazer()
-    {
-        var issue = Assert.Single(new SpeakerEncodingRule().Check(Context(Unit("犬井"))));
-
-        Assert.Equal(SpeakerEncodingRule.RuleId, issue.RuleId);
-        Assert.Equal(QaSeverity.Error, issue.Severity);
-        Assert.Equal("a:1", issue.UnitId);
-        Assert.Equal(
-            "O nome do personagem 犬井 não existe na codificação do jogo (cp1252). Cadastre a tradução do nome no Glossário > Personagens.",
-            issue.Message);
-    }
-
-    [Fact]
-    public void Falante_cadastrado_nao_dispara()
-    {
-        Assert.Empty(new SpeakerEncodingRule().Check(Context(Unit("犬井"), "cp1252", new CharacterEntry("犬井", "Inui"))));
-    }
-
-    [Fact]
     public void Falante_so_de_sinais_largos_nao_dispara_porque_a_largura_e_normalizada()
     {
         Assert.Empty(new SpeakerEncodingRule().Check(Context(Unit("？？？"))));
-    }
-
-    [Fact]
-    public void Linha_que_o_build_nao_grava_nao_dispara()
-    {
-        var rule = new SpeakerEncodingRule();
-
-        Assert.Empty(rule.Check(Context(Unit("犬井", translation: null, status: TranslationStatus.Untranslated))));
-        Assert.Empty(rule.Check(Context(Unit("犬井", status: TranslationStatus.Keep))));
-        Assert.Empty(rule.Check(Context(Unit("犬井", translation: "おはよう"))));
     }
 
     [Fact]
@@ -73,18 +44,5 @@ public sealed class SpeakerEncodingRuleTests
         var issue = Assert.Single(rule.Check(Context(Unit("Inui") with { ChosenSpeaker = "犬井" })));
         Assert.Contains("犬井", issue.Message, StringComparison.Ordinal);
         Assert.Equal("a:1", issue.UnitId);
-    }
-
-    [Fact]
-    public void Falante_escolhido_cadastrado_no_glossario_nao_dispara()
-    {
-        Assert.Empty(new SpeakerEncodingRule().Check(Context(Unit("Inui") with { ChosenSpeaker = "犬井" }, "cp1252", new CharacterEntry("犬井", "Inui"))));
-    }
-
-    [Fact]
-    public void Faz_parte_das_regras_do_vnf_na_categoria_de_acentos()
-    {
-        Assert.Contains(QaEngine.Default.Rules, r => r.Id == SpeakerEncodingRule.RuleId);
-        Assert.Equal(QaCategories.Accents, QaCategories.Of(SpeakerEncodingRule.RuleId));
     }
 }

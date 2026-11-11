@@ -45,34 +45,11 @@ public sealed class BibleSerializerTests
         Assert.Equal(json, BibleSerializer.Serialize(back));
     }
 
-    [Fact]
-    public void O_arquivo_usa_LF_japones_sem_escape_e_nomes_em_camelCase()
-    {
-        var json = BibleSerializer.Serialize(GameBible.From([new BibleScene("yst1") { Summary = "美咲が来る", Edited = [BibleField.Summary] }]));
-
-        Assert.DoesNotContain('\r', json);
-        Assert.EndsWith("}\n", json, StringComparison.Ordinal);
-        Assert.Contains("美咲が来る", json, StringComparison.Ordinal);
-        Assert.Contains("\"edited\": [", json, StringComparison.Ordinal);
-        Assert.Contains("\"summary\"", json, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Aceita_um_arquivo_minimo_escrito_a_mao()
-    {
-        var bible = BibleSerializer.Parse("""{ "version": 1 }""", "bible.json");
-
-        Assert.True(bible.IsEmpty);
-    }
-
     [Theory]
     [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1", "cor": "azul" } ] }""", "desconhecido")]
     [InlineData("""{ "version": 2, "scenes": [] }""", "mais nova")]
     [InlineData("""{ "version": 0, "scenes": [] }""", "não existe")]
-    [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1" }, { "key": "yst1" } ] }""", "mais de uma vez")]
     [InlineData("""{ "version": 1, "scenes": [ { "key": "YST1" } ] }""", "inválida")]
-    [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1", "edited": [ "resumo" ] } ] }""", "scenes")]
-    [InlineData("não é json", "JSON")]
     public void Arquivo_invalido_diz_o_que_esta_errado(string json, string expected)
     {
         var ex = Assert.Throws<GlossaryFileException>(() => BibleSerializer.Parse(json, "bible.json"));

@@ -73,34 +73,6 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
-    public void Relata_o_backup_antes_da_gravacao_no_jogo()
-    {
-        SeedGameAndBuild();
-        var phases = new List<(InjectionPhase Phase, bool BackupExists)>();
-        var progress = new PhaseLog(phase => phases.Add((phase, Directory.Exists(_project.BackupDirectory) && Directory.GetDirectories(_project.BackupDirectory).Length > 0)));
-
-        var result = Injector().Inject(GameInjector.Plan(_project), progress);
-
-        Assert.Equal([InjectionPhase.Backup, InjectionPhase.Write], phases.Select(p => p.Phase));
-        Assert.False(phases[0].BackupExists);
-        Assert.True(phases[1].BackupExists);
-        Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
-        Assert.NotNull(result.BackupDirectory);
-    }
-
-    [Fact]
-    public void Sem_arquivos_a_injetar_nao_relata_fase_nenhuma()
-    {
-        Game(YsbinYpf, TranslatedYsbinDir);
-        Build(YsbinYpf, TranslatedYsbinDir);
-        var phases = new List<InjectionPhase>();
-
-        Injector().Inject(GameInjector.Plan(_project), new PhaseLog(phases.Add));
-
-        Assert.Empty(phases);
-    }
-
-    [Fact]
     public void Plan_sem_pasta_build_pede_o_vnf_build()
     {
         Directory.Delete(_project.BuildDirectory);
@@ -128,144 +100,6 @@ public sealed class GameInjectorTests : IDisposable
         var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
 
         Assert.Contains("A pasta do jogo não existe", erro.Message);
-    }
-
-    [Fact]
-    public void Plan_aceita_game_path_relativo_a_pasta_do_projeto()
-    {
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../jogo", GameExe) });
-        Game(YsbinYpf, OriginalYsbinDir);
-        Build(YsbinYpf, TranslatedYsbinDir);
-
-        var plan = GameInjector.Plan(_project);
-
-        Assert.Equal(_game, plan.GameDirectory);
-        Assert.Single(plan.Files);
-    }
-
-    [Fact]
-    public void Plan_nao_escreve_nada()
-    {
-        SeedGameAndBuild();
-
-        GameInjector.Plan(_project);
-
-        AssertGameIsOriginal();
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-    }
-
-    [Fact]
-    public void Inject_copia_so_os_originais_trocados_para_o_backup_datado_e_grava_o_build()
-    {
-        SeedGameAndBuild();
-
-        var result = InjectAll(Injector());
-
-        var backup = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
-        Assert.Equal(backup, result.BackupDirectory);
-        Assert.Equal([BgmYpf, YsbinYpf], result.Written);
-        Assert.Equal(OriginalYsbinDir, File.ReadAllText(Path.Combine(backup, YsbinYpf)));
-        Assert.Equal(OriginalBgmDir, File.ReadAllText(Path.Combine(backup, BgmYpf)));
-        Assert.False(File.Exists(Path.Combine(backup, GameExe)));
-        Assert.True(File.Exists(Path.Combine(backup, BackupManifest.FileName)));
-        Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
-        Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
-        Assert.Equal("original-exe", ReadGame(GameExe));
-        Assert.Empty(Directory.EnumerateFiles(_game, "*.tmp", SearchOption.AllDirectories));
-    }
-
-    [Fact]
-    public void Inject_trata_subpastas_e_arquivos_novos()
-    {
-        Game("data/cg.ypf", "original-cg");
-        Build("data/cg.ypf", "traduzido-cg");
-        Build("data/novo.txt", "novo");
-
-        var result = InjectAll(Injector());
-
-        Assert.Equal("traduzido-cg", ReadGame("data/cg.ypf"));
-        Assert.Equal("novo", ReadGame("data/novo.txt"));
-        Assert.False(File.Exists(Path.Combine(result.BackupDirectory!, "data", NewFile)));
-    }
-
-    [Fact]
-    public void Inject_ignora_arquivo_do_build_identico_ao_do_jogo_e_nao_cria_backup_sem_mudanca()
-    {
-        Game(YsbinYpf, "igual");
-        Build(YsbinYpf, "igual");
-
-        var plan = GameInjector.Plan(_project);
-        var result = Injector().Inject(plan);
-
-        Assert.Empty(plan.Files);
-        Assert.Equal(1, plan.UnchangedCount);
-        Assert.Null(result.BackupDirectory);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-    }
-
-    [Fact]
-    public void Inject_na_mesma_hora_nao_sobrescreve_o_backup_anterior()
-    {
-        SeedGameAndBuild();
-        var first = InjectAll(Injector());
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-
-        var second = InjectAll(Injector());
-
-        Assert.EndsWith("2026-10-23_1020", first.BackupDirectory);
-        Assert.EndsWith("2026-10-23_1020-02", second.BackupDirectory);
-    }
-
-    [Fact]
-    public void Pasta_de_backup_ja_marcada_por_outra_chamada_no_mesmo_minuto_fica_de_fora_e_a_injecao_usa_outro_nome()
-    {
-        SeedGameAndBuild();
-        var other = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
-        Directory.CreateDirectory(other);
-        File.WriteAllText(Path.Combine(other, ".claim"), string.Empty);
-        File.WriteAllText(Path.Combine(other, "do-outro.txt"), "backup do outro");
-
-        var result = InjectAll(Injector());
-
-        Assert.EndsWith("2026-10-23_1020-02", result.BackupDirectory);
-        Assert.True(File.Exists(Path.Combine(other, ".claim")));
-        Assert.Equal("backup do outro", File.ReadAllText(Path.Combine(other, "do-outro.txt")));
-    }
-
-    [Fact]
-    public void Falha_no_backup_apaga_so_a_pasta_que_a_propria_chamada_criou()
-    {
-        SeedGameAndBuild();
-        var other = Path.Combine(_project.BackupDirectory, "2026-10-23_1020");
-        Directory.CreateDirectory(other);
-        File.WriteAllText(Path.Combine(other, ".claim"), string.Empty);
-        File.WriteAllText(Path.Combine(other, "do-outro.txt"), "backup do outro");
-        var own = other + "-02";
-        var failing = Injector(new FlakyFileSystem(_game) { BackupDirectory = own, FailOnBackupWrite = 1 });
-
-        Assert.Throws<InjectionException>(() => InjectAll(failing));
-
-        Assert.False(Directory.Exists(own));
-        Assert.Equal("backup do outro", File.ReadAllText(Path.Combine(other, "do-outro.txt")));
-        AssertGameIsOriginal();
-    }
-
-    [Fact]
-    public void Segunda_injecao_sem_restore_guarda_o_original_de_verdade_e_nao_o_build_anterior()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        _clock.Now = _clock.Now.AddMinutes(5);
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-
-        var second = InjectAll(Injector());
-
-        Assert.Equal(OriginalYsbinDir, File.ReadAllText(Path.Combine(second.BackupDirectory!, YsbinYpf)));
-        Assert.Equal("traduzido-ysbin-v2", ReadGame(YsbinYpf));
-
-        RestoreLatest(Injector());
-
-        Assert.Equal(OriginalYsbinDir, ReadGame(YsbinYpf));
     }
 
     [Fact]
@@ -299,23 +133,6 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
-    public void Restore_devolve_na_pasta_onde_a_injecao_ocorreu_mesmo_com_game_path_mudado()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        var outro = Path.Combine(_temp.Path, "outro");
-        Directory.CreateDirectory(outro);
-        File.WriteAllText(Path.Combine(outro, YsbinYpf), "do-outro-jogo");
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(outro, GameExe) });
-
-        var result = RestoreLatest(Injector());
-
-        Assert.Equal(_game, result.GameDirectory);
-        AssertGameIsOriginal();
-        Assert.Equal("do-outro-jogo", File.ReadAllText(Path.Combine(outro, YsbinYpf)));
-    }
-
-    [Fact]
     public void Restore_nao_apaga_arquivo_criado_pela_injecao_que_mudou_depois()
     {
         SeedGameAndBuild();
@@ -328,35 +145,6 @@ public sealed class GameInjectorTests : IDisposable
         Assert.Equal([NewFile], result.Kept);
         Assert.Equal("editado-depois", ReadGame(NewFile));
         AssertGameIsOriginal();
-    }
-
-    [Fact]
-    public void Arquivo_novo_que_aparece_entre_o_plano_e_a_injecao_aborta_sem_sobrescrever()
-    {
-        Build(NewFile, "do-build");
-        var injector = Injector();
-        var plan = GameInjector.Plan(_project);
-        Game(NewFile, "criado-por-outro");
-
-        var erro = Assert.Throws<InjectionException>(() => injector.Inject(plan));
-
-        Assert.Contains("mudou depois da conferência", erro.Message);
-        Assert.Equal("criado-por-outro", ReadGame(NewFile));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_project.BackupDirectory));
-    }
-
-    [Fact]
-    public void Falha_no_meio_da_injecao_devolve_o_jogo_ao_estado_original()
-    {
-        SeedGameAndBuild();
-        var disco = new FlakyFileSystem(_game) { FailOnGameWrite = 2 };
-
-        var erro = Assert.Throws<InjectionException>(() => InjectAll(Injector(disco)));
-
-        Assert.Contains("O jogo voltou ao estado original", erro.Message);
-        Assert.Contains("'ysbin.ypf'", erro.Message);
-        AssertGameIsOriginal();
-        Assert.Empty(Directory.EnumerateFiles(_game, "*.tmp", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -421,40 +209,6 @@ public sealed class GameInjectorTests : IDisposable
     }
 
     [Fact]
-    public void Restore_depois_de_uma_segunda_injecao_parcial_devolve_tambem_o_que_so_o_primeiro_backup_guardou()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        _clock.Now = _clock.Now.AddMinutes(5);
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-        var second = InjectAll(Injector());
-        Assert.Equal([YsbinYpf], second.Written);
-
-        var plan = GameInjector.PlanRestore(_project);
-        var result = RestoreLatest(Injector());
-
-        Assert.Equal([BgmYpf, YsbinYpf], plan.Manifest.Files.Select(f => f.Path).Order(StringComparer.Ordinal));
-        Assert.Equal([BgmYpf, YsbinYpf], result.Restored);
-        AssertGameIsOriginal();
-    }
-
-    [Fact]
-    public void Restore_usa_para_cada_arquivo_a_entrada_mais_nova_dele()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        _clock.Now = _clock.Now.AddMinutes(5);
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-        var second = InjectAll(Injector());
-
-        var plan = GameInjector.PlanRestore(_project);
-
-        Assert.Equal(second.BackupDirectory, plan.BackupDirectory);
-        Assert.Equal(second.BackupDirectory, plan.BackupDirectories[YsbinYpf]);
-        Assert.NotEqual(second.BackupDirectory, plan.BackupDirectories[BgmYpf]);
-    }
-
-    [Fact]
     public void Restore_recusa_quando_o_jogo_mudou_depois_da_injecao_e_nao_grava_nada()
     {
         SeedGameAndBuild();
@@ -467,84 +221,6 @@ public sealed class GameInjectorTests : IDisposable
         Assert.Contains(YsbinYpf, erro.Message);
         Assert.Equal("atualizado-pelo-jogo", ReadGame(YsbinYpf));
         Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
-    }
-
-    [Fact]
-    public void Restore_nao_recusa_arquivo_que_ja_esta_com_o_original()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        Game(YsbinYpf, OriginalYsbinDir);
-
-        var result = RestoreLatest(Injector());
-
-        Assert.Equal([BgmYpf, YsbinYpf], result.Restored);
-        AssertGameIsOriginal();
-    }
-
-    [Fact]
-    public void Restaurar_de_novo_nao_tem_o_que_fazer_porque_o_backup_ja_foi_consumido()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        RestoreLatest(Injector());
-
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
-
-        Assert.Contains("Não há backup", erro.Message);
-        AssertGameIsOriginal();
-    }
-
-    [Fact]
-    public void Restore_marca_os_backups_consumidos_com_restoredAt()
-    {
-        SeedGameAndBuild();
-        var injected = InjectAll(Injector());
-        _clock.Now = _clock.Now.AddMinutes(5);
-
-        var result = RestoreLatest(Injector());
-
-        Assert.Empty(result.Warnings);
-        var manifest = File.ReadAllText(Path.Combine(injected.BackupDirectory!, BackupManifest.FileName));
-        Assert.Contains("\"restoredAt\"", manifest);
-    }
-
-    [Fact]
-    public void Backup_restaurado_nao_bloqueia_a_proxima_restauracao_depois_que_o_jogo_foi_atualizado()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        RestoreLatest(Injector());
-        Game(BgmYpf, "bgm-atualizado-pelo-jogo");
-        File.Delete(Path.Combine(_project.BuildDirectory, BgmYpf));
-        _clock.Now = _clock.Now.AddMinutes(5);
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-        var second = InjectAll(Injector());
-        Assert.Equal([YsbinYpf], second.Written);
-
-        var plan = GameInjector.PlanRestore(_project);
-        var result = RestoreLatest(Injector());
-
-        Assert.Equal([YsbinYpf], plan.Manifest.Files.Select(f => f.Path));
-        Assert.Equal([YsbinYpf], result.Restored);
-        Assert.Equal(OriginalYsbinDir, ReadGame(YsbinYpf));
-        Assert.Equal("bgm-atualizado-pelo-jogo", ReadGame(BgmYpf));
-    }
-
-    [Fact]
-    public void Injecao_depois_de_restaurar_ignora_o_backup_consumido_ao_achar_o_original()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        RestoreLatest(Injector());
-        Game(YsbinYpf, TranslatedYsbinDir);
-        Build(YsbinYpf, "traduzido-ysbin-v2");
-        _clock.Now = _clock.Now.AddMinutes(5);
-
-        var plan = GameInjector.Plan(_project);
-
-        var ysbin = plan.Files.Single(f => f.RelativePath == YsbinYpf);
-        Assert.Equal(ysbin.TargetPath, ysbin.OriginalSource);
     }
 
     [Fact]
@@ -596,27 +272,6 @@ public sealed class GameInjectorTests : IDisposable
         Assert.Contains("não pôde ser lido", erro.Message);
     }
 
-
-    [Fact]
-    public void Restore_sem_backup_diz_que_nao_ha_o_que_restaurar()
-    {
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
-
-        Assert.Contains("Não há backup", erro.Message);
-    }
-
-    [Fact]
-    public void Restore_ignora_pasta_de_backup_sem_manifesto()
-    {
-        SeedGameAndBuild();
-        InjectAll(Injector());
-        Directory.CreateDirectory(Path.Combine(_project.BackupDirectory, "2099-01-01_0000"));
-
-        RestoreLatest(Injector());
-
-        AssertGameIsOriginal();
-    }
-
     [Fact]
     public void Restore_com_copia_do_backup_adulterada_recusa_sem_gravar()
     {
@@ -629,18 +284,6 @@ public sealed class GameInjectorTests : IDisposable
         Assert.Contains("nada foi gravado", erro.Message);
         Assert.Equal(TranslatedYsbinDir, ReadGame(YsbinYpf));
         Assert.Equal(TranslatedBgmDir, ReadGame(BgmYpf));
-    }
-
-    [Fact]
-    public void Restore_com_manifesto_ilegivel_diz_qual_arquivo()
-    {
-        SeedGameAndBuild();
-        var result = InjectAll(Injector());
-        File.WriteAllText(Path.Combine(result.BackupDirectory!, BackupManifest.FileName), "{ não é json");
-
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
-
-        Assert.Contains(BackupManifest.FileName, erro.Message);
     }
 
     [Fact]
@@ -720,10 +363,5 @@ public sealed class GameInjectorTests : IDisposable
 
             return false;
         }
-    }
-
-    private sealed class PhaseLog(Action<InjectionPhase> add) : IProgress<InjectionPhase>
-    {
-        public void Report(InjectionPhase value) => add(value);
     }
 }

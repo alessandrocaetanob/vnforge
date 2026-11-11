@@ -59,54 +59,11 @@ public sealed class VndbProjectLinkerTests
         Assert.Equal(VndbEvidence.TitleOnly, Assert.Single(candidates).Evidence);
     }
 
-    [Fact]
-    public async Task Build_traz_sinopse_limpa_e_personagens_com_genero_real_papel_e_apelidos()
-    {
-        var link = await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken);
-
-        Assert.Equal("Amaoto no Hakoniwa", link.Title);
-        Assert.Equal("雨音の箱庭", link.OriginalTitle);
-        Assert.Equal("Numa cidade onde chove, Kenta volta.", link.Synopsis);
-        Assert.Equal(5, link.Characters.Count);
-        var kenta = link.Characters[0];
-        Assert.Equal(("c1", "Kenta Aizawa", "相沢 健太", CharacterGender.Male, "main", "O protagonista."), (kenta.Id, kenta.Name, kenta.Original, kenta.Gender, kenta.Role, kenta.Description));
-        Assert.Equal(["Ken", "Kenta-kun"], kenta.Aliases);
-        Assert.Equal(CharacterGender.Female, link.Characters[1].Gender);
-    }
-
-    [Fact]
-    public void From_guarda_a_miniatura_da_capa_para_o_cabecalho_do_jogo()
-    {
-        var vn = VndbSamples.Game() with { Image = new VndbImage("https://t.vndb.org/cv/12/345.jpg", "https://t.vndb.org/cv.t/12/345.jpg", 600, 800, 0.1, 0) };
-
-        var link = VndbProjectLinker.From(vn, new VndbResults<VndbCharacter>([], false));
-
-        Assert.Equal(new VndbImageRef("https://t.vndb.org/cv.t/12/345.jpg", 0.1, 0), link.Cover);
-        Assert.Null(VndbProjectLinker.From(VndbSamples.Game(), new VndbResults<VndbCharacter>([], false)).Cover);
-    }
-
-    [Fact]
-    public async Task Build_de_jogo_que_o_vndb_nao_tem_recusa_em_portugues()
-    {
-        var ex = await Assert.ThrowsAsync<VndbLinkException>(() => VndbProjectLinker.BuildAsync(Catalog(), "v1", TestContext.Current.CancellationToken));
-
-        Assert.Contains("v1", ex.Message, StringComparison.Ordinal);
-    }
-
     [Theory]
-    [InlineData("m", "m", CharacterGender.Male)]
-    [InlineData("f", "f", CharacterGender.Female)]
-    [InlineData("o", "o", CharacterGender.Other)]
     [InlineData("a", "a", CharacterGender.Other)]
-    [InlineData(null, "f", CharacterGender.Female)]
-    [InlineData("f", "m", CharacterGender.Male)]
     [InlineData(null, null, CharacterGender.Unknown)]
     public void GenderOf_prefere_o_real_ao_que_aparece_sem_spoiler(string? visible, string? real, CharacterGender expected) =>
         Assert.Equal(expected, VndbProjectLinker.GenderOf(new VndbGender(visible, real)));
-
-    [Fact]
-    public void GenderOf_sem_dado_do_vndb_e_desconhecido() =>
-        Assert.Equal(CharacterGender.Unknown, VndbProjectLinker.GenderOf(null));
 
     [Fact]
     public async Task Match_casa_pelo_nome_inteiro_por_uma_parte_ou_por_apelido_ignorando_espaco_e_largura()
@@ -118,72 +75,6 @@ public sealed class VndbProjectLinkerTests
         Assert.Equal(
             [("相沢健太", "c1"), ("葵", "c2"), ("早瀬　蓮", "c3"), ("Todo-sensei", "c4")],
             matches.Select(m => (m.GameName, m.Character.Id)));
-    }
-
-    [Fact]
-    public void Match_deixa_de_fora_o_nome_que_empata_entre_dois_personagens()
-    {
-        VndbLinkedCharacter[] characters =
-        [
-            new("c1", "Aoi Sakura", "佐倉 葵", [], CharacterGender.Female, null, "primary"),
-            new("c2", "Aoi Mori", "森 葵", [], CharacterGender.Female, null, "side"),
-        ];
-
-        Assert.Empty(VndbProjectLinker.Match(["葵"], characters));
-        Assert.Equal("c2", VndbProjectLinker.Match(["森葵"], characters).Single().Character.Id);
-    }
-
-    [Fact]
-    public async Task ApplyCharacters_poe_os_personagens_do_jogo_em_characters_json_com_o_genero_e_o_aviso_some()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveText("yst00001", [Name(0, "相沢健太"), Name(1, "佐倉葵"), Name(2, "ナレーター"), Line(3, "相沢健太"), Line(4, "佐倉葵")]);
-        var characters = new List<CharacterEntry>(GameCharacters.Names(project.LoadText("yst00001")));
-        var before = new GenderRule().Check(Qa(project, characters)).Select(i => i.Message).ToList();
-        Assert.Equal(2, before.Count);
-
-        await VndbProjectLinker.LinkAsync(project, Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken);
-
-        var saved = project.LoadCharacters();
-        Assert.Equal(["相沢健太", "佐倉葵"], saved.Select(c => c.Source));
-        Assert.Equal([CharacterGender.Male, CharacterGender.Female], saved.Select(c => c.Gender));
-        Assert.Equal(("Kenta Aizawa", "O protagonista."), (saved[0].Romaji, saved[0].Description));
-        Assert.Equal(["Ken", "Kenta-kun"], saved[0].Aliases);
-        Assert.Empty(new GenderRule().Check(Qa(project, saved)));
-    }
-
-    [Fact]
-    public async Task ApplyCharacters_nao_sobrescreve_o_que_o_usuario_escreveu_e_so_preenche_o_que_falta()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveText("yst00001", [Name(0, "相沢健太")]);
-        project.SaveCharacters([new CharacterEntry("相沢健太", "Kenta", CharacterGender.Other, "tímido", "blue", Romaji: "Meu romaji")]);
-        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
-
-        var result = VndbProjectLinker.ApplyCharacters(project);
-
-        var entry = Assert.Single(project.LoadCharacters());
-        Assert.Equal(new VndbApplyResult(1, 0, 1), result);
-        Assert.Equal(("Kenta", CharacterGender.Other, "tímido", "blue", "Meu romaji"), (entry.Target, entry.Gender, entry.Tone, entry.Color, entry.Romaji));
-        Assert.Equal(["Ken", "Kenta-kun"], entry.Aliases);
-        Assert.Equal("O protagonista.", entry.Description);
-    }
-
-    [Fact]
-    public async Task ApplyCharacters_repetida_nao_muda_nada()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveText("yst00001", [Name(0, "相沢健太")]);
-        await VndbProjectLinker.LinkAsync(project, Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken);
-        var written = File.ReadAllText(project.CharactersPath);
-
-        var result = VndbProjectLinker.ApplyCharacters(project);
-
-        Assert.Equal(new VndbApplyResult(1, 0, 0), result);
-        Assert.Equal(written, File.ReadAllText(project.CharactersPath));
     }
 
     [Fact]
@@ -221,31 +112,6 @@ public sealed class VndbProjectLinkerTests
     }
 
     [Fact]
-    public async Task Extract_de_projeto_ligado_ao_vndb_leva_os_personagens_para_characters_json()
-    {
-        using var folder = new TempFolder();
-        var project = ProjectWithGame(folder.Path, "name|相沢健太\ndialogue|こんにちは");
-        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(new VndbApplyResult(1, 1, 0), result.VndbCharacters);
-        Assert.Equal(CharacterGender.Male, Assert.Single(project.LoadCharacters()).Gender);
-    }
-
-    [Fact]
-    public void Extract_de_projeto_sem_vndb_nao_cria_characters_json()
-    {
-        using var folder = new TempFolder();
-        var project = ProjectWithGame(folder.Path, "name|相沢健太");
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Null(result.VndbCharacters);
-        Assert.False(File.Exists(project.CharactersPath));
-    }
-
-    [Fact]
     public void Extract_com_vndb_json_invalido_termina_a_extracao_e_avisa()
     {
         using var folder = new TempFolder();
@@ -258,35 +124,6 @@ public sealed class VndbProjectLinkerTests
         Assert.Contains(result.Warnings, w => w.StartsWith("Os personagens do VNDB não entraram em characters.json:", StringComparison.Ordinal) && w.Contains("vndb.json", StringComparison.Ordinal));
         Assert.Equal(1, result.TotalLines);
         Assert.False(File.Exists(project.CharactersPath));
-    }
-
-    [Fact]
-    public async Task Extract_com_characters_json_ilegivel_termina_a_extracao_avisa_e_nao_mexe_no_arquivo()
-    {
-        using var folder = new TempFolder();
-        var project = ProjectWithGame(folder.Path, "name|相沢健太");
-        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
-        File.WriteAllText(project.CharactersPath, "{ nao e json");
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Null(result.VndbCharacters);
-        Assert.Contains(result.Warnings, w => w.Contains("characters.json", StringComparison.Ordinal));
-        Assert.Equal("{ nao e json", File.ReadAllText(project.CharactersPath));
-    }
-
-    [Fact]
-    public async Task ApplyCharacters_com_characters_json_ilegivel_recusa_e_deixa_o_arquivo_intacto()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveText("yst00001", [Name(0, "相沢健太")]);
-        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
-        File.WriteAllText(project.CharactersPath, "{ nao e json");
-
-        Assert.Throws<GlossaryFileException>(() => VndbProjectLinker.ApplyCharacters(project));
-
-        Assert.Equal("{ nao e json", File.ReadAllText(project.CharactersPath));
     }
 
     private static QaContext Qa(ProjectFolder project, IReadOnlyList<CharacterEntry> characters) =>

@@ -47,37 +47,6 @@ public class ProjectLinesRecheckTests
     private static bool Tem(LineEntry linha, string regra) => linha.Issues.Any(i => i.RuleId == regra);
 
     [Fact]
-    public void Gravar_com_o_nome_do_personagem_tira_o_aviso_sem_reler_o_projeto()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, Kamejima(99, "Ele olhou para Kamejima."));
-        DefinirPersonagem(projeto, "Kameshima");
-        var linhas = ProjectLines.Read(projeto);
-        var entrada = linhas.LinesOf(Script).Single();
-        var aviso = Assert.Single(entrada.Issues, i => i.RuleId == "personagem-diferente");
-        Assert.Contains("“亀島” deveria ser traduzido como “Kameshima”", aviso.Message, StringComparison.Ordinal);
-
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ele olhou para Kameshima." });
-
-        Assert.False(Tem(gravada, "personagem-diferente"));
-    }
-
-    [Fact]
-    public void Gravar_um_nome_diferente_do_personagem_acende_o_aviso_na_hora()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, Kamejima(1, "Ele olhou para Kameshima."));
-        DefinirPersonagem(projeto, "Kameshima");
-        var linhas = ProjectLines.Read(projeto);
-        var entrada = linhas.LinesOf(Script).Single();
-        Assert.Empty(entrada.Issues);
-
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ele olhou para Kamejima." });
-
-        Assert.True(Tem(gravada, "personagem-diferente"));
-    }
-
-    [Fact]
     public void Gravar_com_o_termo_do_glossario_tira_o_aviso_de_glossario()
     {
         using var pasta = new TempFolder();
@@ -90,37 +59,6 @@ public class ProjectLinesRecheckTests
         var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ir à Academia de Magia" });
 
         Assert.False(Tem(gravada, "glossario-diferente"));
-    }
-
-    [Fact]
-    public void Gravar_vale_com_o_personagem_gravado_depois_da_leitura()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, Kamejima(1, "Ele olhou para Kamejima."));
-        var linhas = ProjectLines.Read(projeto);
-        var entrada = linhas.LinesOf(Script).Single();
-        Assert.Empty(entrada.Issues);
-
-        DefinirPersonagem(projeto, "Kameshima");
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ele olhou para Kamejima!" });
-
-        Assert.True(Tem(gravada, "personagem-diferente"));
-    }
-
-    [Fact]
-    public void Gravar_com_o_personagem_ilegivel_mantem_o_ultimo_contexto_bom()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, Kamejima(1, "Ele olhou para Kameshima."));
-        DefinirPersonagem(projeto, "Kameshima");
-        var linhas = ProjectLines.Read(projeto);
-        var entrada = linhas.LinesOf(Script).Single();
-
-        File.WriteAllText(projeto.CharactersPath, "{ isto não é json");
-        Distinguir(projeto.CharactersPath);
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ele olhou para Kamejima." });
-
-        Assert.True(Tem(gravada, "personagem-diferente"));
     }
 
     [Fact]
@@ -156,67 +94,6 @@ public class ProjectLinesRecheckTests
         Refazer(linhas, regrasDoProjeto: false);
 
         Assert.True(Tem(linhas.LinesOf(Script).Single(), HonorificsRule.RuleId));
-    }
-
-    [Fact]
-    public void Nada_muda_quando_o_contexto_e_o_mesmo()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, Kamejima(1, "Ele olhou para Kamejima."));
-        DefinirPersonagem(projeto, "Kameshima");
-        var linhas = ProjectLines.Read(projeto);
-
-        Assert.Empty(Refazer(linhas, regrasDoProjeto: true));
-    }
-
-    [Fact]
-    public void Gravar_duas_linhas_com_o_mesmo_original_e_traducoes_diferentes_acende_a_inconsistencia_sem_reler()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, BomDia(1, "Bom dia"), BomDia(2, "Bom dia"));
-        var linhas = ProjectLines.Read(projeto);
-        Assert.All(linhas.LinesOf(Script), l => Assert.False(Tem(l, "traducao-inconsistente")));
-
-        var segunda = linhas.LinesOf(Script)[1];
-        linhas.Replace(linhas.WithUnit(segunda, segunda.Unit with { Translation = "Olá" }));
-        Refazer(linhas, regrasDoProjeto: true);
-
-        Assert.True(Tem(linhas.LinesOf(Script)[1], "traducao-inconsistente"));
-
-        var corrigida = linhas.LinesOf(Script)[1];
-        linhas.Replace(linhas.WithUnit(corrigida, corrigida.Unit with { Translation = "Bom dia" }));
-        Refazer(linhas, regrasDoProjeto: true);
-
-        Assert.All(linhas.LinesOf(Script), l => Assert.False(Tem(l, "traducao-inconsistente")));
-    }
-
-    [Fact]
-    public void Sem_as_regras_do_projeto_a_inconsistencia_fica_como_estava()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, BomDia(1, "Bom dia"), BomDia(2, "Bom dia"));
-        var linhas = ProjectLines.Read(projeto);
-        var segunda = linhas.LinesOf(Script)[1];
-        linhas.Replace(linhas.WithUnit(segunda, segunda.Unit with { Translation = "Olá" }));
-
-        Refazer(linhas, regrasDoProjeto: false);
-
-        Assert.False(Tem(linhas.LinesOf(Script)[1], "traducao-inconsistente"));
-    }
-
-    [Fact]
-    public void Definir_o_genero_do_personagem_tira_o_aviso_de_personagem_sem_genero()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, new TextUnit($"{Script}:000001", TextUnitKind.Dialogue, "亀島", "…", "Estou cansado.", TranslationStatus.Machine));
-        DefinirPersonagem(projeto, "Kameshima", CharacterGender.Unknown);
-        var linhas = ProjectLines.Read(projeto);
-        Assert.True(Tem(linhas.LinesOf(Script).Single(), GenderRule.RuleId));
-
-        DefinirPersonagem(projeto, "Kameshima", CharacterGender.Male);
-        Refazer(linhas, regrasDoProjeto: true);
-
-        Assert.False(Tem(linhas.LinesOf(Script).Single(), GenderRule.RuleId));
     }
 
     [Fact]

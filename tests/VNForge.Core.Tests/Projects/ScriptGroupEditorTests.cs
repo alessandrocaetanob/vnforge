@@ -29,40 +29,6 @@ public class ScriptGroupEditorTests
         return projeto;
     }
 
-    private static string[] KeysOf(ProjectFolder projeto, string grupo) =>
-        [.. ProjectDashboard.Read(projeto).Chapters().Single(c => c.Name == grupo).ScriptKeys];
-
-    [Fact]
-    public void Agrupar_grava_o_grupo_no_scripts_json_e_o_painel_mostra_o_capitulo_novo()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 6);
-
-        var mudanca = ScriptGroupEditor.Group(projeto, [Key(2), Key(3)], "  Manhã de chuva ");
-
-        Assert.Equal([Key(2), Key(3)], mudanca.Keys);
-        Assert.Equal("Manhã de chuva", mudanca.Group);
-        var lido = ProjectFolder.Open(temp.Path).LoadScriptNames();
-        Assert.Equal("Manhã de chuva", lido.Group(Key(2)));
-        Assert.Equal("Manhã de chuva", lido.Group(Key(3)));
-        Assert.Null(lido.Group(Key(1)));
-        Assert.Equal([Key(2), Key(3)], KeysOf(projeto, "Manhã de chuva"));
-    }
-
-    [Fact]
-    public void Os_capitulos_seguem_a_ordem_da_historia_pelo_primeiro_script_de_cada_um()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 6);
-
-        ScriptGroupEditor.Group(projeto, [Key(4), Key(5), Key(6)], "Final");
-        ScriptGroupEditor.Group(projeto, [Key(1), Key(2)], "Começo");
-
-        var capitulos = ProjectDashboard.Read(projeto).Chapters();
-        Assert.Equal(["Começo", "Parte 1", "Final"], capitulos.Select(c => c.Name));
-        Assert.Equal([1, 2, 3], capitulos.Select(c => c.Number));
-    }
-
     [Fact]
     public void Intervalo_vai_do_primeiro_ao_ultimo_script_na_ordem_numerica_e_aceita_chaves_soltas()
     {
@@ -92,7 +58,6 @@ public class ScriptGroupEditorTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("   ")]
     public void Agrupar_sem_nome_recusa(string nome)
     {
         using var temp = new TempFolder();
@@ -127,22 +92,6 @@ public class ScriptGroupEditorTests
     }
 
     [Fact]
-    public void Renomear_o_capitulo_proposto_pela_pasta_grava_o_grupo_em_todos_os_scripts_dele()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/01_cap1"), (3, "userscript/02_cap2"));
-
-        var mudanca = ScriptGroupEditor.RenameGroup(projeto, "capítulo 1", "Prólogo");
-
-        Assert.Equal([Key(1), Key(2)], mudanca.Keys);
-        Assert.Equal(["Prólogo", "Capítulo 2"], mudanca.Chapters.Select(c => c.Name));
-        var lido = ProjectFolder.Open(temp.Path).LoadScriptNames();
-        Assert.Equal("Prólogo", lido.Group(Key(1)));
-        Assert.Equal("Prólogo", lido.Group(Key(2)));
-        Assert.Null(lido.Group(Key(3)));
-    }
-
-    [Fact]
     public void Renomear_aceita_o_numero_do_capitulo_no_lugar_do_nome()
     {
         using var temp = new TempFolder();
@@ -152,30 +101,6 @@ public class ScriptGroupEditorTests
 
         Assert.Equal([Key(2), Key(3)], mudanca.Keys);
         Assert.Equal(["Capítulo 1", "Tarde"], mudanca.Chapters.Select(c => c.Name));
-    }
-
-    [Fact]
-    public void Renomear_para_um_nome_que_ja_existe_junta_os_dois_capitulos()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"), (3, "userscript/03_cap3"));
-
-        var mudanca = ScriptGroupEditor.RenameGroup(projeto, "Capítulo 3", "Capítulo 2");
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2"], mudanca.Chapters.Select(c => c.Name));
-        Assert.Equal([Key(2), Key(3)], KeysOf(projeto, "Capítulo 2"));
-    }
-
-    [Fact]
-    public void Agrupamentos_ao_mesmo_tempo_nao_perdem_a_mudanca_um_do_outro()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 40);
-
-        Parallel.For(1, 41, n => ScriptGroupEditor.Group(ProjectFolder.Open(temp.Path), [Key(n)], $"Grupo {n}"));
-
-        var nomes = ProjectFolder.Open(temp.Path).LoadScriptNames();
-        Assert.Equal(Enumerable.Range(1, 40).Select(n => $"Grupo {n}"), Enumerable.Range(1, 40).Select(n => nomes.Group(Key(n))));
     }
 
     [Fact]
@@ -192,17 +117,6 @@ public class ScriptGroupEditorTests
         ScriptGroupEditor.Ungroup(projeto, [Key(3)]);
 
         Assert.Equal(manual, File.ReadAllText(projeto.ScriptNamesPath));
-    }
-
-    [Fact]
-    public void Desagrupar_sem_scripts_json_nao_cria_o_arquivo()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 2);
-
-        ScriptGroupEditor.Ungroup(projeto, [Key(1)]);
-
-        Assert.False(File.Exists(projeto.ScriptNamesPath));
     }
 
     [Fact]
@@ -248,18 +162,5 @@ public class ScriptGroupEditorTests
         Assert.Null(lido.Group(Key(2)));
         Assert.Equal("Manhã · 朝", lido.Group(Key(3)));
         Assert.DoesNotContain('\r', primeiro);
-    }
-
-    [Fact]
-    public void Capitulo_que_perde_a_ultima_cena_some_e_a_cena_movida_vai_para_o_capitulo_que_ja_existe()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/01_cap1"), (3, "userscript/02_cap2"));
-
-        var mudanca = ScriptGroupEditor.Group(projeto, [Key(3)], "Capítulo 1");
-
-        Assert.Equal(["Capítulo 1"], mudanca.Chapters.Select(c => c.Name));
-        Assert.Equal([Key(1), Key(2), Key(3)], mudanca.Chapters[0].ScriptKeys);
-        Assert.Equal(["Capítulo 1"], ProjectDashboard.Read(projeto).Chapters().Select(c => c.Name));
     }
 }

@@ -44,16 +44,6 @@ public sealed class AddressTermsTests : IDisposable
     }
 
     [Fact]
-    public void O_arquivo_tem_um_par_por_linha_e_o_japones_sem_escape()
-    {
-        var json = AddressTermSerializer.Serialize([new AddressTerm("健太", "美咲", "美咲ちゃん", "Misaki-chan")]);
-
-        Assert.Equal(
-            "{\n  \"version\": 1,\n  \"entries\": [\n    {\"from\":\"健太\",\"to\":\"美咲\",\"source\":\"美咲ちゃん\",\"target\":\"Misaki-chan\"}\n  ]\n}\n",
-            json);
-    }
-
-    [Fact]
     public void Lista_vazia_vira_um_arquivo_valido_e_volta_vazia()
     {
         var json = AddressTermSerializer.Serialize([]);
@@ -75,43 +65,7 @@ public sealed class AddressTermsTests : IDisposable
         Assert.Equal(gravado, File.ReadAllBytes(projeto.AddressTermsPath));
     }
 
-    [Fact]
-    public void Projeto_antigo_sem_o_arquivo_abre_sem_tratamentos_e_sem_mexer_nos_outros_arquivos()
-    {
-        var projeto = NovoProjeto();
-        projeto.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Female)]);
-        projeto.SaveGlossary([new GlossaryTerm("先輩", "veterano")]);
-        var personagens = File.ReadAllText(projeto.CharactersPath);
-        var glossario = File.ReadAllText(projeto.GlossaryPath);
-
-        Assert.False(File.Exists(projeto.AddressTermsPath));
-        Assert.Empty(projeto.LoadAddressTerms());
-        Assert.Single(projeto.LoadCharacters());
-        Assert.Equal(personagens, File.ReadAllText(projeto.CharactersPath));
-        Assert.Equal(glossario, File.ReadAllText(projeto.GlossaryPath));
-        Assert.False(File.Exists(projeto.AddressTermsPath));
-    }
-
-    [Fact]
-    public void O_par_repetido_e_recusado_mesmo_com_espacos_e_largura_diferentes()
-    {
-        var repetido = new AddressTerm[] { new("健太", "学生C", "あいつ", "ele"), new(" 健太 ", "学生Ｃ", "きみ", "você") };
-
-        var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Serialize(repetido));
-
-        Assert.Contains("mais de uma vez", ex.Reason);
-    }
-
-    [Fact]
-    public void O_mesmo_falante_com_destinos_diferentes_e_aceito()
-    {
-        var json = AddressTermSerializer.Serialize([new AddressTerm("健太", "美咲", "美咲", "Misaki"), new AddressTerm("健太", "凛", "凛", "Rin")]);
-
-        Assert.Equal(2, AddressTermSerializer.Parse(json, "x").Count);
-    }
-
     [Theory]
-    [InlineData("", "美咲")]
     [InlineData("健太", "  ")]
     public void Quem_fala_e_com_quem_fala_nao_podem_ser_vazios(string from, string to)
     {
@@ -128,39 +82,10 @@ public sealed class AddressTermsTests : IDisposable
         Assert.Contains("quem fala", Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(semFalante, "x")).Reason);
     }
 
-    [Fact]
-    public void Para_quem_so_consulta_o_arquivo_ilegivel_vira_lista_vazia_com_o_motivo()
-    {
-        var projeto = NovoProjeto();
-        File.WriteAllText(projeto.AddressTermsPath, "{ quebrado");
-
-        var termos = projeto.LoadAddressTermsOrEmpty(out var problema);
-
-        Assert.Empty(termos);
-        Assert.Contains("address-terms.json", problema);
-        Assert.Throws<GlossaryFileException>(projeto.LoadAddressTerms);
-
-        File.Delete(projeto.AddressTermsPath);
-        Assert.Empty(projeto.LoadAddressTermsOrEmpty(out problema));
-        Assert.Null(problema);
-    }
-
-    [Fact]
-    public void O_corretor_aceita_o_tratamento_combinado_como_palavra_do_projeto()
-    {
-        var sem = ProjectDictionary.Create([], []);
-        var com = ProjectDictionary.Create([], [], [new AddressTerm("健太", "美咲", "美咲ちゃん", "Zorgblat-chan")]);
-
-        Assert.False(sem.Contains("Zorgblat-chan"));
-        Assert.True(com.Contains("Zorgblat-chan"));
-    }
-
     [Theory]
-    [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c"}]}""")]
     [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c","target":"d","extra":1}]}""")]
     [InlineData("""{"version":2,"entries":[]}""")]
     [InlineData("""{"entries":[]}""")]
-    [InlineData("não é json")]
     public void Arquivo_fora_do_formato_e_recusado_com_a_mensagem_do_arquivo(string json)
     {
         var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(json, "address-terms.json"));

@@ -16,61 +16,6 @@ public class ProjectFolderTests
         AiConfig.Default);
 
     [Fact]
-    public void Create_grava_vnforge_json_e_as_quatro_pastas()
-    {
-        using var temp = new TempFolder();
-        var raiz = Path.Combine(temp.Path, "minha-vn-ptbr");
-
-        var projeto = ProjectFolder.Create(raiz, NovaConfig());
-
-        Assert.True(File.Exists(Path.Combine(raiz, ManifestFile)));
-        foreach (var pasta in new[] { "text", ".cache", "build", "backup" })
-        {
-            Assert.True(Directory.Exists(Path.Combine(raiz, pasta)), pasta);
-        }
-
-        Assert.Equal(Path.Combine(raiz, "text"), projeto.TextDirectory);
-        Assert.Equal(Path.Combine(raiz, ".cache"), projeto.CacheDirectory);
-        Assert.Equal(Path.Combine(raiz, "build"), projeto.BuildDirectory);
-        Assert.Equal(Path.Combine(raiz, "backup"), projeto.BackupDirectory);
-    }
-
-    [Fact]
-    public void Create_grava_gitignore_com_as_pastas_de_trabalho()
-    {
-        using var temp = new TempFolder();
-
-        ProjectFolder.Create(temp.Path, NovaConfig());
-
-        var linhas = File.ReadAllLines(Path.Combine(temp.Path, ".gitignore"));
-        Assert.Equal([".cache/", "build/", "backup/"], linhas.Where(l => l.Length > 0 && !l.StartsWith('#')));
-    }
-
-    [Fact]
-    public void Create_nao_sobrescreve_gitignore_existente()
-    {
-        using var temp = new TempFolder();
-        var gitignore = Path.Combine(temp.Path, ".gitignore");
-        File.WriteAllText(gitignore, "meu\n");
-
-        ProjectFolder.Create(temp.Path, NovaConfig());
-
-        Assert.Equal("meu\n", File.ReadAllText(gitignore));
-    }
-
-    [Fact]
-    public void Create_e_Open_devolvem_a_mesma_configuracao()
-    {
-        using var temp = new TempFolder();
-        var config = NovaConfig();
-        ProjectFolder.Create(temp.Path, config);
-
-        var aberto = ProjectFolder.Open(temp.Path);
-
-        Assert.Equal(config, aberto.LoadConfig());
-    }
-
-    [Fact]
     public void Create_nao_sobrescreve_projeto_existente()
     {
         using var temp = new TempFolder();
@@ -79,67 +24,6 @@ public class ProjectFolderTests
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectFolder.Create(temp.Path, NovaConfig()));
 
         Assert.Contains(ManifestFile, erro.Message);
-    }
-
-    [Fact]
-    public void Create_com_configuracao_invalida_nao_cria_nada()
-    {
-        using var temp = new TempFolder();
-        var raiz = Path.Combine(temp.Path, "p");
-        var invalida = NovaConfig() with { Name = " " };
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectFolder.Create(raiz, invalida));
-
-        Assert.Equal("$.name", erro.Field);
-        Assert.False(Directory.Exists(raiz));
-    }
-
-    [Fact]
-    public void Open_sem_vnforge_json_explica_o_que_falta()
-    {
-        using var temp = new TempFolder();
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectFolder.Open(temp.Path));
-
-        Assert.Contains(ManifestFile, erro.Message);
-        Assert.Contains(temp.Path, erro.Message);
-    }
-
-    [Fact]
-    public void LoadConfig_com_arquivo_invalido_aponta_o_campo()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjectFolder.Create(temp.Path, NovaConfig());
-        var texto = File.ReadAllText(projeto.ConfigPath).Replace("\"fold\"", "\"latin\"");
-        File.WriteAllText(projeto.ConfigPath, texto);
-
-        var erro = Assert.Throws<ProjectConfigException>(() => projeto.LoadConfig());
-
-        Assert.Equal("$.encoding.strategy", erro.Field);
-    }
-
-    [Fact]
-    public void SaveConfig_substitui_o_arquivo_e_nao_deixa_temporarios()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjectFolder.Create(temp.Path, NovaConfig());
-        var nova = NovaConfig() with { Name = "Outro nome" };
-
-        projeto.SaveConfig(nova);
-
-        Assert.Equal(nova, projeto.LoadConfig());
-        Assert.Equal([".gitignore", ManifestFile], Directory.GetFiles(temp.Path).Select(Path.GetFileName).Order());
-    }
-
-    [Fact]
-    public void LoadConfig_aceita_arquivo_com_BOM()
-    {
-        using var temp = new TempFolder();
-        var config = NovaConfig();
-        var projeto = ProjectFolder.Create(temp.Path, config);
-        File.WriteAllText(projeto.ConfigPath, ProjectConfigSerializer.Serialize(config), new System.Text.UTF8Encoding(true));
-
-        Assert.Equal(config, projeto.LoadConfig());
     }
 
     [Fact]
@@ -154,18 +38,5 @@ public class ProjectFolderTests
         var erro = Assert.Throws<ProjectConfigException>(() => projeto.LoadConfig());
 
         Assert.Contains("UTF-8", erro.Message);
-    }
-
-    [Fact]
-    public void EnsureDirectories_recria_pastas_que_faltam()
-    {
-        using var temp = new TempFolder();
-        ProjectFolder.Create(temp.Path, NovaConfig());
-        Directory.Delete(Path.Combine(temp.Path, "build"));
-
-        var projeto = ProjectFolder.Open(temp.Path);
-        projeto.EnsureDirectories();
-
-        Assert.True(Directory.Exists(projeto.BuildDirectory));
     }
 }

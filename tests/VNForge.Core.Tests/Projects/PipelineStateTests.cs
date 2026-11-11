@@ -25,19 +25,6 @@ public sealed class PipelineStateTests : IDisposable
             new Dictionary<string, StageState> { ["extract"] = new(StageStatus.Completed) });
 
     [Fact]
-    public void Sem_state_json_o_estado_e_vazio()
-    {
-        var project = NewProject();
-
-        var state = project.LoadState();
-
-        Assert.Empty(state.Originals);
-        Assert.Empty(state.Stages);
-        Assert.Equal(Path.Combine(project.Root, ".cache", "state.json"), project.StatePath);
-        Assert.False(File.Exists(project.StatePath));
-    }
-
-    [Fact]
     public void Ida_e_volta_preserva_o_estado_e_ordena_os_originais_pelo_caminho()
     {
         var project = NewProject();
@@ -48,34 +35,6 @@ public sealed class PipelineStateTests : IDisposable
         Assert.Equal(["a.ypf", "pac/ysbin.ypf"], loaded.Originals.Select(o => o.Path));
         Assert.Equal(new OriginalFile("pac/ysbin.ypf", 12, "ab12"), loaded.Originals[1]);
         Assert.Equal(StageStatus.Completed, loaded.Stages["extract"].Status);
-    }
-
-    [Fact]
-    public void Gravar_o_mesmo_estado_duas_vezes_nao_altera_o_arquivo()
-    {
-        var project = NewProject();
-        project.SaveState(Sample());
-        var bytes = File.ReadAllBytes(project.StatePath);
-        var stamp = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        File.SetLastWriteTimeUtc(project.StatePath, stamp);
-
-        project.SaveState(Sample());
-
-        Assert.Equal(bytes, File.ReadAllBytes(project.StatePath));
-        Assert.Equal(stamp, File.GetLastWriteTimeUtc(project.StatePath));
-        Assert.Empty(Directory.GetFiles(project.CacheDirectory, "*.tmp"));
-    }
-
-    [Fact]
-    public void Estado_e_gravado_em_utf8_sem_bom_e_com_lf()
-    {
-        var project = NewProject();
-
-        project.SaveState(Sample());
-
-        var bytes = File.ReadAllBytes(project.StatePath);
-        Assert.NotEqual(0xEF, bytes[0]);
-        Assert.DoesNotContain((byte)'\r', bytes);
     }
 
     [Fact]

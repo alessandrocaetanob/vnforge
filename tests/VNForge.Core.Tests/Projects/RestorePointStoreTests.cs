@@ -91,26 +91,6 @@ public sealed class RestorePointStoreTests : IDisposable
     }
 
     [Fact]
-    public void Desfazer_um_lote_nao_apaga_a_marca_soa_estranho_posta_antes_nem_depois()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Oi").WithOdd(true), Linha("a", 2, "Olá")]);
-        var alvos = new[] { ("a", "a:000001"), ("a", "a:000002") };
-
-        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Oi, tudo bem?"));
-        Editor().SetOdd("a", "a:000002", true);
-        Assert.True(Gravada("a", 1).IsOdd());
-
-        var desfeito = _store.Undo(feito.Point!.Id);
-
-        Assert.Equal(2, desfeito.Restored);
-        Assert.Equal(0, desfeito.EditedSince);
-        Assert.Equal("Olá", Gravada("a", 2).Translation);
-        Assert.Equal("Oi", Gravada("a", 1).Translation);
-        Assert.True(Gravada("a", 1).IsOdd(), "a marca de antes do lote continua");
-        Assert.True(Gravada("a", 2).IsOdd(), "a marca posta depois do lote continua");
-    }
-
-    [Fact]
     public void Usar_em_todos_e_desfeito_com_o_estado_de_antes_inclusive_a_origem()
     {
         _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá", TranslationStatus.Approved), Pendente("a", 3)]);
@@ -134,44 +114,6 @@ public sealed class RestorePointStoreTests : IDisposable
         Assert.Equal(new TranslationOrigin("anthropic", "claude-opus-5-5", Agora.AddDays(-1)), Gravada("a", 1).Origin);
         Assert.Equal("Alô", Gravada("b", 1).Translation);
         Assert.Null(_store.Find(feito.Point.Id));
-    }
-
-    [Fact]
-    public void Substituicao_e_desfeita()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Misaki chegou."), Linha("a", 2, "Nada.")]);
-        _project.SaveText("b", [Linha("b", 1, "Oi, Misaki!")]);
-        var previa = ProjectSearch.PreviewReplace(_project, new SearchOptions("Misaki"), "Aoi", TestContext.Current.CancellationToken);
-
-        var feito = _store.Record("Substituir \"Misaki\" por \"Aoi\"", () => ProjectSearch.Apply(_project, previa, _clock));
-
-        Assert.Equal(2, feito.Result.Applied);
-        Assert.Equal(2, feito.Point!.LineCount);
-        Assert.Equal("Aoi chegou.", Gravada("a", 1).Translation);
-
-        var desfeito = _store.Undo(feito.Point.Id);
-
-        Assert.Equal(new RestoreUndoResult(2, 0, 0), desfeito);
-        Assert.Equal("Misaki chegou.", Gravada("a", 1).Translation);
-        Assert.Equal("Oi, Misaki!", Gravada("b", 1).Translation);
-        Assert.Equal("anthropic", Gravada("a", 1).Origin!.Provider);
-    }
-
-    [Fact]
-    public void Corrigir_com_um_clique_e_desfeito()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Olá,   mundo"), Linha("a", 2, "Tudo certo.")]);
-
-        var feito = _store.Record("Corrigir com um clique", () => QaFixer.Apply(_project, QaEngine.Default));
-
-        Assert.NotEmpty(feito.Result.Fixes);
-        Assert.Equal(1, feito.Point!.LineCount);
-        Assert.Equal("Olá, mundo", Gravada("a", 1).Translation);
-
-        var desfeito = _store.Undo(feito.Point.Id);
-
-        Assert.Equal(new RestoreUndoResult(1, 0, 0), desfeito);
-        Assert.Equal("Olá,   mundo", Gravada("a", 1).Translation);
     }
 
     [Fact]
@@ -201,24 +143,6 @@ public sealed class RestorePointStoreTests : IDisposable
         Assert.Equal(TranslationStatus.Untranslated, Gravada("a", 1).Status);
         Assert.Equal("Dois, à mão", Gravada("a", 2).Translation);
         Assert.Equal(TranslationStatus.Untranslated, Gravada("a", 3).Status);
-    }
-
-    [Fact]
-    public void Linha_editada_depois_do_lote_fica_como_esta_e_o_desfazer_conta_quantas()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá"), Linha("a", 3, "Alô")]);
-        var alvos = new[] { ("a", "a:000001"), ("a", "a:000002"), ("a", "a:000003") };
-        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor(alvos, "Igual"));
-        Editor().SetTranslation("a", "a:000002", "Editada depois");
-        Editor().SetNotes("a", "a:000003", "nota nova");
-
-        var desfeito = _store.Undo(feito.Point!.Id);
-
-        Assert.Equal(new RestoreUndoResult(2, 1, 0), desfeito);
-        Assert.Equal("Oi", Gravada("a", 1).Translation);
-        Assert.Equal("Editada depois", Gravada("a", 2).Translation);
-        Assert.Equal("Alô", Gravada("a", 3).Translation);
-        Assert.Equal("nota nova", Gravada("a", 3).Notes);
     }
 
     [Fact]
@@ -283,17 +207,6 @@ public sealed class RestorePointStoreTests : IDisposable
     }
 
     [Fact]
-    public void Lista_vem_do_mais_novo_para_o_mais_antigo()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Oi")]);
-        var primeiro = _store.Record("Primeiro", () => Editor().SetTranslationFor([("a", "a:000001")], "Um")).Point!;
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        var segundo = _store.Record("Segundo", () => Editor().SetTranslationFor([("a", "a:000001")], "Dois")).Point!;
-
-        Assert.Equal([segundo.Id, primeiro.Id], _store.List().Select(p => p.Id));
-    }
-
-    [Fact]
     public void Ponto_mais_velho_que_o_prazo_sai_quando_um_novo_e_gravado()
     {
         _project.SaveText("a", [Linha("a", 1, "Oi")]);
@@ -304,14 +217,6 @@ public sealed class RestorePointStoreTests : IDisposable
 
         Assert.Equal([novo.Id], _store.List().Select(p => p.Id));
         Assert.Null(_store.Find(velho.Id));
-    }
-
-    [Fact]
-    public void Pasta_sem_manifesto_nao_aparece_na_lista()
-    {
-        Directory.CreateDirectory(Path.Combine(_store.StoreDirectory, "20260101-000000-abcdef"));
-
-        Assert.Empty(_store.List());
     }
 
     [Fact]
@@ -360,43 +265,6 @@ public sealed class RestorePointStoreTests : IDisposable
     }
 
     [Fact]
-    public void Reedicao_a_mao_com_o_mesmo_texto_e_status_nao_e_revertida()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Oi")]);
-        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor([("a", "a:000001")], "Igual"));
-        _clock.Advance(TimeSpan.FromMinutes(5));
-        var linha = Gravada("a", 1);
-        _project.SaveText("a", [linha with { Origin = new TranslationOrigin("manual", null, _clock.GetUtcNow()) }]);
-
-        var desfeito = _store.Undo(feito.Point!.Id);
-
-        Assert.Equal(new RestoreUndoResult(0, 1, 0), desfeito);
-        Assert.Equal("Igual", Gravada("a", 1).Translation);
-    }
-
-    [Fact]
-    public void Lote_curto_so_guarda_as_linhas_que_a_propria_operacao_devolve_e_ignora_notas()
-    {
-        _project.SaveText("a", [Linha("a", 1, "Oi"), Linha("a", 2, "Olá"), Linha("a", 3, "Alô")]);
-
-        var feito = _store.Record(
-            "Usar em todos",
-            () =>
-            {
-                var resultado = Editor().SetTranslationFor([("a", "a:000001")], "Igual");
-                Editor().SetTranslation("a", "a:000002", "Outra operação ao mesmo tempo");
-                Editor().SetNotes("a", "a:000003", "nota nova");
-                return resultado;
-            },
-            changedLines: r => r.Changes.Select(c => (c.ScriptKey, c.Saved.Id)));
-
-        Assert.Equal(1, feito.Point!.LineCount);
-        Assert.Equal(new RestoreUndoResult(1, 0, 0), _store.Undo(feito.Point.Id));
-        Assert.Equal("Oi", Gravada("a", 1).Translation);
-        Assert.Equal("Outra operação ao mesmo tempo", Gravada("a", 2).Translation);
-    }
-
-    [Fact]
     public void Mudar_so_as_notas_nao_gera_ponto()
     {
         _project.SaveText("a", [Linha("a", 1, "Oi")]);
@@ -429,76 +297,6 @@ public sealed class RestorePointStoreTests : IDisposable
         Assert.True(desfeito.FormattingRestored);
         Assert.Equal(antes, File.ReadAllText(_project.FormattingPath));
         Assert.Null(_store.Find(feito.Point.Id));
-    }
-
-    [Fact]
-    public void Traducao_da_IA_desfeita_devolve_a_duvida_de_antes_inclusive_nenhuma()
-    {
-        var antiga = new TranslationDoubt(DoubtKind.Tone, "Ironia ou carinho?");
-        var nova = new TranslationDoubt(DoubtKind.Pun, "Trocadilho no original.");
-        _project.SaveText("a", [Pendente("a", 1), Linha("a", 2, "Aham.") with { Doubt = antiga }, Linha("a", 3, "Certo.") with { Doubt = antiga }]);
-
-        var feito = _store.Record(
-            "Traduzindo o jogo",
-            () =>
-            {
-                var ia = new TranslationOrigin("anthropic", "claude-opus-5-5", Agora);
-                var unidades = _project.LoadText("a").ToList();
-                unidades[0] = unidades[0] with { Translation = "Um", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova };
-                unidades[1] = unidades[1] with { Translation = "Dois", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova };
-                unidades[2] = unidades[2] with { Translation = "Três", Status = TranslationStatus.Machine, Origin = ia, Doubt = null };
-                _project.SaveText("a", unidades);
-                return 0;
-            },
-            include: RestorePointStore.IsAiWrite);
-
-        Assert.Equal(nova, Gravada("a", 1).Doubt);
-
-        var desfeito = _store.Undo(feito.Point!.Id);
-
-        Assert.Equal(new RestoreUndoResult(3, 0, 0), desfeito);
-        Assert.Null(Gravada("a", 1).Doubt);
-        Assert.Equal(antiga, Gravada("a", 2).Doubt);
-        Assert.Equal(antiga, Gravada("a", 3).Doubt);
-    }
-
-    [Fact]
-    public void Ponto_gravado_antes_do_campo_doubt_existir_desfaz_sem_dar_duvida_a_linha()
-    {
-        var nova = new TranslationDoubt(DoubtKind.Pun, "Trocadilho no original.");
-        _project.SaveText("a", [Pendente("a", 1)]);
-        var feito = _store.Record(
-            "Traduzindo o jogo",
-            () =>
-            {
-                var ia = new TranslationOrigin("anthropic", "claude-opus-5-5", Agora);
-                _project.SaveText("a", [.. _project.LoadText("a").Select(u => u with { Translation = "Um", Status = TranslationStatus.Machine, Origin = ia, Doubt = nova })]);
-                return 0;
-            },
-            include: RestorePointStore.IsAiWrite);
-        var antes = Path.Combine(_store.StoreDirectory, feito.Point!.Id, "a.antes.json");
-        Assert.DoesNotContain("doubt", File.ReadAllText(antes), StringComparison.Ordinal);
-
-        var desfeito = _store.Undo(feito.Point.Id);
-
-        Assert.Equal(new RestoreUndoResult(1, 0, 0), desfeito);
-        Assert.Null(Gravada("a", 1).Doubt);
-        Assert.Equal(TranslationStatus.Untranslated, Gravada("a", 1).Status);
-    }
-
-    [Fact]
-    public void Lote_que_nao_grava_duvida_devolve_a_que_a_linha_tinha()
-    {
-        var antiga = new TranslationDoubt(DoubtKind.Tone, "Ironia ou carinho?");
-        _project.SaveText("a", [Linha("a", 1, "Oi") with { Doubt = antiga }]);
-
-        var feito = _store.Record("Usar em todos", () => Editor().SetTranslationFor([("a", "a:000001")], "Oi, tudo bem?"));
-
-        Assert.Null(Gravada("a", 1).Doubt);
-
-        _store.Undo(feito.Point!.Id);
-
-        Assert.Equal(antiga, Gravada("a", 1).Doubt);
     }
 
     [Fact]

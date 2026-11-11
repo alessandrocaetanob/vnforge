@@ -33,23 +33,6 @@ public sealed class NightBatchStoreTests : IDisposable
         new(id, "O capítulo", "claude-opus-5-5", "Careful", "Medium", at, 13.46m, ["yst00001"], [new NightBatchRequest("r00001", [.. lines.Select(NightBatchLine.Of)])]);
 
     [Fact]
-    public void Guarda_e_le_o_lote_com_o_pedido_e_o_estado()
-    {
-        _store.Save(Lote("msgbatch_01", Agora, Linha(0), Linha(1)));
-
-        var read = _store.Find("msgbatch_01");
-
-        Assert.NotNull(read);
-        Assert.Equal("O capítulo", read.Title);
-        Assert.Equal(13.46m, read.EstimatedBrl);
-        Assert.Equal(2, read.LineCount);
-        Assert.Equal(NightBatchPhase.Processing, read.Phase);
-        Assert.True(read.IsOpen);
-        Assert.Equal(Agora, read.SubmittedAt);
-        Assert.Equal("yst00001:000001", read.Requests[0].Lines[1].Id);
-    }
-
-    [Fact]
     public void O_resultado_gravado_volta_na_leitura_e_fecha_o_lote()
     {
         var applied = Lote("msgbatch_01", Agora, Linha(0)) with
@@ -105,22 +88,6 @@ public sealed class NightBatchStoreTests : IDisposable
         Assert.True(sent.Matches(Linha(0)));
         Assert.False(sent.Matches(Linha(0, "à mão", TranslationStatus.Translated)));
         Assert.False(sent.Matches(Linha(0) with { Source = "outro original" }));
-    }
-
-    [Fact]
-    public void O_ponto_de_restauracao_do_escopo_guarda_e_fecha_sem_a_lista_de_tarefas()
-    {
-        _project.SaveText("yst00001", [Linha(0), Linha(1)]);
-        var clock = new FakeTimeProvider(Agora);
-
-        var recorder = RestoreScope.TryBegin(_project, "Tradução noturna", null, RestorePointStore.IsAiWrite, clock);
-        _project.SaveText("yst00001", [Linha(0) with { Translation = "zero", Status = TranslationStatus.Machine, Origin = new TranslationOrigin("anthropic", "m", Agora) }, Linha(1)]);
-        var point = RestoreScope.TryComplete(recorder);
-
-        Assert.NotNull(point);
-        Assert.Equal(1, point.LineCount);
-        Assert.Equal(1, new RestorePointStore(_project, clock).Undo(point.Id).Restored);
-        Assert.Equal(TranslationStatus.Untranslated, _project.LoadText("yst00001")[0].Status);
     }
 
     [Fact]

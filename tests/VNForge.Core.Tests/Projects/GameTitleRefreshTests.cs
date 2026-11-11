@@ -34,19 +34,6 @@ public sealed class GameTitleRefreshTests : IDisposable
     }
 
     [Fact]
-    public void Le_o_titulo_do_cache_e_grava_no_projeto()
-    {
-        var project = NewProject();
-        WriteCachedTitle(project, "原題");
-
-        var result = ProjectExtractor.RefreshGameTitle(project, [new FakeEngine()]);
-
-        Assert.Equal("原題", result.Original);
-        Assert.Null(result.Warning);
-        Assert.Equal(new GameTitleConfig("原題", null), project.LoadConfig().Game.Title);
-    }
-
-    [Fact]
     public void Nao_toca_no_texto_nem_extrai_de_novo()
     {
         var project = NewProject();

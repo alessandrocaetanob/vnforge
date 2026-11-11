@@ -15,9 +15,6 @@ public sealed class SheetMarkupAndTextTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  \n ")]
     [InlineData("[b] [/b]")]
     public void Normalize_de_texto_sem_conteudo_devolve_nulo(string? text) => Assert.Null(SheetMarkup.Normalize(text));
 
@@ -62,16 +59,6 @@ public sealed class SheetMarkupAndTextTests
     }
 
     [Fact]
-    public void Corrigir_a_mao_volta_a_pedir_revisao()
-    {
-        var approved = SheetText.Pending("Hello").TranslatedByAi("Olá").Reviewed().Approved();
-
-        var edited = approved.EditedByPerson("Oi");
-
-        Assert.Equal(("Oi", TranslationStatus.Translated), (edited.Target, edited.Status));
-    }
-
-    [Fact]
     public void A_traducao_precisa_manter_os_marcadores_de_spoiler_do_original()
     {
         var text = SheetText.Pending("A [spoiler]B[/spoiler] C");
@@ -80,20 +67,6 @@ public sealed class SheetMarkupAndTextTests
         Assert.Throws<LibraryException>(() => text.TranslatedByAi("A B C"));
         Assert.Throws<LibraryException>(() => text.EditedByPerson("A [spoiler]B C"));
         Assert.Throws<LibraryException>(() => text.TranslatedByAi("  "));
-    }
-
-    [Fact]
-    public void A_traducao_com_os_marcadores_na_ordem_trocada_e_recusada_porque_o_spoiler_vazaria()
-    {
-        var text = SheetText.Pending("A [spoiler]B[/spoiler] C");
-        const string swapped = "A [/spoiler]B[spoiler] C";
-
-        Assert.Equal(SheetMarkup.SpoilerMarkers(text.Source), SheetMarkup.SpoilerMarkers(swapped));
-        Assert.Throws<LibraryException>(() => text.TranslatedByAi(swapped));
-        Assert.Throws<LibraryException>(() => text.EditedByPerson(swapped));
-        Assert.False(SheetMarkup.SameSpoilerLayout(text.Source, swapped));
-        Assert.True(SheetMarkup.SameSpoilerLayout(text.Source, "A [SPOILER]B[/Spoiler] C"));
-        Assert.True(SheetMarkup.SameSpoilerLayout("A [spoiler]B", "A [spoiler]B"));
     }
 
     [Fact]

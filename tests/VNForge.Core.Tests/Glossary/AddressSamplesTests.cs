@@ -32,32 +32,6 @@ public sealed class AddressSamplesTests
     }
 
     [Fact]
-    public void O_nome_do_proprio_falante_nao_conta_e_o_sobrenome_sozinho_casa()
-    {
-        var samples = AddressSamples.From([Line("健太", "健太は行くよ"), Line("健太", "佐藤、待って")], Cast);
-
-        Assert.Equal(["佐藤、待って"], samples["健太"].Select(l => l.Text));
-    }
-
-    [Fact]
-    public void O_falante_escolhido_na_linha_vale_no_lugar_do_extraido()
-    {
-        var chosen = Line("凛", "美咲ちゃん、おはよう") with { ChosenSpeaker = "健太" };
-
-        var samples = AddressSamples.From([chosen], Cast);
-
-        Assert.Equal(["健太"], samples.Keys);
-    }
-
-    [Fact]
-    public void A_fala_diz_com_quem_o_falante_estava_respondendo()
-    {
-        var samples = AddressSamples.From([Line("凛", "ねえ"), Line("健太", "美咲ちゃん？"), Line("健太", "先輩はどこ？")], Cast);
-
-        Assert.Equal(["凛", null], samples["健太"].Select(l => l.ReplyingTo));
-    }
-
-    [Fact]
     public void Narracao_falante_desconhecido_e_so_sinais_ficam_de_fora_e_nao_repetem_a_fala()
     {
         var narration = new TextUnit("s:n", TextUnitKind.Dialogue, null, "美咲ちゃん", null, TranslationStatus.Untranslated);

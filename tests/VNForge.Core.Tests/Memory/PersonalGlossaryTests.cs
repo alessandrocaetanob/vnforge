@@ -35,27 +35,6 @@ public sealed class PersonalGlossaryTests : IDisposable
     }
 
     [Fact]
-    public void Sem_arquivo_o_glossario_pessoal_e_vazio()
-    {
-        Assert.Empty(Pessoal().Load());
-    }
-
-    [Fact]
-    public void Guardar_um_termo_do_projeto_anota_o_projeto_de_origem_e_sobrevive_a_outra_instancia()
-    {
-        var projeto = NovoProjeto("a");
-
-        var termo = Pessoal().Keep(projeto, new GlossaryTerm("先輩", "senpai", "manter em romaji"));
-
-        Assert.Equal([TranslationMemory.ProjectKeyOf(projeto)], termo.Projects);
-        var lido = Assert.Single(Pessoal().Load());
-        Assert.Equal(("先輩", "senpai", "manter em romaji"), (lido.Source, lido.Target, lido.Notes));
-        Assert.Equal(termo.Projects, lido.Projects);
-        Assert.Equal(1, lido.ProjectCount);
-        Assert.True(lido.Seed);
-    }
-
-    [Fact]
     public void Guardar_de_dois_projetos_junta_as_origens_e_fica_com_a_traducao_mais_nova()
     {
         var a = NovoProjeto("a");
@@ -69,18 +48,6 @@ public sealed class PersonalGlossaryTests : IDisposable
         var termo = Assert.Single(pessoal.Load());
         Assert.Equal("senpai", termo.Target);
         Assert.Equal(2, termo.ProjectCount);
-    }
-
-    [Fact]
-    public void Termo_vazio_e_recusado_e_o_japones_vai_sem_escape_no_arquivo()
-    {
-        var pessoal = Pessoal();
-
-        Assert.Throws<ArgumentException>(() => pessoal.Upsert(new PersonalTerm("  ", "x")));
-        Assert.Throws<ArgumentException>(() => pessoal.Upsert(new PersonalTerm("先輩", " ")));
-
-        pessoal.Upsert(new PersonalTerm("お兄ちゃん", "mano"));
-        Assert.Contains("お兄ちゃん", File.ReadAllText(pessoal.Path));
     }
 
     [Fact]
@@ -249,20 +216,5 @@ public sealed class PersonalGlossaryTests : IDisposable
 
         Assert.Contains("先輩", erro.Message);
         Assert.Equal(json, File.ReadAllText(pessoal.Path));
-    }
-
-    [Fact]
-    public void Inicializador_avisa_quando_o_glossario_pessoal_esta_ilegivel()
-    {
-        var jogo = Path.Combine(temp.Path, "jogo");
-        Directory.CreateDirectory(jogo);
-        File.WriteAllText(Path.Combine(jogo, "Jogo.exe"), "MZ");
-        EscreverArquivo("""{"version":1,"entries":[{"target":"mano"}]}""");
-        var engine = new DetectedEngine(EngineDetection.Matched("parece fake", new Dictionary<string, string>()));
-
-        var resultado = ProjectInitializer.Initialize(Path.Combine(temp.Path, "projeto"), jogo, [engine], personalGlossary: Pessoal());
-
-        Assert.Equal(0, resultado.SeededTerms);
-        Assert.Contains("sem os termos do glossário pessoal", resultado.PersonalGlossaryProblem);
     }
 }

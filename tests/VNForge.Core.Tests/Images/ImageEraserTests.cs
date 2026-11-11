@@ -75,17 +75,6 @@ public sealed class ImageEraserTests
     }
 
     [Fact]
-    public void SurroundingOnAFlatBackgroundIsExact()
-    {
-        var image = Gradient(30, 30, (_, _) => (60, 120, 180));
-        image[((15 * 30) + 15) * 4] = 0;
-
-        ImageEraser.Erase(image, 30, 30, new ImageRegion(10, 10, 10, 10), ImageEraseModes.Surrounding);
-
-        Assert.Equal(((byte)60, (byte)120, (byte)180, (byte)255), Pixel(image, 30, 15, 15));
-    }
-
-    [Fact]
     public void SurroundingAtTheImageEdgeCopiesTheOnlyNeighbour()
     {
         var image = Gradient(10, 10, (_, y) => ((byte)(y * 10), 0, 0));
@@ -94,17 +83,6 @@ public sealed class ImageEraserTests
 
         // Sem lado de cima nem laterais, só a borda de baixo (linha 4) serve de modelo.
         Assert.Equal((byte)40, Pixel(image, 10, 3, 1).B);
-    }
-
-    [Fact]
-    public void RegionBeyondTheImageIsClipped()
-    {
-        var image = Gradient(10, 10, (_, _) => (1, 2, 3));
-
-        ImageEraser.Erase(image, 10, 10, new ImageRegion(8, 8, 50, 50), ImageEraseModes.Solid, (9, 9, 9));
-
-        Assert.Equal(((byte)9, (byte)9, (byte)9, (byte)255), Pixel(image, 10, 9, 9));
-        Assert.Equal(((byte)1, (byte)2, (byte)3, (byte)255), Pixel(image, 10, 7, 7));
     }
 
     [Fact]

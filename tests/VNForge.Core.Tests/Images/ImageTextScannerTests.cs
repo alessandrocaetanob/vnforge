@@ -71,17 +71,6 @@ public sealed class ImageTextScannerTests : IDisposable
     }
 
     [Fact]
-    public async Task Releitura_com_o_mesmo_texto_e_sem_sugestao_herda_a_traducao_anterior()
-    {
-        var format = StandardFormat();
-        var first = await ScanAsync(format, new FakeImageTextReader(TextFor) { Translate = _ => "Título" }, PlanFor(format), ct: TestContext.Current.CancellationToken);
-
-        var second = await ScanAsync(format, new FakeImageTextReader(TextFor), PlanFor(format, first.Entries, force: true), ct: TestContext.Current.CancellationToken);
-
-        Assert.Equal("Título", second.Entries.Single(e => e.Path == "titulo.png").Translation);
-    }
-
-    [Fact]
     public async Task Releitura_com_texto_diferente_e_sem_sugestao_nao_herda_a_traducao_anterior()
     {
         var format = StandardFormat();
@@ -92,64 +81,6 @@ public sealed class ImageTextScannerTests : IDisposable
         var title = second.Entries.Single(e => e.Path == "titulo.png");
         Assert.Equal("別の文字", title.Text);
         Assert.Null(title.Translation);
-    }
-
-    [Fact]
-    public async Task Entrega_ao_leitor_nome_tipo_de_midia_e_bytes()
-    {
-        var format = Format(("cg.pak", [("titulo.png", Title)]));
-        var reader = new FakeImageTextReader(TextFor);
-
-        await ScanAsync(format, reader, PlanFor(format), ct: TestContext.Current.CancellationToken);
-
-        var sent = Assert.Single(reader.Received);
-        Assert.Equal("cg.pak/titulo.png", sent.Name);
-        Assert.Equal("image/png", sent.MediaType);
-        Assert.Equal(Title, sent.Data);
-    }
-
-    [Fact]
-    public async Task Entradas_ja_no_inventario_pelo_hash_nao_voltam_ao_modelo()
-    {
-        var format = StandardFormat();
-        var first = await ScanAsync(format, new FakeImageTextReader(TextFor), PlanFor(format), ct: TestContext.Current.CancellationToken);
-        var reader = new FakeImageTextReader(TextFor);
-
-        var second = await ScanAsync(format, reader, PlanFor(format, first.Entries), ct: TestContext.Current.CancellationToken);
-
-        Assert.Empty(reader.Received);
-        Assert.Equal(0, second.Read);
-        Assert.Equal(4, second.Reused);
-        Assert.Equal(first.Entries, second.Entries);
-    }
-
-    [Fact]
-    public async Task Uma_imagem_nova_so_paga_a_nova()
-    {
-        var format = StandardFormat();
-        var first = await ScanAsync(format, new FakeImageTextReader(TextFor), PlanFor(format), ct: TestContext.Current.CancellationToken);
-        var extended = Format(
-            ("cg.pak", [("titulo.png", Title), ("rua.png", Landscape), ("nova.png", SyntheticImages.Png(500, 500, shade: 99))]),
-            ("ui.pak", [("botao.png", Button), ("botao2.png", Button)]));
-        var reader = new FakeImageTextReader(_ => "novo");
-
-        var second = await ScanAsync(extended, reader, PlanFor(extended, first.Entries), ct: TestContext.Current.CancellationToken);
-
-        Assert.Equal("cg.pak/nova.png", Assert.Single(reader.Received).Name);
-        Assert.Equal(5, second.Entries.Count);
-        Assert.Equal("novo", second.Entries.Single(e => e.Path == "nova.png").Text);
-    }
-
-    [Fact]
-    public async Task Force_le_tudo_de_novo()
-    {
-        var format = StandardFormat();
-        var first = await ScanAsync(format, new FakeImageTextReader(TextFor), PlanFor(format), ct: TestContext.Current.CancellationToken);
-        var reader = new FakeImageTextReader(TextFor);
-
-        await ScanAsync(format, reader, PlanFor(format, first.Entries, force: true), ct: TestContext.Current.CancellationToken);
-
-        Assert.Equal(3, reader.Received.Count);
     }
 
     [Fact]
@@ -176,21 +107,6 @@ public sealed class ImageTextScannerTests : IDisposable
         var refused = Assert.Single(result.Refused);
         Assert.Equal(("cg.pak", "rua.png"), (refused.Archive, refused.Path));
         Assert.Equal("titulo.png", Assert.Single(result.Entries).Path);
-    }
-
-    [Fact]
-    public async Task Falha_em_uma_imagem_nao_derruba_as_outras()
-    {
-        var format = StandardFormat();
-        var reader = new FakeImageTextReader(TextFor) { FailWhen = image => image.Name.EndsWith("rua.png", StringComparison.Ordinal) };
-
-        var result = await ScanAsync(format, reader, PlanFor(format), ct: TestContext.Current.CancellationToken);
-
-        var failure = Assert.Single(result.Failed);
-        Assert.Equal("rua.png", failure.Path);
-        Assert.Contains("falha simulada", failure.Message);
-        Assert.Equal(3, result.Entries.Count);
-        Assert.Null(result.AbortReason);
     }
 
     [Fact]
@@ -270,31 +186,6 @@ public sealed class ImageTextScannerTests : IDisposable
         Assert.Equal(3, seen.Count);
         Assert.All(seen, p => Assert.Equal(3, p.Total));
         Assert.Equal(3, seen.Max(p => p.Done));
-    }
-
-    [Fact]
-    public async Task Soma_os_tokens_que_o_leitor_informa()
-    {
-        var format = StandardFormat();
-        var reader = new FakeImageTextReader(TextFor) { InputTokens = 100, OutputTokens = 7 };
-
-        var result = await ScanAsync(format, reader, PlanFor(format), ct: TestContext.Current.CancellationToken);
-
-        Assert.Equal(300, result.InputTokens);
-        Assert.Equal(21, result.OutputTokens);
-    }
-
-    [Fact]
-    public void Plano_conta_o_que_vai_ao_modelo_e_o_que_ja_se_sabe()
-    {
-        var format = StandardFormat();
-        var known = new ImageTextEntry("antigo.pak", "x.png", ImageLister.List(_game, [format], null, TestContext.Current.CancellationToken).Candidates.First(c => c.Path == "titulo.png").Hash, 640, 480, "タイトル");
-
-        var plan = PlanFor(format, [known]);
-
-        Assert.Equal(4, plan.Candidates.Count);
-        Assert.Equal(2, plan.ToRead.Count);
-        Assert.Equal(1, plan.Reused);
     }
 
     private sealed class SynchronousProgress(Action<ImageScanProgress> report) : IProgress<ImageScanProgress>

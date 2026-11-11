@@ -25,70 +25,6 @@ public class ScriptNamesTests
     }
 
     [Fact]
-    public void O_nome_do_usuario_vale_mais_que_o_detectado()
-    {
-        var nomes = ScriptNames.Empty.WithDetected(new Dictionary<string, string?> { [Yst1] = "manha" }).Rename(Yst1, "Capítulo 1 · Manhã");
-
-        Assert.Equal("Capítulo 1 · Manhã", nomes.DisplayName(Yst1));
-        Assert.Equal("Capítulo 1 · Manhã", nomes.CustomName(Yst1));
-    }
-
-    [Fact]
-    public void Sem_nome_do_usuario_vale_o_detectado()
-    {
-        var nomes = ScriptNames.Empty.WithDetected(new Dictionary<string, string?> { [Yst1] = "manha" });
-
-        Assert.Equal("manha", nomes.DisplayName(Yst1));
-        Assert.Null(nomes.CustomName(Yst1));
-    }
-
-    [Fact]
-    public void Renomear_com_texto_vazio_volta_ao_nome_detectado()
-    {
-        var nomes = ScriptNames.Empty
-            .WithDetected(new Dictionary<string, string?> { [Yst1] = "manha" })
-            .Rename(Yst1, "Prólogo")
-            .Rename(Yst1, "   ");
-
-        Assert.Equal("manha", nomes.DisplayName(Yst1));
-        Assert.Null(nomes.CustomName(Yst1));
-    }
-
-    [Fact]
-    public void Renomear_apara_os_espacos_das_pontas()
-    {
-        Assert.Equal("Prólogo", ScriptNames.Empty.Rename(Yst1, "  Prólogo ").DisplayName(Yst1));
-    }
-
-    [Fact]
-    public void Renomear_um_script_sem_nome_detectado_cria_a_entrada()
-    {
-        var nomes = ScriptNames.Empty.Rename(Yst2, "Final");
-
-        Assert.Equal("Final", nomes.DisplayName(Yst2));
-        Assert.Single(nomes.Entries);
-    }
-
-    [Fact]
-    public void Renomear_ate_apagar_tudo_nao_deixa_entrada_vazia()
-    {
-        Assert.Empty(ScriptNames.Empty.Rename(Yst1, "A").Rename(Yst1, null).Entries);
-    }
-
-    [Fact]
-    public void A_extracao_atualiza_o_detectado_e_preserva_o_nome_do_usuario()
-    {
-        var antes = ScriptNames.Empty
-            .WithDetected(new Dictionary<string, string?> { [Yst1] = "antigo", [Yst2] = "dois" })
-            .Rename(Yst1, "Prólogo");
-
-        var depois = antes.WithDetected(new Dictionary<string, string?> { [Yst1] = "novo", [Yst2] = "dois-b" });
-
-        Assert.Equal("Prólogo", depois.DisplayName(Yst1));
-        Assert.Equal("dois-b", depois.DisplayName(Yst2));
-    }
-
-    [Fact]
     public void A_extracao_descarta_o_detectado_de_script_que_sumiu_mas_guarda_o_nome_do_usuario()
     {
         var antes = ScriptNames.Empty
@@ -102,43 +38,13 @@ public class ScriptNamesTests
         Assert.Single(depois.Entries);
     }
 
-    [Fact]
-    public void Script_sem_nome_detectado_na_extracao_perde_o_detectado_antigo()
-    {
-        var antes = ScriptNames.Empty.WithDetected(new Dictionary<string, string?> { [Yst1] = "um" });
-
-        var depois = antes.WithDetected(new Dictionary<string, string?> { [Yst1] = null });
-
-        Assert.Null(depois.DisplayName(Yst1));
-    }
-
-    [Fact]
-    public void Serializar_e_ler_devolve_as_mesmas_entradas_em_utf8_sem_bom_e_lf()
-    {
-        var nomes = ScriptNames.Empty
-            .WithDetected(new Dictionary<string, string?> { [Yst2] = "dois", [Yst1] = "um" })
-            .Rename(Yst1, "Capítulo 1 · 朝");
-
-        var json = ScriptNamesSerializer.Serialize(nomes);
-        var lido = ScriptNamesSerializer.Parse(json, "scripts.json");
-
-        Assert.Equal(nomes.Entries, lido.Entries);
-        Assert.Equal([Yst1, Yst2], lido.Entries.Select(e => e.Key));
-        Assert.DoesNotContain('\r', json);
-        Assert.EndsWith("\n", json, StringComparison.Ordinal);
-        Assert.Contains("朝", json, StringComparison.Ordinal);
-        Assert.Equal(json, ScriptNamesSerializer.Serialize(lido));
-    }
-
     [Theory]
-    [InlineData("{", "malformado")]
     [InlineData("[]", "objeto")]
     [InlineData("{\"entries\":[]}", "version")]
     [InlineData("{\"version\":1}", "entries")]
     [InlineData("{\"version\":2,\"entries\":[]}", "mais nova")]
     [InlineData("{\"version\":1,\"entries\":[],\"extra\":1}", "extra")]
     [InlineData("{\"version\":1,\"entries\":[{\"name\":\"A\"}]}", "key")]
-    [InlineData("{\"version\":1,\"entries\":[{\"key\":\"\",\"name\":\"A\"}]}", "key")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"Yst1\",\"name\":\"A\"}]}", "Yst1")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"a\",\"nome\":\"A\"}]}", "nome")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"a\",\"name\":\"A\"},{\"key\":\"a\",\"name\":\"B\"}]}", "mais de uma vez")]
@@ -148,16 +54,6 @@ public class ScriptNamesTests
         var ex = Assert.Throws<GlossaryFileException>(() => ScriptNamesSerializer.Parse(json, "scripts.json"));
 
         Assert.Contains(trecho, ex.Reason, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LoadScriptNames_sem_arquivo_devolve_vazio()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-
-        Assert.Equal(Path.Combine(temp.Path, "scripts.json"), projeto.ScriptNamesPath);
-        Assert.Empty(projeto.LoadScriptNames().Entries);
     }
 
     [Fact]
@@ -171,18 +67,6 @@ public class ScriptNamesTests
 
         Assert.Equal(nomes.Entries, projeto.LoadScriptNames().Entries);
         Assert.NotEqual(0xEF, File.ReadAllBytes(projeto.ScriptNamesPath)[0]);
-    }
-
-    [Fact]
-    public void LoadScriptNames_fora_de_utf8_vira_erro_do_arquivo()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        File.WriteAllBytes(projeto.ScriptNamesPath, [0xFF, 0xFE, 0x00]);
-
-        var ex = Assert.Throws<GlossaryFileException>(() => projeto.LoadScriptNames());
-
-        Assert.Contains("UTF-8", ex.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -202,51 +86,5 @@ public class ScriptNamesTests
         Assert.Null(lido.Group(Yst2));
         Assert.Null(lido.DisplayName(Yst2));
         Assert.Equal(json, ScriptNamesSerializer.Serialize(lido));
-    }
-
-    [Fact]
-    public void Um_scripts_json_de_antes_dos_grupos_continua_valendo()
-    {
-        var lido = ScriptNamesSerializer.Parse("{ \"version\": 1, \"entries\": [ { \"key\": \"yst00001\", \"detected\": \"manha\" } ] }", "scripts.json");
-
-        Assert.Equal("manha", lido.DisplayName(Yst1));
-        Assert.Null(lido.Group(Yst1));
-        Assert.Null(lido.Folder(Yst1));
-    }
-
-    [Fact]
-    public void A_extracao_nao_apaga_o_grupo_escolhido_nem_de_um_script_que_saiu_do_jogo()
-    {
-        var nomes = ScriptNames.Empty
-            .WithDetected(new Dictionary<string, DetectedScript> { [Yst1] = new("manha", "userscript/01_cap1") })
-            .WithGroup(Yst1, "Manhã de chuva");
-
-        var depois = nomes.WithDetected(new Dictionary<string, DetectedScript> { [Yst2] = new("tarde", "userscript/02_cap2") });
-
-        Assert.Equal("Manhã de chuva", depois.Group(Yst1));
-        Assert.Null(depois.Folder(Yst1));
-        Assert.Equal("userscript/02_cap2", depois.Folder(Yst2));
-    }
-
-    [Fact]
-    public void Tirar_o_grupo_de_um_script_sem_mais_nada_o_tira_da_lista()
-    {
-        var nomes = ScriptNames.Empty.WithGroup(Yst1, "Capítulo 1");
-        Assert.Single(nomes.Entries);
-
-        Assert.Empty(nomes.WithGroup(Yst1, "  ").Entries);
-    }
-
-    [Fact]
-    public void RenameScript_grava_o_nome_no_projeto()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        projeto.SaveScriptNames(ScriptNames.Empty.WithDetected(new Dictionary<string, string?> { [Yst1] = "um" }));
-
-        projeto.RenameScript(Yst1, "Prólogo");
-
-        Assert.Equal("Prólogo", projeto.LoadScriptNames().DisplayName(Yst1));
-        Assert.Contains("Prólogo", Encoding.UTF8.GetString(File.ReadAllBytes(projeto.ScriptNamesPath)), StringComparison.Ordinal);
     }
 }

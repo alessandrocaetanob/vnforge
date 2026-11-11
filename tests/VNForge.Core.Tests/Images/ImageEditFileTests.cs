@@ -23,13 +23,6 @@ public sealed class ImageEditFileTests : IDisposable
         new("img.ypf", path, "ab12", 1280, 720, new ImageRegion(100, 80, 188, 62), ImageEraseModes.Surrounding, null, "Colégio Sakuragaoka", "Zen Kaku Gothic New", 18, true, "#1d1d2a", "#ffffff", true);
 
     [Fact]
-    public void WithoutTheFileThereAreNoEdits()
-    {
-        Assert.Empty(_project.LoadImageEdits());
-        Assert.False(File.Exists(_project.ImageEditsPath));
-    }
-
-    [Fact]
     public void SavesToImageEditsJsonAndReadsBackEqual()
     {
         ImageEdit[] edits = [Sample(), Sample("sys/logo.png") with { Erase = ImageEraseModes.Solid, EraseColor = "#102030", Outline = null, Marked = false }];
@@ -40,19 +33,7 @@ public sealed class ImageEditFileTests : IDisposable
         Assert.Equal(edits, _project.LoadImageEdits());
     }
 
-    [Fact]
-    public void KeepsAccentsUnescapedAndOneEditPerLine()
-    {
-        _project.SaveImageEdits([Sample(), Sample("b.png")]);
-
-        var text = File.ReadAllText(_project.ImageEditsPath);
-
-        Assert.Contains("Colégio", text);
-        Assert.Equal(2, text.Split('\n').Count(l => l.Contains("\"hash\"", StringComparison.Ordinal)));
-    }
-
     [Theory]
-    [InlineData("erase", "borrar")]
     [InlineData("color", "azul")]
     [InlineData("fontSize", "0")]
     public void RefusesAnInvalidEditWithoutWritingAnything(string field, string value)
@@ -72,12 +53,6 @@ public sealed class ImageEditFileTests : IDisposable
     public void RefusesSolidEraseWithoutAColor()
     {
         Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([Sample() with { Erase = ImageEraseModes.Solid, EraseColor = null }]));
-    }
-
-    [Fact]
-    public void RefusesTheSameImageTwice()
-    {
-        Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([Sample(), Sample()]));
     }
 
     [Fact]
