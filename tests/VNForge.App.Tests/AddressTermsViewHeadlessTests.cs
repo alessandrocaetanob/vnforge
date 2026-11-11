@@ -2,7 +2,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -28,7 +28,7 @@ public sealed class AddressTermsViewHeadlessTests(HeadlessFixture fixture) : ICl
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new Views.GlossaryView { DataContext = vm } };
                 window.Show();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 T Find<T>(string name) where T : Control =>
                     window.GetVisualDescendants().OfType<T>().Single(c => c.IsEffectivelyVisible && AutomationProperties.GetName(c) == name);

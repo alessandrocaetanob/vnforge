@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 
 namespace VNForge.App.Tests.Controls;
 
@@ -32,7 +32,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
         window.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://VNForge.App/")) { Source = new Uri("avares://VNForge.App/Themes/Controls/LineDetail.axaml") });
         window.Content = new StackPanel { Children = { content } };
         window.Show();
-        ScreenRenderer.Settle(window);
+        ScreenHost.Settle(window);
     }
 
     private static TextBlock Text(Control root, string text) =>
@@ -153,7 +153,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             Assert.Equal(Brush(window, "Vnf.TextSecondary"), ForegroundOf(button, "Pular"));
 
             Hover(button, true);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "Pular"));
             Assert.Equal(Brush(window, "Vnf.BgCardHover"), Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).Background).Color);
@@ -221,14 +221,14 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
 
             Show(window, button);
             Hover(button, true);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.Equal(Brush(window, "Vnf.TextPrimary"), ForegroundOf(button, "regra"));
             Assert.Equal(Brush(window, "Vnf.BgCardHover"), Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).Background).Color);
 
             Hover(button, false);
             button.IsEnabled = false;
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.Equal(Brush(window, "Vnf.TextTertiary"), ForegroundOf(button, "regra"));
             Assert.Equal(FontWeight.Normal, Text(button, "regra").FontWeight);
@@ -277,7 +277,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
                 ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(":pressed", true);
             }
 
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(Presenter(button).BorderBrush).Color);
         });
@@ -293,7 +293,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             var button = new Button { Content = "Desfazer", Classes = { "danger" } };
             Show(window, button);
             ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(state, true);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.True(window.TryFindResource("Vnf.SignalErrorFg", window.ActualThemeVariant, out var found));
             var expected = Assert.IsAssignableFrom<ISolidColorBrush>(found).Color;
@@ -367,7 +367,7 @@ public class ButtonStyleTests(HeadlessFixture fixture) : IClassFixture<HeadlessF
             Show(window, button);
             Hover(button, state == "hover");
             button.IsEnabled = state != "disabled";
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             var text = ForegroundOf(button, "M");
             Assert.Equal(text, Assert.IsAssignableFrom<ISolidColorBrush>(kbd.BorderBrush).Color);

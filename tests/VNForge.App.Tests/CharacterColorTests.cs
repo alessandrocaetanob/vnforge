@@ -6,7 +6,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
@@ -219,7 +219,7 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
             {
                 var window = new Window { Width = 1200, Height = 800, Content = new Views.GlossaryView { DataContext = vm } };
                 window.Show();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 var combos = window.GetVisualDescendants().OfType<ComboBox>().Where(c => Avalonia.Automation.AutomationProperties.GetName(c) == "Cor do personagem").ToList();
                 Assert.Equal(2, combos.Count);
@@ -285,7 +285,7 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
                 list.Children.Add(changed);
                 var window = new Window { Width = 900, Height = 300, Content = list, RequestedThemeVariant = ThemeVariant.Light };
                 window.Show();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 static SelectableTextBlock NameOf(LineRow row) => row.GetVisualDescendants().OfType<SelectableTextBlock>().Single(b => b.Name == "PART_Speaker");
 
@@ -294,7 +294,7 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
                 Assert.NotSame(teal.LightBrush, NameOf(changed).Foreground);
 
                 window.RequestedThemeVariant = ThemeVariant.Dark;
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
                 Assert.Same(teal.DarkBrush, NameOf(colored).Foreground);
 
                 colored.SpeakerColor = null;

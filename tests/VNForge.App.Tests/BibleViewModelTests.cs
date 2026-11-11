@@ -465,4 +465,36 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.Contains("### yst00002 · Volta", text, StringComparison.Ordinal);
         Assert.DoesNotContain('—', vm.Notice);
     }
+
+    [Theory]
+    [InlineData(false, false, "vazio", true, false)]
+    [InlineData(true, false, "", false, true)]
+    [InlineData(true, true, "Sua", false, false)]
+    [InlineData(false, true, "Sua", false, false)]
+    public void A_marca_da_cena_na_lista_diz_se_esta_vazia_se_tem_resumo_ou_se_foi_editada(bool temResumo, bool editada, string marca, bool mostraVazio, bool mostraVisto)
+    {
+        var linha = new BibleSceneRow("yst00001", 1, string.Empty, temResumo, editada);
+
+        Assert.Equal(marca, linha.Mark);
+        Assert.Equal(mostraVazio, linha.ShowEmptyMark);
+        Assert.Equal(mostraVisto, linha.ShowCheck);
+    }
+
+    [Fact]
+    public void Os_marcos_da_linha_do_tempo_dizem_se_ja_passaram_se_sao_o_atual_ou_se_vem_depois()
+    {
+        Assert.True(new BibleTimelineRow("Cap. 1", string.Empty, BibleTimelineState.Passed).IsPassed);
+        Assert.True(new BibleTimelineRow("Cap. 2", string.Empty, BibleTimelineState.Current).IsCurrent);
+        Assert.True(new BibleTimelineRow("Cap. 3", string.Empty).IsUpcoming);
+    }
+
+    [Fact]
+    public void Sem_projeto_o_painel_nao_tem_cena_nem_projeto_e_o_cabecalho_fica_vazio()
+    {
+        var vm = new BibleViewModel();
+
+        Assert.False(vm.HasProject);
+        Assert.False(vm.HasScene);
+        Assert.Equal(string.Empty, vm.SceneHeader);
+    }
 }

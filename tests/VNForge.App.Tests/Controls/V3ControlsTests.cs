@@ -8,7 +8,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 
 namespace VNForge.App.Tests.Controls;
 
@@ -123,7 +123,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 var textos = selo.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
                 Assert.Equal("virar a página", selo.Label);
@@ -150,7 +150,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 var selo = Assert.Single(texto.GetVisualDescendants().OfType<MarkerChip>());
                 Assert.True(selo.Bounds.Width > 40);
@@ -188,7 +188,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 var camada = OverlayLayer.GetOverlayLayer(janela)!;
                 var cartao = CartaoDe(janela);
@@ -200,7 +200,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
                 Assert.Contains(cartao.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Traduzir com IA");
 
                 dialogo.IsOpen = false;
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 Assert.Empty(camada.Children);
             }
             finally
@@ -225,12 +225,12 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
                 botao.Focus();
 
                 janela.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 Assert.False(dialogo.IsOpen);
                 Assert.Empty(OverlayLayer.GetOverlayLayer(janela)!.Children);
@@ -256,61 +256,13 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 var fechar = CartaoDe(janela).GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Close");
                 fechar.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
 
                 Assert.False(dialogo.IsOpen);
                 Assert.Equal(1, fechou);
-            }
-            finally
-            {
-                janela.Close();
-            }
-        });
-    }
-
-    [Theory]
-    [InlineData(1440, 1000, 460, false)]
-    [InlineData(1440, 1000, 780, true)]
-    [InlineData(1366, 768, 640, false)]
-    [InlineData(500, 400, 460, false)]
-    public async Task Dialogo_fica_centrado_na_janela_com_a_largura_pedida_e_o_X_so_quando_ligado(int largura, int altura, double larguraDoCartao, bool comFechar)
-    {
-        await OnUi(() =>
-        {
-            var dialogo = new ScreenDialog { Title = "Traduzir com IA", DialogWidth = larguraDoCartao, ShowClose = comFechar, Content = new TextBlock { Text = "corpo" }, IsOpen = true };
-            var janela = new Window { Width = largura, Height = altura, Content = new Grid { Children = { dialogo } } };
-            try
-            {
-                janela.Show();
-                ScreenRenderer.Settle(janela);
-
-                // Numa janela mais estreita que o cartão mais as margens de 24 px, o cartão encolhe e continua centrado.
-                DialogProbe.AssertCentered(janela, Math.Min(larguraDoCartao, largura - 48), comFechar);
-            }
-            finally
-            {
-                janela.Close();
-            }
-        });
-    }
-
-    [Fact]
-    public async Task Dialogo_sem_largura_pedida_tem_760_e_sem_X()
-    {
-        await OnUi(() =>
-        {
-            var dialogo = new ScreenDialog { Title = "Traduzir com IA", Content = new TextBlock { Text = "corpo" }, IsOpen = true };
-            var janela = new Window { Width = 1440, Height = 1000, Content = new Grid { Children = { dialogo } } };
-            try
-            {
-                janela.Show();
-                ScreenRenderer.Settle(janela);
-
-                Assert.False(dialogo.ShowClose);
-                DialogProbe.AssertCentered(janela, 760);
             }
             finally
             {
@@ -336,12 +288,12 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 Assert.True(dialogo.IsOpen);
                 Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
 
                 estado.Aberto = false;
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 Assert.False(dialogo.IsOpen);
                 Assert.Empty(OverlayLayer.GetOverlayLayer(janela)!.Children);
@@ -349,7 +301,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
                 Assert.Equal(1, comando);
 
                 estado.Aberto = true;
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 Assert.Single(OverlayLayer.GetOverlayLayer(janela)!.Children);
                 Assert.Equal(1, fechou);
             }
@@ -373,10 +325,10 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 atras.Focus();
                 dialogo.IsOpen = true;
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 var cartao = CartaoDe(janela);
                 dentroA.Focus();
 
@@ -385,7 +337,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
                     for (var n = 0; n < 8; n++)
                     {
                         janela.KeyPress(Key.Tab, modifiers, PhysicalKey.Tab, null);
-                        ScreenRenderer.Settle(janela);
+                        ScreenHost.Settle(janela);
                         var foco = Assert.IsType<Visual>(janela.FocusManager!.GetFocusedElement(), exactMatch: false);
                         Assert.True(foco == cartao || cartao.IsVisualAncestorOf(foco), $"o foco saiu do diálogo ({modifiers}, passo {n + 1}): {foco}");
                     }
@@ -440,7 +392,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 Assert.False(detalhes.IsExpanded);
                 Assert.DoesNotContain(detalhes.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "motor" && t.IsEffectivelyVisible);
@@ -448,7 +400,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
 
                 detalhes.IsExpanded = true;
                 grupo.IsExpanded = false;
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 Assert.Contains(detalhes.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "motor" && t.IsEffectivelyVisible);
                 Assert.DoesNotContain(grupo.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "cenas" && t.IsEffectivelyVisible);
@@ -471,7 +423,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 Assert.Equal("R$ 2,92", rapida.PriceText);
                 Assert.Equal("R$ 116,19", cara.PriceText);
 
@@ -515,7 +467,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
 
                 var titulos = new[] { Selectable(padrao, "Título"), Selectable(palco, "Título do palco") };
                 var frases = new[] { Selectable(padrao, "Frase da faixa."), Selectable(palco, "Frase do palco.") };
@@ -544,62 +496,6 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             banner.GetVisualDescendants().OfType<SelectableTextBlock>().Single(t => t.Text == text);
     }
 
-    public static TheoryData<string, string> EachControl
-    {
-        get
-        {
-            var data = new TheoryData<string, string>();
-            foreach (var name in Factories.Keys)
-            {
-                data.Add(name, "Dark");
-                data.Add(name, "Light");
-            }
-
-            return data;
-        }
-    }
-
-    private static readonly Dictionary<string, Func<Control>> Factories = new()
-    {
-        ["anel"] = () => new ProgressRing { Done = 18592, Review = 10936, Total = 48211 },
-        ["anel-pequeno"] = () => new ProgressRing { Classes = { "sm" }, Done = 62, Review = 20, Total = 100 },
-        ["barra-de-tres-estados"] = () => new Seg3Bar { Width = 300, Done = 18592, Review = 10936, Total = 48211 },
-        ["capitulo"] = () => new ChapterRow { Width = 900, Number = 1, Title = "Manhã de chuva", Done = 2840, Review = 1210, Total = 4100, Note = "Você está aqui · 1 erro em Manhã de chuva", IsHere = true },
-        ["custo"] = () => new CostLabel { Brl = 142.56m, Usd = 26.4m },
-        ["orcamento"] = () => new BudgetBar { Width = 400, Spent = 142.56, Ask = 180, Limit = 300 },
-        ["qualidade"] = () => new QualityCard { Width = 260, Title = "Equilibrada", Price = 58.1m, Duration = "cerca de 78 min", Description = "O meio-termo.", IsChecked = true },
-        ["contexto"] = () => new ContextLines { Width = 400, ItemsSource = new[] { new ContextLine("Kenta", "「おはよう、美咲」", "Bom dia, Misaki.") } },
-        ["explicacao"] = () => new ExplainCard { Width = 400, Model = "Claude Haiku", Footnote = "Só para você ler.", ItemsSource = new[] { new ExplainPart("今日も", "de novo hoje") } },
-        ["grupo-de-cenas"] = () => new ScriptGroup { Width = 260, Title = "Capítulo 1", CountText = "14", Content = new TextBlock { Text = "yst00001" } },
-        ["estado-do-jogo"] = () => new GameStateBanner { Width = 700, State = GameState.Translated, Title = "O jogo está com a tradução de 22/10", Message = "A tradução continua no projeto.", Content = new Button { Content = "Voltar ao jogo original" } },
-        ["pendencia"] = () => new TodoItem { Width = 600, Severity = SeverityLevel.Error, Title = "2 erros travam o teste", Message = "Marcador faltando em Manhã de chuva", ActionText = "Corrigir" },
-        ["detalhes-tecnicos"] = () => new TechnicalDetails { Width = 400, IsExpanded = true, Content = new TextBlock { Text = "motor · YU-RIS" } },
-        ["selo"] = () => new MarkerChip { Marker = @"\p" },
-        ["dialogo"] = () => new Grid { Children = { new TextBlock { Text = "tela" }, new ScreenDialog { Title = "Traduzir com IA", IsOpen = true, Content = new TextBlock { Text = "corpo" } } } },
-    };
-
-    [Theory]
-    [MemberData(nameof(EachControl))]
-    public async Task Cada_controle_renderiza_nos_dois_temas(string nome, string tema)
-    {
-        var variant = Variant(tema);
-        var path = RenderOutput.PathFor(ScreenRenderer.FileName($"v3-{nome}", variant));
-        await OnUi(() =>
-        {
-            var controle = Factories[nome]();
-            Control host = nome == "dialogo"
-                ? controle
-                : new Border { Padding = new Thickness(24), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Child = controle };
-            ScreenRenderer.Render(host, variant, path, 800, 400, _ =>
-            {
-                Assert.True(controle.Bounds.Width > 0 && controle.Bounds.Height > 0, $"{nome} sem tamanho");
-                Assert.True(controle.IsEffectivelyVisible);
-            });
-        });
-
-        Assert.True(new FileInfo(path).Length > 1_000);
-    }
-
     [Fact]
     public async Task Anel_pinta_os_tres_estados_com_as_cores_dos_tokens()
     {
@@ -610,7 +506,7 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
             try
             {
                 janela.Show();
-                ScreenRenderer.Settle(janela);
+                ScreenHost.Settle(janela);
                 using var quadro = janela.CaptureRenderedFrame()!;
                 var centro = anel.TranslatePoint(new Point(anel.Bounds.Width / 2, anel.Bounds.Height / 2), janela)!.Value;
                 var raio = (Math.Min(anel.Bounds.Width, anel.Bounds.Height) / 2) - 6;

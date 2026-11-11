@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 
 namespace VNForge.App.Tests;
 
@@ -36,19 +36,19 @@ public sealed class TextBoxThemeHeadlessTests(HeadlessFixture fixture) : IClassF
                 var outro = new TextBox { Text = "x", Width = 240 };
                 var window = new Window { Width = 400, Height = 200, RequestedThemeVariant = tema, Content = new StackPanel { Children = { box, outro } } };
                 window.Show();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
                 try
                 {
                     var normal = Medir(box);
                     Assert.Equal((Hex(fundo), Hex(texto), Hex(borda), Hex(dica)), normal);
 
                     ((IPseudoClasses)box.Classes).Set(":pointerover", true);
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     Assert.Equal((Hex(fundo), Hex(texto), Hex(borda), Hex(dica)), Medir(box));
                     ((IPseudoClasses)box.Classes).Set(":pointerover", false);
 
                     box.Focus();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     Assert.True(box.IsFocused);
                     var foco = Medir(box);
                     Assert.Equal((Hex(fundo), Hex(texto), Hex(dica)), (foco.Fundo, foco.Texto, foco.Dica));
@@ -58,7 +58,7 @@ public sealed class TextBoxThemeHeadlessTests(HeadlessFixture fixture) : IClassF
                     outro.Focus();
 
                     box.IsEnabled = false;
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     Assert.Equal((Hex(fundo), Hex(dica), Hex(bordaDesativada), Hex(dica)), Medir(box));
                 }
                 finally

@@ -69,6 +69,10 @@ public class CharacterSheetTests
         Assert.Equal("animada, fala com educação", sheet.ToneText);
         Assert.Same(CharacterPalette.Find("violet"), sheet.Color);
         Assert.Equal("7 falas", sheet.UsesText);
+        Assert.False(sheet.NameIsJapanese);
+        Assert.True(sheet.ShowsSourceName);
+        Assert.Equal(string.Empty, sheet.Subtitle);
+        Assert.False(sheet.HasSubtitle);
         Assert.Equal(
             ["それはどういう意味ですか", "今日もいい天気ですね", "なるほど、そうですか", "おはようございます", "ありがとう"],
             sheet.Lines.Select(l => l.Source));
@@ -211,11 +215,13 @@ public class CharacterSheetTests
         Assert.Equal(["いいえ", "はい"], vm.Sheet.Lines.Select(l => l.Source));
         Assert.Equal(2, vm.Sheet.AwaitingReview);
 
-        vm.Characters.Add(new CharacterRow("A子", "Ako"));
+        vm.Characters.Add(new CharacterRow("A子", "Ako", description: "Colega de turma.\nSempre atrasada."));
         await OpenSheetAsync(vm, "A子");
 
         Assert.Equal("2 falas", vm.Sheet!.UsesText);
         Assert.Equal(["長い長い長い台詞", "短い"], vm.Sheet.Lines.Select(l => l.Source));
+        Assert.Equal("Colega de turma. Sempre atrasada.", vm.Sheet.Subtitle);
+        Assert.True(vm.Sheet.HasSubtitle);
     }
 
     [Fact]
@@ -229,6 +235,7 @@ public class CharacterSheetTests
         row.Source = "健太";
 
         Assert.Equal(["遅いぞ"], vm.Sheet!.Lines.Select(l => l.Source));
+        Assert.Equal("1 fala", vm.Sheet.UsesText);
         Assert.Equal(0, vm.Sheet.AwaitingReview);
         Assert.False(vm.Sheet.ReviewCommand.CanExecute(null));
 
@@ -257,6 +264,9 @@ public class CharacterSheetTests
         Assert.Equal(["GenderLabel", "ToneText", "Name", "NameIsJapanese", "ShowsSourceName"], changed);
         Assert.Same(lines, vm.Sheet.Lines);
         Assert.Equal(("Outro", "séria", "Misa"), (vm.Sheet.GenderLabel, vm.Sheet.ToneText, vm.Sheet.Name));
+
+        row.Target = string.Empty;
+        Assert.True(vm.Sheet.NameIsJapanese);
     }
 
     [Fact]

@@ -80,7 +80,9 @@ public class TaskEntriesTests
         await Fails("Injetar no jogo", Test).Completion;
         await Done("Aplicar patch no executável", Test);
 
-        Assert.Equal(BackgroundTaskState.Failed, Assert.Single(bar.Entries).State);
+        var entry = Assert.Single(bar.Entries);
+        Assert.Equal(BackgroundTaskState.Failed, entry.State);
+        Assert.True(entry.IsFailed);
     }
 
     [Fact]
@@ -186,6 +188,18 @@ public class TaskEntriesTests
         Assert.True(bar.Entries[0].IsRunning);
         Assert.Equal("14:32 · Build de Jogo", bar.Entries[0].Subtitle);
 
+        // Uma etapa avulsa em andamento não é lote: não tem detalhe, barra nem ação de lote, e o desfazer é o comum.
+        var running = bar.Entries[0];
+        Assert.False(running.HasDetail);
+        Assert.Equal(string.Empty, running.Detail);
+        Assert.False(running.ShowsProgress);
+        Assert.False(running.CanCheckNow);
+        Assert.False(running.CanCancelBatch);
+        Assert.False(running.HasBatchActions);
+        Assert.Equal("Desfazer", running.UndoLabel);
+        Assert.Equal(0, running.Percent);
+        Assert.NotNull(running.CancelBatchCommand);
+
         gate.SetResult();
         await step.Completion;
         Assert.Equal("Concluída", bar.Entries[0].StateText);
@@ -288,5 +302,37 @@ public class TaskEntriesTests
         Assert.False(bar.ShowsNightBatch);
         Assert.False(bar.HasBatch);
         Assert.Equal("Tarefas (2)", bar.TasksLabel);
+    }
+
+    [Fact]
+    public async Task Um_lote_em_andamento_mostra_o_detalhe_a_barra_e_as_acoes_do_lote_e_depois_a_mensagem()
+    {
+        var gate = new TaskCompletionSource();
+        var batch = service.Start("Lote noturno", (_, _) => gate.Task);
+        batch.IsBatch = true;
+        batch.Detail = "12 de 40 linhas";
+        batch.Progress = 0.3;
+        batch.CheckNowCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(() => { });
+        var entry = Assert.Single(bar.Entries);
+
+        Assert.True(entry.IsBatch);
+        Assert.True(entry.ShowsProgress);
+        Assert.Equal("12 de 40 linhas", entry.Detail);
+        Assert.True(entry.HasDetail);
+        Assert.Equal(30, entry.Percent, 3);
+        Assert.Same(batch.CheckNowCommand, entry.CheckNowCommand);
+        Assert.True(entry.CanCheckNow);
+        Assert.True(entry.CanCancelBatch);
+        Assert.True(entry.HasBatchActions);
+        Assert.Equal("Desfazer lote", entry.UndoLabel);
+        Assert.Same(batch.CancelCommand, entry.CancelBatchCommand);
+
+        batch.Message = "Lote pronto: 40 linhas.";
+        Assert.Equal("Lote pronto: 40 linhas.", entry.Subtitle);
+        gate.SetResult();
+        await batch.Completion;
+
+        Assert.False(entry.CanCheckNow);
+        Assert.False(entry.ShowsProgress);
     }
 }

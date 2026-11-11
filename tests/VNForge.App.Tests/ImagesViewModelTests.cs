@@ -238,6 +238,41 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task TheStateTextFollowsTheEditAndTheChipsReadTheirCountAsText()
+    {
+        var vm = Open();
+        var withText = vm.Items.Single(i => i.Path == Gate);
+        var empty = vm.Items.Single(i => i.Path == "bg/rua.png");
+        Assert.Equal("Com japonês, sem tradução", withText.StateText);
+        Assert.Equal("Sem texto", empty.StateText);
+        Assert.Equal("4", vm.Chips[0].CountLabel);
+
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        await vm.MarkCommand.ExecuteAsync(null);
+        Assert.Equal("Editada e marcada para o build", withText.StateText);
+
+        await vm.UnmarkCommand.ExecuteAsync(null);
+        Assert.Equal("Editada, ainda fora do build", withText.StateText);
+    }
+
+    [Theory]
+    [InlineData("24", 24)]
+    [InlineData("18 px", 18)]
+    [InlineData("12.5PX", 12.5)]
+    public async Task TheFontSizeFieldAcceptsTheNumberWithOrWithoutPxAndKeepsTheValueOtherwise(string typed, double expected)
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+
+        vm.FontSizeText = typed;
+        Assert.Equal(expected, vm.FontSize);
+
+        vm.FontSizeText = "grande";
+        Assert.Equal(expected, vm.FontSize);
+    }
+
+    [Fact]
     public async Task ReopeningTheProjectBringsTheSavedEditBack()
     {
         var first = Open();

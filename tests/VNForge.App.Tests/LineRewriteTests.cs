@@ -133,6 +133,19 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_sugestor_o_chip_nao_pode_ser_executado_e_executar_mesmo_assim_nao_faz_nada()
+    {
+        using var vm = Abrir(null);
+        var chip = Chip(vm, RewriteDirection.MoreNatural);
+
+        Assert.False(chip.Command.CanExecute(null));
+        await chip.Command.ExecuteAsync(null);
+
+        Assert.Empty(vm.RewriteOptions);
+        Assert.False(vm.ShowRewriteResult);
+    }
+
+    [Fact]
     public async Task Usar_a_versao_troca_a_traducao_e_limpa_as_opcoes()
     {
         var provedor = new ProvedorDeReescrita(_ => [@"Oi.\p", @"E aí.\p"]);

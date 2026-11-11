@@ -178,6 +178,46 @@ public class StartViewModelTests
         await outro.LoadAsync();
         Assert.Empty(outro.Recents);
     }
+
+    [Fact]
+    public async Task Comandos_do_detalhe_sem_projeto_selecionado_nao_abrem_nada_e_nao_avisam_ninguem()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        await vm.LoadAsync();
+        var avisos = 0;
+        vm.DashboardRequested += (_, _) => avisos++;
+        vm.NextStepRequested += (_, _) => avisos++;
+        vm.EditorRequested += (_, _) => avisos++;
+
+        await vm.OpenSelectedCommand.ExecuteAsync(null);
+        await vm.OpenNextStepCommand.ExecuteAsync(null);
+        await vm.OpenRecentCommand.ExecuteAsync(null);
+        vm.OpenSelectedInEditorCommand.Execute(null);
+
+        Assert.Equal(0, avisos);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Com_um_projeto_selecionado_e_ninguem_ouvindo_os_comandos_de_abrir_funcionam_do_mesmo_jeito()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Machine, TranslationStatus.Untranslated);
+        var vm = Create(temp, pickerAnswer: root);
+        await vm.LoadAsync();
+        await vm.OpenFolderCommand.ExecuteAsync(null);
+        var item = Assert.Single(vm.Recents);
+
+        await vm.OpenSelectedCommand.ExecuteAsync(null);
+        await vm.OpenRecentCommand.ExecuteAsync(item);
+        await vm.OpenNextStepCommand.ExecuteAsync(null);
+        vm.OpenSelectedInEditorCommand.Execute(null);
+        vm.NewProjectCommand.Execute(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal(item.Path, vm.Selected!.Path);
+    }
 }
 
 public class StartViewModelFalhasTests
