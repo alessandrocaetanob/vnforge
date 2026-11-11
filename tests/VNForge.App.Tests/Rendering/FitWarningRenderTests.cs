@@ -76,7 +76,8 @@ public sealed class FitWarningRenderTests(HeadlessFixture fixture) : IClassFixtu
                 }
             },
             TestContext.Current.CancellationToken);
-        ConferirCorte(aviso, 90);
+        // 92 px medidos com a caixa do Original de 84 px do quadro (#580), 14 a mais que antes; o inspetor rola até o aviso.
+        ConferirCorte(aviso, 94);
     }
 
     [Theory]

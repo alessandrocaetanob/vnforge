@@ -149,12 +149,14 @@ public class VndbClientTests
         Assert.Contains("traits.sexual", fields);
         Assert.Contains("image.url", fields);
         Assert.Contains("gender", fields);
+        Assert.Contains("age", fields);
 
         var character = Assert.Single(found);
         Assert.Equal("c900001", character.Id);
         Assert.Equal("Hoshino Ami", character.Name);
         Assert.Equal("星野 亜美", character.Original);
         Assert.Equal(new VndbGender("f", "m"), character.Gender);
+        Assert.Equal(17, character.Age);
         Assert.Equal(new VndbImage("https://t.vndb.org/ch/00/1.jpg", null, 256, 300, 0, 0), character.Image);
         Assert.Equal(
             [new VndbCharacterAppearance("v900001", "main", 0, null), new VndbCharacterAppearance("v900002", "side", 1, "r900010")],

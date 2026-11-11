@@ -74,9 +74,19 @@ public sealed partial class LineDetailViewModel
     public string EditorSuggestionReason => editorSuggestion?.Reason ?? string.Empty;
 
     /// <summary>O motivo no Modo revisão, com a promessa que o quadro faz logo depois dele: nada muda até a pessoa aceitar.</summary>
-    public string EditorSuggestionReviewReason => editorSuggestion is null
-        ? string.Empty
-        : EditorSuggestionReason.Length == 0 ? "Nada muda até você aceitar." : $"{EditorSuggestionReason} Nada muda até você aceitar.";
+    public string EditorSuggestionReviewReason
+    {
+        get
+        {
+            if (editorSuggestion is null)
+            {
+                return string.Empty;
+            }
+
+            const string promise = "Nada muda até você aceitar.";
+            return EditorSuggestionReason.Length == 0 ? promise : $"{EditorSuggestionReason} {promise}";
+        }
+    }
 
     /// <summary>
     /// O aviso do Modo revisão quando a tradução de hoje passa da caixa do jogo e há uma sugestão para ela: quantas linhas passam, quantas a caixa tem e quantos
@@ -93,7 +103,13 @@ public sealed partial class LineDetailViewModel
 
             var saved = LineText.Length(editorSuggestion!.Base) - LineText.Length(editorSuggestion.Proposed);
             var head = $"Passa {LinesOf(OverflowLines)}: a caixa tem {LinesOf(capacity)}.";
-            return saved > 0 ? $"{head} A sugestão economiza {(saved == 1 ? "1 caractere" : $"{ProjectLabels.Number(saved)} caracteres")}." : head;
+            if (saved <= 0)
+            {
+                return head;
+            }
+
+            var characters = saved == 1 ? "1 caractere" : $"{ProjectLabels.Number(saved)} caracteres";
+            return $"{head} A sugestão economiza {characters}.";
         }
     }
 
@@ -212,6 +228,7 @@ public sealed partial class LineDetailViewModel
     {
         OnPropertyChanged(nameof(HasEditorSuggestion));
         OnPropertyChanged(nameof(IsCompactInspector));
+        OnPropertyChanged(nameof(ShowExplainBlock));
         OnPropertyChanged(nameof(UsesSceneToggle));
         OnPropertyChanged(nameof(IsSceneCollapsed));
         OnPropertyChanged(nameof(TranslationMinHeight));

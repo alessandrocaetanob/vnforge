@@ -30,7 +30,8 @@
                    Width="8" Height="8" Fill="{DynamicResource Vnf.TextSecondary}"
                    ToolTip.Tip="Há avisos abertos; nenhum é erro."/>
         </Panel>
-        <TextBlock Classes="caption" Text="{Binding Label}" HorizontalAlignment="Center"/>
+        <!-- A margem negativa dá ao rótulo mais largura que o item de 64 px: "Personagens" passa disso e o quadro o deixa vazar do fundo do item. -->
+        <TextBlock Classes="caption" Text="{Binding Label}" HorizontalAlignment="Center" Margin="-6,0"/>
       </StackPanel>
     </DataTemplate>
   </Window.Resources>

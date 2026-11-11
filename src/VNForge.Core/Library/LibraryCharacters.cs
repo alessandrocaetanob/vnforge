@@ -27,7 +27,8 @@ public sealed record LibraryCharacterCard(
     IReadOnlyList<SheetTraitCard> Traits,
     int HiddenTraits,
     IReadOnlyList<LibraryCharacterAppearance> AppearsIn,
-    int HiddenAppearances);
+    int HiddenAppearances,
+    int? Age = null);
 
 /// <summary>
 /// Os personagens que a privacidade deixa ver; <paramref name="Hidden"/> conta os que só aparecem em jogos acima do nível de spoiler liberado e casam com o filtro de traço
@@ -186,7 +187,8 @@ public static class LibraryCharacters
             traits,
             character.Traits.Count - traits.Count,
             visible,
-            hiddenAppearances);
+            hiddenAppearances,
+            character.Age);
     }
 
     private sealed record Query(string? Text, IReadOnlyList<string> Traits, bool AnyTrait, string? GameId)

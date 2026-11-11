@@ -193,7 +193,11 @@ public sealed class GlossaryV3RenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.All(tabs, t => Assert.Equal(15, t.FontSize));
         var count = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("count") && t.IsEffectivelyVisible);
         Assert.Equal(Brush(window, "Vnf.TextSecondary", theme), ((ISolidColorBrush)count.Foreground!).Color);
-        Assert.Equal(11, count.FontSize);
+        // A contagem tem o corpo e a altura de linha do texto da aba: assim as duas linhas de base coincidem.
+        Assert.Equal(15, count.FontSize);
+        var label = ((StackPanel)count.Parent!).Children.OfType<TextBlock>().First();
+        Assert.Equal(label.Bounds.Height, count.Bounds.Height, 0.5);
+        Assert.Equal(label.Bounds.Y, count.Bounds.Y, 0.5);
     }
 
     [Theory]

@@ -102,7 +102,17 @@ public sealed partial class MainWindowViewModel
                 return $"Biblioteca › {ProjectTitle}";
             }
 
-            return inSettings ? "Ajustes" : "Biblioteca";
+            if (inSettings)
+            {
+                return "Ajustes";
+            }
+
+            if (selectedNav?.Key == NavKey.Characters)
+            {
+                return Characters.OpenName is { } name ? $"Personagens › {name}" : "Personagens";
+            }
+
+            return "Biblioteca";
         }
     }
 
@@ -113,7 +123,7 @@ public sealed partial class MainWindowViewModel
     public Task DashboardRefresh { get; private set; } = Task.CompletedTask;
 
     /// <summary>Há um jogo aberto antes e a página de agora é a Biblioteca ou os Ajustes: o botão da barra de título volta a ele.</summary>
-    public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Settings;
+    public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Characters or NavKey.Settings;
 
     /// <summary>Verde quando o jogo está completo, neutro quando nada foi feito, azul no meio.</summary>
     public bool GameProgressDone => GameProgress.Percent(ReadyLines, TotalLines) >= 100;

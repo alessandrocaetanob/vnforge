@@ -48,11 +48,13 @@
       <Setter Property="Margin" Value="0"/>
       <Setter Property="CornerRadius" Value="0"/>
     </Style>
+    <!-- A contagem tem a fonte, o corpo e o peso do rótulo da aba (15/700, a altura de linha da própria fonte): no mesmo corpo as duas linhas de base coincidem; a 11 px ela ficava pequena e elevada. -->
     <Style Selector="TextBlock.count">
-      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
-      <Setter Property="FontSize" Value="11"/>
-      <Setter Property="LineHeight" Value="16"/>
+      <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+      <Setter Property="FontSize" Value="15"/>
       <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="LineHeight" Value="NaN"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <!-- Cabeçalho de coluna do quadro (x-gh): 12/600 em text-secondary, sem caixa alta. -->

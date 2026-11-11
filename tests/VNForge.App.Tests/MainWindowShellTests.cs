@@ -120,7 +120,7 @@ public sealed class MainWindowShellTests
         using var temp = new TempFolder();
         var vm = Create(temp, temp.SubFolder("vn"));
 
-        Assert.Equal(["Biblioteca"], vm.TopNav.Select(n => n.Label));
+        Assert.Equal(["Biblioteca", "Personagens"], vm.TopNav.Select(n => n.Label));
         Assert.Equal(["Ajustes"], vm.BottomNav.Select(n => n.Label));
         Assert.Same(vm.TopNav[0], vm.SelectedTopNav);
     }
