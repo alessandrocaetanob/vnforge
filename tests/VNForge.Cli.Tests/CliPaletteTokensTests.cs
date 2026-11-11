@@ -5,33 +5,39 @@ namespace VNForge.Cli.Tests;
 /// <summary>A paleta da CLI repete à mão os tokens do tema escuro do design system: o teste confere cada cor com o tokens.json para a deriva não passar de novo.</summary>
 public class CliPaletteTokensTests
 {
-    public static TheoryData<string, string> Mapping => new()
-    {
-        { nameof(CliPalette.Approved), "seg-approved" },
-        { nameof(CliPalette.Reviewed), "seg-reviewed" },
-        { nameof(CliPalette.Translated), "seg-translated" },
-        { nameof(CliPalette.Ai), "seg-ai" },
-        { nameof(CliPalette.Pending), "seg-pending" },
-        { nameof(CliPalette.Warning), "signal-warning-fg" },
-        { nameof(CliPalette.Error), "signal-error-fg" },
-        { nameof(CliPalette.Accent), "accent" },
-        { nameof(CliPalette.TextboxBackground), "textbox-bg" },
-        { nameof(CliPalette.TextboxInk), "textbox-ink" },
-        { nameof(CliPalette.TextboxOverflow), "textbox-overflow" },
-        { nameof(CliPalette.TextboxPlate), "textbox-plate" },
-    };
+    private static readonly (string Color, string Token)[] Mapping =
+    [
+        (nameof(CliPalette.Approved), "seg-approved"),
+        (nameof(CliPalette.Reviewed), "seg-reviewed"),
+        (nameof(CliPalette.Translated), "seg-translated"),
+        (nameof(CliPalette.Ai), "seg-ai"),
+        (nameof(CliPalette.Pending), "seg-pending"),
+        (nameof(CliPalette.Warning), "signal-warning-fg"),
+        (nameof(CliPalette.Error), "signal-error-fg"),
+        (nameof(CliPalette.Accent), "accent"),
+        (nameof(CliPalette.TextboxBackground), "textbox-bg"),
+        (nameof(CliPalette.TextboxInk), "textbox-ink"),
+        (nameof(CliPalette.TextboxOverflow), "textbox-overflow"),
+        (nameof(CliPalette.TextboxPlate), "textbox-plate"),
+    ];
 
-    [Theory]
-    [MemberData(nameof(Mapping))]
-    public void Cor_da_paleta_e_a_do_token_no_tema_escuro(string color, string token)
+    [Fact]
+    public void Cada_cor_da_paleta_e_a_do_token_no_tema_escuro()
     {
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "design", "tokens.json")));
-        var entry = json.RootElement.GetProperty("color").GetProperty("tokens").EnumerateArray()
-            .Single(t => t.GetProperty("name").GetString() == token);
-        var expected = entry.GetProperty("value").GetProperty("dark").GetString()!;
-        Assert.DoesNotContain('{', expected);
+        var tokens = json.RootElement.GetProperty("color").GetProperty("tokens").EnumerateArray().ToList();
+        var problems = new List<string>();
+        foreach (var (color, token) in Mapping)
+        {
+            var entry = tokens.Single(t => t.GetProperty("name").GetString() == token);
+            var expected = entry.GetProperty("value").GetProperty("dark").GetString()!;
+            var actual = CliPalette.Hex((Spectre.Console.Color)typeof(CliPalette).GetField(color)!.GetValue(null)!);
+            if (expected.Contains('{', StringComparison.Ordinal) || !string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            {
+                problems.Add($"{color}: o token '{token}' vale '{expected}' e a paleta tem '{actual}'.");
+            }
+        }
 
-        var actual = typeof(CliPalette).GetField(color)!.GetValue(null)!;
-        Assert.Equal(expected, CliPalette.Hex((Spectre.Console.Color)actual), ignoreCase: true);
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 }

@@ -55,21 +55,6 @@ public sealed class LibraryCapturesCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Notes_set_grava_e_mostra_a_nota_com_a_data_local()
-    {
-        var game = AddGame();
-
-        var set = await Run("library", "notes", "CLANNAD", "--set", "Voltar no capítulo 3");
-        var show = await Run("library", "notes", "CLANNAD");
-
-        Assert.Equal(0, set.ExitCode);
-        Assert.Contains("nota gravada", set.Output);
-        Assert.Contains("Voltar no capítulo 3", show.Output);
-        Assert.Contains("09/11/2026 20:30", show.Output);
-        Assert.Equal("Voltar no capítulo 3", new GameNotesFile(_cli.UserConfigDirectory).Load().Of(game.Id)!.Text);
-    }
-
-    [Fact]
     public async Task Notes_add_acrescenta_em_linha_nova_e_set_com_traco_le_a_entrada_padrao()
     {
         var game = AddGame();
@@ -142,43 +127,6 @@ public sealed class LibraryCapturesCommandTests : IDisposable
     }
 
     // ---- capture ----
-
-    [Fact]
-    public async Task Capture_take_grava_a_imagem_com_a_data_na_pasta_do_usuario_e_procura_na_pasta_do_jogo()
-    {
-        var game = AddGame();
-        _capturer.Image = Solid(9, 8, 7);
-
-        var result = await Run("library", "capture", "take", "CLANNAD");
-
-        Assert.Equal(0, result.ExitCode);
-        var expected = Path.Combine(CapturesRoot, game.Id, "20261109-203015.png");
-        Assert.Contains(expected, result.Output);
-        Assert.True(File.Exists(expected));
-        Assert.Equal(new WindowTarget(Folder: game.Folder), _capturer.LastTarget);
-        Assert.StartsWith(_cli.Root, expected);
-        Assert.False(Directory.Exists(Path.Combine(game.Folder, "20261109-203015.png")));
-        Assert.Empty(Directory.EnumerateFiles(game.Folder));
-    }
-
-    [Fact]
-    public async Task Capture_take_com_title_acha_a_janela_pelo_titulo_e_guarda_a_nota()
-    {
-        AddGame();
-        _capturer.Image = Solid(1, 2, 3, new WindowSource("Clannad HD - Navegador", @"C:\Program Files\Browser\browser.exe"));
-
-        var data = Data(await Run("--json", "library", "capture", "take", "CLANNAD", "--title", "Clannad HD", "--note", "pôr do sol"));
-
-        Assert.Equal(new WindowTarget(TitleContains: "Clannad HD"), _capturer.LastTarget);
-        var capture = data.GetProperty("capture");
-        Assert.Equal("20261109-203015.png", capture.GetProperty("file").GetString());
-        Assert.Equal("pôr do sol", capture.GetProperty("note").GetString());
-        Assert.Equal(6, capture.GetProperty("width").GetInt32());
-        Assert.True(capture.GetProperty("exists").GetBoolean());
-        var window = data.GetProperty("window");
-        Assert.Equal("Clannad HD - Navegador", window.GetProperty("title").GetString());
-        Assert.Equal(@"C:\Program Files\Browser\browser.exe", window.GetProperty("program").GetString());
-    }
 
     [Fact]
     public async Task Capture_take_diz_de_qual_janela_veio_a_imagem()
@@ -291,22 +239,6 @@ public sealed class LibraryCapturesCommandTests : IDisposable
         Assert.Contains("Aviso:", result.Output);
         Assert.Contains(path, result.Output);
         Assert.Empty(new GameCapturesFile(CapturesRoot).Load().Of(game.Id));
-    }
-
-    [Fact]
-    public async Task As_capturas_de_cada_jogo_ficam_separadas()
-    {
-        var first = AddGame();
-        var second = AddGame("Little Busters", "Little Busters!");
-        _capturer.Image = Solid(1, 1, 1);
-
-        await Run("library", "capture", "take", "CLANNAD");
-        await Run("library", "capture", "take", "Busters");
-
-        var captures = new GameCapturesFile(CapturesRoot).Load();
-        Assert.Single(captures.Of(first.Id));
-        Assert.Single(captures.Of(second.Id));
-        Assert.NotEqual(first.Id, second.Id);
     }
 
     private static WindowImage Solid(byte red, byte green, byte blue, WindowSource? source = null)

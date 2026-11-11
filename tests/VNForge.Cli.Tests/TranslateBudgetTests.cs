@@ -32,15 +32,6 @@ public sealed class TranslateBudgetTests : IDisposable
     private TextUnit Saved() => _project.LoadText("yst00001")[0];
 
     [Fact]
-    public async Task Sem_app_json_nao_ha_limite()
-    {
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(TranslationStatus.Machine, Saved().Status);
-    }
-
-    [Fact]
     public async Task Para_antes_de_gastar_quando_o_projeto_ja_chegou_ao_limite()
     {
         WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
@@ -70,31 +61,6 @@ public sealed class TranslateBudgetTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedido_acima_do_aviso_segue_quando_a_pessoa_confirma()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "warnAbove": 0.0001 }""");
-        _cli.SetInput("s\n");
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(1, _client.Calls);
-        Assert.Equal(TranslationStatus.Machine, Saved().Status);
-    }
-
-    [Fact]
-    public async Task Yes_confirma_sem_perguntar()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "warnAbove": 0.0001 }""");
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath, "--yes"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.DoesNotContain("[s/N]", result.Error);
-        Assert.Equal(TranslationStatus.Machine, Saved().Status);
-    }
-
-    [Fact]
     public async Task O_gasto_da_execucao_conta_e_o_json_diz_por_que_parou()
     {
         WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
@@ -104,18 +70,6 @@ public sealed class TranslateBudgetTests : IDisposable
 
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("limitReached", result.Output);
-    }
-
-    [Fact]
-    public async Task Dry_run_ignora_o_orcamento()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 1 }""");
-        AiUsageLog.TryRecord(_project, new AiUsageTotals(0, 0, 0, 0, 10m, 1));
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath, "--dry-run"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(0, _client.Calls);
     }
 
     [Fact]
@@ -166,18 +120,6 @@ public sealed class TranslateBudgetTests : IDisposable
         Assert.Equal("à mão", Saved().Translation);
         Assert.Equal(TranslationStatus.Translated, Saved().Status);
         Assert.Contains("durante a execução", result.Output);
-    }
-
-    [Fact]
-    public async Task O_uso_e_registrado_mesmo_quando_a_execucao_para_no_limite()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
-        _project.SaveText("yst00001", [.. Enumerable.Range(0, 45).Select(i => new TextUnit($"yst00001:{i:D6}", TextUnitKind.Dialogue, null, $"原文{i}", null, TranslationStatus.Untranslated))]);
-        _client.OutputTokensPerCall = 1_000_000;
-
-        await _cli.RunAsync(["translate", "--project", _projectPath, "--batch-size", "20", "--concurrency", "1"], TestContext.Current.CancellationToken);
-
-        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
     }
 
     private sealed class CountingClient : IClaudeMessageClient

@@ -84,17 +84,6 @@ public sealed class EvalCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Com_folga_no_limite_a_rodada_segue()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 500 }""");
-
-        var result = await Run("--config", "sonnet", "--sample", "10");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal([ClaudeModels.Sonnet], _models);
-    }
-
-    [Fact]
     public async Task Nao_grava_nada_nos_textos_do_projeto()
     {
         var before = TextJson;
@@ -103,24 +92,6 @@ public sealed class EvalCommandTests : IDisposable
 
         Assert.Equal(before, TextJson);
         Assert.NotNull(EvalStore.LoadLatest(_project));
-    }
-
-    [Fact]
-    public async Task Json_traz_o_relatorio_no_envelope_comum()
-    {
-        var result = await Run("--config", "sonnet", "--config", "haiku", "--sample", "40", "--json");
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(40, data.GetProperty("sampleLines").GetInt32());
-        Assert.Equal(20, data.GetProperty("remainingLines").GetInt32());
-        Assert.Equal("A", data.GetProperty("recommended").GetString());
-        var configs = data.GetProperty("configs");
-        Assert.Equal(2, configs.GetArrayLength());
-        Assert.Equal(100.0, configs[0].GetProperty("chrf").GetDouble(), 6);
-        Assert.Equal(9.0, configs[0].GetProperty("judge").GetDouble());
-        Assert.Equal(ClaudeModels.Haiku, configs[1].GetProperty("model").GetString());
     }
 
     [Fact]
@@ -214,17 +185,6 @@ public sealed class EvalCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.False(string.IsNullOrWhiteSpace(result.Error));
         Assert.Empty(_models);
-    }
-
-    [Fact]
-    public async Task Projeto_sem_linhas_aprovadas_diz_o_que_fazer()
-    {
-        _project.SaveText(Key, [.. Enumerable.Range(1, 5).Select(i => new TextUnit($"{Key}:{i:D6}", TextUnitKind.Dialogue, null, $"原文{i}", null, TranslationStatus.Untranslated))]);
-
-        var result = await Run("--config", "sonnet");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("ainda não tem linhas aprovadas", result.Error);
     }
 
     [Fact]

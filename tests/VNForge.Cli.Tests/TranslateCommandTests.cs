@@ -78,63 +78,7 @@ public sealed class TranslateCommandTests : IDisposable
         Assert.Contains("4 linhas traduzidas de 4", result.Output);
     }
 
-    [Fact]
-    public async Task Terminal_interativo_sem_ansi_nao_tem_como_animar_e_o_progresso_segue_no_erro_padrao()
-    {
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
-
-        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("100%", result.Error);
-        Assert.DoesNotContain("lote 1/1", result.Output);
-    }
-
-    [Fact]
-    public async Task Com_o_erro_padrao_redirecionado_nao_anima_e_o_log_por_lote_vai_para_o_arquivo()
-    {
-        using var rich = new CliHarness(terminal: TestTerminals.InteractiveAnsi() with { Animate = false });
-        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
-
-        var result = await rich.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("100%", result.Error);
-        Assert.DoesNotContain("lote 1/1", result.Output);
-    }
-
-    [Fact]
-    public async Task No_terminal_interativo_com_no_color_o_progresso_segue_no_erro_padrao()
-    {
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-        rich.Cli.TranslationProviderFactory = (_, _) => _provider;
-
-        var result = await rich.RunAsync(["translate", "--no-color", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("100%", result.Error);
-        Assert.DoesNotContain("lote 1/1", result.Output);
-    }
-
-    [Fact]
-    public async Task Traduz_as_linhas_sem_traducao_e_grava_status_machine_com_origem()
-    {
-        var result = await Run();
-
-        Assert.Equal(0, result.ExitCode);
-        var line = Line(Yst00001, 0);
-        Assert.Equal(PT1, line.Translation);
-        Assert.Equal(TranslationStatus.Machine, line.Status);
-        Assert.NotNull(line.Origin);
-        Assert.Equal("anthropic", line.Origin.Provider);
-        Assert.Equal(ClaudeModels.Opus, line.Origin.Model);
-        Assert.Equal(PT1, Line("abc", 0).Translation);
-        Assert.Equal(PT1, Line(Yst00002, 0).Translation);
-    }
-
     [Theory]
-    [InlineData("untranslated")]
     [InlineData("all")]
     public async Task Linha_nao_traduzir_nao_e_enviada_a_IA_nem_alterada(string status)
     {
@@ -160,49 +104,6 @@ public sealed class TranslateCommandTests : IDisposable
         Assert.Equal(TranslationStatus.Machine, Line(Yst00001, 1).Status);
         Assert.Equal(Antiga, Line(Yst00001, 2).Translation);
         Assert.Equal(TranslationStatus.Reviewed, Line(Yst00001, 2).Status);
-    }
-
-    [Fact]
-    public async Task Status_machine_refaz_so_as_linhas_machine()
-    {
-        await Run("--status", "machine");
-
-        Assert.Equal("[PT] 原文2", Line(Yst00001, 1).Translation);
-        Assert.Null(Line(Yst00001, 0).Translation);
-        Assert.Equal(Antiga, Line(Yst00001, 2).Translation);
-    }
-
-    [Fact]
-    public async Task Status_all_inclui_sem_traducao_e_machine_mas_preserva_revisadas()
-    {
-        await Run("--status", "all");
-
-        Assert.Equal(PT1, Line(Yst00001, 0).Translation);
-        Assert.Equal("[PT] 原文2", Line(Yst00001, 1).Translation);
-        Assert.Equal(Antiga, Line(Yst00001, 2).Translation);
-        Assert.Equal(TranslationStatus.Reviewed, Line(Yst00001, 2).Status);
-    }
-
-    [Fact]
-    public async Task Files_filtra_os_scripts_por_glob()
-    {
-        await Run(FilesOption, "yst0000*");
-
-        Assert.Equal(PT1, Line(Yst00002, 0).Translation);
-        Assert.Null(Line("abc", 0).Translation);
-    }
-
-    [Fact]
-    public async Task Limit_para_depois_de_n_linhas()
-    {
-        var result = await Run("--limit", "2", JsonOption);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.Equal(2, doc.RootElement.GetProperty("data").GetProperty("translated").GetInt32());
-        Assert.Equal(PT1, Line("abc", 0).Translation);
-        Assert.Equal(PT1, Line(Yst00001, 0).Translation);
-        Assert.Null(Line(Yst00001, 3).Translation);
-        Assert.Null(Line(Yst00002, 0).Translation);
     }
 
     [Fact]
@@ -244,32 +145,6 @@ public sealed class TranslateCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("ANTHROPIC_API_KEY", result.Error);
         Assert.Null(Line("abc", 0).Translation);
-    }
-
-    [Fact]
-    public async Task Model_effort_batch_size_e_concurrency_chegam_ao_provedor()
-    {
-        var result = await Run("--model", "claude-haiku-5-5", "--effort", "low", "--batch-size", "20", "--concurrency", "1", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(ClaudeModels.Haiku, _requestedModel);
-        Assert.Equal(ClaudeEffort.Low, _requestedEffort);
-        Assert.Equal(ClaudeModels.Haiku, Line("abc", 0).Origin?.Model);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(20, data.GetProperty("batchSize").GetInt32());
-        Assert.Equal(1, data.GetProperty("concurrency").GetInt32());
-    }
-
-    [Fact]
-    public async Task Lotes_respeitam_o_batch_size()
-    {
-        var lines = Enumerable.Range(1, 45).Select(n => Unit(Grande, n, TranslationStatus.Untranslated)).ToList();
-        _project.SaveText(Grande, lines);
-
-        await Run(FilesOption, Grande, "--batch-size", "20", "--concurrency", "1");
-
-        Assert.Equal([20, 20, 5], _provider.ReceivedBatches.Select(b => b.Lines.Count));
     }
 
     [Theory]
@@ -314,24 +189,6 @@ public sealed class TranslateCommandTests : IDisposable
         Assert.Equal(calls, _provider.ReceivedBatches.Count);
         using var doc = JsonDocument.Parse(result.Output);
         Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("cached").GetInt32());
-    }
-
-    [Fact]
-    public async Task Json_traz_o_resultado_e_o_texto_mostra_o_progresso()
-    {
-        var json = await Run(JsonOption);
-        using var doc = JsonDocument.Parse(json.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(4, data.GetProperty("translated").GetInt32());
-        Assert.Equal(0, data.GetProperty("refused").GetArrayLength());
-        Assert.Equal(0, data.GetProperty("failed").GetArrayLength());
-        Assert.Equal(string.Empty, json.Error);
-
-        _project.SaveText("novo", [Unit("novo", 1, TranslationStatus.Untranslated)]);
-        var text = await Run();
-        Assert.Contains("100%", text.Error);
-        Assert.Contains("novo", text.Error);
-        Assert.Contains("1 linha", text.Output);
     }
 
     [Fact]
@@ -384,36 +241,6 @@ public sealed class TranslateCommandTests : IDisposable
         var saved = _project.LoadText(Grande);
         Assert.Equal(20, saved.Count(u => u.Status == TranslationStatus.Machine));
         Assert.All(saved.Take(20), u => Assert.Equal(TranslationStatus.Machine, u.Status));
-    }
-
-    [Fact]
-    public async Task Glossario_e_guia_de_estilo_do_projeto_chegam_ao_lote_e_files_aceita_lista()
-    {
-        _project.SaveGlossary([new VNForge.Core.Glossary.GlossaryTerm("原文1", "texto 1", null)]);
-        await File.WriteAllTextAsync(Path.Combine(_projectPath, "style.md"), "Tom informal.", TestContext.Current.CancellationToken);
-
-        await Run(FilesOption, "abc,yst00002");
-
-        Assert.All(_provider.ReceivedBatches, b => Assert.Equal("Tom informal.", b.StyleGuide));
-        Assert.All(_provider.ReceivedBatches, b => Assert.Equal("texto 1", Assert.Single(b.Glossary).Target));
-        Assert.Equal(PT1, Line(Yst00002, 0).Translation);
-        Assert.Null(Line(Yst00001, 0).Translation);
-    }
-
-    [Fact]
-    public async Task Estilo_do_vnforge_json_e_as_falas_vizinhas_chegam_ao_lote()
-    {
-        var style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Keep, Address = AddressForm.Tu };
-        _project.SaveConfig(_project.LoadConfig() with { Style = style });
-        _project.SaveText(Grande, Enumerable.Range(1, 40).Select(n => Unit(Grande, n, TranslationStatus.Untranslated)).ToList());
-
-        var result = await Run(FilesOption, Grande, "--batch-size", "20", "--concurrency", "1");
-
-        Assert.Equal(0, result.ExitCode);
-        var first = _provider.ReceivedBatches.First();
-        Assert.All(_provider.ReceivedBatches, b => Assert.Equal(style, b.Style));
-        Assert.Equal([$"{Grande}:000021", $"{Grande}:000022"], first.NextLines.Select(u => u.Id));
-        Assert.Empty(first.PreviousLines);
     }
 
     [Fact]

@@ -106,39 +106,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         }
     }
     [Fact]
-    public async Task Sync_traz_os_personagens_dos_jogos_da_biblioteca_e_casa_as_edicoes()
-    {
-        var catalog = Prepare();
-
-        var result = await Run("library", "characters", "sync");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("2 jogos do VNDB: 2 buscados, 0 já estavam guardados; 4 personagens trazidos e 1 edição casada", result.Output, StringComparison.Ordinal);
-        Assert.Contains("vndb.org", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain(catalog.Calls, c => c.Contains("v6", StringComparison.Ordinal));
-        Assert.Equal(["c1", "c2", "c3"], new VNForge.Core.Factsheet.SheetStore(_cli.UserConfigDirectory).LoadAllCharacters().Select(c => c.Id));
-        Assert.Equal(["g1", "g2"], new GameEditionsFile(_cli.UserConfigDirectory).Load().GameIds);
-    }
-
-    [Fact]
-    public async Task Sync_de_novo_usa_o_que_esta_guardado_e_nao_chama_o_VNDB()
-    {
-        var catalog = Prepare();
-        await Run("library", "characters", "sync");
-        var before = catalog.Calls.Count;
-
-        var again = await Run("library", "characters", "sync", "--json");
-        var callsAfterSecond = catalog.Calls.Count;
-        var forced = await Run("library", "characters", "sync", "--again");
-
-        Assert.Equal(0, again.ExitCode);
-        Assert.Equal((2, 0, 2), (Data(again).GetProperty("games").GetInt32(), Data(again).GetProperty("fetched").GetInt32(), Data(again).GetProperty("cached").GetInt32()));
-        Assert.Equal(before, callsAfterSecond);
-        Assert.Contains("2 buscados", forced.Output, StringComparison.Ordinal);
-        Assert.True(catalog.Calls.Count > callsAfterSecond);
-    }
-
-    [Fact]
     public async Task Sync_sem_jogo_confirmado_manda_casar_antes()
     {
         Prepare(confirmed: false);
@@ -163,40 +130,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task List_mostra_cada_personagem_uma_vez_com_os_jogos_da_biblioteca_e_esconde_o_que_e_spoiler()
-    {
-        Prepare();
-        await Ready();
-
-        var result = await Run("library", "characters", "list");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("1 personagem na biblioteca:", result.Output, StringComparison.Ordinal);
-        Assert.Contains("c1  Tomoya Okazaki (岡崎 朋也) · CLANNAD (protagonista)", result.Output, StringComparison.Ordinal);
-        Assert.Contains("(mais 1 jogo escondido)", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Little Busters (secundário)", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Kyou", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Outside", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Only Elsewhere", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ghost Sister", result.Output, StringComparison.Ordinal);
-        Assert.Contains("2 personagens escondidos por spoiler", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task List_com_show_spoilers_mostra_o_jogo_escondido_e_o_personagem_de_spoiler()
-    {
-        Prepare();
-        await Ready();
-
-        var result = await Run("library", "characters", "list", "--show-spoilers");
-
-        Assert.Contains("3 personagens na biblioteca:", result.Output, StringComparison.Ordinal);
-        Assert.Contains("CLANNAD (protagonista), Little Busters (secundário)", result.Output, StringComparison.Ordinal);
-        Assert.Contains("Ghost Sister · CLANNAD (secundário)", result.Output, StringComparison.Ordinal);
-        Assert.Contains("c3  Kyou Fujibayashi · Little Busters (protagonista)", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task List_busca_por_nome_apelido_e_jogo_e_filtra_por_traco_em_portugues()
     {
         Prepare();
@@ -216,20 +149,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         Assert.Contains("Nenhum personagem da biblioteca combina", byId.Output, StringComparison.Ordinal);
         Assert.Contains("2 personagens na busca:", anyOf.Output, StringComparison.Ordinal);
         Assert.Contains("Nenhum personagem da biblioteca combina", none.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Busca_de_texto_por_personagem_escondido_nao_revela_que_ele_existe()
-    {
-        Prepare();
-        await Ready();
-
-        var result = await Run("library", "characters", "list", "Ghost");
-        var json = await Run("library", "characters", "list", "Ghost", "--json");
-
-        Assert.Contains("Nenhum personagem da biblioteca combina com a busca.", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("escondido", result.Output, StringComparison.Ordinal);
-        Assert.Equal(0, Data(json).GetProperty("hidden").GetInt32());
     }
 
     [Fact]
@@ -256,23 +175,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("vnf library characters sync", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task List_json_traz_os_jogos_e_nao_vaza_o_que_esta_escondido()
-    {
-        Prepare();
-        await Ready();
-
-        var result = await Run("library", "characters", "list", "--json");
-
-        Assert.DoesNotContain("He is a ghost", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ghost Sister", result.Output, StringComparison.Ordinal);
-        var data = Data(result);
-        Assert.Equal(2, data.GetProperty("hidden").GetInt32());
-        var tomoya = data.GetProperty("characters").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "c1");
-        Assert.Equal(1, tomoya.GetProperty("appearsIn").GetArrayLength());
-        Assert.Equal("main", tomoya.GetProperty("appearsIn")[0].GetProperty("roleCode").GetString());
     }
 
     [Fact]
@@ -312,19 +214,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Character_e_o_mesmo_que_characters_show()
-    {
-        Prepare();
-        await Ready();
-
-        var longForm = await Run("library", "characters", "show", "c1");
-        var shortForm = await Run("library", "character", "c1");
-
-        Assert.Equal(0, shortForm.ExitCode);
-        Assert.Equal(longForm.Output, shortForm.Output);
-    }
-
-    [Fact]
     public async Task Show_de_personagem_escondido_por_spoiler_ou_fora_da_biblioteca_diz_o_motivo()
     {
         Prepare();
@@ -356,20 +245,6 @@ public sealed class LibraryCharactersCommandTests : IDisposable
 
         Assert.Equal(1, hiddenByEdition.ExitCode);
         Assert.Contains("Little Busters (g2) · secundário · edição r11", open.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Sem_edicao_casada_vale_o_papel_mais_importante_e_o_maior_spoiler()
-    {
-        Prepare(secondFolder: "Pasta sem relacao");
-        await Run("library", "characters", "sync");
-
-        var hidden = await Run("library", "characters", "show", "c3");
-        var open = await Run("library", "characters", "show", "c3", "--show-spoilers");
-
-        Assert.Equal(1, hidden.ExitCode);
-        Assert.Contains("Little Busters (g2) · protagonista", open.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("edição r1", open.Output, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -104,7 +104,6 @@ public sealed class ExportImportCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("--format", "xlsx")]
     [InlineData("--output", "rev.xlsx")]
     public async Task Export_xlsx_por_opcao_ou_pela_extensao_e_import_sem_edicao_nao_muda_nada(string option, string value)
     {

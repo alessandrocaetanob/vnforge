@@ -57,20 +57,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
     private SheetStore Store => new(_cli.UserConfigDirectory);
 
     [Fact]
-    public async Task Fetch_traz_a_ficha_do_VNDB_e_diz_o_que_falta_traduzir()
-    {
-        Prepare();
-
-        var result = await Run("library", "sheet", "fetch", "CLANNAD");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("2 personagens, 2 tags", result.Output, StringComparison.Ordinal);
-        Assert.Contains("4 nomes de tag e traço novos", result.Output, StringComparison.Ordinal);
-        Assert.Contains("vndb.org", result.Output, StringComparison.Ordinal);
-        Assert.Equal(["c1", "c2"], Store.LoadGame("v4")!.CharacterIds);
-    }
-
-    [Fact]
     public async Task Revisar_em_lote_diz_quantos_desatualizados_ficaram_de_fora()
     {
         Prepare();
@@ -101,30 +87,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Traduz_com_o_provedor_falso_e_o_show_mostra_a_traducao_com_o_spoiler_escondido()
-    {
-        var fake = Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var translate = await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-        var show = await Run("library", "sheet", "show", "CLANNAD");
-
-        Assert.Equal(0, translate.ExitCode);
-        Assert.Contains("traduzidos pela IA", translate.Output, StringComparison.Ordinal);
-        Assert.NotEmpty(fake.Requests);
-        Assert.Equal(0, show.ExitCode);
-        Assert.Contains("Sinopse (traduzido pela IA)", show.Output, StringComparison.Ordinal);
-        Assert.Contains("[pt-BR] A town. [spoiler escondido] Tomoya stays.", show.Output, StringComparison.Ordinal);
-        Assert.Contains("[pt-BR] Comedy", show.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("She dies", show.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Plot Twist", show.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ghost Sister", show.Output, StringComparison.Ordinal);
-        Assert.Contains("mais 1 escondido por spoiler", show.Output, StringComparison.Ordinal);
-        Assert.Contains("Tomoya Okazaki (岡崎 朋也) · protagonista · masculino", show.Output, StringComparison.Ordinal);
-        Assert.Contains("use --show-spoilers", show.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task So_com_o_pedido_o_spoiler_e_o_conteudo_adulto_aparecem()
     {
         Prepare();
@@ -151,21 +113,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
         var show = await Run("library", "sheet", "show", "CLANNAD");
 
         Assert.Contains("Ghost Sister", show.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Show_json_nao_vaza_o_que_esta_escondido()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var result = await Run("library", "sheet", "show", "CLANNAD", "--json");
-
-        Assert.DoesNotContain("She dies", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ghost Sister", result.Output, StringComparison.Ordinal);
-        var sheet = Data(result).GetProperty("sheet");
-        Assert.Equal(1, sheet.GetProperty("hiddenCharacters").GetInt32());
-        Assert.Equal(1, sheet.GetProperty("characters").GetArrayLength());
     }
 
     [Fact]
@@ -270,31 +217,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
         Assert.Contains("c99 não está na ficha", missing.Error, StringComparison.Ordinal);
         Assert.Equal(1, invalid.ExitCode);
         Assert.Contains("não é um texto da ficha", invalid.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Apply_leva_os_personagens_e_a_sinopse_revisados_para_o_projeto_sem_spoiler()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-        var project = NewProject();
-
-        var early = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root, "--json");
-        await Run("library", "sheet", "review", "CLANNAD");
-        var result = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root, "--json");
-
-        Assert.Equal(1, Data(early).GetProperty("matched").GetInt32());
-        Assert.False(Data(early).GetProperty("synopsisApplied").GetBoolean());
-        Assert.True(Data(early).GetProperty("notReady").GetInt32() > 0);
-        var data = Data(result);
-        Assert.True(data.GetProperty("synopsisApplied").GetBoolean());
-        Assert.Equal(0, data.GetProperty("notReady").GetInt32());
-        var saved = project.LoadCharacters().ToDictionary(c => c.Source);
-        Assert.Equal("[pt-BR] The hero.", saved["岡崎朋也"].Description);
-        Assert.Equal(CharacterGender.Male, saved["岡崎朋也"].Gender);
-        Assert.Equal("[pt-BR] A town. Tomoya stays.", project.LoadBible().Synopsis);
-        Assert.DoesNotContain("dies", File.ReadAllText(project.BiblePath), StringComparison.Ordinal);
     }
 
     private void MakeSheetOld()

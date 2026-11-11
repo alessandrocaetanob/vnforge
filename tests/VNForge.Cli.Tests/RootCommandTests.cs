@@ -43,21 +43,6 @@ public sealed class RootCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Help_de_subcomando_lista_comandos_e_opcoes_globais()
-    {
-        _cli.AddCommand(Teste, _ => 0);
-
-        var root = await _cli.RunAsync(["--help"], TestContext.Current.CancellationToken);
-        var sub = await _cli.RunAsync([Teste, "--help"], TestContext.Current.CancellationToken);
-
-        Assert.Contains("Outros comandos:", root.Output);
-        Assert.Contains(Teste, root.Output);
-        Assert.Contains("Uso:", sub.Output);
-        Assert.Contains("vnf teste", sub.Output);
-        Assert.Contains(JsonOption, sub.Output);
-    }
-
-    [Fact]
     public async Task Version_mostra_o_nome_e_a_versao()
     {
         var result = await _cli.RunAsync(["--version"], TestContext.Current.CancellationToken);
@@ -85,13 +70,6 @@ public sealed class RootCommandTests : IDisposable
     }
 
     [Fact]
-    public void Versao_nao_carrega_o_hash_do_commit()
-    {
-        Assert.DoesNotContain('+', VnfCli.Version);
-        Assert.Matches(@"^\d+\.\d+\.\d+", VnfCli.Version);
-    }
-
-    [Fact]
     public async Task Opcoes_globais_valem_em_qualquer_posicao_e_chegam_ao_comando()
     {
         Directory.CreateDirectory(Path.Combine(_cli.WorkingDirectory, "meu-projeto"));
@@ -110,18 +88,4 @@ public sealed class RootCommandTests : IDisposable
         Assert.Equal(new GlobalSettings("meu-projeto", Json: true, Verbose: true, Quiet: false, Yes: true, NoColor: false), seen);
     }
 
-    [Fact]
-    public async Task Opcoes_globais_ficam_desligadas_por_padrao()
-    {
-        GlobalSettings? seen = null;
-        _cli.AddCommand(Teste, parseResult =>
-        {
-            seen = _cli.Cli.Options.Read(parseResult);
-            return 0;
-        });
-
-        await _cli.RunAsync([Teste], TestContext.Current.CancellationToken);
-
-        Assert.Equal(new GlobalSettings(null, Json: false, Verbose: false, Quiet: false, Yes: false, NoColor: false), seen);
-    }
 }

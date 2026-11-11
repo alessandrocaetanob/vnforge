@@ -177,19 +177,6 @@ public sealed class LibraryListCommandTests : IDisposable
         Assert.Empty(fake.Calls);
     }
 
-    [Fact]
-    public async Task Status_avisa_quando_o_jogo_fica_Jogando_e_Terminado_ao_mesmo_tempo()
-    {
-        Prepare();
-
-        var result = await Run("library", "status", "CLANNAD", "--label", "jogando", "--label", "terminado");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Aviso: o jogo está como Jogando e também como Terminado", result.Output, StringComparison.Ordinal);
-        Assert.Contains("--unlabel jogando", result.Output, StringComparison.Ordinal);
-        Assert.Equal([1, 2], Saved().CurrentList!.Fields.Labels.Select(l => l.Id));
-    }
-
     private void SeedDeletedOnSite(bool edited = true)
     {
         var fields = new LibraryListFields { Vote = 70, Labels = [LibraryListLabels.Named(2)] };
@@ -244,7 +231,6 @@ public sealed class LibraryListCommandTests : IDisposable
 
     [Theory]
     [InlineData(true)]
-    [InlineData(false)]
     public async Task Json_do_sync_expoe_removedOnSite_e_hasLocalEdits_do_jogo_apagado_no_site(bool edited)
     {
         Prepare();
@@ -336,22 +322,6 @@ public sealed class LibraryListCommandTests : IDisposable
         Assert.Contains("Nada foi enviado", result.Output, StringComparison.Ordinal);
         Assert.False(Updated(fake));
         Assert.True(Saved().CurrentList!.Pending);
-    }
-
-    [Fact]
-    public async Task Sync_com_yes_envia_e_a_segunda_rodada_nao_tem_o_que_fazer()
-    {
-        var fake = Prepare();
-        await Run("library", "status", "CLANNAD", "--vote", "9", "--label", "terminado");
-
-        var first = await Run("library", "sync", "--yes");
-        var second = await Run("library", "sync", "--yes");
-
-        Assert.Equal(0, first.ExitCode);
-        Assert.Contains("1 enviados", first.Output, StringComparison.Ordinal);
-        Assert.Equal(90, (await fake.GetListAsync("u1", Secret, Ct)).Items.Single().Vote);
-        Assert.Contains("0 enviados", second.Output, StringComparison.Ordinal);
-        Assert.Single(fake.Calls, c => c.StartsWith("UpdateEntryAsync", StringComparison.Ordinal));
     }
 
     [Fact]

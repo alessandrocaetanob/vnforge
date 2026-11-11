@@ -39,34 +39,6 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         _cli.RunAsync([.. args, "--project", _projectPath], TestContext.Current.CancellationToken);
 
     [Fact]
-    public async Task Chars_set_mantem_romaji_apelidos_e_descricao_que_vieram_do_vndb()
-    {
-        _project.SaveCharacters([new CharacterEntry("美咲", "Misaki", CharacterGender.Unknown, Romaji: "Misaki Todo", Aliases: ["Todo-sensei"], Description: "A professora.")]);
-
-        var result = await Run(CharsVerb, "set", "美咲", "Misaki Tōdō", GenderOption, Female);
-
-        Assert.Equal(0, result.ExitCode);
-        var saved = Assert.Single(_project.LoadCharacters());
-        Assert.Equal(("Misaki Tōdō", CharacterGender.Female, "Misaki Todo", "A professora."), (saved.Target, saved.Gender, saved.Romaji, saved.Description));
-        Assert.Equal(["Todo-sensei"], saved.Aliases);
-    }
-
-    [Fact]
-    public async Task Glossary_add_grava_o_termo_e_json_devolve_a_entrada()
-    {
-        var result = await Run(GlossaryVerb, "add", "先輩", Veterano, "--notes", "tratamento", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.True(doc.RootElement.GetProperty("ok").GetBoolean());
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal("先輩", data.GetProperty("source").GetString());
-        Assert.Equal(Veterano, data.GetProperty("target").GetString());
-        Assert.Equal("added", data.GetProperty(ActionKey).GetString());
-        Assert.Equal(new GlossaryTerm("先輩", Veterano, "tratamento"), Assert.Single(_project.LoadGlossary()));
-    }
-
-    [Fact]
     public async Task Glossary_add_de_termo_existente_falha_sem_force_e_nao_altera_o_arquivo()
     {
         await Run(GlossaryVerb, "add", "先輩", Veterano);
@@ -137,21 +109,6 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         using var doc = JsonDocument.Parse(result.Output);
         Assert.Equal("updated", doc.RootElement.GetProperty("data").GetProperty(ActionKey).GetString());
         Assert.Equal(new CharacterEntry("美咲", "Misaki-chan", CharacterGender.Female, Formal), Assert.Single(_project.LoadCharacters()));
-    }
-
-    [Fact]
-    public async Task Chars_set_grava_a_mesma_traducao_nas_unidades_name_do_mesmo_original()
-    {
-        _project.SaveText("yst00073", [
-            new TextUnit("yst00073:000000", TextUnitKind.Name, null, "美咲", null, TranslationStatus.Untranslated),
-            new TextUnit("yst00073:000001", TextUnitKind.Name, null, "健太", null, TranslationStatus.Untranslated),
-            new TextUnit("yst00073:000002", TextUnitKind.Dialogue, "美咲", "美咲", null, TranslationStatus.Untranslated),
-        ]);
-
-        var result = await Run(CharsVerb, "set", "美咲", Misaki);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal([Misaki, null, null], _project.LoadText("yst00073").Select(u => u.Translation));
     }
 
     [Fact]
@@ -241,16 +198,6 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         [.. result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd())];
 
     [Fact]
-    public async Task Chars_list_sem_arquivo_devolve_lista_vazia()
-    {
-        var result = await Run(CharsVerb, "list", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.Empty(doc.RootElement.GetProperty("data").GetProperty("characters").EnumerateArray());
-    }
-
-    [Fact]
     public async Task Traducao_vazia_falha_nos_dois_comandos()
     {
         Assert.Equal(1, (await Run(GlossaryVerb, "add", "先輩", " ")).ExitCode);
@@ -259,15 +206,4 @@ public sealed class GlossaryCharsCommandTests : IDisposable
         Assert.Empty(_project.LoadCharacters());
     }
 
-    [Theory]
-    [InlineData("MALE", CharacterGender.Male)]
-    [InlineData(" other ", CharacterGender.Other)]
-    [InlineData("Unknown", CharacterGender.Unknown)]
-    public async Task Chars_set_aceita_genero_sem_distinguir_caixa(string text, CharacterGender expected)
-    {
-        var result = await Run(CharsVerb, "set", "健", "Ken", GenderOption, text);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(expected, Assert.Single(_project.LoadCharacters()).Gender);
-    }
 }

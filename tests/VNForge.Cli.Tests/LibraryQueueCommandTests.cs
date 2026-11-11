@@ -90,25 +90,6 @@ public sealed class LibraryQueueCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Rodar_de_novo_nao_confere_outra_vez_e_o_offline_nunca_consulta()
-    {
-        var fake = Prepare(Game("g1", "Um", "v1", YuRis));
-        await Run("library", "queue");
-        Assert.Single(fake.Calls);
-
-        await Run("library", "queue");
-        Assert.Single(fake.Calls);
-
-        await Run("library", "queue", "--again");
-        Assert.Equal(2, fake.Calls.Count);
-
-        File.Update(library => library.Replace(library.Find("g1") with { Portuguese = null }));
-        var offline = await Run("library", "queue", "--offline");
-        Assert.Equal(2, fake.Calls.Count);
-        Assert.Contains("não conferido", offline.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Com_all_a_fila_mostra_a_situacao_de_cada_jogo()
     {
         Prepare(

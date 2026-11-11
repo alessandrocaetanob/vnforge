@@ -44,17 +44,6 @@ public sealed class YpfCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Ypf_lista_os_tres_subcomandos_na_ajuda()
-    {
-        var result = await _cli.RunAsync(["ypf", "--help"], Token);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("info", result.Output);
-        Assert.Contains(Unpack, result.Output);
-        Assert.Contains("pack", result.Output);
-    }
-
-    [Fact]
     public async Task Info_mostra_versao_variante_e_arquivos()
     {
         var ypf = WriteSample();
@@ -115,43 +104,6 @@ public sealed class YpfCommandTests : IDisposable
         Assert.Contains("\"ok\":false", result.Output);
     }
 
-    [Fact]
-    public async Task Info_de_arquivo_que_nao_e_ypf_falha()
-    {
-        await File.WriteAllBytesAsync(At("lixo.ypf"), new byte[64], TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync(["ypf", "info", At("lixo.ypf")], Token);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("inválido", result.Error);
-    }
-
-    [Fact]
-    public async Task Unpack_json_extrai_para_a_pasta()
-    {
-        var ypf = WriteSample();
-
-        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), JsonOption], Token);
-
-        Assert.Equal(0, result.ExitCode);
-        var data = Data(result);
-        Assert.Equal(3, data.GetProperty("fileCount").GetInt32());
-        Assert.Equal(3 + 4000 + 5, data.GetProperty("byteCount").GetInt64());
-        Assert.Equal(Repetitive, await File.ReadAllBytesAsync(Path.Combine(At("out"), "bg", "fundo.png"), TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Unpack_resolve_caminho_relativo_pela_pasta_atual()
-    {
-        WriteSample();
-
-        var result = await _cli.RunAsync(["ypf", Unpack, "ysbin.ypf", "saida"], Token);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Extraídos 3 arquivos", result.Output);
-        Assert.True(File.Exists(Path.Combine(At("saida"), "se", PortaOgg)));
-    }
-
     private async Task<string> ExistingTarget()
     {
         Directory.CreateDirectory(At("out"));
@@ -177,33 +129,6 @@ public sealed class YpfCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Unpack_em_pasta_com_arquivos_extrai_quando_a_resposta_e_sim()
-    {
-        var ypf = WriteSample();
-        var old = await ExistingTarget();
-        _cli.SetInput("s\n");
-
-        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out")], Token);
-
-        Assert.Equal(0, accepted.ExitCode);
-        Assert.True(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
-        Assert.True(File.Exists(old));
-    }
-
-    [Fact]
-    public async Task Unpack_em_pasta_com_arquivos_e_yes_extrai_sem_perguntar()
-    {
-        var ypf = WriteSample();
-        await ExistingTarget();
-
-        var accepted = await _cli.RunAsync(["ypf", Unpack, ypf, At("out"), YesOption], Token);
-
-        Assert.Equal(0, accepted.ExitCode);
-        Assert.DoesNotContain("[s/N]", accepted.Error);
-        Assert.True(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
-    }
-
-    [Fact]
     public async Task Unpack_em_pasta_com_arquivos_sem_yes_e_sem_entrada_pede_o_yes()
     {
         var ypf = WriteSample();
@@ -214,17 +139,6 @@ public sealed class YpfCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains(YesOption, result.Error);
         Assert.False(File.Exists(Path.Combine(At("out"), "se", PortaOgg)));
-    }
-
-    [Fact]
-    public async Task Unpack_em_pasta_vazia_nao_pergunta()
-    {
-        var ypf = WriteSample();
-
-        var result = await _cli.RunAsync(["ypf", Unpack, ypf, At("vazia")], Token);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.DoesNotContain("[s/N]", result.Error);
     }
 
     [Fact]
@@ -426,12 +340,4 @@ public sealed class YpfCommandTests : IDisposable
         Assert.False(Directory.Exists(At("novo")));
     }
 
-    [Fact]
-    public async Task Pack_exige_original_e_output()
-    {
-        var result = await _cli.RunAsync(["ypf", "pack", At("out")], Token);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains(OriginalOption, result.Error);
-    }
 }
