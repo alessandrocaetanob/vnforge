@@ -62,9 +62,6 @@
     <DataTemplate DataType="vm:GameCapturesViewModel">
       <views:GameCapturesView/>
     </DataTemplate>
-    <DataTemplate DataType="vm:GameCapturesViewModel">
-      <views:GameCapturesView/>
-    </DataTemplate>
     <DataTemplate DataType="vm:ReleaseViewModel">
       <views:ReleaseView/>
     </DataTemplate>

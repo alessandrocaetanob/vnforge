@@ -35,6 +35,7 @@ public sealed partial class GamePlayViewModel : ObservableObject
         this.clock = clock ?? TimeProvider.System;
         PlayCommand = new AsyncRelayCommand(PlayAsync, () => game is not null && library.PlayingId is null);
         OpenSettingsCommand = new RelayCommand(() => SettingsRequested?.Invoke(this, EventArgs.Empty));
+        library.PlayEditRejected += (_, _) => Refresh();
         library.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(LibraryViewModel.Played) or nameof(LibraryViewModel.PlayingId))

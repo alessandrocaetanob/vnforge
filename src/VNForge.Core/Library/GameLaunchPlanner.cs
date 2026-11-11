@@ -4,9 +4,9 @@ namespace VNForge.Core.Library;
 
 /// <summary>
 /// O que abrir para jogar. <paramref name="Executable"/> é o programa que o sistema inicia: o do jogo, ou o <c>LEProc.exe</c> do Locale Emulator, que então
-/// recebe o do jogo em <paramref name="Arguments"/>. <paramref name="GameExecutable"/> é sempre o do jogo. <paramref name="OpensLauncher"/> diz que o executável aberto é um lançador, e o jogo é outro processo.
+/// recebe o do jogo em <paramref name="Arguments"/>. <paramref name="GameExecutable"/> é sempre o do jogo. <paramref name="OpensLauncher"/> diz que o executável aberto é um lançador, e o jogo é outro processo, que se acha por <paramref name="GameFolder"/> (a pasta do jogo).
 /// </summary>
-public sealed record GameLaunch(string Executable, IReadOnlyList<string> Arguments, string WorkingDirectory, string GameExecutable, bool ViaLocaleEmulator, bool OpensLauncher = false);
+public sealed record GameLaunch(string Executable, IReadOnlyList<string> Arguments, string WorkingDirectory, string GameExecutable, bool ViaLocaleEmulator, bool OpensLauncher = false, string? GameFolder = null);
 
 /// <summary>Monta o <see cref="GameLaunch"/> de um jogo da biblioteca. Só lê o disco para conferir que os executáveis existem; não grava nada na pasta do jogo.</summary>
 public static class GameLaunchPlanner
@@ -25,7 +25,7 @@ public static class GameLaunchPlanner
         var executable = ResolveGameExecutable(game);
         if (!(japaneseLocale ?? game.RequiresJapaneseLocale))
         {
-            return new GameLaunch(executable, [], Path.GetDirectoryName(executable)!, executable, ViaLocaleEmulator: false, game.OpensLauncher);
+            return new GameLaunch(executable, [], Path.GetDirectoryName(executable)!, executable, ViaLocaleEmulator: false, game.OpensLauncher, game.Folder);
         }
 
         var launcher = ResolveLocaleEmulator(library.LocaleEmulatorPath);
@@ -34,7 +34,7 @@ public static class GameLaunchPlanner
         // senão com ja-JP. "-run" sem o .le.config abriria a janela de configuração do Locale Emulator em vez do jogo, por isso não é usado.
         // Fonte: LEProc/Program.cs em https://github.com/xupefei/Locale-Emulator (texto de uso: "path  Run an application with (i) its own profile (if any) or
         // (ii) first global profile (if any) or (iii) default ja-JP profile").
-        return new GameLaunch(launcher, [executable], Path.GetDirectoryName(executable)!, executable, ViaLocaleEmulator: true, game.OpensLauncher);
+        return new GameLaunch(launcher, [executable], Path.GetDirectoryName(executable)!, executable, ViaLocaleEmulator: true, game.OpensLauncher, game.Folder);
     }
 
     private static string ResolveGameExecutable(LibraryGame game)

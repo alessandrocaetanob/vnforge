@@ -32,6 +32,7 @@ public sealed class ProcessGameLauncher : IGameLauncher
     [SupportedOSPlatform("windows")]
     private static IGameProcess StartOnWindows(GameLaunch launch)
     {
+        HashSet<int> before = launch.OpensLauncher ? Running().Select(p => p.Id).ToHashSet() : [];
         var process = Open(launch, useShell: false);
         var job = JobObject.TryCreate();
         if (job is not null && !TryAssign(job, process))
@@ -41,39 +42,45 @@ public sealed class ProcessGameLauncher : IGameLauncher
         }
 
         var opened = new JobGameProcess(process, job);
-        return launch.OpensLauncher ? new LauncherAwareProcess(opened, () => PollGame(launch.GameExecutable)) : opened;
+        return launch.OpensLauncher && launch.GameFolder is { } folder
+            ? new LauncherAwareProcess(opened, () => PollGame(launch.GameExecutable, folder, before))
+            : opened;
     }
 
-    // O jogo que o lançador abre não é filho do processo aberto, então fica fora do job: acha-se pelo executável.
+    // O jogo que o lançador abre não é filho do processo aberto, então fica fora do job. O executável guardado é o do lançador: o jogo é um programa novo da pasta dele.
     [SupportedOSPlatform("windows")]
-    private static GameProcessState? PollGame(string gameExecutable)
+    private static GameProcessState? PollGame(string launcherExecutable, string gameFolder, IReadOnlySet<int> before)
     {
-        var ids = new List<int>();
-        foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(gameExecutable)))
-        {
-            using (process)
-            {
-                if (IsExecutable(process, gameExecutable))
-                {
-                    ids.Add(process.Id);
-                }
-            }
-        }
-
+        var ids = LauncherGameFinder.Find(Running(), launcherExecutable, gameFolder, before);
         return ids.Count == 0 ? null : ids.All(JobGameProcess.IsSuspended) ? GameProcessState.Suspended : GameProcessState.Running;
     }
 
     [SupportedOSPlatform("windows")]
-    private static bool IsExecutable(Process process, string gameExecutable)
+    private static List<RunningProgram> Running()
+    {
+        var running = new List<RunningProgram>();
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                running.Add(new RunningProgram(process.Id, PathOf(process)));
+            }
+        }
+
+        return running;
+    }
+
+    // Sem acesso ao processo (ele roda como administrador) o caminho fica nulo e o processo não é confirmado: contar pelo nome do executável poderia pegar outro programa.
+    [SupportedOSPlatform("windows")]
+    private static string? PathOf(Process process)
     {
         try
         {
-            return string.Equals(process.MainModule?.FileName, gameExecutable, StringComparison.OrdinalIgnoreCase);
+            return process.MainModule?.FileName;
         }
         catch (Exception e) when (e is Win32Exception or InvalidOperationException or NotSupportedException)
         {
-            // Sem acesso ao processo (ele roda como administrador): o nome do executável é o que há para confirmar.
-            return true;
+            return null;
         }
     }
 

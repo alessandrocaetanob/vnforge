@@ -170,7 +170,6 @@ public sealed class LibraryPlayTests : IDisposable
         Assert.Equal("Ainda não jogado", PlayTime.Summary(PlayStats.None, now));
     }
 
-    /// <summary>O relógio do teste: o tempo só anda quando o processo falso é consultado ou o teste manda.</summary>
     [Fact]
     public async Task Aba_Jogar_do_projeto_mostra_o_tempo_as_sessoes_e_as_semanas_e_grava_o_interruptor_do_lancador()
     {
@@ -284,6 +283,61 @@ public sealed class LibraryPlayTests : IDisposable
         Assert.False(semJogo.PlayCommand.CanExecute(null));
     }
 
+    [Fact]
+    public async Task Interruptor_mexido_durante_a_partida_mantem_o_cartao_jogando_e_o_aviso_que_ja_estava_na_tela()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Running), (TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
+        var library = Create(launcher);
+        await library.LoadAsync();
+        var play = new GamePlayViewModel(library, _clock);
+        play.Open(project);
+        bool? cardPlaying = null;
+        string? shownError = null;
+        launcher.OnPoll = () =>
+        {
+            if (cardPlaying is not null)
+            {
+                return;
+            }
+
+            library.ReportProblem("Aviso de antes do interruptor.");
+            play.OpensLauncherOn = true;
+            Assert.True(library.Remembering.Wait(TimeSpan.FromSeconds(30)));
+            cardPlaying = library.Cards.Single().IsPlaying;
+            shownError = library.ErrorMessage;
+        };
+
+        await play.PlayCommand.ExecuteAsync(null);
+
+        Assert.True(cardPlaying);
+        Assert.Equal("Aviso de antes do interruptor.", shownError);
+        Assert.True(new LibraryFile(Config).Load().Find(game.Id).OpensLauncher);
+    }
+
+    [Fact]
+    public async Task Interruptor_que_nao_gravou_volta_ao_valor_do_library_json_e_mostra_o_erro()
+    {
+        var project = _root.SubFolder("projeto");
+        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
+        LibrarySamples.Save(Config, new GameLibrary([game]));
+        var library = Create(new FakeGameLauncher(_clock));
+        await library.LoadAsync();
+        var play = new GamePlayViewModel(library, _clock);
+        play.Open(project);
+
+        // O jogo sai do library.json por fora (outra janela, o vnf): gravar o interruptor falha.
+        LibrarySamples.Save(Config, new GameLibrary([]));
+        play.OpensLauncherOn = true;
+        await library.Remembering;
+
+        Assert.False(play.OpensLauncherOn);
+        Assert.NotNull(library.ErrorMessage);
+    }
+
+    /// <summary>O relógio do teste: o tempo só anda quando o processo falso é consultado ou o teste manda.</summary>
     private sealed class PlayClock(DateTimeOffset wall) : TimeProvider
     {
         private long _ticks;

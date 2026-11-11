@@ -38,6 +38,20 @@ public sealed partial class LibraryViewModel
     private async Task RememberAsync(Task previous, Func<LibraryGame?> edit)
     {
         await Task.WhenAny(previous);
-        await RunEditAsync(edit, null);
+
+        // A releitura que vem depois de gravar zera o aviso: o que já estava na tela (a sessão que não gravou, um erro de outra operação) tem de ficar.
+        var problem = ErrorMessage;
+        if (await RunEditAsync(edit, null))
+        {
+            ErrorMessage ??= problem;
+        }
+        else
+        {
+            // Não gravou: a aba Jogar volta o interruptor ao valor que está no library.json.
+            PlayEditRejected?.Invoke(this, EventArgs.Empty);
+        }
     }
+
+    /// <summary>A gravação de um interruptor da aba Jogar falhou; a aba relê o jogo para mostrar o valor que ficou gravado.</summary>
+    internal event EventHandler? PlayEditRejected;
 }
