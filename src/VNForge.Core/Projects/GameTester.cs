@@ -36,6 +36,30 @@ public sealed class GameOpenException(string message, Exception inner) : VNForge
 /// </summary>
 public sealed class GamePatchRefusedException(string message, Exception inner) : VNForgeException(message, inner);
 
+/// <summary>
+/// Em que passo uma falha de <see cref="GameTester.Run"/> aconteceu. O passo vai na própria exceção, porque o aviso de cada passo chega à tela pelo
+/// Dispatcher, depois do fim do trabalho: num trabalho rápido a falha chegaria antes do passo e a tela marcaria o anterior.
+/// </summary>
+public static class GameTestFailure
+{
+    private const string DataKey = "VNForge.GameTestStep";
+
+    /// <summary>O passo em que a falha aconteceu; nulo para uma falha antes do primeiro passo (executável ausente, patch recusado) ou que não veio de <see cref="GameTester.Run"/>.</summary>
+    public static GameTestStep? StepOf(Exception failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        return failure.Data[DataKey] is GameTestStep step ? step : null;
+    }
+
+    internal static void Tag(Exception failure, GameTestStep? step)
+    {
+        if (step is { } running && !failure.Data.Contains(DataKey))
+        {
+            failure.Data[DataKey] = running;
+        }
+    }
+}
+
 /// <summary>Quanto um passo levou.</summary>
 public sealed record GameTestStepResult(GameTestStep Step, TimeSpan Elapsed);
 
@@ -53,7 +77,8 @@ public sealed class GameTester(
     IReadOnlyList<IEngine> engines,
     IGameProcessStarter starter,
     QaEngine? qa = null,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    IInjectionFileSystem? files = null)
 {
     /// <summary>A frase do teste de acentos: tem ç, ã, é e ô, os caracteres que mais dão problema na codificação do jogo.</summary>
     public const string AccentPhrase = "Teste de acentos: ação, coração, é, avô, não.";
@@ -103,53 +128,61 @@ public sealed class GameTester(
         // O retrato sai antes do build: uma edição durante o teste deixa o retrato mais velho que o jogo, e a linha aparece como mudada em vez de sumir da lista.
         var (snapshot, snapshotFailed) = SnapshotOf(project, options);
 
-        timeline.Begin(GameTestStep.Check);
-        var build = ProjectBuilder.Build(
-            project,
-            _engines,
-            qa: qa,
-            allowWarnings: options.AllowWarnings,
-            options: BuildFor(options),
-            progress: new ActionProgress<ScriptWorkProgress>(p =>
-            {
-                // O Core relata o primeiro script depois da Conferência e antes de reconstruir: ali termina um passo e começa o outro.
-                timeline.Begin(GameTestStep.Build);
-                scripts?.Report(p);
-            }),
-            cancellationToken: cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        timeline.Begin(GameTestStep.Backup);
-        var plan = WithPatches(GameInjector.Plan(project), patches);
-        // O estado do jogo é gravado dentro da injeção, antes de abrir o executável: uma falha ao abrir não esconde o que está na pasta.
-        var injection = GameStateFile.Inject(
-            project,
-            new GameInjector(_clock),
-            plan,
-            kind,
-            options.OnlyScript,
-            _clock,
-            new ActionProgress<InjectionPhase>(phase => timeline.Begin(phase == InjectionPhase.Backup ? GameTestStep.Backup : GameTestStep.Inject)));
-        timeline.Begin(GameTestStep.Inject);
-
-        if (executable is not null)
+        try
         {
-            timeline.Begin(GameTestStep.Open);
-            try
-            {
-                Open(project);
-            }
-            catch (GameOpenException)
-            {
-                // O texto novo já está no jogo: o último teste e o retrato têm que ser os dele, senão a lista do que mudou compara com um jogo que não existe mais.
-                SaveLastTest(project, kind, timeline.Finish().Where(r => r.Step != GameTestStep.Open), snapshot, snapshotFailed);
-                throw;
-            }
-        }
+            timeline.Begin(GameTestStep.Check);
+            var build = ProjectBuilder.Build(
+                project,
+                _engines,
+                qa: qa,
+                allowWarnings: options.AllowWarnings,
+                options: BuildFor(options),
+                progress: new ActionProgress<ScriptWorkProgress>(p =>
+                {
+                    // O Core relata o primeiro script depois da Conferência e antes de reconstruir: ali termina um passo e começa o outro.
+                    timeline.Begin(GameTestStep.Build);
+                    scripts?.Report(p);
+                }),
+                cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var results = timeline.Finish();
-        SaveLastTest(project, kind, results, snapshot, snapshotFailed);
-        return new GameTestResult(kind, results, build, injection, executable);
+            timeline.Begin(GameTestStep.Backup);
+            var plan = WithPatches(GameInjector.Plan(project), patches);
+            // O estado do jogo é gravado dentro da injeção, antes de abrir o executável: uma falha ao abrir não esconde o que está na pasta.
+            var injection = GameStateFile.Inject(
+                project,
+                new GameInjector(_clock, files),
+                plan,
+                kind,
+                options.OnlyScript,
+                _clock,
+                new ActionProgress<InjectionPhase>(phase => timeline.Begin(phase == InjectionPhase.Backup ? GameTestStep.Backup : GameTestStep.Inject)));
+            timeline.Begin(GameTestStep.Inject);
+
+            if (executable is not null)
+            {
+                timeline.Begin(GameTestStep.Open);
+                try
+                {
+                    Open(project);
+                }
+                catch (GameOpenException)
+                {
+                    // O texto novo já está no jogo: o último teste e o retrato têm que ser os dele, senão a lista do que mudou compara com um jogo que não existe mais.
+                    SaveLastTest(project, kind, timeline.Finish().Where(r => r.Step != GameTestStep.Open), snapshot, snapshotFailed);
+                    throw;
+                }
+            }
+
+            var results = timeline.Finish();
+            SaveLastTest(project, kind, results, snapshot, snapshotFailed);
+            return new GameTestResult(kind, results, build, injection, executable);
+        }
+        catch (Exception ex)
+        {
+            GameTestFailure.Tag(ex, timeline.Current);
+            throw;
+        }
     }
 
     private void SaveLastTest(ProjectFolder project, GameTestKind kind, IEnumerable<GameTestStepResult> results, TranslationSnapshot? snapshot, bool snapshotFailed)
@@ -314,6 +347,9 @@ public sealed class GameTester(
         private GameTestStep? _current;
         private long _startedAt;
 
+        /// <summary>O passo que começou por último, mesmo depois de <see cref="Finish"/>; nulo antes do primeiro.</summary>
+        public GameTestStep? Current { get; private set; }
+
         /// <summary>Começa o passo; pedir de novo o passo que já corre, ou um anterior ao atual, não faz nada.</summary>
         public void Begin(GameTestStep step)
         {
@@ -324,6 +360,7 @@ public sealed class GameTester(
 
             Close();
             _current = step;
+            Current = step;
             _startedAt = clock.GetTimestamp();
             report?.Report(step);
         }

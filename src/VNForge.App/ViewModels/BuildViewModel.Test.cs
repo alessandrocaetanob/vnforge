@@ -180,7 +180,7 @@ public sealed partial class BuildViewModel
         try
         {
             var project = ProjectFolder.Open(summary.Root);
-            var tester = new GameTester(engines, starter, qa, clock);
+            var tester = new GameTester(engines, starter, qa, clock, injectionFiles);
             AppendLog(options.AccentTest
                 ? "Teste de acentos: só a frase fixa vai para o jogo."
                 : "Teste no jogo: conferindo, guardando a cópia de segurança e copiando para o jogo.");
@@ -628,13 +628,13 @@ public sealed partial class BuildViewModel
         }
 
         var caption = $"{what} falhou.";
+        var step = GameTestFailure.StepOf(failure) ?? currentStep;
         return failure switch
         {
             GameExecutableNotFoundException => new TestStop(GameTestStep.Open, "Jogo não encontrado", caption, PreviousDone: false),
             GamePatchRefusedException => new TestStop(GameTestStep.Inject, "Ajuste recusado", caption, PreviousDone: false),
-            // Os passos chegam da tarefa pelo Dispatcher, depois do fim do trabalho: se o jogo recusa abrir logo após a injeção, currentStep ainda pode ser Inject.
-            GameOpenException => new TestStop(GameTestStep.Open, FailureText(GameTestStep.Open), caption, PreviousDone: true),
-            _ => new TestStop(currentStep, FailureText(currentStep), caption, PreviousDone: true),
+            // Os passos chegam da tarefa pelo Dispatcher, depois do fim do trabalho: currentStep pode estar um passo atrás. O passo que falhou vem na exceção.
+            _ => new TestStop(step, FailureText(step), caption, PreviousDone: true),
         };
     }
 

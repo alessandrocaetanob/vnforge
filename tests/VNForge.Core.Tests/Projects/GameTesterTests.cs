@@ -323,6 +323,18 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Falha_leva_o_passo_em_que_aconteceu_e_a_do_jogo_que_nao_abre_leva_o_ultimo_passo()
+    {
+        Translate("a001", 0, "Hello");
+        _starter.Failure = new VNForgeException("sem permissão");
+
+        var failure = Assert.Throws<GameOpenException>(() => Run());
+
+        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(failure));
+        Assert.Null(GameTestFailure.StepOf(new VNForgeException("de fora do teste")));
+    }
+
+    [Fact]
     public void Jogo_que_nao_abre_troca_o_ultimo_teste_e_o_retrato_pelos_do_texto_novo()
     {
         Translate("a001", 0, "Hello");
