@@ -94,6 +94,7 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
 
         cancellationToken.ThrowIfCancellationRequested();
         var (reference, problem, changedFiles) = CheckReference(project);
+        var gameVersion = ReleaseService.DetectGameVersion(project.Root, config);
         return new ReleaseReadiness(
             gameFolder,
             previous?.Version,
@@ -108,8 +109,17 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
             previous?.GameFiles,
             CountFiles(gameFolder),
             examples,
-            changedFiles);
+            changedFiles,
+            gameVersion,
+            ReferenceVersionOf(config, gameVersion, reference));
     }
+
+    /// <summary>
+    /// A versão de referência é a que o projeto guarda; sem ela, a do executável da pasta vale enquanto a pasta não foi reprovada pelo checksum
+    /// (numa pasta de outra versão ela não diz nada sobre a referência).
+    /// </summary>
+    private static string? ReferenceVersionOf(ProjectConfig config, string? folderVersion, ReleaseReference reference) =>
+        config.Game.Version ?? (reference == ReleaseReference.Differs ? null : folderVersion);
 
     private static ScriptNames SceneNames(ProjectFolder project)
     {

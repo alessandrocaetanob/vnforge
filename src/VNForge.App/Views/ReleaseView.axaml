@@ -98,12 +98,22 @@
 
           <Border Classes="panel" Padding="20,16" IsVisible="{Binding IsReady}" AutomationProperties.Name="A versão">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="14">
-              <StackPanel Spacing="4">
-                <TextBlock Classes="body-strong" Text="Número da versão"/>
-                <TextBox Text="{Binding Version}" AutomationProperties.Name="Número da versão"/>
-                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding VersionHelp}" IsVisible="{Binding !HasVersionError}"/>
-                <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding VersionError}" IsVisible="{Binding HasVersionError}"/>
-              </StackPanel>
+              <!-- A Versão do jogo divide a célula do Número da versão e só aparece quando o executável não traz versão; as legendas ficam numa linha de largura inteira para a altura da linha não mudar. -->
+              <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" ColumnSpacing="12" RowSpacing="4">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="body-strong" Text="Número da versão"/>
+                  <TextBox Text="{Binding Version}" AutomationProperties.Name="Número da versão"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding ShowGameVersionField}">
+                  <TextBlock Classes="body-strong" Text="Versão do jogo"/>
+                  <TextBox Text="{Binding GameVersion}" MaxLength="64" PlaceholderText="1.00" AutomationProperties.Name="Versão do jogo"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
+                  <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding VersionHelp}" IsVisible="{Binding !HasVersionError}"/>
+                  <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding VersionError}" IsVisible="{Binding HasVersionError}"/>
+                  <TextBlock Classes="caption" TextWrapping="Wrap" Foreground="{DynamicResource Vnf.SignalErrorFg}" Text="{Binding GameVersionError}" IsVisible="{Binding HasGameVersionError}"/>
+                </StackPanel>
+              </Grid>
               <StackPanel Grid.Column="1" Spacing="4">
                 <TextBlock Classes="body-strong" Text="Nome do instalador"/>
                 <TextBox Text="{Binding InstallerName}" AutomationProperties.Name="Nome do instalador"/>

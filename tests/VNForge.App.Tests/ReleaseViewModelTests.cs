@@ -227,6 +227,98 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
+    public async Task Executavel_sem_versao_mostra_o_campo_vazio_sem_parenteses_e_com_o_botao_ativo()
+    {
+        var (vm, _, temp, _) = await OpenAsync(Ready());
+        using var _t = temp;
+
+        Assert.True(vm.ShowGameVersionField);
+        Assert.Equal(string.Empty, vm.GameVersion);
+        Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa", vm.GameFolderLabel);
+        Assert.False(vm.HasGameVersionError);
+        Assert.True(vm.GenerateCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Executavel_com_versao_esconde_o_campo()
+    {
+        var (vm, _, temp, _) = await OpenAsync(Ready() with { GameVersion = "1.00" });
+        using var _t = temp;
+
+        Assert.False(vm.ShowGameVersionField);
+        Assert.Equal(string.Empty, vm.GameVersion);
+        Assert.Equal(@"D:\VNs\Amaoto no Hakoniwa (versão 1.00)", vm.GameFolderLabel);
+    }
+
+    [Fact]
+    public async Task O_campo_abre_com_a_versao_que_o_projeto_guarda()
+    {
+        var (vm, _, temp, _) = await OpenAsync(Ready() with { ReferenceVersion = "1.00" });
+        using var _t = temp;
+
+        Assert.True(vm.ShowGameVersionField);
+        Assert.Equal("1.00", vm.GameVersion);
+    }
+
+    [Fact]
+    public async Task Gerar_leva_a_versao_digitada_ao_core_e_o_campo_vazio_vai_como_nulo()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync();
+        using var _t = temp;
+
+        await vm.GenerateCommand.ExecuteAsync(null);
+        await vm.ReloadAsync();
+        vm.GameVersion = "  1.01 ";
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        Assert.Null(publisher.Created[0].GameVersion);
+        Assert.Equal("1.01", publisher.Created[1].GameVersion);
+    }
+
+    [Fact]
+    public async Task Com_a_versao_no_executavel_o_valor_que_sobrou_no_campo_nao_vai_ao_core()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync(Ready() with { GameVersion = "1.00" });
+        using var _t = temp;
+        vm.GameVersion = "9.99";
+
+        await vm.GenerateCommand.ExecuteAsync(null);
+
+        Assert.Null(Assert.Single(publisher.Created).GameVersion);
+    }
+
+    [Fact]
+    public async Task Versao_do_jogo_invalida_trava_o_botao_e_mostra_o_motivo()
+    {
+        var (vm, _, temp, _) = await OpenAsync();
+        using var _t = temp;
+
+        vm.GameVersion = new string('9', GameConfig.MaxVersionLength + 1);
+
+        Assert.True(vm.HasGameVersionError);
+        Assert.Contains("1 a 64 caracteres", vm.GameVersionError, StringComparison.Ordinal);
+        Assert.False(vm.GenerateCommand.CanExecute(null));
+
+        vm.GameVersion = "1.00";
+
+        Assert.False(vm.HasGameVersionError);
+        Assert.True(vm.GenerateCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_limpa_a_versao_do_jogo_digitada()
+    {
+        var (vm, _, temp, _) = await OpenAsync();
+        using var _t = temp;
+        vm.GameVersion = "1.00";
+
+        vm.Project = Summary(Path.Combine(temp.Path, "outro"));
+
+        Assert.Equal(string.Empty, vm.GameVersion);
+        Assert.False(vm.ShowGameVersionField);
+    }
+
+    [Fact]
     public async Task A_fala_de_exemplo_usa_o_nome_da_cena_quando_ha_e_cena_n_quando_nao()
     {
         var (vm, _, temp, _) = await OpenAsync(ReadyLikeQuadro());

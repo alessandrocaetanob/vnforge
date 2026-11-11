@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -75,6 +76,8 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                 {
                     Assert.True(Shows(window, "O que já confere"));
                     Assert.True(Shows(window, "A versão"));
+                    Assert.True(Shows(window, "Número da versão"));
+                    Assert.True(Shows(window, "Versão do jogo"));
                     Assert.True(Shows(window, "O que o jogador recebe"));
                     Assert.True(Shows(window, "O que mudou desde o patch anterior"));
                     Assert.True(Shows(window, "O que o patch muda no jogo"));
@@ -82,6 +85,51 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                 return 0;
             },
             TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task O_campo_Versao_do_jogo_divide_a_celula_do_numero_e_nao_move_os_outros_campos()
+    {
+        using var withField = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(), ReleaseViewModelTests.QuadroCounts);
+        using var withoutField = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro() with { GameVersion = "1.00" }, ReleaseViewModelTests.QuadroCounts);
+
+        var shown = await fixture.Session.Dispatch(() => Render(withField, "lancar-pronto-com-campo-versao", ThemeVariant.Dark), TestContext.Current.CancellationToken);
+        var hidden = await fixture.Session.Dispatch(() => Render(withoutField, "lancar-pronto-sem-campo-versao", ThemeVariant.Dark), TestContext.Current.CancellationToken);
+
+        Assert.True(shown.Shows("Versão do jogo"));
+        Assert.False(hidden.Shows("Versão do jogo"));
+        Assert.Equal(hidden.Positions["Nome do instalador"], shown.Positions["Nome do instalador"]);
+        Assert.Equal(hidden.Positions["Pasta de saída"], shown.Positions["Pasta de saída"]);
+        Assert.Equal(hidden.Positions["Créditos"], shown.Positions["Créditos"]);
+        Assert.Equal(hidden.Positions["Número da versão"].Y, shown.Positions["Número da versão"].Y);
+        Assert.True(shown.Positions["Versão do jogo"].X > shown.Positions["Número da versão"].X);
+        Assert.Equal(shown.Positions["Número da versão"].Y, shown.Positions["Versão do jogo"].Y);
+    }
+
+    /// <summary>O que a tela mostrou: onde cada campo caiu e se um nome apareceu.</summary>
+    private sealed record Inspection(Dictionary<string, Point> Positions, HashSet<string> Names)
+    {
+        public bool Shows(string name) => Names.Contains(name);
+    }
+
+    private static Inspection Render(ReleaseViewModelTestsHost host, string screen, ThemeVariant theme)
+    {
+        var positions = new Dictionary<string, Point>();
+        var names = new HashSet<string>();
+        Render(host, screen, theme, window =>
+        {
+            foreach (var control in window.GetVisualDescendants().OfType<TextBox>().Where(c => c.IsEffectivelyVisible && c.Bounds.Height > 0))
+            {
+                if (control.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) is { } name && control.TranslatePoint(default, window) is { } point)
+                {
+                    positions[name] = point;
+                    names.Add(name);
+                }
+            }
+
+            names.UnionWith(window.GetVisualDescendants().OfType<TextBlock>().Where(c => c.IsEffectivelyVisible && c.Text is not null).Select(c => c.Text!));
+        });
+        return new Inspection(positions, names);
     }
 
     [Theory]
@@ -170,6 +218,8 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                 {
                     Assert.True(Shows(window, "Checksum diferente"));
                     Assert.True(Shows(window, "O que fazer"));
+                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text is { } text && text.EndsWith("(versão 1.01)", StringComparison.Ordinal));
+                    Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text is { } text && text.Contains("extrair o texto (1.00).", StringComparison.Ordinal));
                 });
                 return 0;
             },
