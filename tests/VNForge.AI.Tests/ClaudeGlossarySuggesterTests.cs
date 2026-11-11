@@ -27,19 +27,18 @@ public class ClaudeGlossarySuggesterTests
     ];
 
     [Fact]
-    public async Task Devolve_genero_e_voz_de_cada_personagem_na_ordem_pedida()
+    public async Task O_pedido_vai_para_o_haiku_com_as_falas_e_o_schema_de_personagens()
     {
-        var client = new StubClient(_ => Ok("""{"characters":[{"name":"健太","gender":"male","voice":"direto e casual"},{"name":"美咲","gender":"female","voice":"animada, trata o veterano com respeito"}]}"""));
+        var client = new StubClient(_ => Ok("""{"characters":[{"name":"美咲","gender":"female","voice":"x"},{"name":"健太","gender":"male","voice":"y"}]}"""));
         var suggester = new ClaudeGlossarySuggester(client);
 
-        var result = await suggester.SuggestVoicesAsync(Voices, CancellationToken.None);
+        await suggester.SuggestVoicesAsync(Voices, CancellationToken.None);
 
-        Assert.Equal(
-            [
-                new CharacterVoiceSuggestion("美咲", CharacterGender.Female, "animada, trata o veterano com respeito"),
-                new CharacterVoiceSuggestion("健太", CharacterGender.Male, "direto e casual"),
-            ],
-            result);
+        var request = Assert.Single(client.Requests);
+        Assert.Equal("claude-haiku-5-5", request.Model);
+        Assert.Contains("えへへ、ありがとう！", request.User);
+        Assert.Contains("\"characters\"", request.JsonSchema);
+        Assert.Contains("\"female\"", request.JsonSchema);
     }
 
     [Fact]

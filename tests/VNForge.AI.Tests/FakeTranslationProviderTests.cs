@@ -42,4 +42,10 @@ public class FakeTranslationProviderTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             new FakeTranslationProvider().TranslateAsync(new TranslationBatch([Unit("a", "x")]), cts.Token));
     }
+
+    [Fact]
+    public void Lote_recusa_linhas_nulas()
+    {
+        Assert.Throws<ArgumentNullException>(() => new TranslationBatch(null!));
+    }
 }

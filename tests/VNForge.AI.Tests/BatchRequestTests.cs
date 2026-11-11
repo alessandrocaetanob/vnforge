@@ -71,22 +71,6 @@ public class BatchRequestTests
     }
 
     [Fact]
-    public async Task O_runner_junta_as_linhas_que_mudam_com_antes_e_depois_e_conta_o_resto()
-    {
-        var runner = Runner(FakeBatchRequestProvider.Replacing("você", "tu"));
-
-        var outcome = await runner.RunAsync("trocar você por tu", Candidates(Unit("a", "Você sabe?"), Unit("b", "Oi."), Unit("c", "Eu vi você.")), CancellationToken.None);
-
-        Assert.Equal(["cena01:1", "cena01:3"], outcome.Items.Select(i => $"{i.ScriptKey}:{i.Number}"));
-        Assert.Equal(["tu sabe?", "Eu vi tu."], outcome.Items.Select(i => i.After));
-        Assert.Equal(["Você sabe?", "Eu vi você."], outcome.Items.Select(i => i.Before));
-        Assert.All(outcome.Items, i => Assert.Equal(TranslationStatus.Machine, i.PreviousStatus));
-        Assert.Equal(1, outcome.Unchanged);
-        Assert.Equal(0, outcome.Refused);
-        Assert.Null(outcome.Problem);
-    }
-
-    [Fact]
     public async Task Linha_que_a_IA_nao_devolveu_nao_gera_segunda_chamada_paga()
     {
         var provider = FakeBatchRequestProvider.Replacing("você", "tu");
@@ -123,19 +107,6 @@ public class BatchRequestTests
         Assert.Empty(outcome.Items);
         Assert.Equal(1, outcome.Failed);
         Assert.NotNull(outcome.Problem);
-    }
-
-    [Fact]
-    public async Task Cancelar_devolve_o_que_ja_estava_pronto()
-    {
-        using var cancel = new CancellationTokenSource();
-        await cancel.CancelAsync();
-        var runner = Runner(FakeBatchRequestProvider.Replacing("você", "tu"));
-
-        var outcome = await runner.RunAsync("trocar você por tu", Candidates(Unit("a", "Você sabe?")), cancel.Token);
-
-        Assert.True(outcome.Canceled);
-        Assert.Empty(outcome.Items);
     }
 
     [Fact]

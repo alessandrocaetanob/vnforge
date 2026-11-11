@@ -45,6 +45,26 @@ public class TranslationRunnerBudgetTests
     }
 
     [Fact]
+    public async Task Pergunta_antes_de_um_pedido_acima_do_valor_de_aviso()
+    {
+        var wallet = new Wallet();
+        var asked = new List<BudgetQuestion>();
+        var (runner, provider) = Create(wallet, new BudgetLimits(null, 5m), (q, _) =>
+        {
+            asked.Add(q);
+            return Task.FromResult(true);
+        });
+
+        var run = await runner.RunAsync(Units(60), Build, ct: CancellationToken.None);
+
+        var question = Assert.Single(asked);
+        Assert.Equal(6.00m, question.EstimatedCost);
+        Assert.Equal(60, run.Results.Count);
+        Assert.Equal(3, provider.ReceivedBatches.Count);
+        Assert.Null(run.BudgetStop);
+    }
+
+    [Fact]
     public async Task Cancelar_enquanto_a_pergunta_espera_devolve_cancelado_sem_lancar()
     {
         var wallet = new Wallet();

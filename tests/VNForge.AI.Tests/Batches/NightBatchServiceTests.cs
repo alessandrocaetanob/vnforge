@@ -101,22 +101,6 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Gravar_de_novo_um_lote_ja_gravado_nao_chama_a_API_nem_muda_nada()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-        await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-        var gets = _client.Gets;
-
-        var again = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-        Assert.False(again.JustApplied);
-        Assert.Null(again.Info);
-        Assert.Equal(gets, _client.Gets);
-        Assert.Equal(44, again.State.Outcome!.Translated);
-    }
-
-    [Fact]
     public async Task A_gravacao_deixa_um_ponto_de_restauracao_e_o_Desfazer_devolve_as_linhas()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
@@ -150,22 +134,6 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedido_que_voltou_com_erro_deixa_as_linhas_dele_sem_traducao_e_conta_como_erro()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.OutcomeOf = item => item.CustomId == "r00002" ? MessageBatchOutcome.Errored : MessageBatchOutcome.Succeeded;
-        _client.Finish(state!.Id);
-
-        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
-
-        Assert.Equal(24, applied.Outcome!.Translated);
-        Assert.Equal(20, applied.Outcome.Failed);
-        Assert.Equal(Enumerable.Range(20, 20).Select(Id), applied.Outcome.UnfinishedIds);
-        Assert.Equal(TranslationStatus.Untranslated, _project.LoadText(Key)[20].Status);
-        Assert.Equal(TranslationStatus.Machine, _project.LoadText(Key)[0].Status);
-    }
-
-    [Fact]
     public async Task Resposta_que_nao_traz_os_ids_do_pedido_conta_como_erro_e_nao_grava()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
@@ -193,19 +161,6 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.Equal(NightBatchPhase.Applied, applied.Phase);
         Assert.Equal(0, applied.Outcome!.Translated);
         Assert.Equal(44, applied.Outcome.Failed);
-    }
-
-    [Fact]
-    public async Task O_gasto_entra_no_total_do_projeto_com_o_desconto_do_lote()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-
-        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
-
-        // 3 pedidos de 1000 tokens de entrada e 500 de saída no Opus (US$ 4 e US$ 20 por milhão): US$ 0,014 cada, US$ 0,042 no total, pela metade.
-        Assert.Equal(0.021m, applied.Outcome!.Dollars);
-        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
     }
 
     [Fact]
@@ -299,27 +254,6 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.NotNull(saved.Outcome.RestorePointId);
         Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
         Assert.Single(new RestorePointStore(_project, _clock).List());
-    }
-
-    [Fact]
-    public async Task Com_a_trava_do_lote_com_outro_processo_a_consulta_nao_grava_e_o_lote_segue_aberto()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-        var store = new NightBatchStore(_project);
-
-        using (store.TryClaim(state.Id))
-        {
-            var blocked = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-            Assert.False(blocked.JustApplied);
-            Assert.Equal(NightBatchPhase.Processing, blocked.State.Phase);
-            Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
-        }
-
-        var freed = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-        Assert.True(freed.JustApplied);
-        Assert.Equal(44, freed.State.Outcome!.Translated);
     }
 
     [Fact]

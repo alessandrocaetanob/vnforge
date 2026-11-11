@@ -50,6 +50,18 @@ public class TranslationRunnerTests
     }
 
     [Fact]
+    public async Task Erro_de_programacao_nao_e_repetido()
+    {
+        var provider = new ScriptedProvider((_, _, _) => throw new ArgumentException("lote inválido"));
+        var runner = new TranslationRunner(provider, NoWait(retries: 3));
+
+        var run = await runner.RunAsync(Units(20), Build, ct: CancellationToken.None);
+
+        Assert.Equal(1, provider.Calls);
+        Assert.Single(run.Failures);
+    }
+
+    [Fact]
     public async Task Cancelar_no_meio_devolve_e_entrega_o_que_ja_voltou()
     {
         using var cts = new CancellationTokenSource();

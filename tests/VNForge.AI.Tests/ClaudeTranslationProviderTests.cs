@@ -40,6 +40,12 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
+    public void Modelo_desconhecido_e_recusado()
+    {
+        Assert.Throws<ArgumentException>(() => new ClaudeOptions { Model = "gpt-4" });
+    }
+
+    [Fact]
     public async Task Requisicao_leva_modelo_effort_schema_json_e_as_linhas()
     {
         var client = new StubClient(_ => Ok("""{"translations":[{"id":"a","translation":"Oi"}]}"""));
@@ -114,6 +120,19 @@ public class ClaudeTranslationProviderTests
         var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
 
         Assert.Equal(new TranslationResult("a", "Oi"), Assert.Single(results));
+    }
+
+    [Fact]
+    public async Task Tokens_lidos_do_cache_entram_na_contagem()
+    {
+        var reply = new ClaudeReply("end_turn", """{"translations":[{"id":"a","translation":"Oi"}]}""", new ClaudeUsage(100, 20, 800, 50));
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
+        var batch = new TranslationBatch([Unit("a", "x")]);
+
+        await provider.TranslateAsync(batch, CancellationToken.None);
+        await provider.TranslateAsync(batch, CancellationToken.None);
+
+        Assert.Equal(new ClaudeUsage(200, 40, 1600, 100), provider.Usage);
     }
 
     [Fact]

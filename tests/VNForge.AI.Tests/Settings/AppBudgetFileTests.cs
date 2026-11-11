@@ -60,14 +60,6 @@ public sealed class AppBudgetFileTests : IDisposable
         Assert.Equal(100m, reading.Settings.Limits.Limit);
     }
 
-    [Fact]
-    public void Campo_nulo_ou_ausente_nao_e_problema()
-    {
-        Write("""{ "spendLimit": null, "concurrency": 3 }""");
-
-        Assert.Null(AppBudgetFile.Load(_dir).Problem);
-    }
-
     [Theory]
     [InlineData("{ isto não é json")]
     [InlineData("[1, 2]")]

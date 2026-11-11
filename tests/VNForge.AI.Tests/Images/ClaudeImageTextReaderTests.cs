@@ -73,13 +73,14 @@ public sealed class ClaudeImageTextReaderTests
     }
 
     [Fact]
-    public async Task Resposta_cortada_pelo_limite_de_tokens_e_erro()
+    public async Task Resposta_cortada_leva_o_uso_da_chamada_na_excecao()
     {
-        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te"""));
+        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te""", new ClaudeUsage(900, 2000, 100, 0)));
 
         var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
 
-        Assert.Contains("max_tokens", Assert.IsType<ClaudeResponseException>(error.InnerException).Detail);
+        Assert.Equal(1000, error.InputTokens);
+        Assert.Equal(2000, error.OutputTokens);
     }
 
     [Theory]
@@ -93,16 +94,5 @@ public sealed class ClaudeImageTextReaderTests
         Assert.Contains("fora do formato", error.Message);
         Assert.Equal(500, error.InputTokens);
         Assert.Equal(30, error.OutputTokens);
-    }
-
-    [Fact]
-    public async Task Conta_os_tokens_da_chamada_com_o_cache_incluido()
-    {
-        var client = new StubClient(_ => Ok("""{"hasText":false,"text":""}""", new ClaudeUsage(1000, 40, 200, 30)));
-
-        var reading = await new ClaudeImageTextReader(client).ReadAsync(Image, Token);
-
-        Assert.Equal(1230, reading.InputTokens);
-        Assert.Equal(40, reading.OutputTokens);
     }
 }

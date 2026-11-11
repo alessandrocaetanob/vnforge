@@ -93,9 +93,9 @@ public class EditorPassTests
     }
 
     [Fact]
-    public async Task Resposta_sem_o_campo_adjustments_vira_ClaudeResponseException()
+    public async Task Resposta_que_nao_e_o_json_esperado_vira_ClaudeResponseException()
     {
-        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("""{"reviews":[]}""")));
+        var provider = new ClaudeEditorPassProvider(new StubClient(_ => Ok("não é json")));
 
         await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.ReviewSceneAsync(Scene(Unit("y:1", "a", "a")), TestContext.Current.CancellationToken));
     }

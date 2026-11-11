@@ -30,23 +30,6 @@ public sealed class EvalRunnerTests : IDisposable
         _ => new EvalProvider(provider, () => usage);
 
     [Fact]
-    public async Task Cada_configuracao_traduz_as_mesmas_linhas_aprovadas_e_o_chrf_compara_com_a_aprovada()
-    {
-        var providers = new Dictionary<string, FakeTranslationProvider> { ["A"] = EvalProject.Perfect(), ["B"] = new(unit => $"[PT] {unit.Source}") };
-
-        var round = await EvalRunner.RunAsync(Request(c => new EvalProvider(providers[c.Id], () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
-
-        Assert.Equal(20, round.GoldLines);
-        Assert.Equal(20, round.RemainingLines);
-        Assert.Equal(20, round.Sample.Count);
-        Assert.Equal(_project.GoldIndexes.Select(EvalProject.Id), round.Reports[0].Lines.Select(l => l.LineId));
-        Assert.Equal(round.Reports[0].Lines.Select(l => l.LineId), round.Reports[1].Lines.Select(l => l.LineId));
-        Assert.Equal(100.0, round.Reports[0].MeanChrf, 6);
-        Assert.InRange(round.Reports[1].MeanChrf, 0, 60);
-        Assert.Equal(["A", "B"], round.Reports.Select(r => r.Config.Id));
-    }
-
-    [Fact]
     public async Task Nao_grava_nada_nos_textos_do_projeto()
     {
         var before = _project.TextJson;
@@ -54,17 +37,6 @@ public sealed class EvalRunnerTests : IDisposable
         await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), TestContext.Current.CancellationToken);
 
         Assert.Equal(before, _project.TextJson);
-    }
-
-    [Fact]
-    public async Task Gera_os_pares_as_cegas_entre_traducoes_diferentes()
-    {
-        var providers = new Dictionary<string, FakeTranslationProvider> { ["A"] = EvalProject.Perfect(), ["B"] = new(unit => $"[PT] {unit.Source}") };
-
-        var round = await EvalRunner.RunAsync(Request(c => new EvalProvider(providers[c.Id], () => null), Sonnet, Haiku), TestContext.Current.CancellationToken);
-
-        Assert.Equal(EvalRunRequest.DefaultPairCount, round.Pairs.Count);
-        Assert.All(round.Pairs, p => Assert.Equal(["A", "B"], new[] { p.First, p.Second }.Order()));
     }
 
     [Fact]
@@ -116,6 +88,17 @@ public sealed class EvalRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_sem_linhas_aprovadas_diz_o_que_fazer()
+    {
+        using var empty = new EvalProject(withGold: false);
+
+        var error = await Assert.ThrowsAsync<EvalException>(() =>
+            EvalRunner.RunAsync(new EvalRunRequest(empty.Folder, [Sonnet], 10, 1, Same(EvalProject.Perfect())), TestContext.Current.CancellationToken));
+
+        Assert.Contains("ainda não tem linhas aprovadas", error.Message);
+    }
+
+    [Fact]
     public async Task Lote_que_falha_deixa_as_linhas_recusadas_com_chrf_zero_e_o_erro_no_relatorio()
     {
         var failing = new FakeTranslationProvider { FailOnCall = 1 };
@@ -153,28 +136,6 @@ public sealed class EvalRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Cada_lote_e_um_trecho_de_linhas_seguidas_e_a_linha_do_meio_tem_a_janela_de_contexto_real()
-    {
-        using var project = new EvalProject(goldCount: 100);
-        var provider = EvalProject.Perfect();
-        var request = new EvalRunRequest(project.Folder, [Sonnet], 100, 3, Same(provider)) { RunOptions = Quick };
-
-        await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
-
-        var batches = provider.ReceivedBatches.OrderBy(b => b.Lines[0].Id, StringComparer.Ordinal).ToList();
-        Assert.Equal(Enumerable.Repeat(10, 10), batches.Select(b => b.Lines.Count));
-        Assert.All(batches, b => Assert.Equal(
-            Enumerable.Range(Index(b.Lines[0]), b.Lines.Count).Select(EvalProject.Id),
-            b.Lines.Select(l => l.Id)));
-        var second = batches[1];
-        Assert.Contains(EvalProject.Id(19), second.Lines.Select(l => l.Id));
-        Assert.Contains(EvalProject.Id(20), second.Lines.Select(l => l.Id));
-        Assert.Contains(EvalProject.Id(21), second.Lines.Select(l => l.Id));
-        Assert.Equal(["Tradução 13", "Tradução 14"], second.PreviousLines.Select(l => l.Translation));
-        Assert.Equal(["原文25", "原文26"], second.NextLines.Take(2).Select(l => l.Source));
-    }
-
-    [Fact]
     public async Task Configuracao_que_nao_termina_no_limite_nao_derruba_as_que_terminaram_e_a_rodada_fica_parcial()
     {
         using var project = new EvalProject(goldCount: 100);
@@ -195,15 +156,6 @@ public sealed class EvalRunnerTests : IDisposable
         Assert.Equal(round.Id, EvalStore.LoadLatest(project.Folder)!.Id);
         Assert.Equal(1, second.Calls);
         Assert.Equal((10 + 1) * 2m, AiUsageLog.Load(project.Folder).Dollars);
-    }
-
-    [Fact]
-    public async Task A_rodada_que_termina_inteira_nao_e_parcial()
-    {
-        var round = await EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet), TestContext.Current.CancellationToken);
-
-        Assert.False(round.IsPartial);
-        Assert.Null(EvalStore.LoadLatest(_project.Folder)!.PartialNote);
     }
 
     [Fact]

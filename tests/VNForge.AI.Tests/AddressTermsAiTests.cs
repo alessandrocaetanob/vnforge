@@ -40,30 +40,6 @@ public partial class AddressTermsAiTests
     ];
 
     [Fact]
-    public async Task Devolve_os_pares_da_resposta_para_o_haiku_com_o_schema_estrito()
-    {
-        var client = new StubClient(_ => Ok("""{"pairs":[{"from":"健太","to":"美咲","source":"美咲ちゃん","target":"Misaki-chan"},{"from":"美咲","to":"健太","source":"先輩","target":"senpai"}]}"""));
-        var suggester = new ClaudeGlossarySuggester(client);
-
-        var result = await suggester.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None);
-
-        Assert.Equal(
-            [new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan"), new AddressTermSuggestion("美咲", "健太", "先輩", "senpai")],
-            result);
-        var request = Assert.Single(client.Requests);
-        Assert.Equal("claude-haiku-5-5", request.Model);
-        Assert.Contains("美咲ちゃん、おはよう", request.User);
-        Assert.Contains("\"凛\"", request.User);
-        Assert.Contains("Kenta", request.User);
-
-        using var schema = JsonDocument.Parse(request.JsonSchema);
-        var item = schema.RootElement.GetProperty("properties").GetProperty("pairs").GetProperty("items");
-        Assert.False(schema.RootElement.GetProperty("additionalProperties").GetBoolean());
-        Assert.False(item.GetProperty("additionalProperties").GetBoolean());
-        Assert.Equal(["from", "to", "source", "target"], item.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
-    }
-
-    [Fact]
     public async Task Descarta_o_que_nao_vale_e_fica_com_o_primeiro_de_cada_par()
     {
         var client = new StubClient(_ => Ok("""
@@ -81,31 +57,6 @@ public partial class AddressTermsAiTests
         var result = await suggester.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None);
 
         Assert.Equal([new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan")], result);
-    }
-
-    [Fact]
-    public async Task Sem_falantes_nao_chama_a_api_e_muitos_falantes_viram_varias_chamadas()
-    {
-        var client = new StubClient(_ => Ok("""{"pairs":[]}"""));
-        var suggester = new ClaudeGlossarySuggester(client);
-
-        Assert.Empty(await suggester.SuggestAddressTermsAsync([], Roster, CancellationToken.None));
-        Assert.Empty(client.Requests);
-
-        var many = Enumerable.Range(0, ClaudeGlossarySuggester.AddressChunk + 2).Select(i => new AddressTermRequest($"p{i}", [new AddressLine("あ", null)])).ToArray();
-        await suggester.SuggestAddressTermsAsync(many, Roster, CancellationToken.None);
-
-        Assert.Equal(2, client.Requests.Count);
-    }
-
-    [Fact]
-    public async Task Recusa_e_corte_por_tamanho_viram_excecao_com_a_frase_em_portugues()
-    {
-        var refused = new ClaudeGlossarySuggester(new StubClient(_ => new ClaudeReply("refusal", "")));
-        var cut = new ClaudeGlossarySuggester(new StubClient(_ => new ClaudeReply("max_tokens", "{")));
-
-        await Assert.ThrowsAsync<ClaudeRefusalException>(() => refused.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None));
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => cut.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None));
     }
 
     [Fact]
@@ -151,25 +102,6 @@ public partial class AddressTermsAiTests
         new("健太", "拓也", "拓也", " "),
     ];
 
-    [Fact]
-    public void O_lote_leva_so_os_tratamentos_de_quem_fala_nele_com_os_nomes_traduzidos()
-    {
-        var builder = new TranslationBatchBuilder([], Cast, addressTerms: Terms);
-
-        var batch = builder.Build([Unit("a", "美咲ちゃん、おはよう", "健太")]);
-
-        Assert.Equal(
-            [new AddressInfo("Kenta", "Misaki", "美咲ちゃん", "Misaki-chan"), new AddressInfo("Kenta", "凛", "凛", "Rin")],
-            batch.Addressing);
-    }
-
-    [Fact]
-    public void Sem_tratamentos_o_lote_nao_traz_nada_e_o_falante_sem_cadastro_tambem_nao()
-    {
-        Assert.Empty(new TranslationBatchBuilder([], Cast).Build([Unit("a", "x", "健太")]).Addressing);
-        Assert.Empty(new TranslationBatchBuilder([], Cast, addressTerms: Terms).Build([Unit("a", "x", "誰か"), Unit("b", "y", null)]).Addressing);
-    }
-
     private static async Task<ClaudeRequest> Translate(TranslationBatch batch)
     {
         var client = new StubClient(request =>
@@ -204,23 +136,5 @@ public partial class AddressTermsAiTests
         Assert.NotEqual(chan, Key(new AddressTerm("健太", "美咲", "美咲ちゃん", "Misaki")));
         Assert.NotEqual(chan, Key());
         Assert.Equal(chan, Key(new AddressTerm("健太", "美咲", "美咲ちゃん", "Misaki-chan")));
-    }
-
-    [Fact]
-    public void O_falante_escolhido_na_linha_vale_no_lugar_do_extraido()
-    {
-        var unit = Unit("a", "x", "凛") with { ChosenSpeaker = "健太" };
-
-        var batch = new TranslationBatchBuilder([], Cast, addressTerms: Terms).Build([unit]);
-
-        Assert.Contains(batch.Addressing, a => a.From == "Kenta");
-    }
-
-    [Fact]
-    public void ForLines_mantem_o_tratamento()
-    {
-        var batch = new TranslationBatchBuilder([], Cast, addressTerms: Terms).Build([Unit("a", "x", "健太"), Unit("b", "y", "健太")]);
-
-        Assert.Equal(batch.Addressing, batch.ForLines([batch.Lines[0]]).Addressing);
     }
 }

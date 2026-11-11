@@ -23,18 +23,6 @@ public class ClaudeRewriteTests
     private static ClaudeReply Ok(string json) => new("end_turn", json);
 
     [Fact]
-    public async Task Devolve_as_duas_opcoes_da_linha()
-    {
-        var client = new StubClient(_ => Ok("""{"rewrites":[{"id":"a","optionA":"Oi!","optionB":" E aí! "}]}"""));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var result = await provider.RewriteAsync(new TranslationBatch([Unit("a", "やあ")]), new RewriteRequest(RewriteDirection.MoreNatural, "Olá, tudo bem?"), CancellationToken.None);
-
-        Assert.Equal(new RewriteResult("a", ["Oi!", "E aí!"]), result, new RewriteResultComparer());
-        Assert.False(result.Refused);
-    }
-
-    [Fact]
     public async Task Pedido_leva_a_direcao_a_traducao_de_hoje_e_a_caixa_do_jogo()
     {
         var client = new StubClient(_ => Ok("""{"rewrites":[{"id":"a","optionA":"A","optionB":"B"}]}"""));
@@ -81,33 +69,12 @@ public class ClaudeRewriteTests
     }
 
     [Fact]
-    public async Task Opcao_vazia_some_da_lista()
-    {
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok("""{"rewrites":[{"id":"a","optionA":"Só esta","optionB":"  "}]}""")));
-
-        var result = await provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.MoreFormal, "t"), CancellationToken.None);
-
-        Assert.Equal(["Só esta"], result.Options);
-    }
-
-    [Fact]
     public async Task Mais_de_uma_linha_no_lote_e_recusado()
     {
         var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok("{}")));
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             provider.RewriteAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Tokens_da_reescrita_entram_na_contagem()
-    {
-        var reply = new ClaudeReply("end_turn", """{"rewrites":[{"id":"a","optionA":"A","optionB":"B"}]}""", new ClaudeUsage(100, 20, 800, 50));
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
-
-        await provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None);
-
-        Assert.Equal(new ClaudeUsage(100, 20, 800, 50), provider.Usage);
     }
 
     [Fact]

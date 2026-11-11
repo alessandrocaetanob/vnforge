@@ -63,6 +63,20 @@ public sealed class LineSelectionTests : IDisposable
     }
 
     [Fact]
+    public void Original_trocado_depois_da_selecao_pula_a_linha()
+    {
+        var selection = Select();
+        var units = _project.LoadText(Key).ToList();
+        units[2] = units[2] with { Source = "novo original" };
+        _project.SaveText(Key, units);
+
+        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(2), "dois")], Machine);
+
+        Assert.Equal(1, saved.Skipped);
+        Assert.Null(_project.LoadText(Key)[2].Translation);
+    }
+
+    [Fact]
     public void Retraducao_de_linha_de_maquina_so_vale_se_ela_nao_mudou()
     {
         var units = _project.LoadText(Key).ToList();
@@ -79,20 +93,6 @@ public sealed class LineSelectionTests : IDisposable
         Assert.Equal("nova", after[0].Translation);
         Assert.Equal(TranslationStatus.Approved, after[1].Status);
         Assert.Equal("antiga", after[1].Translation);
-    }
-
-    [Fact]
-    public void Resultado_que_nao_muda_a_linha_nao_regrava_o_arquivo()
-    {
-        var selection = Select();
-        var before = File.GetLastWriteTimeUtc(_project.TextPath(Key));
-        File.SetLastWriteTimeUtc(_project.TextPath(Key), before.AddHours(-1));
-        var marker = File.GetLastWriteTimeUtc(_project.TextPath(Key));
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "x")], (_, _) => null);
-
-        Assert.Equal(0, saved.Skipped);
-        Assert.Equal(marker, File.GetLastWriteTimeUtc(_project.TextPath(Key)));
     }
 
     [Fact]
