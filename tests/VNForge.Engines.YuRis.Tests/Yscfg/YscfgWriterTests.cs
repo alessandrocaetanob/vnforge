@@ -21,15 +21,6 @@ public class YscfgWriterTests
     }
 
     [Fact]
-    public void IdaEVolta_ComTituloVazio_GeraArquivoIdentico()
-    {
-        var original = SyntheticYscfgBuilder.Build(string.Empty);
-        var file = YscfgReader.Read(original, Source);
-
-        Assert.Equal(original, YscfgWriter.WithTitle(file, []));
-    }
-
-    [Fact]
     public void WithTitle_TrocaSoOCampoDoTitulo()
     {
         var original = SyntheticYscfgBuilder.Build(Title);
@@ -44,28 +35,6 @@ public class YscfgWriterTests
         Assert.Equal("Titulo novo, mais longo que o original", reread.Title);
         Assert.Equal(file.Version, reread.Version);
         Assert.Equal(file.TitleOffset, reread.TitleOffset);
-    }
-
-    [Fact]
-    public void WithTitle_TituloMaisCurto()
-    {
-        var file = YscfgReader.Read(SyntheticYscfgBuilder.Build(Title), Source);
-
-        var rebuilt = YscfgWriter.WithTitle(file, "AB"u8.ToArray());
-
-        Assert.Equal("AB", YscfgReader.Read(rebuilt, Source).Title);
-    }
-
-    [Fact]
-    public void WithTitle_NaoAlteraOArquivoLido()
-    {
-        var original = SyntheticYscfgBuilder.Build(Title);
-        var snapshot = original.ToArray();
-        var file = YscfgReader.Read(original, Source);
-
-        _ = YscfgWriter.WithTitle(file, "AB"u8.ToArray());
-
-        Assert.Equal(snapshot, original);
     }
 
     [Fact]

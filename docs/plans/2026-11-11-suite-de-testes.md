@@ -43,7 +43,7 @@ Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/mara
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: no máximo 500 testes, com as idas e voltas e a concorrência do `ProjectFileIo` mantidas, e o tempo e a contagem no relatório.
   - Depende de: T1
-- [ ] **T4 · Engines.YuRis**
+- [x] **T4 · Engines.YuRis**
   - Issue: #658 (`infra`)
   - Prova: `dotnet test tests/VNForge.Engines.YuRis.Tests`
   - Pronto: no máximo 250 testes, cada formato (YPF, YBN e o que mais houver) com ida e volta byte a byte e um teste por campo reescrito.
@@ -80,6 +80,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
+- T4 (#658): Engines.YuRis de 1.011 para 277 testes, 27 acima do alvo de 250. Dos 277, 29 são herdados do kit de conformidade (tests/VNForge.Engines.ConformanceKit, compartilhado) e ficaram. O resto acima do alvo são os oráculos independentes que a cobertura não vê e que a revisão pediu de volta: vetores de ouro do YPF e dos leitores, vetores de resposta conhecida de Adler32, Crc32 e MurmurHash2, as regras de extração de texto com valor esperado explícito, o header_size gigante e o nome Shift-JIS com 0x5C. Tempo 3,2 s para 2,1 s. Cobertura igual à base, medida com `bash tools/cobertura.sh Engines.YuRis`: linhas 95,90% (2.481 de 2.587) e ramos 93,36% (1.462 de 1.566). Os testes do gerador sintético de YPF saíram (a classe virou `SyntheticYpfSamples`, só os exemplos); cada formato com escrita manteve a ida e volta byte a byte e um teste por campo.
 
 ## Fora da corrida
 

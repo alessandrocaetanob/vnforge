@@ -29,7 +29,6 @@ public sealed class SyntheticYpfBuilder
     private readonly uint _version;
     private readonly List<PendingFile> _files = [];
     private byte? _nameKey;
-    private SyntheticYpfSwapTable? _swapTable;
     private SyntheticYpfHashAlgorithm? _nameHash;
     private SyntheticYpfHashAlgorithm? _dataHash;
     private SyntheticYpfOffsetSize? _offsetSize;
@@ -49,13 +48,6 @@ public sealed class SyntheticYpfBuilder
     public SyntheticYpfBuilder WithNameKey(byte key)
     {
         _nameKey = key;
-        return this;
-    }
-
-    /// <summary>Tabela de troca do tamanho do nome. Padrão: a da v500 só na versão 500 exata, a padrão nas demais.</summary>
-    public SyntheticYpfBuilder WithSwapTable(SyntheticYpfSwapTable table)
-    {
-        _swapTable = table;
         return this;
     }
 
@@ -149,7 +141,7 @@ public sealed class SyntheticYpfBuilder
     public SyntheticYpf Build()
     {
         var nameKey = _nameKey ?? SyntheticYpfDefaults.NameKey(_version);
-        var swapTable = _swapTable ?? SyntheticYpfDefaults.SwapTable(_version);
+        var swapTable = SyntheticYpfDefaults.SwapTable(_version);
         var nameHash = _nameHash ?? SyntheticYpfDefaults.NameHash(_version);
         var dataHash = _dataHash ?? SyntheticYpfDefaults.DataHash(_version);
         var offsetSize = _offsetSize ?? SyntheticYpfDefaults.OffsetSize(_version);
