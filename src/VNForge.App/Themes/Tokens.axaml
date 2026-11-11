@@ -141,7 +141,7 @@
       <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="Vnf.OnAccent"/>
       <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="Vnf.OnAccent"/>
       <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="Vnf.OnAccent"/>
-      <!-- Caixa de texto do quadro (".v3-input"): fundo bg-inset, texto text-primary, contorno stroke-control, dica text-tertiary; o foco mantém o contorno de accent do Fluent.
+      <!-- Caixa de texto do quadro (".v3-input"): fundo bg-inset, texto text-primary, contorno stroke-control, dica text-tertiary; o foco mantém o contorno de accent do Fluent e o desativado troca o contorno por stroke-subtle e o texto e a dica por text-tertiary, como o Button.
            São as chaves do FluentTheme, então valem para todo TextBox. -->
       <StaticResource x:Key="TextControlBackground" ResourceKey="Vnf.BgInset"/>
       <StaticResource x:Key="TextControlForeground" ResourceKey="Vnf.TextPrimary"/>
@@ -152,8 +152,12 @@
       <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="Vnf.BgInset"/>
       <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="Vnf.TextPrimary"/>
       <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="Vnf.TextTertiary"/>
+      <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="Vnf.BgInset"/>
+      <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="Vnf.TextTertiary"/>
+      <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="Vnf.TextTertiary"/>
       <StaticResource x:Key="TextControlBorderBrush" ResourceKey="Vnf.StrokeControl"/>
       <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="Vnf.StrokeSubtle"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #80000000</BoxShadows>
       <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #73000000</BoxShadows>
     </ResourceDictionary>
@@ -296,7 +300,7 @@
       <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="Vnf.OnAccent"/>
       <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="Vnf.OnAccent"/>
       <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="Vnf.OnAccent"/>
-      <!-- Caixa de texto do quadro (".v3-input"): fundo bg-inset, texto text-primary, contorno stroke-control, dica text-tertiary; o foco mantém o contorno de accent do Fluent.
+      <!-- Caixa de texto do quadro (".v3-input"): fundo bg-inset, texto text-primary, contorno stroke-control, dica text-tertiary; o foco mantém o contorno de accent do Fluent e o desativado troca o contorno por stroke-subtle e o texto e a dica por text-tertiary, como o Button.
            São as chaves do FluentTheme, então valem para todo TextBox. -->
       <StaticResource x:Key="TextControlBackground" ResourceKey="Vnf.BgInset"/>
       <StaticResource x:Key="TextControlForeground" ResourceKey="Vnf.TextPrimary"/>
@@ -307,8 +311,12 @@
       <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="Vnf.BgInset"/>
       <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="Vnf.TextPrimary"/>
       <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="Vnf.TextTertiary"/>
+      <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="Vnf.BgInset"/>
+      <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="Vnf.TextTertiary"/>
+      <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="Vnf.TextTertiary"/>
       <StaticResource x:Key="TextControlBorderBrush" ResourceKey="Vnf.StrokeControl"/>
       <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="Vnf.StrokeControl"/>
+      <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="Vnf.StrokeSubtle"/>
       <BoxShadows x:Key="Vnf.ShadowFlyout">0 8 24 0 #29141C1A</BoxShadows>
       <BoxShadows x:Key="Vnf.ShadowCover">0 8 20 0 #38141C1A</BoxShadows>
     </ResourceDictionary>

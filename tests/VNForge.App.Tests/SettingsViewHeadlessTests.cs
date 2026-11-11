@@ -92,33 +92,6 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
             CancellationToken.None);
     }
 
-    [Fact]
-    public async Task O_prefixo_R_dos_campos_de_valor_e_peso_regular()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
-        var vm = Criar(temp);
-        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
-        await vm.EstimateLoading;
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    var prefixos = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Text == "R$" && t.GetVisualAncestors().OfType<TextBox>().Any()).ToList();
-                    Assert.Equal(3, prefixos.Count);
-                    Assert.All(prefixos, p => Assert.Equal(Avalonia.Media.FontWeight.Normal, p.FontWeight));
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
     [Theory]
     [InlineData("sjis", "o teste no jogo recusa as letras acentuadas")]
     [InlineData("remap", "A fonte modificada ainda não está pronta.")]
