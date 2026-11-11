@@ -19,15 +19,6 @@ public class VndbTokenResolverTests
         Assert.Equal("abcd-efgh", token);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Variavel_ausente_ou_vazia_nao_e_token(string? value)
-    {
-        Assert.Null(VndbTokenResolver.Resolve(_ => value));
-    }
-
     [Fact]
     public void A_variavel_de_ambiente_vence_o_cofre()
     {

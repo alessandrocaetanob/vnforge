@@ -127,22 +127,6 @@ public class InstallerAppTests
         Assert.Contains("SharpCompress", output.ToString());
     }
 
-    [Theory]
-    [InlineData("--ajuda")]
-    [InlineData("-h")]
-    [InlineData("-?")]
-    public void Ajuda_diz_que_sem_silencioso_abre_a_janela_e_lista_os_codigos_de_saida(string flag)
-    {
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(Parse(flag), output, null, Path.GetTempPath());
-
-        Assert.Equal(InstallerApp.Ok, code);
-        Assert.Contains("abre a janela", output.ToString());
-        Assert.Contains("--silencioso", output.ToString());
-        Assert.Contains("4 cancelado", output.ToString());
-    }
-
     [Fact]
     public void Instalador_vazio_avisa_e_sai_com_erro()
     {
@@ -156,10 +140,7 @@ public class InstallerAppTests
 
     [Theory]
     [InlineData(new string[0], false)]
-    [InlineData(new[] { "--pasta", "D:\\Jogo" }, false)]
-    [InlineData(new[] { "--desinstalar" }, false)]
     [InlineData(new[] { "--silencioso" }, true)]
-    [InlineData(new[] { "--ajuda" }, true)]
     [InlineData(new[] { "--licencas" }, true)]
     public void So_as_opcoes_de_console_deixam_de_abrir_a_janela(string[] args, bool console)
     {

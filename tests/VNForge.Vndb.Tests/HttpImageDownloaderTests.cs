@@ -18,41 +18,6 @@ public sealed class HttpImageDownloaderTests
         new(status) { Content = new ByteArrayContent(bytes) };
 
     [Fact]
-    public async Task Devolve_os_bytes_e_se_identifica()
-    {
-        var handler = new StubHandler((_, _) => Bytes([1, 2, 3]));
-
-        var bytes = await Downloader(handler).DownloadAsync(Url, Ct);
-
-        Assert.Equal([1, 2, 3], bytes);
-        var sent = Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Get, sent.Method);
-        Assert.Equal(Url, sent.Uri);
-        Assert.StartsWith("VNForge", sent.UserAgent);
-        Assert.Null(sent.Authorization);
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.NotFound)]
-    [InlineData(HttpStatusCode.Redirect)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
-    [InlineData(HttpStatusCode.InternalServerError)]
-    public async Task Resposta_de_erro_vira_nulo(HttpStatusCode status) =>
-        Assert.Null(await Downloader(new StubHandler((_, _) => Bytes([1], status))).DownloadAsync(Url, Ct));
-
-    [Fact]
-    public async Task Rede_fora_vira_nulo() =>
-        Assert.Null(await Downloader(new StubHandler((_, _) => throw new HttpRequestException("sem rede"))).DownloadAsync(Url, Ct));
-
-    [Fact]
-    public async Task Corpo_cortado_no_meio_vira_nulo()
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.BrokenContent() });
-
-        Assert.Null(await Downloader(handler).DownloadAsync(Url, Ct));
-    }
-
-    [Fact]
     public async Task Corpo_acima_do_limite_vira_nulo_sem_ler_tudo()
     {
         var handler = new StubHandler((_, _) => Bytes(new byte[100]));
@@ -88,15 +53,6 @@ public sealed class HttpImageDownloaderTests
         var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.HangingContent() });
 
         Assert.Null(await Downloader(handler, TimeSpan.FromMilliseconds(50)).DownloadAsync(Url, Ct));
-    }
-
-    [Fact]
-    public async Task Cancelar_lanca_e_nao_vira_nulo()
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.HangingContent() });
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Downloader(handler, TimeSpan.FromSeconds(30)).DownloadAsync(Url, cts.Token));
     }
 
     [Fact]

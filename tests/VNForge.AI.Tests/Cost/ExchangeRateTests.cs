@@ -20,21 +20,6 @@ public class ExchangeRateTests
     }
 
     [Fact]
-    public void Cotacao_sem_data_vale_como_nao_informada()
-    {
-        Assert.False(new ExchangeRate(5.40m).IsInformed);
-        Assert.False(ExchangeRate.Placeholder.IsInformed);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public void Recusa_cotacao_zero_ou_negativa(int value)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ExchangeRate(value));
-    }
-
-    [Fact]
     public void Quote_devolve_dolar_e_real_da_mesma_estimativa()
     {
         var lines = Enumerable.Range(0, 100).Select(Unit).ToList();

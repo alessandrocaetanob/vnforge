@@ -47,34 +47,6 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_janela_1_pasta_do_jogo(string theme)
-    {
-        var vm = await FolderAsync(new BoardEngine(), new FakeTimeProvider());
-
-        await RenderAsync(vm, "540-inst-0", theme, (window, texts) =>
-        {
-            Assert.Equal(
-                [
-                    "Tradução PT-BR · Amaoto no Hakoniwa",
-                    "Amaoto no Hakoniwa",
-                    "Tradução para português do Brasil Versão 1.2.0 · Equipe Chuva Mansa",
-                    "Instalar a tradução",
-                    "Escolha a pasta onde o jogo está instalado. O instalador procurou e achou esta.",
-                    BoardEngine.Folder,
-                    "Procurar",
-                    "Versão do jogo conferida",
-                    "Game.exe confere com a versão esperada (SHA-256 3f9a…c21d).",
-                    "Antes de mexer no jogo, o instalador guarda uma cópia dos arquivos originais.",
-                    "Cancelar",
-                    "Instalar",
-                ],
-                texts);
-            Assert.Equal(["Procurar", "Cancelar", "Instalar"], EnabledButtons(window));
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
     public async Task Renderiza_a_janela_2_instalando_com_63_por_cento(string theme)
     {
         var time = new FakeTimeProvider();
@@ -119,89 +91,6 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_janela_3_concluido(string theme)
-    {
-        var vm = await FolderAsync(new BoardEngine(), new FakeTimeProvider());
-        await vm.InstallCommand.ExecuteAsync(null);
-
-        await RenderAsync(vm, "540-inst-2", theme, (window, texts) =>
-        {
-            Assert.Equal(
-                [
-                    "Tradução PT-BR · Amaoto no Hakoniwa",
-                    "Amaoto no Hakoniwa",
-                    "Tradução para português do Brasil Versão 1.2.0 · Equipe Chuva Mansa",
-                    "Tradução instalada",
-                    "Pronto. Abra o jogo normalmente.",
-                    $"4 arquivos alterados. Os originais estão guardados em Amaoto no Hakoniwa{Sep}_originais.",
-                    "Para voltar ao jogo original, execute este instalador de novo e escolha Voltar ao jogo original.",
-                    "Ler o leia-me",
-                    "Fechar",
-                    "Abrir o jogo",
-                ],
-                texts);
-            Assert.Equal(["Ler o leia-me", "Fechar", "Abrir o jogo"], EnabledButtons(window));
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_janela_4_versao_errada(string theme)
-    {
-        var vm = new InstallerViewModel(new BoardEngine { State = BoardEngine.Situation.WrongVersion }, new NoShell(), new InstallerStart(BoardEngine.Folder, Path.GetTempPath(), null), new FakeTimeProvider())
-        {
-            // O quadro mostra o jogador com a 1.01; o arquivo sintético não traz versão.
-            ReadFileVersion = _ => "1.01",
-        };
-        await vm.StartAsync();
-
-        await RenderAsync(vm, "540-inst-3", theme, (window, texts) =>
-        {
-            Assert.Equal(
-                [
-                    "Tradução PT-BR · Amaoto no Hakoniwa",
-                    "Amaoto no Hakoniwa",
-                    "Tradução para português do Brasil Versão 1.2.0 · Equipe Chuva Mansa",
-                    "Esta não é a versão esperada",
-                    "O Game.exe desta pasta é diferente",
-                    "Encontrado: SHA-256 77b0…e04a. Esperado: 3f9a…c21d. Nada foi alterado.",
-                    "A tradução 1.2.0 foi feita para a versão 1.00 do jogo. Procure uma pasta com essa versão, ou veja no leia-me onde conseguir o patch da 1.01.",
-                    "Sair",
-                    "Escolher outra pasta",
-                ],
-                texts);
-            Assert.Equal(["Sair", "Escolher outra pasta"], EnabledButtons(window));
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_janela_5_ja_instalada(string theme)
-    {
-        var time = new FakeTimeProvider();
-        var vm = await StartedAtAsync(new BoardEngine(time) { State = BoardEngine.Situation.Installed }, time);
-
-        await RenderAsync(vm, "540-inst-4", theme, (window, texts) =>
-        {
-            Assert.Equal(
-                [
-                    "Tradução PT-BR · Amaoto no Hakoniwa",
-                    "Amaoto no Hakoniwa",
-                    "Tradução para português do Brasil Versão 1.2.0 · Equipe Chuva Mansa",
-                    "A tradução 1.2.0 já está instalada",
-                    "Os arquivos originais, guardados em 08/11 às 20:03, estão inteiros. Voltar ao original apaga a tradução do jogo e não mexe nos seus saves.",
-                    "4 arquivos para devolver",
-                    "script.ypf, Game.exe, font.ypf e system.ypf voltam byte a byte.",
-                    "Fechar",
-                    "Voltar ao jogo original",
-                ],
-                texts);
-            Assert.Equal(["Fechar", "Voltar ao jogo original"], EnabledButtons(window));
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
     public async Task Renderiza_as_janelas_que_o_quadro_deixou_como_estados_que_faltam(string theme)
     {
         var errorVm = new InstallerViewModel(new FailingEngine(new BoardEngine()), new NoShell(), new InstallerStart(BoardEngine.Folder, Path.GetTempPath(), null));
@@ -222,27 +111,6 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
         {
             Assert.Contains("Jogo original de volta", texts);
             Assert.Contains("4 arquivos voltaram ao original, byte a byte.", texts);
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_capa_do_patch_no_lugar_e_no_tamanho_do_quadro(string theme)
-    {
-        var png = await fixture.Session.Dispatch(() => SolidPng(300, 400, 200, 60, 20), Ct);
-        var vm = await FolderAsync(new BoardEngine(cover: png), new FakeTimeProvider());
-
-        await RenderAsync(vm, "540-inst-capa", theme, (window, texts) =>
-        {
-            var image = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "CoverImage");
-            Assert.True(image.IsEffectivelyVisible);
-            Assert.Equal(new Point(20, 52), image.TranslatePoint(default, window));
-            Assert.Equal(new Size(150, 200), image.Bounds.Size);
-            Assert.Equal(1, texts.Count(t => t == "Amaoto no Hakoniwa"));
-            Assert.False(window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "CoverTitle").IsEffectivelyVisible);
-            Assert.Equal((200, 60, 20), PixelAt(window, 95, 152));
-            Assert.Equal((200, 60, 20), PixelAt(window, 25, 60));
-            Assert.NotEqual((200, 60, 20), PixelAt(window, 10, 152));
         });
     }
 

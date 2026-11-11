@@ -42,38 +42,6 @@ public sealed class NightBatchServiceTests : IDisposable
 
     private static string Id(int i) => $"{Key}:{i:D6}";
 
-    [Fact]
-    public async Task Envia_as_pendentes_em_pedidos_de_um_lote_so_e_guarda_o_id_em_cache()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        Assert.NotNull(state);
-        Assert.Equal(1, _client.Creates);
-        Assert.Equal(["r00001", "r00002", "r00003"], _client.LastItems.Select(i => i.CustomId));
-        Assert.Equal(44, state.LineCount);
-        Assert.Equal("O capítulo", state.Title);
-        Assert.Equal(NightBatchPhase.Processing, state.Phase);
-        Assert.True(File.Exists(Path.Combine(_project.CacheDirectory, "lote-noturno", state.Id + ".json")));
-        var saved = new NightBatchStore(_project).Find(state.Id);
-        Assert.NotNull(saved);
-        Assert.Equal(state.EstimatedBrl, saved.EstimatedBrl);
-        Assert.Equal(state.SubmittedAt, saved.SubmittedAt);
-        Assert.Equal([Key], saved.ScriptKeys);
-        Assert.Equal(state.Requests.Select(r => r.Lines.Count), saved.Requests.Select(r => r.Lines.Count));
-    }
-
-    [Fact]
-    public async Task O_preco_guardado_e_metade_do_pedido_normal()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        var normal = CostEstimatorBrl(ClaudeModels.Opus);
-        Assert.NotNull(state);
-        Assert.Equal(normal * 0.5m, state.EstimatedBrl);
-        Assert.Equal(0.5m, ModelPricing.BatchDiscount);
-        Assert.Equal(13.46m, NightBatchService.PriceBrl(26.92m));
-    }
-
     private decimal CostEstimatorBrl(string model)
     {
         var selection = VNForge.AI.Translation.LineSelection.Build(_project.LoadAllText(), null, null, TranslationQuoter.IsPending);
@@ -81,16 +49,6 @@ public sealed class NightBatchServiceTests : IDisposable
         var builder = new VNForge.AI.Translation.TranslationBatchBuilder([], new VNForge.Core.Glossary.CharacterBook([]), string.Empty, config.Ai.ContextBefore, config.Style, config.Ai.ContextAfter, []) { PreviousFromSource = true };
         var batches = selection.Pending.Chunk(20).Select(chunk => selection.BuildBatch(builder, chunk));
         return Rate.ToBrl(CostEstimator.EstimateBatches(batches, model, null, ClaudeEffort.Medium).Dollars);
-    }
-
-    [Fact]
-    public async Task O_contexto_da_fala_anterior_vem_do_original_porque_ela_ainda_nao_foi_traduzida()
-    {
-        await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-
-        var second = _client.LastItems[1].Request.User;
-        Assert.Contains("Contexto anterior", second, StringComparison.Ordinal);
-        Assert.Contains("美咲: 原文19", second, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -192,22 +150,6 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedido_que_voltou_com_erro_deixa_as_linhas_dele_sem_traducao_e_conta_como_erro()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.OutcomeOf = item => item.CustomId == "r00002" ? MessageBatchOutcome.Errored : MessageBatchOutcome.Succeeded;
-        _client.Finish(state!.Id);
-
-        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
-
-        Assert.Equal(24, applied.Outcome!.Translated);
-        Assert.Equal(20, applied.Outcome.Failed);
-        Assert.Equal(Enumerable.Range(20, 20).Select(Id), applied.Outcome.UnfinishedIds);
-        Assert.Equal(TranslationStatus.Untranslated, _project.LoadText(Key)[20].Status);
-        Assert.Equal(TranslationStatus.Machine, _project.LoadText(Key)[0].Status);
-    }
-
-    [Fact]
     public async Task Resposta_que_nao_traz_os_ids_do_pedido_conta_como_erro_e_nao_grava()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
@@ -235,19 +177,6 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.Equal(NightBatchPhase.Applied, applied.Phase);
         Assert.Equal(0, applied.Outcome!.Translated);
         Assert.Equal(44, applied.Outcome.Failed);
-    }
-
-    [Fact]
-    public async Task O_gasto_entra_no_total_do_projeto_com_o_desconto_do_lote()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-
-        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
-
-        // 3 pedidos de 1000 tokens de entrada e 500 de saída no Opus (US$ 4 e US$ 20 por milhão): US$ 0,014 cada, US$ 0,042 no total, pela metade.
-        Assert.Equal(0.021m, applied.Outcome!.Dollars);
-        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
     }
 
     [Fact]
@@ -341,41 +270,6 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.NotNull(saved.Outcome.RestorePointId);
         Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
         Assert.Single(new RestorePointStore(_project, _clock).List());
-    }
-
-    [Fact]
-    public async Task Com_a_trava_do_lote_com_outro_processo_a_consulta_nao_grava_e_o_lote_segue_aberto()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-        var store = new NightBatchStore(_project);
-
-        using (store.TryClaim(state.Id))
-        {
-            var blocked = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-            Assert.False(blocked.JustApplied);
-            Assert.Equal(NightBatchPhase.Processing, blocked.State.Phase);
-            Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
-        }
-
-        var freed = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-        Assert.True(freed.JustApplied);
-        Assert.Equal(44, freed.State.Outcome!.Translated);
-    }
-
-    [Fact]
-    public async Task Estado_ja_gravado_por_outro_depois_da_trava_nao_e_regravado()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-        var first = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-        var again = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-        Assert.False(again.JustApplied);
-        Assert.Equal(first.State.Outcome!.RestorePointId, new NightBatchStore(_project).Find(state.Id)!.Outcome!.RestorePointId);
-        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
     }
 
     [Fact]

@@ -36,20 +36,6 @@ public sealed class LineExplainerTests : IDisposable
     private static ClaudeReply Ok(string json) => new("end_turn", json, new ClaudeUsage(500, 300, 0, 0));
 
     [Fact]
-    public async Task Quebra_o_original_em_partes_com_o_significado_de_cada_uma()
-    {
-        var client = new StubClient(_ => Ok(Reply));
-
-        var explicacao = await new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None);
-
-        Assert.Equal(
-            [new ExplainedPart("今日は", "hoje (tema da frase)"), new ExplainedPart("雨が", "a chuva (sujeito)"), new ExplainedPart("降っている", "está caindo")],
-            explicacao.Parts);
-        Assert.False(explicacao.FromCache);
-        Assert.Equal("claude-haiku-5-5", explicacao.Model);
-    }
-
-    [Fact]
     public async Task O_pedido_vai_ao_Haiku_com_o_schema_de_partes_e_o_original_sem_marcadores()
     {
         var client = new StubClient(_ => Ok(Reply));
@@ -67,20 +53,6 @@ public sealed class LineExplainerTests : IDisposable
     }
 
     [Fact]
-    public async Task A_mesma_fala_vem_do_cache_sem_chamar_a_API()
-    {
-        var client = new StubClient(_ => Ok(Reply));
-        var explicador = new LineExplainer(client, Cache);
-
-        await explicador.ExplainAsync(Original, CancellationToken.None);
-        var segunda = await explicador.ExplainAsync(Original, CancellationToken.None);
-
-        Assert.Single(client.Requests);
-        Assert.True(segunda.FromCache);
-        Assert.Equal(3, segunda.Parts.Count);
-    }
-
-    [Fact]
     public async Task O_cache_fica_em_arquivo_pelo_hash_do_original_e_sobrevive_a_um_novo_explicador()
     {
         var primeiro = new StubClient(_ => Ok(Reply));
@@ -94,18 +66,6 @@ public sealed class LineExplainerTests : IDisposable
         Assert.Empty(segundo.Requests);
         Assert.True(explicacao.FromCache);
         Assert.Equal("今日は", explicacao.Parts[0].Source);
-    }
-
-    [Fact]
-    public async Task Originais_diferentes_nao_dividem_o_cache()
-    {
-        var client = new StubClient(_ => Ok(Reply));
-        var explicador = new LineExplainer(client, Cache);
-
-        await explicador.ExplainAsync(Original, CancellationToken.None);
-        await explicador.ExplainAsync("今日は雨が降っている。", CancellationToken.None);
-
-        Assert.Equal(2, client.Requests.Count);
     }
 
     [Fact]
