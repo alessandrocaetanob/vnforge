@@ -13,6 +13,10 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class ResilientHeadlessSession(HeadlessUnitTestSession session)
 {
+    private const int PurgeEvery = 25;
+
+    private static int dispatches;
+
     public async Task Dispatch(Action action, CancellationToken cancellationToken)
     {
         try
@@ -55,11 +59,17 @@ public sealed class ResilientHeadlessSession(HeadlessUnitTestSession session)
 
     /// <summary>
     /// Cada Dispatch sobe um aplicativo isolado e carrega de novo as fontes embutidas; o Skia guarda os tipos de letra e os glifos de todas as janelas já
-    /// fechadas em um cache global que só se esvazia sob pedido (medido: cerca de 17 MB por janela principal aberta, 2 GB no processo do App). Sem esta chamada
-    /// a memória só cresce, mesmo com o coletor do .NET rodando.
+    /// fechadas em um cache global que só se esvazia sob pedido (medido: cerca de 17 MB por janela principal aberta). Sem esta chamada a memória só cresce,
+    /// mesmo com o coletor do .NET rodando. Limpar a cada Dispatch custava cerca de 180 ms cada (65 s em 362 Dispatch, uns 20% da suíte do App); a cada
+    /// <see cref="PurgeEvery"/> Dispatch são 14 limpezas, 3 s, e o pico do processo cai igual: 1.900 MB contra 2.200 MB sem limpar.
     /// </summary>
     private static void ReleaseSkiaCaches()
     {
+        if (Interlocked.Increment(ref dispatches) % PurgeEvery != 0)
+        {
+            return;
+        }
+
         GC.Collect();
         GC.WaitForPendingFinalizers();
         SKGraphics.PurgeFontCache();
