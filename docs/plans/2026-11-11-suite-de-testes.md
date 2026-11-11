@@ -79,7 +79,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 
 ## Progresso
 
-- T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. Os ramos do App têm um intervalo (84,95% a 92,20%) porque a medição do App só cabe em fatias; ver a base.
+- T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
 
 ## Fora da corrida
 

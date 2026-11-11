@@ -23,7 +23,9 @@
 #                               hash das listas de classes) fica em <projeto>.particao: uma fatia medida com partição
 #                               diferente apaga as medições velhas. Sem a variável, todas as fatias rodam e as medições
 #                               antigas são apagadas.
-#   VNFORGE_COBERTURA_DIR      onde ficam os arquivos de cobertura; padrão .tmp/cobertura
+#   VNFORGE_SO_RESUMIR          caminho de um Cobertura já gravado (de um processo único): não roda teste, só calcula os
+#                               números dele com as mesmas exclusões. O projeto ainda é o argumento.
+#   VNFORGE_COBERTURA_DIR     onde ficam os arquivos de cobertura; padrão .tmp/cobertura
 #
 # Como mede: dotnet-coverage (18.11.2, a versão do CI) roda o projeto de testes e grava um Cobertura por fatia. Só o dll
 # de produção do projeto é instrumentado, e as linhas e ramos contados são os dos arquivos de src/VNForge.<projeto>,
@@ -156,7 +158,13 @@ partition_id() {
 failed=0
 only="${VNFORGE_FATIA:-}"
 partition_file="$out/$tests_name.particao"
-if [[ "$only" = juntar ]]; then
+summarize_only="${VNFORGE_SO_RESUMIR:-}"
+if [[ -n "$summarize_only" ]]; then
+  # Não roda teste: só resume um Cobertura que um processo único já gravou, com as mesmas exclusões.
+  [[ -f "$summarize_only" ]] || abort "VNFORGE_SO_RESUMIR aponta para um arquivo que não existe: $summarize_only"
+  coverage_files=("$summarize_only")
+  only=-1
+elif [[ "$only" = juntar ]]; then
   # Só soma: não recalcula as fatias, usa as listas e as medições que já estão em disco.
   only=-1
   [[ -f "$partition_file" ]] || abort "sem medições anteriores em $out: rode as fatias antes de 'juntar'."
@@ -194,18 +202,20 @@ for ((i = 0; i < slices; i++)); do
 done
 
 # Soma o que já foi medido, inclusive de chamadas anteriores com VNFORGE_FATIA.
-coverage_files=()
-measured=""
-for ((i = 0; i < slices; i++)); do
-  file="$out/$tests_name.$i.cobertura.xml"
-  if [[ -f "$file" ]]; then
-    coverage_files+=("$file")
-    measured+="$i "
+if [[ -z "$summarize_only" ]]; then
+  coverage_files=()
+  measured=""
+  for ((i = 0; i < slices; i++)); do
+    file="$out/$tests_name.$i.cobertura.xml"
+    if [[ -f "$file" ]]; then
+      coverage_files+=("$file")
+      measured+="$i "
+    fi
+  done
+  [[ ${#coverage_files[@]} -gt 0 ]] || abort "nenhuma fatia medida."
+  if [[ ${#coverage_files[@]} -lt "$slices" ]]; then
+    echo "AVISO: só as fatias ${measured% } de $slices foram medidas; o número abaixo é parcial." >&2
   fi
-done
-[[ ${#coverage_files[@]} -gt 0 ]] || abort "nenhuma fatia medida."
-if [[ ${#coverage_files[@]} -lt "$slices" ]]; then
-  echo "AVISO: só as fatias ${measured% } de $slices foram medidas; o número abaixo é parcial." >&2
 fi
 
 LC_ALL=C awk -v assembly="$assembly" -v excl="$exclusions" -v nfiles="${#coverage_files[@]}" '

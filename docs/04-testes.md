@@ -59,7 +59,7 @@ VNFORGE_FATIAS=3 VNFORGE_FATIA=2 bash tools/cobertura.sh App
 VNFORGE_FATIAS=3 VNFORGE_FATIA=juntar bash tools/cobertura.sh App
 ```
 
-Com fatias, as linhas são exatas, mas o `dotnet-coverage merge` descarta os ramos e o script só sabe quantos ramos cada fatia cobriu, não quais. A saída traz então um mínimo (o número principal) e um máximo. Um App que cabe em um processo só (`VNFORGE_FATIAS=1`) dá o valor exato. Na base de 11/11 o intervalo do App é de 84,95% a 92,20%.
+Com fatias, o `dotnet-coverage merge` descarta os ramos e o script só sabe quantos ramos cada fatia cobriu, não quais. A saída traz então um mínimo (o número principal) e um máximo. Um App que cabe em um processo só (`VNFORGE_FATIAS=1`) dá o valor exato, e é com ele que se compara a base do App (85,35% de ramos). Se o processo único passar do limite de uma chamada, rode-o como puder e resuma o XML gravado com `VNFORGE_SO_RESUMIR=.tmp/cobertura/VNForge.App.Tests.0.cobertura.xml bash tools/cobertura.sh App`, que não roda teste.
 
 A base de `testes/base-2026-11-11.md` é do Windows e vale para as tarefas locais. Os testes que só valem no Windows pulam no Linux (Platform.Windows sobretudo), então meça no mesmo sistema da base. O gate do CI (T8) compara com uma base medida no job `linux`, que a T8 grava na primeira rodada verde, não com a do Windows.
 
