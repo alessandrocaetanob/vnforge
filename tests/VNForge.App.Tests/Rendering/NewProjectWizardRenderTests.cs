@@ -57,9 +57,13 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     start.NewProjectCommand.Execute(null);
                     Assert.Same(wizard, vm.CurrentPage);
 
+                    wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null));
                     await wizard.SetGameFolderAsync(game);
                     Render(window, "novo-projeto-v6-1-jogo", theme);
                     CheckGamePlain(window, temp.Path);
+                    var gameTexts = VisibleTexts(window);
+                    Assert.Contains("Amaoto no Hakoniwa", gameTexts);
+                    Assert.Contains("VNDB v90001", gameTexts);
                     CheckFrame(window, 1);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));

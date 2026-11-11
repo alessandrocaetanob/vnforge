@@ -422,7 +422,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }
 
-    /// <summary>Etiqueta do projeto ao lado do título: "Projeto: nome · PT-BR". Nula sem projeto aberto.</summary>
+    /// <summary>Etiqueta do projeto ao lado do título: "Projeto: nome". Nula sem projeto aberto.</summary>
     [ObservableProperty]
     public partial string? ProjectBadge { get; private set; }
 
@@ -678,7 +678,6 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             {
                 var opened = ProjectFolder.Open(project.Root);
                 var loadedConfig = opened.LoadConfig();
-                ProjectBadge = $"Projeto: {project.Name} · {loadedConfig.Languages.Target.ToUpperInvariant()}";
                 var profile = opened.LoadFormatting();
                 var styleFile = Path.Combine(opened.Root, StyleGuideFileName);
                 loading = true;

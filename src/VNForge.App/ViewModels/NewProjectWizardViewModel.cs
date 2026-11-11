@@ -12,6 +12,9 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
+/// <summary>O jogo da Biblioteca de onde o assistente partiu: título, código no VNDB e capa (nula sem casamento ou com o véu de conteúdo adulto).</summary>
+public sealed record LibraryGameContext(string Title, string? VndbId, VndbImageRef? Cover);
+
 /// <summary>Os passos do assistente de novo projeto, na ordem do doc 04.</summary>
 public enum WizardStep
 {
@@ -246,6 +249,20 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     public string BrowseGameLabel => GameFolder is null ? "Escolher pasta" : "Escolher outra pasta";
 
+    /// <summary>O jogo da Biblioteca que abriu o assistente (capa, título e "VNDB v&lt;id&gt;"); nulo quando a pasta veio do botão de escolher. Escolher outra pasta o apaga.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLibraryGame), nameof(LibraryVndbLabel), nameof(HasLibraryVndb))]
+    public partial LibraryGameContext? LibraryGame { get; private set; }
+
+    public bool HasLibraryGame => LibraryGame is not null;
+
+    public bool HasLibraryVndb => LibraryGame?.VndbId is not null;
+
+    /// <summary>"VNDB v90001": o código do VNDB sem o "v" que ele já traz, para o "v" não sair duas vezes.</summary>
+    public string LibraryVndbLabel => LibraryGame?.VndbId is { } id ? $"VNDB {(id.StartsWith('v') ? id : "v" + id)}" : string.Empty;
+
+    public void SetLibraryGame(LibraryGameContext? game) => LibraryGame = game;
+
     public string ProjectDirectoryLabel => ProjectDirectory ?? "Nenhuma pasta escolhida";
 
     /// <summary>A migalha do cabeçalho: "Passo 2 de 4"; "Pronto" depois de criar o projeto.</summary>
@@ -368,6 +385,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         var path = await picker.PickFolderAsync("Pasta do jogo a traduzir");
         if (path is not null)
         {
+            LibraryGame = null;
             await SetGameFolderAsync(path);
         }
     }
@@ -553,7 +571,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static readonly string[] StepTitles = ["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"];
+        ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
     private void RefreshSteps()
     {

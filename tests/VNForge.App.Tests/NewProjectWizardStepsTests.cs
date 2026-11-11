@@ -49,7 +49,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"],
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -109,7 +109,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
     {
         var vm = await AtStepAsync(WizardStep.Ai);
         vm.Models.Select("claude-sonnet-5-5");
-        Assert.Equal("Qualidade e limite", vm.Steps[4].Subtitle);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
 
         await vm.NextCommand.ExecuteAsync(null);
 

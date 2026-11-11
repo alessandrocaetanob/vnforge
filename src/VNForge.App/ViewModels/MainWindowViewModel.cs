@@ -856,7 +856,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
-    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null)
+    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null, LibraryGameContext? libraryGame = null)
     {
         if (create is null)
         {
@@ -865,6 +865,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var wizard = create();
         wizard.PropertyChanged += OnWizardVndbChanged;
+        wizard.SetLibraryGame(libraryGame);
         if (gameFolder is not null)
         {
             WizardPreparing = wizard.SetGameFolderAsync(gameFolder);

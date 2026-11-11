@@ -190,12 +190,19 @@ public sealed partial class MainWindowViewModel
         }
         else if (game.Engine.Translatable)
         {
-            ShowWizard(newProjectWizard, game.Folder);
+            ShowWizard(newProjectWizard, game.Folder, LibraryContext(game));
         }
         else
         {
             Toasts.Show($"O VNForge ainda não traduz jogos da engine {game.Engine.Name}. Por enquanto a Biblioteca só guarda o jogo e a ficha dele.", ToastKind.Info, key: "library-open");
         }
+    }
+
+    /// <summary>A capa vem do cartão da Biblioteca, que já aplicou a privacidade (véu de conteúdo adulto, sem arte); sem cartão na grade, o assistente mostra só o título.</summary>
+    private LibraryGameContext LibraryContext(LibraryGame game)
+    {
+        var card = Library.Cards.FirstOrDefault(c => c.Id == game.Id);
+        return new LibraryGameContext(card?.Title ?? game.Title, game.VndbId, card is { HasImage: true } ? card.Image : null);
     }
 
     /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>

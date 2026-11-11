@@ -74,8 +74,16 @@
       <StackPanel Spacing="16" IsVisible="{Binding IsGameStep}">
         <Border Classes="panel card" Padding="20,14">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-            <PathIcon Width="22" Height="22" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+            <PathIcon Width="22" Height="22" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}" IsVisible="{Binding !HasLibraryGame}"/>
+            <Border Width="42" Height="56" VerticalAlignment="Center" CornerRadius="8" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                    IsVisible="{Binding HasLibraryGame}" AutomationProperties.Name="Capa do jogo">
+              <c:Cover Width="42" Image="{Binding LibraryGame.Cover}" Seed="{Binding LibraryGame.Title}"/>
+            </Border>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasLibraryGame}">
+                <TextBlock Classes="title-md" FontSize="15" LineHeight="20" TextTrimming="CharacterEllipsis" Text="{Binding LibraryGame.Title}"/>
+                <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LibraryVndbLabel}" IsVisible="{Binding HasLibraryVndb}"/>
+              </StackPanel>
               <TextBlock Classes="body-strong" Text="Pasta do jogo"/>
               <TextBlock Classes="mono secondary" TextTrimming="CharacterEllipsis" Text="{Binding GameFolderLabel}"/>
             </StackPanel>

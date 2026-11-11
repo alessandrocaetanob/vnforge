@@ -80,7 +80,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Letras acentuadas", "Qualidade e limite"],
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -462,6 +462,26 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.NotNull(vm.Created);
         Assert.Null(vm.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("v90001", "VNDB v90001")]
+    [InlineData("90001", "VNDB v90001")]
+    [InlineData(null, "")]
+    public async Task O_jogo_da_biblioteca_mostra_o_codigo_do_vndb_e_escolher_outra_pasta_o_apaga(string? vndbId, string label)
+    {
+        var picker = new FakeFolderPicker(game);
+        var vm = new NewProjectWizardViewModel(picker, [new FakeEngine()], clock: new FixedClock(Today));
+        vm.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", vndbId, null));
+
+        Assert.True(vm.HasLibraryGame);
+        Assert.Equal(label, vm.LibraryVndbLabel);
+        Assert.Equal(vndbId is not null, vm.HasLibraryVndb);
+
+        await vm.BrowseGameCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasLibraryGame);
+        Assert.Equal(string.Empty, vm.LibraryVndbLabel);
     }
 
     [Fact]

@@ -503,6 +503,47 @@ public class V3ControlsTests(HeadlessFixture fixture) : IClassFixture<HeadlessFi
         Assert.DoesNotContain(":blocked", banner.Classes);
     }
 
+    [Fact]
+    public async Task Faixa_de_estado_tem_a_tipografia_do_quadro_mesmo_com_texto_selecionavel()
+    {
+        await OnUi(() =>
+        {
+            var padrao = new GameStateBanner { Width = 700, State = GameState.Translated, Title = "Título", Message = "Frase da faixa." };
+            var palco = new GameStateBanner { Width = 700, State = GameState.Blocked, Title = "Título do palco", Message = "Frase do palco." };
+            palco.Classes.Add("stage");
+            var janela = new Window { Width = 800, Height = 400, Content = new StackPanel { Children = { padrao, palco } } };
+            try
+            {
+                janela.Show();
+                ScreenRenderer.Settle(janela);
+
+                var titulos = new[] { Selectable(padrao, "Título"), Selectable(palco, "Título do palco") };
+                var frases = new[] { Selectable(padrao, "Frase da faixa."), Selectable(palco, "Frase do palco.") };
+
+                Assert.Equal(14, titulos[0].FontSize);
+                Assert.Equal(FontWeight.SemiBold, titulos[0].FontWeight);
+                Assert.Equal(17, titulos[1].FontSize);
+                Assert.Equal(25, titulos[1].LineHeight);
+                Assert.Equal(FontWeight.Bold, titulos[1].FontWeight);
+                Assert.All(frases, f =>
+                {
+                    Assert.Equal(13, f.FontSize);
+                    Assert.Equal(18, f.LineHeight);
+                    Assert.Equal(FontWeight.Normal, f.FontWeight);
+                    Assert.True(f.TryFindResource("Vnf.TextSecondary", f.ActualThemeVariant, out var secundaria));
+                    Assert.Equal(((ISolidColorBrush)secundaria!).Color, ((ISolidColorBrush)f.Foreground!).Color);
+                });
+            }
+            finally
+            {
+                janela.Close();
+            }
+        });
+
+        static SelectableTextBlock Selectable(GameStateBanner banner, string text) =>
+            banner.GetVisualDescendants().OfType<SelectableTextBlock>().Single(t => t.Text == text);
+    }
+
     public static TheoryData<string, string> EachControl
     {
         get

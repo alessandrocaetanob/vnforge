@@ -53,6 +53,26 @@
       </ControlTemplate>
     </Setter>
   </Style>
+  <!-- O título e a frase são SelectableTextBlock (texto selecionável, menu Copiar, links de linha) e os estilos de Typography.axaml só casam com TextBlock: sem estes, o título sai no tamanho e no peso padrão e a frase em branco semibold. -->
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.title-md">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleMd}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleMd}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.body-strong">
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Body}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Body}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.body-sm">
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.BodySm}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.BodySm}"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.secondary">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
   <Style Selector="c|GameStateBanner:translated /template/ Ellipse#PART_Dot">
     <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>
   </Style>
