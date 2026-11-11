@@ -8,6 +8,7 @@ Rascunho para o brainstorm antes de criar o repositório. Nada aqui é definitiv
 | [02-arquitetura.md](02-arquitetura.md) | Solução .NET 10, camadas, formato do projeto de tradução, pipeline |
 | [03-cli.md](03-cli.md) | Comandos da CLI, exemplos e fluxo de uso |
 | [04-app-windows.md](04-app-windows.md) | Telas do aplicativo Windows e como ele funciona no dia a dia |
+| [04-testes.md](04-testes.md) | Regras da suíte de testes, como medir cobertura, tempo e memória, e a [base de 11/11/2026](testes/base-2026-11-11.md) |
 | [05-epicos.md](05-epicos.md) | Épicos, histórias e marcos até o benchmark YU-RIS |
 | [06-yuris-notas-tecnicas.md](06-yuris-notas-tecnicas.md) | O que já levantei sobre os formatos do YU-RIS (YPF, YBN, codificação) |
 | [plans/2026-10-22-backlog-github.md](plans/2026-10-22-backlog-github.md) | Marcos, épicos e issues no GitHub, com dependências |

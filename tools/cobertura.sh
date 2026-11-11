@@ -12,10 +12,15 @@
 #                               inteiro com cobertura gasta muita memória e tempo. Cada fatia leva um -class por classe,
 #                               repartidas pelo tempo de .circleci/tempos-app.txt (sem o arquivo, em rodízio). O merge do
 #                               dotnet-coverage descarta os ramos, então as fatias são unidas aqui: a linha vale se alguma
-#                               fatia a cobriu, e os ramos de uma linha valem o maior número coberto por uma só fatia. Com
-#                               mais de uma fatia os ramos são, por isso, um mínimo; compare sempre com o mesmo número de
-#                               fatias (e a mesma divisão) da base.
-#   VNFORGE_COBERTURA_DIR       onde ficam os arquivos de cobertura; padrão .tmp/cobertura
+#                               fatia a cobriu (exato). Os ramos de uma linha só se sabe a quantidade coberta por fatia, não
+#                               quais, então a saída traz um mínimo (o maior número coberto por uma só fatia, que é o número
+#                               principal) e um máximo (a soma entre fatias, até o total da linha). O valor exato só sai de
+#                               um processo único (VNFORGE_FATIAS=1).
+#   VNFORGE_FATIA               índice (de 0) de uma fatia só, para dividir a medição em chamadas curtas: roda essa fatia e
+#                               soma as que as chamadas anteriores deixaram em VNFORGE_COBERTURA_DIR, avisando se faltam.
+#                               Com "juntar" não roda nada e só soma. Sem a variável, todas as fatias rodam e as
+#                               medições antigas são apagadas.
+#   VNFORGE_COBERTURA_DIR      onde ficam os arquivos de cobertura; padrão .tmp/cobertura
 #
 # Como mede: dotnet-coverage (18.11.2, a versão do CI) roda o projeto de testes e grava um Cobertura por fatia. Só o dll
 # de produção do projeto é instrumentado, e as linhas e ramos contados são os dos arquivos de src/VNForge.<projeto>,
@@ -50,7 +55,7 @@ assembly="VNForge.$project"
 tests_name="$assembly.Tests"
 [[ -d "src/$assembly" ]] || abort "src/$assembly não existe."
 # O dll nem sempre leva o nome da pasta: o Cli é vnf.dll e o Installer é vnf-instalador.dll.
-dll_name="$(grep -o '<AssemblyName>[^<]*' "src/$assembly/$assembly.csproj" | head -n1 | cut -d'>' -f2 | tr -d '\r')"
+dll_name="$(grep -o '<AssemblyName>[^<]*' "src/$assembly/$assembly.csproj" | head -n1 | cut -d'>' -f2 | tr -d '\r' || true)"
 dll_name="${dll_name:-$assembly}"
 [[ -d "tests/$tests_name" ]] || abort "tests/$tests_name não existe."
 
@@ -80,9 +85,9 @@ exclusions=""
 IFS=',' read -ra patterns <<< "$raw"
 for pattern in "${patterns[@]}"; do
   case "$pattern" in
-    */\*\*) exclusions+="${pattern%\*\*}"$'\n' ;;
+    */\*\*) exclusions+="${pattern%\*\*}|" ;;
     *\**) abort "padrão de exclusão que não sei aplicar: $pattern" ;;
-    *) exclusions+="$pattern"$'\n' ;;
+    *) exclusions+="$pattern|" ;;
   esac
 done
 
@@ -129,8 +134,16 @@ slice_classes() {
 if [[ "$slices" -gt 1 ]]; then slice_classes; fi
 
 failed=0
-coverage_files=()
+only="${VNFORGE_FATIA:-}"
+if [[ "$only" = juntar ]]; then
+  only=-1
+elif [[ -n "$only" ]]; then
+  [[ "$only" =~ ^[0-9]+$ && "$only" -lt "$slices" ]] || abort "VNFORGE_FATIA precisa ser 'juntar' ou um índice de 0 a $((slices - 1)) (veio '$only')."
+else
+  rm -f "$out/$tests_name".*.cobertura.xml
+fi
 for ((i = 0; i < slices; i++)); do
+  [[ -z "$only" || "$i" -eq "$only" ]] || continue
   command_line="dotnet $dll -noLogo"
   if [[ "$slices" -gt 1 ]]; then
     slice_list="$out/$tests_name.slice-$i.classes"
@@ -145,13 +158,26 @@ for ((i = 0; i < slices; i++)); do
   rm -f "$file"
   "$coverage" collect --settings "$settings" -f cobertura -o "$file" "$command_line" || failed=1
   [[ -f "$file" ]] || abort "o dotnet-coverage não gravou $file."
-  coverage_files+=("$file")
 done
 
+# Soma o que já foi medido, inclusive de chamadas anteriores com VNFORGE_FATIA.
+coverage_files=()
+measured=""
+for ((i = 0; i < slices; i++)); do
+  file="$out/$tests_name.$i.cobertura.xml"
+  if [[ -f "$file" ]]; then
+    coverage_files+=("$file")
+    measured+="$i "
+  fi
+done
+[[ ${#coverage_files[@]} -gt 0 ]] || abort "nenhuma fatia medida."
+if [[ ${#coverage_files[@]} -lt "$slices" ]]; then
+  echo "AVISO: só as fatias ${measured% } de $slices foram medidas; o número abaixo é parcial." >&2
+fi
 
-LC_ALL=C awk -v assembly="$assembly" -v excl="$exclusions" '
+LC_ALL=C awk -v assembly="$assembly" -v excl="$exclusions" -v nfiles="${#coverage_files[@]}" '
   BEGIN {
-    n = split(excl, e, "\n")
+    n = split(excl, e, "|")
     scope = "src/" assembly "/"
   }
   function excluded(rel,   i) {
@@ -186,16 +212,20 @@ LC_ALL=C awk -v assembly="$assembly" -v excl="$exclusions" '
       split(substr(cc, RSTART + 1, RLENGTH - 2), p, "/")
       if (!(key in total) || p[2] > total[key]) total[key] = p[2]
       if (p[1] > hit[key]) hit[key] = p[1]
+      pf = key SUBSEP FILENAME
+      if (p[1] > perfile[pf]) { sumhit[key] += p[1] - perfile[pf]; perfile[pf] = p[1] }
     }
   }
   END {
     for (k in seen) {
       if (k in covered) lc++
-      if (k in total) { bt += total[k]; bc += hit[k] }
+      if (k in total) { bt += total[k]; bc += hit[k]; bu += (sumhit[k] < total[k] ? sumhit[k] : total[k]) }
     }
     if (lines == 0) { print "ERRO: nenhuma linha de " assembly " nos relatórios; o dll instrumentado não é o do projeto?" > "/dev/stderr"; exit 2 }
-    printf "%s  linhas %.2f%% (%d/%d)  ramos %.2f%% (%d/%d)\n", assembly,
-      (lines > 0 ? 100 * lc / lines : 0), lc, lines, (bt > 0 ? 100 * bc / bt : 0), bc, bt
+    printf "%s  linhas %.2f%% (%d/%d)  ramos %.2f%% (%d/%d)", assembly,
+      100 * lc / lines, lc, lines, (bt > 0 ? 100 * bc / bt : 0), bc, bt
+    if (nfiles > 1) printf "  (fatias: ramos no mínimo %.2f%%, no máximo %.2f%%)", (bt > 0 ? 100 * bc / bt : 0), (bt > 0 ? 100 * bu / bt : 0)
+    printf "\n"
   }' "${coverage_files[@]}"
 
 if [[ "$failed" -ne 0 ]]; then
