@@ -68,8 +68,11 @@ public sealed partial class EditorView : UserControl
 
     private const double ColumnsTop = 16;
 
-    /// <summary>O quadro do #546 recua a grade, as cenas e o inspetor 24 px da borda (".eb"), mas o shell do #544 fixa o conteúdo de toda página em x=112 (32 px); fica 0 até o Alessandro decidir.</summary>
-    private const double ColumnsBleed = 0;
+    /// <summary>
+    /// O quadro do #546 recua a grade, as cenas e o inspetor 24 px da borda (".eb"), enquanto o shell do #544 fixa o resto da página (abas, filtros, ações) em 32 px
+    /// (x=112). A grade avança o que sobra da margem do Editor sobre 24 px; em janela estreita a margem já é de 24 e não avança.
+    /// </summary>
+    private double ColumnsBleed => Math.Max(0, Root.Margin.Left - EditorBreakpoints.NarrowMargin);
 
     /// <summary>
     /// A lista de cenas na grade: a coluna inteira, a faixa do estado recolhido (#393) ou, abaixo de 1400 px, nenhuma (o flyout do cabeçalho a substitui).
