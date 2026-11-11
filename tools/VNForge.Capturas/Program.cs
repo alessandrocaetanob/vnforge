@@ -55,11 +55,12 @@ internal static class Capturas
 
         Directory.CreateDirectory(output);
         using var session = HeadlessUnitTestSession.StartNew(typeof(CapturasEntry));
-        using var demo = new TempFolder();
-        var root = session.Dispatch(() => ScreenCatalog.CreateDemoFolder(demo), CancellationToken.None).GetAwaiter().GetResult();
         var count = 0;
         foreach (var (themeName, theme) in themes)
         {
+            // O mesmo projeto do smoke (os oito scripts nomeados), numa pasta nova por tema: o segundo tema não herda o que o primeiro gravou (backups, estado, recentes).
+            using var demo = new TempFolder();
+            var root = session.Dispatch(() => ScreenCatalog.CreateDemoFolder(demo, trimmed: true), CancellationToken.None).GetAwaiter().GetResult();
             count += session.Dispatch(() => CaptureAsync(root, theme, themeName, output, only), CancellationToken.None).GetAwaiter().GetResult();
         }
 

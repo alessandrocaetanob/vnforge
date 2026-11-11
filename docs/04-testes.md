@@ -94,4 +94,4 @@ dotnet run --project tools/VNForge.Capturas -c Release -- [--saida pasta] [--tel
 
 Sem argumentos ela grava as 50 capturas por tema em `.tmp/capturas` (uns 2 minutos por tema), no formato `<tela>-<escuro|claro>.png`. `--tela` grava uma só (`painel`, `editor`, `biblioteca-gaveta`, `novo-projeto-ia` e as outras do catálogo).
 
-O catálogo de telas fica em `tests/VNForge.App.Tests/Screens/ScreenCatalog.cs` e é compilado nos dois lugares: o `ScreenSmokeTests` abre cada tela dele (num tema, com um projeto de demonstração reduzido) e a ferramenta usa o projeto completo. Tela nova entra no catálogo e ganha o smoke e a captura juntos.
+O catálogo de telas fica em `tests/VNForge.App.Tests/Screens/ScreenCatalog.cs` e é compilado nos dois lugares: o `ScreenSmokeTests` abre cada tela dele (num tema) e a ferramenta usa o mesmo projeto de demonstração reduzido (os oito scripts nomeados), numa pasta nova por tema. Tela nova entra no catálogo e ganha o smoke e a captura juntos.

@@ -123,7 +123,7 @@ internal static class ScreenCatalog
 
     /// <summary>
     /// O projeto de demonstração gravado numa pasta de <paramref name="temp"/>, com a caixa de 40 colunas e 3 linhas e a voz dos três personagens do trecho,
-    /// como os artboards mostram. Com <paramref name="trimmed"/> ficam só os oito scripts nomeados (o smoke); sem ele, os 312 do artboard (as capturas).
+    /// como os artboards mostram. Com <paramref name="trimmed"/> ficam só os oito scripts nomeados (o smoke e as capturas); sem ele, os 312 do artboard.
     /// </summary>
     public static string CreateDemoFolder(TempFolder temp, bool trimmed = false)
     {

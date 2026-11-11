@@ -10,9 +10,10 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<ScreenSmokeTests.DemoFolderFixture>
 {
-    // Defeito achado pelo smoke e ainda sem quadro aprovado para corrigir: no mapa de atalhos a descrição do Ctrl + passa 20 px da coluna e sobe sobre as teclas.
-    // Mudar o texto ou a quebra muda o que a pessoa vê, então fica anotado aqui até a tela ter o visual aprovado; sair daqui quando a descrição quebrar em duas linhas.
-    private static readonly Dictionary<string, string> KnownClipped = new() { ["atalhos"] = "Aumentar o texto do Editor (grade, inspetor e Modo revisão)" };
+    // Defeito achado pelo smoke (#671) e ainda sem quadro aprovado para corrigir: no mapa de atalhos a descrição do Ctrl + passa 20 px da coluna e sobe sobre as teclas.
+    // Mudar o texto ou a quebra muda o que a pessoa vê, então fica anotado aqui até a tela ter o visual aprovado. Quando o defeito sumir o smoke falha
+    // pedindo para tirar a entrada, para a lista ficar limpa.
+    private static readonly (string Screen, string Text)[] KnownClipped = [("atalhos", "Aumentar o texto do Editor (grade, inspetor e Modo revisão)")];
 
     public static TheoryData<string> StandaloneNames => [.. ScreenCatalog.Standalone.Select(s => s.Name)];
 
@@ -27,7 +28,7 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
                 foreach (var (name, key) in ScreenCatalog.Pages)
                 {
                     await host.GoToAsync(key);
-                    found.AddRange(ClippedTextHeadlessTests.FindClipped(host.Window).Select(p => $"{name}: {p}"));
+                    found.AddRange(WithoutKnown(name, ClippedTextHeadlessTests.FindClipped(host.Window)).Select(p => $"{name}: {p}"));
                 }
 
                 return found;
@@ -54,8 +55,35 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
             TestContext.Current.CancellationToken);
 
         ReleaseNativeMemory();
-        clipped.RemoveAll(c => KnownClipped.TryGetValue(name, out var known) && c.Contains(known, StringComparison.Ordinal));
-        Assert.True(clipped.Count == 0, $"{name}: texto cortado: {string.Join("; ", clipped)}");
+        var unexpected = WithoutKnown(name, clipped);
+        Assert.True(unexpected.Count == 0, $"{name}: texto cortado: {string.Join("; ", unexpected)}");
+    }
+
+    [Fact]
+    public void A_entrada_conhecida_some_da_lista_e_falha_quando_o_defeito_nao_aparece_mais()
+    {
+        const string known = "Aumentar o texto do Editor (grade, inspetor e Modo revisão)";
+
+        Assert.Empty(WithoutKnown("atalhos", [$"\"{known}\" (260 de 280)"]));
+        Assert.Single(WithoutKnown("atalhos", [$"\"{known} mais longo\" (260 de 300)"]), p => p.Contains("não aparece mais", StringComparison.Ordinal));
+        Assert.Single(WithoutKnown("atalhos", []), p => p.Contains("não aparece mais", StringComparison.Ordinal));
+        Assert.Equal(["\"Outro\" (1 de 2)"], WithoutKnown("outra-tela", ["\"Outro\" (1 de 2)"]));
+    }
+
+    /// <summary>Tira do achado o defeito conhecido da tela, comparando o texto inteiro; se a tela tem uma entrada conhecida e ela não veio, é um problema novo.</summary>
+    private static List<string> WithoutKnown(string screen, List<string> clipped)
+    {
+        var result = new List<string>(clipped);
+        foreach (var known in KnownClipped.Where(k => k.Screen == screen))
+        {
+            var prefix = $"\"{known.Text}\" (";
+            if (result.RemoveAll(c => c.StartsWith(prefix, StringComparison.Ordinal)) == 0)
+            {
+                result.Add($"o defeito conhecido \"{known.Text}\" não aparece mais: tire a entrada de KnownClipped (#671)");
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

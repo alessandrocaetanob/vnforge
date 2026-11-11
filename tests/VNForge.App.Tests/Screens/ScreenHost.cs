@@ -47,14 +47,26 @@ internal sealed class ScreenHost : IDisposable
     public static async Task<ScreenHost> OpenProjectAsync(string root, ThemeVariant theme, Func<StartViewModel, MainWindowViewModel>? create = null)
     {
         var config = new TempFolder();
-        var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
-        var vm = create?.Invoke(start) ?? new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label), BibleProviderFactory = (_, _) => new FakeBibleProvider() };
-        var host = Show(vm, theme, config);
+        ScreenHost host;
+        StartViewModel start;
+        MainWindowViewModel vm;
         try
         {
-            await start.OpenFolderCommand.ExecuteAsync(null);
-            await vm.ProjectOpening;
-            await vm.Editor.Loading;
+            start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
+            vm = create?.Invoke(start) ?? new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label), BibleProviderFactory = (_, _) => new FakeBibleProvider() };
+            host = Show(vm, theme, config);
+        }
+        catch
+        {
+            config.Dispose();
+            throw;
+        }
+
+        try
+        {
+            await Loaded(start.OpenFolderCommand.ExecuteAsync(null), "abrir o projeto pelo Início");
+            await Loaded(vm.ProjectOpening, "abrir o projeto");
+            await Loaded(vm.Editor.Loading, "carregar os scripts do Editor");
             return host;
         }
         catch
@@ -72,41 +84,78 @@ internal sealed class ScreenHost : IDisposable
         {
             case NavKey.Editor:
                 // O artboard abre o capítulo 13 numa linha da IA, com o capítulo 14 em tradução.
-                Vm.Editor.RunningScriptKey = "yst00014";
-                await Vm.Editor.GoToLineAsync(DemoProject.CurrentScript, "yst00013:0495");
+                RequireDemoLine(RunningScript, null);
+                RequireDemoLine(DemoProject.CurrentScript, CurrentLine);
+                Vm.Editor.RunningScriptKey = RunningScript;
+                await Loaded(Vm.Editor.GoToLineAsync(DemoProject.CurrentScript, CurrentLine), "a página Editor");
                 break;
             case NavKey.Dashboard:
-                await Vm.Dashboard.ReloadAsync();
+                await Loaded(Vm.Dashboard.ReloadAsync(), "a página Painel");
                 break;
             case NavKey.Build:
-                await Vm.Build.Loading;
+                await Loaded(Vm.Build.Loading, "a página Build");
                 break;
             case NavKey.Conference:
-                await Vm.ConferenceLoading;
+                await Loaded(Vm.ConferenceLoading, "a página Conferência");
                 break;
             case NavKey.Settings:
-                await Vm.Settings.EstimateLoading;
+                await Loaded(Vm.Settings.EstimateLoading, "a página Ajustes");
                 break;
             case NavKey.Glossary:
-                await Vm.Glossary.Loading;
+                await Loaded(Vm.Glossary.Loading, "a página Glossário");
                 break;
             case NavKey.Images:
-                await Vm.Images.Loading;
+                await Loaded(Vm.Images.Loading, "a página Imagens");
                 break;
             case NavKey.Bible:
-                await Vm.Bible.Loading;
+                await Loaded(Vm.Bible.Loading, "a página Bíblia");
                 break;
             case NavKey.Characters:
-                await Vm.Characters.Loading;
+                await Loaded(Vm.Characters.Loading, "a página Personagens");
                 break;
             case NavKey.Sheet:
-                await Vm.Sheet.Loading;
+                await Loaded(Vm.Sheet.Loading, "a página Ficha do jogo");
                 break;
         }
 
         Settle();
     }
 
+    /// <summary>O prazo de cada carga em segundo plano. Sobra para o computador ocupado e ainda assim acaba antes de o teste todo travar sem dizer onde.</summary>
+    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(60);
+
+    private const string RunningScript = "yst00014";
+
+    private const string CurrentLine = "yst00013:0495";
+
+    /// <summary>
+    /// Espera a carga com prazo. Fica aqui e não em <c>Wait</c> porque este arquivo também é compilado pela ferramenta de capturas, que não tem o xUnit.
+    /// </summary>
+    private static async Task Loaded(Task loading, string what)
+    {
+        try
+        {
+            await loading.WaitAsync(LoadTimeout);
+        }
+        catch (TimeoutException) when (!loading.IsCompleted)
+        {
+            throw new TimeoutException($"{what}: a carga não terminou em {LoadTimeout.TotalSeconds:0} s.");
+        }
+    }
+
+    /// <summary>As chaves fixas do Editor existem no projeto de demonstração; se o gerador mudar, o erro diz qual sumiu.</summary>
+    private static void RequireDemoLine(string scriptKey, string? lineId)
+    {
+        if (!DemoProject.Texts.TryGetValue(scriptKey, out var units))
+        {
+            throw new InvalidOperationException($"O script '{scriptKey}', que a página Editor abre, não existe no projeto de demonstração.");
+        }
+
+        if (lineId is not null && !units.Any(u => u.Id == lineId))
+        {
+            throw new InvalidOperationException($"A linha '{lineId}', que a página Editor abre, não existe no script '{scriptKey}' do projeto de demonstração.");
+        }
+    }
     /// <summary>Passa a posse de um recurso para a janela: ele é descartado junto com ela.</summary>
     public void Own(IDisposable resource) => owned.Add(resource);
 
