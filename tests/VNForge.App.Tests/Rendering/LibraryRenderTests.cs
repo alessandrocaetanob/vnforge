@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
@@ -475,6 +476,9 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             // O popover leva a sombra dos flutuantes, como o das tags.
             Assert.All(window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("lib-pop") && b.IsEffectivelyVisible), b => Assert.True(b.BoxShadow.Count > 0, "o popover perdeu a sombra dos flutuantes"));
             var rows = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("adult-row")).ToList();
+            // A frase de cada modo em peso regular; só o nome é semibold.
+            Assert.All(rows.SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.Classes.Contains("lib-dim")), t => Assert.Equal(FontWeight.Normal, t.FontWeight));
+            Assert.All(rows.Select(r => r.GetVisualDescendants().OfType<TextBlock>().First()), t => Assert.Equal(FontWeight.SemiBold, t.FontWeight));
             Assert.Equal(["Mostrar", "Desfocar", "Esconder"], rows.Select(r => Avalonia.Automation.AutomationProperties.GetName(r)));
             Assert.Equal([false, true, false], rows.Select(r => r.Classes.Contains("on")));
             ScreenRenderer.Settle(window);
@@ -504,6 +508,9 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             Assert.True(drawerCover.IsBlurred);
             Assert.Contains("18+", drawer.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
             Assert.Equal(2, RevealButtons(window).Count);
+            // O Desfocar esconde as tags eróticas: a pílula tracejada "Adulto escondido" vem depois da de spoiler.
+            var chips = drawer.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).Where(t => t is "Spoiler escondido" or "Adulto escondido").ToList();
+            Assert.Equal(["Spoiler escondido", "Adulto escondido"], chips);
             ScreenRenderer.Settle(window);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-adulto-gaveta", theme)));
 

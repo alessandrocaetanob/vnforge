@@ -885,7 +885,7 @@
               </Grid>
             </Border>
             <c:OverlineText Classes="overline" Margin="0,12,0,0" Text="Conteúdo adulto"/>
-            <ItemsControl Name="AdultModeCards" ItemsSource="{Binding Modes}" AutomationProperties.Name="Conteúdo adulto">
+            <ItemsControl Name="AdultModeCards" Margin="0,0,-12,0" ItemsSource="{Binding Modes}" AutomationProperties.Name="Conteúdo adulto">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:AdultModeItem">
@@ -935,7 +935,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Border Classes="infobar" Margin="0,12,0,0">
+            <Border Name="CommandCard" Margin="0,12,0,0" Padding="16,14" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeControl}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
               <StackPanel Spacing="8">
                 <TextBlock Classes="body-strong" Text="Pela linha de comando"/>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A CLI lê e grava a mesma escolha, então os dois lados sempre concordam."/>

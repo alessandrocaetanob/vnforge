@@ -139,6 +139,38 @@ public sealed class AdultRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task A_arte_do_cartao_Desfocar_usa_o_raio_de_16_px_e_o_gato_e_a_borda_da_lua_nao_ficam_legiveis()
+    {
+        await fixture.Session.Dispatch<int>(
+            () =>
+            {
+                var art = new AdultSampleArt { Width = 96, Height = 128, Blurred = true };
+                var window = new Window { Width = 200, Height = 200, Content = art };
+                try
+                {
+                    window.Show();
+                    ScreenRenderer.Settle(window);
+                    Assert.Equal(16, Assert.IsType<BlurEffect>(art.GetVisualDescendants().OfType<Viewbox>().Single().Effect).Radius);
+                    var blurred = SharpestStep(PixelProbe.Capture(window, art));
+
+                    art.Blurred = false;
+                    ScreenRenderer.Settle(window);
+                    var sharp = SharpestStep(PixelProbe.Capture(window, art));
+
+                    Assert.True(sharp >= 60, $"o desenho nítido deveria ter a borda da lua e do gato; o maior salto foi {sharp}");
+                    Assert.True(blurred <= 12, $"com 16 px de desfoque a borda da lua e do gato não deveria sobrar; o maior salto foi {blurred}");
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return Task.FromResult(0);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     [Theory]
     [MemberData(nameof(Themes))]
     public async Task A_aba_Privacidade_mostra_os_tres_modos_com_o_padrao_marcado_e_o_cartao_clicado_grava(string themeName)
@@ -179,6 +211,16 @@ public sealed class AdultRenderTests(HeadlessFixture fixture, DemoFolderFixture 
                     var cards = tabs.GetVisualDescendants().OfType<RadioButton>().Where(r => r.Classes.Contains("option") && r.IsEffectivelyVisible).ToList();
                     Assert.Equal(["Mostrar", "Desfocar", "Esconder"], cards.Select(c => Avalonia.Automation.AutomationProperties.GetName(c)));
                     Assert.Equal([false, true, false], cards.Select(c => c.IsChecked == true));
+                    // Os três cartões de 312 px com 12 de vão, terminando junto do cartão "Pela linha de comando", que é neutro como eles.
+                    var xs = cards.Select(c => c.TranslatePoint(default, window)!.Value.X).ToList();
+                    Assert.Equal([280.0, 604.0, 928.0], xs);
+                    Assert.All(cards, c => Assert.Equal(312.0, c.Bounds.Width));
+                    var command = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "CommandCard");
+                    Assert.Equal(280.0, command.TranslatePoint(default, window)!.Value.X);
+                    Assert.Equal(960.0, command.Bounds.Width);
+                    Assert.DoesNotContain("infobar", command.Classes);
+                    var cardFill = (ISolidColorBrush)cards[0].GetVisualDescendants().OfType<Border>().First(b => b.Name == "Card").Background!;
+                    Assert.Equal(cardFill.Color, ((ISolidColorBrush)command.Background!).Color);
                     ScreenRenderer.Settle(window);
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("ajustes-privacidade", theme)));
 

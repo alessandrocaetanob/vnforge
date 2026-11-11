@@ -41,7 +41,7 @@ internal static class LibrarySamples
             {
                 VndbId = "v31201",
                 Confirmation = LibraryConfirmation.Auto,
-                Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, Tags(), adult),
+                Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, adult ? [.. Tags(), new("g11", "Nudez", "ero", 2.4, 0)] : Tags(), adult),
             }
             : game;
     }

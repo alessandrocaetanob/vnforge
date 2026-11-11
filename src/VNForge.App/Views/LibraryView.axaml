@@ -232,7 +232,7 @@
                             </Border>
                             <StackPanel Grid.Column="1">
                               <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Name}"/>
-                              <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                              <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Detail}"/>
                             </StackPanel>
                           </Grid>
                         </Button>

@@ -19,7 +19,7 @@ public sealed partial class AdultSampleArt : UserControl
         set => SetValue(BlurredProperty, value);
     }
 
-    // A arte cresce um quarto além da caixa para o borrão não deixar borda transparente; a caixa corta o excesso.
+    // O raio de 16 px do quadro e da issue; a arte cresce além da caixa (16 px de cada lado numa caixa de 96 por 128 pedem um terço) para o borrão não deixar borda transparente, e a caixa corta o excesso.
     private void Apply()
     {
         if (this.FindControl<Viewbox>("Art") is not { } art)
@@ -27,7 +27,7 @@ public sealed partial class AdultSampleArt : UserControl
             return;
         }
 
-        art.Effect = Blurred ? new BlurEffect { Radius = 8 } : null;
-        art.RenderTransform = Blurred ? new ScaleTransform(1.25, 1.25) : null;
+        art.Effect = Blurred ? new BlurEffect { Radius = 16 } : null;
+        art.RenderTransform = Blurred ? new ScaleTransform(1.4, 1.4) : null;
     }
 }
