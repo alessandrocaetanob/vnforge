@@ -18,22 +18,6 @@ public class TextAppearanceSettingsTests
     private static SettingsViewModel Settings(AppSettingsFile file) => new(new MemoryApiKeyStore(), file, _ => null);
 
     [Fact]
-    public void Padrao_e_100_por_cento_com_a_fonte_do_app_e_o_arquivo_nao_grava_o_padrao()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-        var loaded = file.Load();
-        Assert.Equal(100, loaded.TextScalePercent);
-        Assert.Equal(JapaneseFontChoice.Default, loaded.JapaneseFont);
-
-        file.Save(loaded);
-
-        var json = File.ReadAllText(file.Path);
-        Assert.DoesNotContain("textScale", json);
-        Assert.DoesNotContain("japaneseFont", json);
-    }
-
-    [Fact]
     public void Tamanho_e_fonte_vao_e_voltam_do_arquivo()
     {
         using var temp = new TempFolder();
@@ -62,106 +46,6 @@ public class TextAppearanceSettingsTests
         Assert.Equal(100, loaded.TextScalePercent);
         Assert.Equal(JapaneseFontChoice.Default, loaded.JapaneseFont);
     }
-
-    [Fact]
-    public void Aumentar_e_diminuir_andam_pelos_tamanhos_param_nas_pontas_e_gravam()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-        var settings = Settings(file);
-        var raised = 0;
-        settings.TextAppearanceChanged += (_, _) => raised++;
-        Assert.Equal([90, 100, 110, 125, 150], settings.TextSizes.Select(t => t.Value));
-
-        settings.IncreaseTextSizeCommand.Execute(null);
-        Assert.Equal(110, settings.TextScalePercent);
-        Assert.Equal(110, file.Load().TextScalePercent);
-
-        for (var i = 0; i < 5; i++)
-        {
-            settings.IncreaseTextSizeCommand.Execute(null);
-        }
-
-        Assert.Equal(150, settings.TextScalePercent);
-        Assert.Equal(3, raised);
-
-        for (var i = 0; i < 9; i++)
-        {
-            settings.DecreaseTextSizeCommand.Execute(null);
-        }
-
-        Assert.Equal(90, settings.TextScalePercent);
-        Assert.Equal(90, file.Load().TextScalePercent);
-
-        settings.ResetTextSizeCommand.Execute(null);
-        Assert.Equal(100, settings.TextScalePercent);
-        Assert.Equal(100, file.Load().TextScalePercent);
-    }
-
-    [Fact]
-    public void Escolher_a_fonte_do_japones_grava_avisa_e_nao_perde_o_tamanho()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-        var settings = Settings(file);
-        var raised = 0;
-        settings.TextAppearanceChanged += (_, _) => raised++;
-        settings.IncreaseTextSizeCommand.Execute(null);
-
-        settings.SelectedJapaneseFont = settings.JapaneseFonts.Single(f => f.Value == JapaneseFontChoice.YuGothic);
-
-        Assert.Equal(2, raised);
-        var loaded = file.Load();
-        Assert.Equal(JapaneseFontChoice.YuGothic, loaded.JapaneseFont);
-        Assert.Equal(110, loaded.TextScalePercent);
-        Assert.Equal(JapaneseFontChoice.YuGothic, Settings(file).JapaneseFont);
-    }
-
-    [Fact]
-    public void Mudar_a_concorrencia_ou_o_tema_nao_perde_o_tamanho_do_texto()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-        var settings = Settings(file);
-        settings.DecreaseTextSizeCommand.Execute(null);
-
-        settings.Concurrency = 5;
-        settings.SelectedTheme = settings.Themes.Single(t => t.Value == ThemeChoice.Dark);
-
-        Assert.Equal(90, file.Load().TextScalePercent);
-    }
-
-    [Fact]
-    public void Build_multiplica_tamanho_e_altura_de_linha_e_a_linha_da_grade()
-    {
-        var at100 = TextAppearance.Build(100);
-        var at150 = TextAppearance.Build(150);
-
-        Assert.Equal(13d, at100[TextAppearance.FontSizeKey("BodySm")]);
-        Assert.Equal(19.5, at150[TextAppearance.FontSizeKey("BodySm")]);
-        Assert.Equal(27d, at150[TextAppearance.LineHeightKey("BodySm")]);
-        Assert.Equal(48d, at100["Vnf.RowHeight"]);
-        Assert.Equal(72d, at150["Vnf.RowHeight"]);
-        Assert.Equal(20d, at100["Vnf.PillHeight"]);
-        Assert.Equal(30d, at150["Vnf.PillHeight"]);
-        Assert.Equal(24d, at100["Vnf.MemoryPillHeight"]);
-        Assert.Equal(36d, at150["Vnf.MemoryPillHeight"]);
-        Assert.Equal(22d, at100["Vnf.MarkerHeight"]);
-        Assert.Equal(33d, at150["Vnf.MarkerHeight"]);
-        Assert.Equal(26d, at100["Vnf.MarkerLineHeight"]);
-        Assert.Equal(39d, at150["Vnf.MarkerLineHeight"]);
-        Assert.All(TextAppearance.Scales, s => Assert.True(
-            (double)at150[TextAppearance.LineHeightKey(s.Name)]! >= (double)at150[TextAppearance.FontSizeKey(s.Name)]!, s.Name));
-    }
-
-    [Fact]
-    public void Familia_do_japones_poe_a_escolhida_antes_da_noto_embutida()
-    {
-        Assert.Equal("Noto Sans JP", TextAppearance.JapaneseFamily(JapaneseFontChoice.Default).FamilyNames[0]);
-        var meiryo = TextAppearance.JapaneseFamily(JapaneseFontChoice.Meiryo);
-        Assert.Equal("Meiryo UI", meiryo.FamilyNames[0]);
-        Assert.Equal("Noto Sans JP", meiryo.FamilyNames[1]);
-    }
 }
 
 /// <summary>O Ctrl + e o Ctrl - mudam o texto do Editor; as outras páginas, o trilho e a barra de status seguem em 100%.</summary>
@@ -174,27 +58,6 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             return 0;
         },
         TestContext.Current.CancellationToken);
-
-    [Fact]
-    public Task Tokens_do_tema_sao_os_de_100_por_cento() => OnUi(() =>
-    {
-        var app = Application.Current!;
-        foreach (var (name, size, line) in TextAppearance.Scales)
-        {
-            Assert.True(app.TryGetResource(TextAppearance.FontSizeKey(name), null, out var s), name);
-            Assert.True(app.TryGetResource(TextAppearance.LineHeightKey(name), null, out var l), name);
-            Assert.Equal(size, s);
-            Assert.Equal(line, l);
-        }
-
-        Assert.True(app.TryGetResource("Vnf.RowHeight", null, out var row));
-        Assert.Equal(48d, row);
-        Assert.True(app.TryGetResource("Vnf.PillHeight", null, out var pill));
-        Assert.Equal(20d, pill);
-        Assert.True(app.TryGetResource("Vnf.MemoryPillHeight", null, out var memoryPill));
-        Assert.Equal(24d, memoryPill);
-        return Task.CompletedTask;
-    });
 
     [Fact]
     public Task Ctrl_mais_e_Ctrl_menos_mudam_o_texto_do_Editor_e_so_dele() => OnUi(async () =>

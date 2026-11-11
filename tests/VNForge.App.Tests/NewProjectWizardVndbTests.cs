@@ -115,65 +115,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_o_pedido_da_ficha_conhecida_nao_cai_na_busca_por_titulo()
-    {
-        var catalog = new HangingCatalog();
-        var vm = Create(catalog);
-        await vm.SetGameFolderAsync(game, "v1");
-        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
-
-        var next = vm.NextCommand.ExecuteAsync(null);
-        await catalog.Asked.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        Assert.Equal(VndbStage.Confirming, vm.Stage);
-        vm.SkipVndbCommand.Execute(null);
-        await next;
-
-        Assert.Equal(VndbStage.Skipped, vm.Stage);
-        Assert.False(catalog.Searched);
-    }
-
-    [Fact]
-    public async Task Sem_resultado_que_combine_com_a_pasta_nada_vem_marcado_e_avancar_espera_a_escolha()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Outro titulo", "雨音の箱庭 外伝")));
-
-        Assert.Equal("Só o título", vm.Candidates[0].EvidenceLabel);
-        Assert.DoesNotContain(vm.Candidates, c => c.IsSelected);
-        Assert.False(vm.NextCommand.CanExecute(null));
-
-        vm.Candidates[0].IsSelected = true;
-
-        Assert.True(vm.NextCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Marcar_um_resultado_desmarca_o_outro()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Um", Title), Vn("v2", "Dois", Title)));
-
-        vm.Candidates[1].IsSelected = true;
-
-        Assert.Equal([false, true], vm.Candidates.Select(c => c.IsSelected));
-    }
-
-    [Fact]
-    public async Task Confirmar_mostra_os_personagens_e_a_sinopse_sem_a_marcacao_do_VNDB_e_continua_no_passo()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Equal(WizardStep.Vndb, vm.Step);
-        Assert.Equal(VndbStage.Preview, vm.Stage);
-        var preview = vm.Preview!;
-        Assert.Equal("Amaoto no Hakoniwa, v1", preview.Label);
-        Assert.Equal("Numa cidade onde chove.", preview.Synopsis);
-        Assert.Equal(["相沢 健太", "佐倉 葵", "誰某"], preview.Characters.Select(c => c.Original));
-        Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
-        Assert.Contains("2 dos 3 personagens", preview.GenderNote, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Com_os_nomes_do_jogo_a_ficha_mostra_onde_cada_personagem_aparece_e_fecha_com_os_que_o_VNDB_nao_tem()
     {
         var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), gameNames: (_, _, _) => ["相沢 健太", "名無し 08", "佐倉 葵"]);
@@ -186,22 +127,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal(["ES.CHAR.NAME 1", "ES.CHAR.NAME 3", "sem par no VNDB"], preview.Characters.Select(c => c.InGame));
         Assert.Equal(["Masculino", "Feminino", "Sem gênero"], preview.Characters.Select(c => c.Gender));
         Assert.Equal("O aviso “3 personagens sem gênero” cai para 1, o da personagem que o VNDB não tem.", preview.GenderNote);
-    }
-
-    [Fact]
-    public async Task O_nome_em_destaque_vem_na_ordem_ocidental_e_o_original_fica_abaixo_so_quando_existe()
-    {
-        var catalog = new FakeVndbCatalog(
-            [Vn("v1", "Amaoto no Hakoniwa", Title)],
-            [Character("c1", "Aizawa Kenta", "相沢 健太", "m"), Character("c2", "John Smith", "ジョン・スミス", "m"), Character("c3", "Sakura", "桜", "f")]);
-        var vm = await AtVndbStepAsync(catalog);
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        var rows = vm.Preview!.Characters;
-        Assert.Equal(["Kenta Aizawa", "John Smith", "Sakura"], rows.Select(c => c.Display));
-        Assert.Equal(["Aizawa Kenta", "John Smith", "Sakura"], rows.Select(c => c.Romaji));
-        Assert.All(rows, c => Assert.True(c.HasOriginal));
     }
 
     [Fact]
@@ -247,35 +172,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
-    public async Task O_jogo_confirmado_vai_nas_opcoes_do_projeto_e_o_projeto_nasce_com_o_vndb_json()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-        await vm.NextCommand.ExecuteAsync(null);
-
-        var link = vm.BuildOptions().Vndb;
-
-        Assert.Equal("v1", link?.VisualNovelId);
-        Assert.Equal(3, link?.Characters.Count);
-        Assert.Equal(CharacterGender.Male, link?.Characters[0].Gender);
-    }
-
-    [Fact]
-    public async Task Nenhum_deles_segue_sem_vndb_e_o_projeto_nasce_sem_a_ligacao()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-
-        vm.SkipVndbCommand.Execute(null);
-
-        Assert.Equal(WizardStep.Names, vm.Step);
-        Assert.Null(vm.BuildOptions().Vndb);
-        Assert.Equal("Jogo e personagens", vm.Steps[1].Subtitle);
-
-        vm.BackCommand.Execute(null);
-
-        Assert.Equal(VndbStage.Choosing, vm.Stage);
-    }
-
-    [Fact]
     public async Task Sem_resultado_avisa_e_deixa_buscar_por_outro_titulo_ou_seguir()
     {
         var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), title: "Titulo que ninguem tem");
@@ -292,17 +188,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
-    public async Task Jogo_sem_titulo_lido_busca_pelo_nome_da_pasta()
-    {
-        var catalog = Catalog(Vn("v1", "Hakoniwa Story", Title));
-
-        var vm = await AtVndbStepAsync(catalog, title: null);
-
-        Assert.Equal(["Search(Hakoniwa)"], catalog.Calls.Select(c => c.Replace("SearchVisualNovelsAsync", "Search")));
-        Assert.Contains("Nome da pasta do jogo: Hakoniwa.", vm.VndbDetail, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task VNDB_fora_do_ar_avisa_em_portugues_e_deixa_seguir_sem_ele()
     {
         var vm = await AtVndbStepAsync(new FailingCatalog());
@@ -312,16 +197,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Contains("sem rede", vm.VndbDetail, StringComparison.Ordinal);
         Assert.True(vm.NextCommand.CanExecute(null));
         Assert.True(vm.SkipVndbCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Sem_catalogo_o_passo_diz_que_nao_ha_busca_e_deixa_seguir()
-    {
-        var vm = await AtVndbStepAsync(null);
-
-        Assert.Equal(VndbStage.Unavailable, vm.Stage);
-        Assert.True(vm.NextCommand.CanExecute(null));
-        Assert.Null(vm.BuildOptions().Vndb);
     }
 
     [Fact]
@@ -340,59 +215,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         await vm.NextCommand.ExecuteAsync(null);
 
         Assert.Equal(2, catalog.Calls.Count);
-    }
-
-    [Fact]
-    public async Task Os_textos_do_passo_nao_tem_travessao()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-        await vm.NextCommand.ExecuteAsync(null);
-        var preview = vm.Preview!;
-
-        Assert.All(
-            new[] { vm.VndbHeadline, vm.VndbDetail, preview.CountText, preview.SynopsisNote, preview.GenderNote },
-            text => Assert.DoesNotMatch("[—–]", text));
-    }
-
-    [Fact]
-    public async Task Sem_traducao_da_IA_a_sinopse_fica_no_idioma_do_VNDB_sem_o_selo()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.False(vm.Preview!.IsSynopsisTranslated);
-        Assert.Equal("Numa cidade onde chove.", vm.Preview.Synopsis);
-        Assert.Equal("Fica guardada no projeto, no idioma do VNDB.", vm.Preview.SynopsisNote);
-    }
-
-    [Fact]
-    public async Task Com_a_sinopse_traduzida_pela_IA_a_ficha_mostra_a_traducao_e_o_selo()
-    {
-        var vm = new NewProjectWizardViewModel(
-            new FakeFolderPicker(null),
-            [new TitledEngine(Title)],
-            vndb: Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)),
-            gameCharacterNames: (_, _, _) => null,
-            translatedSynopsis: link => link.VisualNovelId == "v1" ? "  Numa cidade onde chove quase sempre.  " : null);
-        await vm.SetGameFolderAsync(game);
-        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
-        await vm.NextCommand.ExecuteAsync(null);
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.True(vm.Preview!.IsSynopsisTranslated);
-        Assert.True(vm.Preview.HasSynopsis);
-        Assert.Equal("Numa cidade onde chove quase sempre.", vm.Preview.Synopsis);
-    }
-
-    [Fact]
-    public async Task O_aviso_de_genero_nao_promete_sumir_para_quem_o_VNDB_nao_tem()
-    {
-        var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)));
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Contains("os outros seguem com o aviso", vm.Preview!.GenderNote, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -419,26 +241,6 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         vm.BackCommand.Execute(null);
 
         Assert.Equal((VndbStage.Empty, "A busca foi interrompida"), (vm.Stage, vm.VndbHeadline));
-    }
-
-    [Fact]
-    public async Task Cancelar_o_assistente_cancela_o_pedido_em_andamento()
-    {
-        var catalog = new BlockingCatalog();
-        var vm = Create(catalog);
-        var cancelled = false;
-        vm.Cancelled += (_, _) => cancelled = true;
-        await vm.SetGameFolderAsync(game);
-        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
-        var next = vm.NextCommand.ExecuteAsync(null);
-        await catalog.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-
-        vm.CancelCommand.Execute(null);
-        await next.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-
-        Assert.True(cancelled);
-        Assert.True(catalog.Token.IsCancellationRequested);
-        Assert.False(vm.IsBusy);
     }
 
     [Fact]

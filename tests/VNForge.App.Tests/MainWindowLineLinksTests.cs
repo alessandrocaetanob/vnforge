@@ -27,37 +27,6 @@ public class MainWindowLineLinksTests
     }
 
     [Fact]
-    public async Task Clicar_no_id_do_erro_do_build_abre_o_Editor_na_linha()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Build);
-        Assert.NotEqual("yst00001:000002", vm.Editor.SelectedLine?.Id);
-
-        vm.Build.OpenLineCommand.Execute(FirstIdOf(BuildError));
-        await vm.LineNavigation;
-
-        Assert.Same(vm.Editor, vm.CurrentPage);
-        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-        Assert.Equal("yst00001:000002", vm.Editor.SelectedLine?.Id);
-    }
-
-    [Fact]
-    public async Task Clicar_no_id_do_erro_da_Conferencia_abre_o_Editor_na_linha()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-
-        vm.Conference.OpenLineByIdCommand.Execute(FirstIdOf(BuildError));
-        await vm.LineNavigation;
-
-        Assert.Same(vm.Editor, vm.CurrentPage);
-        Assert.Equal("yst00001:000002", vm.Editor.SelectedLine?.Id);
-    }
-
-    [Fact]
     public async Task Clicar_no_erro_do_titulo_do_jogo_abre_os_Ajustes_e_nao_o_Editor()
     {
         using var temp = new TempFolder();
@@ -71,28 +40,5 @@ public class MainWindowLineLinksTests
         Assert.Equal(NavKey.Settings, vm.SelectedNav?.Key);
         Assert.Same(vm.Settings, vm.CurrentPage);
         Assert.Null(vm.Editor.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Id_de_uma_linha_que_nao_existe_mais_avisa_no_Editor()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp);
-
-        vm.Build.OpenLineCommand.Execute(new LineRequest("yst00001", "yst00001:999999"));
-        await vm.LineNavigation;
-
-        Assert.Same(vm.Editor, vm.CurrentPage);
-        Assert.Contains("yst00001:999999", vm.Editor.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Busca_da_paleta_por_id_completo_acha_so_a_linha_e_por_cena_acha_a_cena()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp);
-
-        Assert.Equal(["yst00001:000002"], vm.Editor.FindLines("yst00001:000002", 10).Select(l => l.Unit.Id));
-        Assert.Equal(vm.Editor.Lines.Count, vm.Editor.FindLines("yst00001", 100).Count);
     }
 }

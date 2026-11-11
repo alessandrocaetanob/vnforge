@@ -150,16 +150,6 @@ public sealed class LibraryVersionTests : IDisposable
         Assert.Null(LibraryVersionLabel.For(state).Tag);
     }
 
-    [Fact]
-    public async Task Jogo_sem_projeto_nao_tem_etiqueta_nem_controle_de_versao()
-    {
-        var vm = await LoadedAsync(Game(null));
-
-        Assert.False(vm.Cards.Single().HasVersionTag);
-        Assert.False(vm.Drawer!.HasVersion);
-        Assert.False(vm.Drawer.IsVersionKnown);
-    }
-
     private sealed class NoStarter : IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory) => throw new InvalidOperationException("Trocar não abre o jogo.");

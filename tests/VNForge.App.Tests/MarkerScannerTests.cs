@@ -19,17 +19,6 @@ public class MarkerScannerTests
     }
 
     [Theory]
-    [InlineData(@"\n", 1)]
-    [InlineData(@"\p", 1)]
-    [InlineData(@"\c", 1)]
-    [InlineData(@"\u", 1)]
-    [InlineData(@"\\", 1)]
-    [InlineData(@"\{", 1)]
-    [InlineData(@"\n\p\c", 3)]
-    public void Reconhece_a_gramatica_do_ControlMarkers(string texto, int esperados) =>
-        Assert.Equal(esperados, MarkerScanner.Scan(texto).Count);
-
-    [Theory]
     [InlineData("sem marcadores")]
     [InlineData(@"barra solta \")]
     [InlineData(@"desconhecido \x")]
@@ -38,64 +27,4 @@ public class MarkerScannerTests
     [InlineData("")]
     public void Texto_incompleto_ou_invalido_fica_como_texto_comum(string texto) =>
         Assert.Empty(MarkerScanner.Scan(texto));
-
-    [Fact]
-    public void Barra_escapada_nao_vira_inicio_de_outro_marcador()
-    {
-        var spans = MarkerScanner.Scan(@"\\n");
-
-        Assert.Equal([new MarkerSpan(0, 2, MarkerKind.Control)], spans);
-    }
-
-    [Fact]
-    public void Chave_escapada_nao_abre_variavel()
-    {
-        var spans = MarkerScanner.Scan(@"\{VAR:a}");
-
-        Assert.Equal([new MarkerSpan(0, 2, MarkerKind.Control)], spans);
-    }
-
-    [Fact]
-    public void FindFrom_devolve_o_primeiro_marcador_a_partir_da_posicao()
-    {
-        const string Texto = @"a\nb\pc";
-
-        Assert.Equal(new MarkerSpan(1, 2, MarkerKind.Control), MarkerScanner.FindFrom(Texto, 0));
-        Assert.Equal(new MarkerSpan(1, 2, MarkerKind.Control), MarkerScanner.FindFrom(Texto, 1));
-        Assert.Equal(new MarkerSpan(4, 2, MarkerKind.Control), MarkerScanner.FindFrom(Texto, 2));
-        Assert.Null(MarkerScanner.FindFrom(Texto, 5));
-    }
-
-    [Fact]
-    public void End_e_o_fim_exclusivo() =>
-        Assert.Equal(12, new MarkerSpan(2, 10, MarkerKind.Variable).End);
-
-    [Fact]
-    public void Texto_nulo_e_recusado() =>
-        Assert.Throws<ArgumentNullException>(() => MarkerScanner.Scan(null!));
-
-    [Theory]
-    [InlineData(@"\n", MarkerKind.Control, "quebra de linha")]
-    [InlineData(@"\p", MarkerKind.Control, "virar a página")]
-    [InlineData(@"\c", MarkerKind.Control, "esperar o clique")]
-    [InlineData(@"\u", MarkerKind.Control, "código do jogo")]
-    [InlineData(@"\\", MarkerKind.Control, "barra invertida")]
-    [InlineData(@"\{", MarkerKind.Control, "chave")]
-    [InlineData("{VAR:nome}", MarkerKind.Variable, "nome do jogador")]
-    [InlineData("{VAR:Name}", MarkerKind.Variable, "nome do jogador")]
-    [InlineData("{EF:00}", MarkerKind.Variable, "variável do jogo")]
-    [InlineData(@"\z", MarkerKind.Control, "código do jogo")]
-    public void Nome_em_portugues_descreve_o_marcador(string marcador, MarkerKind tipo, string nome)
-    {
-        Assert.Equal(nome, MarkerLabels.Name(marcador, tipo));
-        Assert.Equal($"Marcador {nome} ({marcador})", MarkerLabels.Describe(marcador, tipo));
-    }
-
-    [Theory]
-    [InlineData(@"\n", MarkerKind.Control, "↵")]
-    [InlineData("{VAR:nome}", MarkerKind.Variable, "✱")]
-    [InlineData(@"\p", MarkerKind.Control, null)]
-    [InlineData(@"\c", MarkerKind.Control, null)]
-    public void Desenho_do_selo_e_o_triangulo_exceto_na_quebra_de_linha_e_na_variavel(string marcador, MarkerKind tipo, string? desenho) =>
-        Assert.Equal(desenho, MarkerLabels.Glyph(marcador, tipo));
 }

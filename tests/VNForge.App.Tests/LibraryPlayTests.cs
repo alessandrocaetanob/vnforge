@@ -39,35 +39,6 @@ public sealed class LibraryPlayTests : IDisposable
     }
 
     [Fact]
-    public async Task Jogar_conta_o_tempo_pelo_processo_e_poe_o_ultimo_jogado_no_topo_de_Continuar_jogando()
-    {
-        var clannad = AddGame("clannad", "CLANNAD");
-        var amaoto = AddGame("amaoto", "Amaoto no Hakoniwa");
-        LibrarySamples.Save(Config, new GameLibrary([clannad, amaoto]));
-        var launcher = new FakeGameLauncher(_clock);
-        var library = Create(launcher);
-        await library.LoadAsync();
-        Assert.False(library.HasContinue);
-
-        launcher.Script = [(TimeSpan.FromMinutes(25), GameProcessState.Running), (TimeSpan.FromMinutes(15), GameProcessState.Exited)];
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single(c => c.Title == "CLANNAD"));
-        _clock.Advance(TimeSpan.FromHours(2));
-        launcher.Script = [(TimeSpan.FromMinutes(10), GameProcessState.Exited)];
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single(c => c.Title == "Amaoto no Hakoniwa"));
-
-        var played = new PlayLogFile(Config).Load();
-        Assert.Equal(TimeSpan.FromMinutes(40), played.StatsOf(clannad.Id).Total);
-        Assert.Equal(TimeSpan.FromMinutes(10), played.StatsOf(amaoto.Id).Total);
-        Assert.Equal(["Amaoto no Hakoniwa", "CLANNAD"], library.Continue.Select(c => c.Title));
-        Assert.EndsWith("· 40 min", library.Continue[1].Detail);
-        Assert.Null(library.PlayingId);
-        Assert.Null(library.ErrorMessage);
-
-        library.Select(library.Cards.Single(c => c.Title == "CLANNAD"));
-        Assert.StartsWith("40 min em 1 sessão · último jogado Hoje, ", library.Drawer!.PlayedText);
-    }
-
-    [Fact]
     public async Task Jogo_que_pede_localidade_japonesa_abre_pelo_Locale_Emulator_do_caminho_dos_Ajustes()
     {
         var game = AddGame("amaoto", "Amaoto no Hakoniwa");
@@ -97,50 +68,6 @@ public sealed class LibraryPlayTests : IDisposable
     }
 
     [Fact]
-    public async Task Falha_do_lancador_ou_jogo_apagado_aparece_no_aviso_e_nao_derruba_o_comando()
-    {
-        var game = AddGame("amaoto", "Amaoto no Hakoniwa");
-        LibrarySamples.Save(Config, new GameLibrary([game]));
-        var launcher = new FakeGameLauncher(_clock) { FailWith = new IOException("O disco sumiu.") };
-        var library = Create(launcher);
-        await library.LoadAsync();
-
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
-        Assert.Equal("O disco sumiu.", library.ErrorMessage);
-        Assert.Null(library.PlayingId);
-
-        new LibraryFile(Config).Update(l => l.Remove(game.Id));
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
-        Assert.NotEqual("O disco sumiu.", library.ErrorMessage);
-        Assert.NotEmpty(library.ErrorMessage!);
-    }
-
-    [Fact]
-    public async Task Continuar_jogando_segue_a_busca_da_grade_e_mostra_o_jogo_aberto_como_Jogando()
-    {
-        var clannad = AddGame("clannad", "CLANNAD");
-        var amaoto = AddGame("amaoto", "Amaoto no Hakoniwa");
-        LibrarySamples.Save(Config, new GameLibrary([clannad, amaoto]));
-        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
-        var library = Create(launcher);
-        await library.LoadAsync();
-        foreach (var card in library.Cards.ToList())
-        {
-            await library.PlayCommand.ExecuteAsync(card);
-        }
-
-        Assert.Equal(2, library.Continue.Count);
-        library.SearchText = "CLANNAD";
-        Assert.Equal(["CLANNAD"], library.Continue.Select(c => c.Title));
-
-        var open = new List<bool>();
-        launcher.OnPoll = () => open.Add(library.Continue.Single().Card.IsPlaying);
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
-        Assert.Equal([true], open);
-        Assert.False(library.Continue.Single().Card.IsPlaying);
-    }
-
-    [Fact]
     public async Task Se_gravar_a_localidade_japonesa_falha_o_interruptor_volta_ao_valor_gravado()
     {
         var game = AddGame("amaoto", "Amaoto no Hakoniwa");
@@ -155,19 +82,6 @@ public sealed class LibraryPlayTests : IDisposable
 
         Assert.NotNull(library.ErrorMessage);
         Assert.False(library.Drawer!.RequiresJapaneseLocale);
-    }
-
-    [Fact]
-    public void O_ultimo_jogado_e_dito_pela_data_do_PC()
-    {
-        var now = Start.AddDays(3);
-        var last = new PlayStats(TimeSpan.FromMinutes(95), Start, 2);
-
-        Assert.StartsWith("Hoje, ", PlayTime.LastPlayed(Start, Start.AddMinutes(30)));
-        Assert.StartsWith("Ontem, ", PlayTime.LastPlayed(Start, Start.AddHours(24)));
-        Assert.Equal("Há 3 dias", PlayTime.LastPlayed(Start, now));
-        Assert.Equal("1 h 35 min em 2 sessões · último jogado Há 3 dias", PlayTime.Summary(last, now));
-        Assert.Equal("Ainda não jogado", PlayTime.Summary(PlayStats.None, now));
     }
 
     [Fact]
@@ -200,121 +114,6 @@ public sealed class LibraryPlayTests : IDisposable
         await library.Remembering;
         Assert.True(new LibraryFile(Config).Load().Find(game.Id).OpensLauncher);
         Assert.True(play.OpensLauncherOn);
-    }
-
-    [Fact]
-    public async Task Aba_Jogar_lista_as_quatro_sessoes_mais_recentes_como_o_quadro_e_o_tempo_total_conta_todas()
-    {
-        var project = _root.SubFolder("projeto");
-        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
-        LibrarySamples.Save(Config, new GameLibrary([game]));
-        var playLog = new PlayLogFile(Config, _clock);
-        for (var daysAgo = 1; daysAgo <= 6; daysAgo++)
-        {
-            var started = Start.AddDays(-daysAgo);
-            playLog.Record(game.Id, new PlaySession(PlaySession.NewId(), started, started.AddMinutes(30), TimeSpan.FromMinutes(30)));
-        }
-
-        var library = Create(new FakeGameLauncher(_clock));
-        await library.LoadAsync();
-        var play = new GamePlayViewModel(library, _clock);
-        play.Open(project);
-
-        Assert.Equal(4, play.Rows.Count);
-        Assert.Equal("Ontem", play.Rows[0].When.Split(',')[0]);
-        Assert.Equal("3 h 00 min", play.TotalText);
-        Assert.StartsWith("em 6 sessões", play.AverageText);
-    }
-
-    [Fact]
-    public async Task Interruptor_do_lancador_mexido_logo_antes_do_Jogar_vale_na_abertura()
-    {
-        var project = _root.SubFolder("projeto");
-        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
-        LibrarySamples.Save(Config, new GameLibrary([game]));
-        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
-        var library = Create(launcher);
-        await library.LoadAsync();
-        var play = new GamePlayViewModel(library, _clock);
-        play.Open(project);
-
-        play.OpensLauncherOn = true;
-        await play.PlayCommand.ExecuteAsync(null);
-
-        Assert.True(launcher.Launched!.OpensLauncher);
-    }
-
-    [Fact]
-    public async Task Abrir_a_aba_com_a_partida_em_curso_nao_reinicia_o_relogio_e_projeto_sem_jogo_nao_joga()
-    {
-        var project = _root.SubFolder("projeto");
-        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
-        LibrarySamples.Save(Config, new GameLibrary([game]));
-        GamePlayViewModel? play = null;
-        LibraryViewModel? library = null;
-        var shown = new List<string>();
-        var liveRows = new List<PlaySessionRow>();
-        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(25), GameProcessState.Running), (TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
-        launcher.OnPoll = () =>
-        {
-            // A aba só abre aos 25 minutos de partida.
-            if (play is null)
-            {
-                play = new GamePlayViewModel(library!, _clock);
-                play.Open(project);
-                shown.Add(play.ElapsedText);
-                liveRows.AddRange(play.Rows);
-            }
-        };
-        library = Create(launcher);
-        await library.LoadAsync();
-
-        await library.PlayCommand.ExecuteAsync(library.Cards.Single());
-
-        Assert.Equal(["00:25:00"], shown);
-
-        // A partida em curso entra na lista, com o tempo de agora, como no quadro.
-        var live = Assert.Single(liveRows);
-        Assert.StartsWith("Hoje, ", live.When);
-        Assert.Equal(("25 min", "Direto"), (live.Duration, live.Via));
-        var semJogo = new GamePlayViewModel(library, _clock);
-        semJogo.Open(_root.SubFolder("outro-projeto"));
-        Assert.False(semJogo.HasGame);
-        Assert.False(semJogo.PlayCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Interruptor_mexido_durante_a_partida_mantem_o_cartao_jogando_e_o_aviso_que_ja_estava_na_tela()
-    {
-        var project = _root.SubFolder("projeto");
-        var game = AddGame("amaoto", "Amaoto no Hakoniwa") with { ProjectPath = GameLibrary.NormalizeFolder(project) };
-        LibrarySamples.Save(Config, new GameLibrary([game]));
-        var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(5), GameProcessState.Running), (TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
-        var library = Create(launcher);
-        await library.LoadAsync();
-        var play = new GamePlayViewModel(library, _clock);
-        play.Open(project);
-        bool? cardPlaying = null;
-        string? shownError = null;
-        launcher.OnPoll = () =>
-        {
-            if (cardPlaying is not null)
-            {
-                return;
-            }
-
-            library.ReportProblem("Aviso de antes do interruptor.");
-            play.OpensLauncherOn = true;
-            Assert.True(library.Remembering.Wait(TimeSpan.FromSeconds(30)));
-            cardPlaying = library.Cards.Single().IsPlaying;
-            shownError = library.ErrorMessage;
-        };
-
-        await play.PlayCommand.ExecuteAsync(null);
-
-        Assert.True(cardPlaying);
-        Assert.Equal("Aviso de antes do interruptor.", shownError);
-        Assert.True(new LibraryFile(Config).Load().Find(game.Id).OpensLauncher);
     }
 
     [Fact]

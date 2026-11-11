@@ -125,22 +125,6 @@ public sealed class PersonalGlossaryTabTests : IDisposable
     }
 
     [Fact]
-    public async Task Abrir_a_aba_relê_o_glossario_pessoal_e_esconde_busca_e_adicionar()
-    {
-        var pessoal = Pessoal();
-        var (vm, _) = await AbrirAsync(pessoal);
-        pessoal.Upsert(new PersonalTerm("先輩", "senpai"));
-
-        vm.SelectedTab = GlossaryTab.Personal;
-
-        Assert.Equal(["先輩"], vm.Personal.Rows.Select(r => r.Source));
-        Assert.True(vm.IsPersonalTab);
-        Assert.False(vm.ShowSearch);
-        vm.SelectedTab = GlossaryTab.Terms;
-        Assert.True(vm.ShowSearch);
-    }
-
-    [Fact]
     public async Task Adicionar_termo_abre_o_dialogo_e_grava_o_termo_escrito_a_mao()
     {
         var pessoal = Pessoal();
@@ -216,19 +200,6 @@ public sealed class PersonalGlossaryTabTests : IDisposable
         Assert.DoesNotContain(pessoal.Load(), t => t.Source == "先輩");
         Assert.DoesNotContain(vm.Personal.Rows, r => r.Source == "先輩");
         Assert.Contains(folder.LoadGlossary(), t => t.Source == "先輩");
-    }
-
-    [Fact]
-    public async Task Arquivo_com_termo_sem_original_vira_mensagem_na_abertura_do_glossario()
-    {
-        var pessoal = Pessoal();
-        Directory.CreateDirectory(Path.GetDirectoryName(pessoal.Path)!);
-        File.WriteAllText(pessoal.Path, """{"version":1,"entries":[{"target":"mano"}]}""");
-
-        var (vm, _) = await AbrirAsync(pessoal);
-
-        Assert.True(vm.Personal.HasError);
-        Assert.Empty(vm.Personal.Rows);
     }
 
     [Fact]

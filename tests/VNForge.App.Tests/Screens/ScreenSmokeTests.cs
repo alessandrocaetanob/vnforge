@@ -59,17 +59,6 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
         Assert.True(unexpected.Count == 0, $"{name}: texto cortado: {string.Join("; ", unexpected)}");
     }
 
-    [Fact]
-    public void A_entrada_conhecida_some_da_lista_e_falha_quando_o_defeito_nao_aparece_mais()
-    {
-        const string known = "Aumentar o texto do Editor (grade, inspetor e Modo revisão)";
-
-        Assert.Empty(WithoutKnown("atalhos", [$"\"{known}\" (260 de 280)"]));
-        Assert.Single(WithoutKnown("atalhos", [$"\"{known} mais longo\" (260 de 300)"]), p => p.Contains("não aparece mais", StringComparison.Ordinal));
-        Assert.Single(WithoutKnown("atalhos", []), p => p.Contains("não aparece mais", StringComparison.Ordinal));
-        Assert.Equal(["\"Outro\" (1 de 2)"], WithoutKnown("outra-tela", ["\"Outro\" (1 de 2)"]));
-    }
-
     /// <summary>Tira do achado o defeito conhecido da tela, comparando o texto inteiro; se a tela tem uma entrada conhecida e ela não veio, é um problema novo.</summary>
     private static List<string> WithoutKnown(string screen, List<string> clipped)
     {

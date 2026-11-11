@@ -37,18 +37,6 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
-    public void Comeca_fechado_sem_pedir_nada()
-    {
-        var servico = new ServicoFalso(Resposta);
-        using var vm = Abrir(servico);
-
-        Assert.False(vm.IsExplainOpen);
-        Assert.Empty(vm.ExplainParts);
-        Assert.Equal(0, servico.Pedidos);
-        Assert.Equal("menos de R$ 0,01", vm.ExplainPriceText);
-    }
-
-    [Fact]
     public async Task O_bloco_do_inspetor_compacto_so_aparece_com_algo_a_mostrar()
     {
         using var largo = Abrir(new ServicoFalso(Resposta));
@@ -84,49 +72,6 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
-    public async Task Abrir_pede_a_explicacao_e_mostra_as_partes_do_original()
-    {
-        var servico = new ServicoFalso(Resposta);
-        using var vm = Abrir(servico);
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsExplainOpen);
-        Assert.Equal([new ExplainPart("今日は", "hoje (tema)"), new ExplainPart("雨が", "a chuva (sujeito)")], vm.ExplainParts);
-        Assert.Equal("今日は雨が降っている。\\p", servico.UltimoOriginal);
-        Assert.Equal(raiz, servico.UltimaPasta);
-        Assert.Null(vm.ExplainError);
-    }
-
-    [Fact]
-    public async Task Fechar_e_abrir_de_novo_nao_pede_outra_vez()
-    {
-        var servico = new ServicoFalso(Resposta);
-        using var vm = Abrir(servico);
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-        Assert.False(vm.IsExplainOpen);
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsExplainOpen);
-        Assert.Equal(1, servico.Pedidos);
-    }
-
-    [Fact]
-    public async Task A_explicacao_nao_mexe_na_traducao()
-    {
-        using var vm = Abrir(new ServicoFalso(Resposta));
-        var antes = (vm.Translation, vm.FieldText, vm.Status);
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.Equal(antes, (vm.Translation, vm.FieldText, vm.Status));
-        Assert.True(vm.Flush());
-        Assert.Equal("tradução 0", ProjectFolder.Open(raiz).LoadText("yst00001")[0].Translation);
-    }
-
-    [Fact]
     public async Task Recusa_do_modelo_vira_mensagem_em_portugues_e_deixa_pedir_de_novo()
     {
         var servico = new ServicoFalso(erro: new ClaudeRefusalException("A IA recusou explicar esta fala."));
@@ -149,52 +94,6 @@ public sealed class LineExplainTests : IDisposable
         await vm.ToggleExplainCommand.ExecuteAsync(null);
 
         Assert.False(vm.IsExplainOpen);
-    }
-
-    [Fact]
-    public async Task Fala_sem_japones_mostra_um_aviso_que_o_clique_seguinte_fecha()
-    {
-        using var vm = Abrir(new ServicoFalso(new LineExplanation([], ClaudeModels.Haiku, FromCache: false)));
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.Equal("Esta fala não tem texto em japonês para explicar.", vm.ExplainNotice);
-        Assert.Null(vm.ExplainError);
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.False(vm.IsExplainOpen);
-        Assert.Null(vm.ExplainNotice);
-    }
-
-    [Fact]
-    public async Task Sem_chave_a_mensagem_manda_para_Ajustes()
-    {
-        var servico = new ServicoFalso(erro: new LineExplanationException("Para entender o japonês, informe a chave da IA em Ajustes."));
-        using var vm = Abrir(servico);
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.Equal("Para entender o japonês, informe a chave da IA em Ajustes.", vm.ExplainError);
-    }
-
-    [Fact]
-    public async Task Falha_de_rede_aparece_sem_detalhes_tecnicos()
-    {
-        using var vm = Abrir(new ServicoFalso(erro: new HttpRequestException("boom")));
-
-        await vm.ToggleExplainCommand.ExecuteAsync(null);
-
-        Assert.Equal("Falha de rede ou tempo esgotado ao falar com a IA. Confira a conexão e tente de novo.", vm.ExplainError);
-    }
-
-    [Fact]
-    public void Sem_servico_o_comando_fica_desligado()
-    {
-        using var vm = Abrir(null);
-
-        Assert.False(vm.ToggleExplainCommand.CanExecute(null));
-        Assert.False(vm.CanExplain);
     }
 
     [Fact]

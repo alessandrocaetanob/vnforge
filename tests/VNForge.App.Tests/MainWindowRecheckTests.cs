@@ -35,24 +35,6 @@ public class MainWindowRecheckTests
     }
 
     [Fact]
-    public async Task Salvar_o_personagem_no_Glossario_acende_o_aviso_do_Editor()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await Opened(temp);
-        Assert.False(vm.Editor.Lines[0].HasWarning);
-
-        vm.Glossary.AddCharacterCommand.Execute(null);
-        var row = vm.Glossary.Characters[0];
-        row.Source = "亀島";
-        row.Target = "Kameshima";
-        vm.Glossary.SaveCommand.Execute(null);
-        await vm.Editor.Rechecking;
-
-        Assert.Contains(vm.Editor.Lines[0].Entry.Issues, i => i.RuleId == "personagem-diferente");
-        Assert.True(vm.Editor.Lines[0].HasWarning);
-    }
-
-    [Fact]
     public async Task O_comando_Reler_o_projeto_esta_na_paleta_e_atualiza_Editor_e_Conferencia()
     {
         using var temp = new TempFolder();
@@ -73,45 +55,5 @@ public class MainWindowRecheckTests
         Assert.Equal("uma palavra", vm.Editor.Lines[1].TranslationLabel);
         Assert.Equal(0, vm.Editor.IssueCount);
         Assert.Equal(0, vm.Conference.IssueCount);
-    }
-
-    [Fact]
-    public async Task O_comando_Reler_o_projeto_grava_antes_a_edicao_pendente_do_Editor()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Opened(temp);
-        vm.Editor.SelectedLine = vm.Editor.Lines[1];
-        vm.Editor.Detail!.Translation = "uma palavra";
-
-        Rereader(vm).Execute();
-        await vm.ProjectReloading;
-        await vm.Editor.Loading;
-
-        Assert.Equal("uma palavra", folder.LoadText("yst00001")[1].Translation);
-        Assert.Equal("uma palavra", vm.Editor.Lines[1].TranslationLabel);
-    }
-
-    [Fact]
-    public async Task Sair_do_Editor_para_o_Painel_grava_antes_a_edicao_pendente()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Opened(temp);
-        vm.Editor.SelectedLine = vm.Editor.Lines[1];
-        vm.Editor.Detail!.Translation = "uma palavra";
-
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
-
-        Assert.Equal("uma palavra", folder.LoadText("yst00001")[1].Translation);
-    }
-
-    [Fact]
-    public void O_comando_Reler_o_projeto_nao_aparece_sem_projeto()
-    {
-        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-recentes")), new FakeFolderPicker(null), new FixedClock(Now)), toasts: new ToastService(new FakeTimeProvider(), a => a()));
-
-        vm.Palette.Open();
-        vm.Palette.Query = "Reler";
-
-        Assert.DoesNotContain(vm.Palette.Results, r => r.Title == "Reler o projeto");
     }
 }

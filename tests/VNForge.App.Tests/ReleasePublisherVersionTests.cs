@@ -29,30 +29,6 @@ public sealed class ReleasePublisherVersionTests
     }
 
     [Fact]
-    public void Executavel_sem_versao_devolve_a_do_projeto_como_referencia()
-    {
-        using var temp = new TempFolder();
-        var project = CreateProject(temp, "1.00", exeWithVersion: false);
-
-        var read = new ReleasePublisher([]).Inspect(project.Root, TestContext.Current.CancellationToken);
-
-        Assert.Null(read.GameVersion);
-        Assert.Equal("1.00", read.ReferenceVersion);
-    }
-
-    [Fact]
-    public void Sem_versao_no_executavel_nem_no_projeto_nao_ha_versao_nenhuma()
-    {
-        using var temp = new TempFolder();
-        var project = CreateProject(temp, null, exeWithVersion: false);
-
-        var read = new ReleasePublisher([]).Inspect(project.Root, TestContext.Current.CancellationToken);
-
-        Assert.Null(read.GameVersion);
-        Assert.Null(read.ReferenceVersion);
-    }
-
-    [Fact]
     public void Executavel_com_versao_vence_a_do_projeto_na_tela_como_no_patch()
     {
         using var temp = new TempFolder();

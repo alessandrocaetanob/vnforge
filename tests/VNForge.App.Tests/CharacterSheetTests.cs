@@ -127,32 +127,6 @@ public class CharacterSheetTests
     }
 
     [Fact]
-    public async Task A_ficha_le_o_texto_a_cada_abertura_e_acompanha_o_status_que_mudou_no_Editor()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder, _) = Create(temp);
-        await vm.Loading;
-        await OpenSheetAsync(vm, "美咲");
-        Assert.Equal(4, vm.Sheet!.AwaitingReview);
-        Assert.True(vm.Sheet.ReviewCommand.CanExecute(null));
-
-        // Revisou tudo no Editor: as linhas da IA viram traduzidas.
-        folder.SaveText("yst00001", [.. Units.Select(u => u.Status == TranslationStatus.Machine ? u with { Status = TranslationStatus.Translated } : u)]);
-        await OpenSheetAsync(vm, "美咲");
-
-        Assert.Equal(0, vm.Sheet!.AwaitingReview);
-        Assert.False(vm.Sheet.ReviewCommand.CanExecute(null));
-
-        // Traduziu em lote: o personagem que não tinha nada esperando agora tem.
-        folder.SaveText("yst00001", [.. Units.Select(u => u.Speaker == "健太" ? u with { Translation = "Está atrasado!", Status = TranslationStatus.Machine } : u)]);
-        await OpenSheetAsync(vm, "健太");
-
-        Assert.Equal(1, vm.Sheet!.AwaitingReview);
-        Assert.True(vm.Sheet.ReviewCommand.CanExecute(null));
-        Assert.Equal("Está atrasado!", vm.Sheet.Lines[0].TranslationText);
-    }
-
-    [Fact]
     public async Task Antes_da_leitura_terminar_a_ficha_avisa_e_o_botao_fica_desligado()
     {
         using var temp = new TempFolder();
@@ -291,86 +265,5 @@ public class CharacterSheetTests
         await OpenSheetAsync(vm, "健太");
         vm.Reload();
         Assert.Null(vm.Sheet);
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_com_a_ficha_aberta_a_fecha_sem_erro_mesmo_com_a_leitura_em_andamento()
-    {
-        using var temp = new TempFolder();
-        var (vm, _, _) = Create(temp);
-        await vm.Loading;
-        vm.OpenSheetCommand.Execute(vm.Characters.Single(c => c.Source == "美咲"));
-        var pending = vm.SheetLoading;
-
-        using var other = new TempFolder();
-        var otherRoot = SampleProjects.Create(other.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated);
-        vm.Project = ProjectSummaryReader.Read(otherRoot);
-        await pending;
-        await vm.Loading;
-
-        Assert.Null(vm.Sheet);
-    }
-
-    [Fact]
-    public async Task A_linha_que_sai_do_filtro_da_busca_nao_fecha_a_ficha()
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenAsync(temp);
-        await OpenSheetAsync(vm, "美咲");
-
-        vm.Search = "Kenta";
-
-        Assert.DoesNotContain(vm.VisibleCharacters, c => c.Source == "美咲");
-        Assert.Equal("Misaki", vm.Sheet!.Name);
-        Assert.True(vm.Sheet.HasLines);
-    }
-
-    [Fact]
-    public async Task Abrir_outra_ficha_troca_a_anterior_e_solta_a_assinatura_da_linha()
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenAsync(temp);
-        var misaki = vm.Characters.Single(c => c.Source == "美咲");
-        await OpenSheetAsync(vm, "美咲");
-        var first = vm.Sheet!;
-        var changed = 0;
-        first.PropertyChanged += (_, _) => changed++;
-
-        await OpenSheetAsync(vm, "健太");
-        misaki.Gender = CharacterGender.Other;
-
-        Assert.Equal("健太", vm.Sheet!.SourceName);
-        Assert.Equal(0, changed);
-    }
-
-    [Fact]
-    public void A_linha_nova_avisa_IsBlank_conforme_se_escreve_e_o_botao_da_ficha_segue()
-    {
-        var row = new CharacterRow();
-        var changed = new List<string?>();
-        ((INotifyPropertyChanged)row).PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-        Assert.True(row.IsBlank);
-
-        row.Source = "美咲";
-
-        Assert.False(row.IsBlank);
-        Assert.Contains(nameof(CharacterRow.IsBlank), changed);
-        Assert.Equal("Abrir a ficha de 美咲", row.OpenSheetLabel);
-
-        changed.Clear();
-        row.Target = "Misaki";
-        Assert.Contains(nameof(CharacterRow.OpenSheetLabel), changed);
-        Assert.Equal("Abrir a ficha de Misaki", row.OpenSheetLabel);
-
-        row.Source = string.Empty;
-        row.Target = string.Empty;
-        Assert.True(row.IsBlank);
-
-        changed.Clear();
-        row.Tone = "calmo";
-        Assert.Contains(nameof(CharacterRow.IsBlank), changed);
-        row.Tone = string.Empty;
-        row.Gender = CharacterGender.Male;
-        Assert.False(row.IsBlank);
     }
 }

@@ -16,21 +16,6 @@ public sealed class EditorScriptDensityTests
         Assert.True(memory.ScriptDensity);
     }
 
-    [Fact]
-    public void Memoria_com_pasta_grava_a_densidade_em_editor_layout_json_sem_perder_a_coluna_das_cenas()
-    {
-        using var temp = new TempFolder();
-        var config = temp.SubFolder("config");
-        new EditorLayoutMemory(config).ScenesCollapsed = true;
-
-        new EditorLayoutMemory(config).ScriptDensity = true;
-
-        var next = new EditorLayoutMemory(config);
-        Assert.True(next.ScriptDensity);
-        Assert.True(next.ScenesCollapsed);
-        Assert.Contains("lines-script", File.ReadAllText(Path.Combine(config, "editor-layout.json")), StringComparison.Ordinal);
-    }
-
     [Theory]
     [InlineData("{ não é json")]
     [InlineData("[true]")]

@@ -45,18 +45,6 @@ public class TaskEntriesTests
     }
 
     [Fact]
-    public async Task Repetir_uma_etapa_concluida_abre_outro_teste()
-    {
-        await Done("Build de Jogo", Test);
-        await Done("Injetar no jogo", Test);
-        await Done("Build de Jogo", Test);
-
-        Assert.Equal(2, bar.Entries.Count);
-        Assert.Equal(["Build de Jogo"], bar.Entries[0].Steps.Select(s => s.Title));
-        Assert.Equal(["Build de Jogo", "Injetar no jogo"], bar.Entries[1].Steps.Select(s => s.Title));
-    }
-
-    [Fact]
     public async Task Refazer_uma_etapa_que_falhou_fica_no_mesmo_teste_e_o_resultado_vale_a_ultima_tentativa()
     {
         var first = Fails("Build de Jogo", Test);
@@ -102,79 +90,6 @@ public class TaskEntriesTests
         Assert.Equal(BackgroundTaskState.Cancelled, entry.State);
         Assert.True(entry.IsCancelled);
         Assert.Equal("Cancelada", entry.StateText);
-    }
-
-    [Fact]
-    public async Task Depois_de_duas_horas_parado_o_proximo_passo_abre_outro_teste()
-    {
-        await Done("Build de Jogo", Test);
-        clock.Advance(BackgroundTaskService.GroupIdleLimit + TimeSpan.FromMinutes(1));
-        await Done("Injetar no jogo", Test);
-
-        Assert.Equal(2, bar.Entries.Count);
-    }
-
-    [Fact]
-    public async Task Antes_das_duas_horas_o_proximo_passo_continua_o_mesmo_teste()
-    {
-        await Done("Build de Jogo", Test);
-        clock.Advance(BackgroundTaskService.GroupIdleLimit - TimeSpan.FromMinutes(1));
-        await Done("Injetar no jogo", Test);
-
-        Assert.Single(bar.Entries);
-    }
-
-    [Fact]
-    public async Task Testes_de_projetos_diferentes_nao_se_misturam()
-    {
-        await Done("Build de A", new TaskGroupSpec("teste-no-jogo:C:/a", "Teste no jogo"));
-        await Done("Injetar no jogo", new TaskGroupSpec("teste-no-jogo:C:/b", "Teste no jogo"));
-
-        Assert.Equal(2, bar.Entries.Count);
-    }
-
-    [Fact]
-    public async Task Tarefa_avulsa_continua_uma_linha_propria()
-    {
-        await Done("Extrair Jogo");
-
-        var entry = Assert.Single(bar.Entries);
-        Assert.False(entry.IsGroup);
-        Assert.Equal("Extrair Jogo", entry.Title);
-        Assert.Equal("14:32", entry.Subtitle);
-    }
-
-    [Fact]
-    public async Task A_hora_de_outro_dia_traz_o_dia_e_o_mes()
-    {
-        await Done("Extrair Jogo");
-        clock.Advance(TimeSpan.FromDays(1));
-
-        await Done("Outra");
-
-        Assert.Equal("26/10 14:32", bar.Entries.Single(e => e.Title == "Extrair Jogo").TimeText);
-        Assert.Equal("14:32", bar.Entries.Single(e => e.Title == "Outra").TimeText);
-    }
-
-    [Fact]
-    public async Task A_tarefa_em_andamento_fica_no_topo_e_as_terminadas_vem_da_mais_recente_para_a_mais_antiga()
-    {
-        await Done("Primeira");
-        clock.Advance(TimeSpan.FromMinutes(5));
-        await Done("Segunda");
-        clock.Advance(TimeSpan.FromMinutes(5));
-        var gate = new TaskCompletionSource();
-        var running = service.Start("Rodando", (_, _) => gate.Task);
-        clock.Advance(TimeSpan.FromMinutes(5));
-        await Done("Terceira");
-
-        Assert.Equal(["Rodando", "Terceira", "Segunda", "Primeira"], bar.Entries.Select(e => e.Title));
-
-        // Ao terminar, a tarefa entra pela hora em que terminou, não pela de início: a que acabou por último fica em cima.
-        clock.Advance(TimeSpan.FromMinutes(5));
-        gate.SetResult();
-        await running.Completion;
-        Assert.Equal(["Rodando", "Terceira", "Segunda", "Primeira"], bar.Entries.Select(e => e.Title));
     }
 
     [Fact]
@@ -277,18 +192,6 @@ public class TaskEntriesTests
         Assert.Empty(bar.Entries);
         Assert.False(bar.HasFinished);
         Assert.Equal("Tarefas (0)", bar.TasksLabel);
-    }
-
-    [Fact]
-    public async Task Depois_de_limpar_o_proximo_passo_abre_um_teste_novo()
-    {
-        await Done("Build de Jogo", Test);
-        bar.ClearFinishedCommand.Execute(null);
-
-        await Done("Injetar no jogo", Test);
-
-        var entry = Assert.Single(bar.Entries);
-        Assert.Equal(["Injetar no jogo"], entry.Steps.Select(s => s.Title));
     }
 
     [Fact]

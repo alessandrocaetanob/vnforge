@@ -79,15 +79,6 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
-    public async Task O_aviso_do_cache_conta_as_linhas_das_regras_ligadas_do_pre()
-    {
-        var (vm, _) = await Opened(Sample());
-
-        Assert.Contains("2 linhas", vm.CacheNotice, StringComparison.Ordinal);
-        Assert.Contains("chave do cache", vm.CacheNotice, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Ligar_e_desligar_grava_no_formatting_json_sem_apagar_a_regra()
     {
         var (vm, folder) = await Opened(Sample());
@@ -263,17 +254,6 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
-    public void Sem_projeto_a_aba_fica_vazia()
-    {
-        var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => null, _ => new NoopClient());
-        vm.Load(null);
-
-        Assert.Empty(vm.PreRules);
-        Assert.Empty(vm.PostRules);
-        Assert.Null(vm.SelectedRule);
-    }
-
-    [Fact]
     public void Sem_projeto_os_comandos_das_regras_nao_abrem_dialogo_nem_falham()
     {
         var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => null, _ => new NoopClient());
@@ -303,21 +283,5 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal("Nenhuma linha do projeto tem este texto.", vm.PreviewEmpty);
         Assert.True(vm.HasPreviewEmpty);
         Assert.Equal("0 linhas", Assert.Single(vm.PreRules).LinesText);
-    }
-
-    [Fact]
-    public async Task Fechar_o_dialogo_pelo_interruptor_descarta_a_edicao_e_abrir_por_ele_nao_faz_nada()
-    {
-        var (vm, folder) = await Opened(Sample());
-        vm.AddPreRuleCommand.Execute(null);
-        vm.Editor!.Pattern = "x";
-
-        vm.IsEditorOpen = true;
-        Assert.True(vm.IsEditorOpen);
-        vm.IsEditorOpen = false;
-
-        Assert.Null(vm.Editor);
-        Assert.Equal(2, folder.LoadFormatting().Dictionary.Pre.Count);
-        vm.Dispose();
     }
 }

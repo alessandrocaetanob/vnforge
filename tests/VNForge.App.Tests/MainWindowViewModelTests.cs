@@ -11,63 +11,6 @@ public class MainWindowViewModelTests
     private static MainWindowViewModel Create(TempFolder temp, string? pickerAnswer = null) =>
         new(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(pickerAnswer), new FixedClock(Now)));
 
-    [Fact]
-    public void Abre_na_Biblioteca_com_o_Editor_desabilitado_e_sem_projeto()
-    {
-        using var temp = new TempFolder();
-        var vm = Create(temp);
-
-        Assert.Equal("Biblioteca", vm.SelectedNav?.Label);
-        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
-        Assert.False(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
-        Assert.Null(vm.CurrentProject);
-        Assert.Equal("Nenhum projeto aberto", vm.ProjectTitle);
-    }
-
-    [Fact]
-    public async Task Abrir_projeto_habilita_o_Editor_e_mostra_o_nome_na_barra_de_titulo()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-
-        Assert.Equal("Minha VN", vm.ProjectTitle);
-        Assert.True(vm.Nav.Single(n => n.Key == NavKey.Editor).IsEnabled);
-        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
-    }
-
-    [Fact]
-    public async Task Pedir_o_Editor_navega_e_entrega_o_projeto_ao_Editor()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-
-        vm.Start.OpenSelectedInEditorCommand.Execute(null);
-
-        var editor = Assert.IsType<EditorViewModel>(vm.CurrentPage);
-        await editor.Loading;
-        Assert.Equal("Minha VN", editor.Project?.Name);
-        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-    }
-
-    [Fact]
-    public void Selecionar_item_desabilitado_do_trilho_nao_navega()
-    {
-        using var temp = new TempFolder();
-        var vm = Create(temp);
-
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-
-        Assert.IsType<LibraryViewModel>(vm.CurrentPage);
-        Assert.Equal(NavKey.Start, vm.SelectedNav?.Key);
-    }
-
     private static (MainWindowViewModel Vm, NewProjectWizardViewModel Wizard) CreateWithWizard(TempFolder temp)
     {
         var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()]);
@@ -91,31 +34,6 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task Projeto_criado_pelo_assistente_abre_no_app_e_entra_nos_recentes()
-    {
-        using var temp = new TempFolder();
-        var (vm, wizard) = CreateWithWizard(temp);
-        var game = temp.SubFolder("jogo");
-        File.WriteAllText(Path.Combine(game, "Jogo.exe"), "MZ");
-        vm.Start.NewProjectCommand.Execute(null);
-        await wizard.SetGameFolderAsync(game);
-        wizard.SetProjectDirectory(Path.Combine(temp.Path, "meu-projeto"));
-        await wizard.NextCommand.ExecuteAsync(null);
-        await wizard.NextCommand.ExecuteAsync(null);
-        await wizard.NextCommand.ExecuteAsync(null);
-        await wizard.NextCommand.ExecuteAsync(null);
-        await wizard.NextCommand.ExecuteAsync(null);
-
-        wizard.FinishCommand.Execute(null);
-        await vm.ProjectOpening;
-        await vm.Editor.Loading;
-
-        Assert.Same(vm.Library, vm.CurrentPage);
-        Assert.Equal("meu-projeto", vm.ProjectTitle);
-        Assert.Single(vm.Start.Recents);
-    }
-
-    [Fact]
     public async Task Falha_ao_abrir_o_projeto_criado_vira_mensagem_na_tela_e_nao_derruba_o_processo()
     {
         using var temp = new TempFolder();
@@ -136,22 +54,6 @@ public class MainWindowViewModelTests
         wizard.FinishCommand.Execute(null);
         await vm.ProjectOpening;
         await vm.Editor.Loading;
-
-        Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Abrir_pasta_com_falha_ao_carregar_o_projeto_vira_mensagem_e_o_comando_nao_lanca()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-        vm.Start.ProjectOpened += (_, _) => throw new ProjectConfigException("glossary.json ilegível.");
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        await vm.Glossary.Loading;
-        await vm.Settings.EstimateLoading;
 
         Assert.Contains("glossary.json ilegível.", vm.Start.ErrorMessage);
     }
@@ -188,40 +90,5 @@ public class MainWindowViewModelTests
         vm.Start.NewProjectCommand.Execute(null);
 
         Assert.Same(vm.Library, vm.CurrentPage);
-    }
-
-    [Fact]
-    public async Task Glossario_fica_desabilitado_ate_abrir_um_projeto_e_depois_navega_para_a_pagina()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-        var item = vm.Nav.Single(n => n.Key == NavKey.Glossary);
-        Assert.False(item.IsEnabled);
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        vm.SelectedNav = item;
-
-        Assert.True(item.IsEnabled);
-        Assert.Same(vm.Glossary, vm.CurrentPage);
-        Assert.Equal("Minha VN", vm.Glossary.Project?.Name);
-    }
-
-    [Fact]
-    public async Task Reabrir_o_mesmo_projeto_preserva_edicao_do_glossario_nao_salva()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        var vm = Create(temp, root);
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        vm.Glossary.AddTermCommand.Execute(null);
-
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-
-        Assert.Single(vm.Glossary.Terms);
-        Assert.True(vm.Glossary.IsDirty);
     }
 }

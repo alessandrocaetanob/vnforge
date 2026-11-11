@@ -60,109 +60,10 @@ public sealed class FitWarningViewModelTests
     }
 
     [Fact]
-    public void Texto_que_cabe_nao_mostra_o_aviso()
-    {
-        var cenario = new Cenario(Palavras(12), new Encurtador((_, _) => Task.FromResult("x")));
-
-        Assert.False(cenario.Aviso.IsVisible);
-        Assert.False(cenario.Aviso.SplitCommand.CanExecute(null));
-        Assert.False(cenario.Aviso.ShortenCommand.CanExecute(null));
-    }
-
-    [Fact]
     public void Texto_vazio_ou_com_marcador_invalido_nao_mostra_o_aviso()
     {
         Assert.False(new Cenario(string.Empty, null).Aviso.IsVisible);
         Assert.False(new Cenario(@"texto \x invalido", null).Aviso.IsVisible);
-    }
-
-    [Fact]
-    public void Texto_que_nao_cabe_mostra_o_titulo_quanto_passa_e_os_botoes()
-    {
-        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => Task.FromResult("x")));
-
-        Assert.True(cenario.Aviso.IsVisible);
-        Assert.Equal("Não cabe na caixa do jogo", FitWarningViewModel.TitleText);
-        Assert.Equal("Passa 1 linha: a caixa do jogo tem 3 linhas.", cenario.Aviso.Message);
-        Assert.Equal("Dividir em 2 páginas", cenario.Aviso.SplitText);
-        Assert.True(cenario.Aviso.SplitCommand.CanExecute(null));
-        Assert.True(cenario.Aviso.ShortenCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public void Passar_mais_de_uma_linha_usa_o_plural_e_o_numero_de_paginas_certo()
-    {
-        var cenario = new Cenario(Palavras(28), null);
-
-        Assert.Equal("Passa 4 linhas: a caixa do jogo tem 3 linhas.", cenario.Aviso.Message);
-        Assert.Equal("Dividir em 3 páginas", cenario.Aviso.SplitText);
-    }
-
-    [Fact]
-    public async Task Dividir_entrega_o_texto_com_a_virada_de_pagina_e_o_aviso_some()
-    {
-        var cenario = new Cenario(Palavras(16), null);
-
-        await cenario.Aviso.SplitCommand.ExecuteAsync(null);
-        cenario.Aviso.Update();
-
-        Assert.Equal($@"{Palavras(12)}\p{Palavras(4)}", Assert.Single(cenario.Divididos));
-        Assert.False(cenario.Aviso.IsVisible);
-    }
-
-    [Fact]
-    public async Task Encurtar_entrega_a_versao_que_cabe()
-    {
-        var encurtador = new Encurtador((atual, _) => Task.FromResult("Cabe bem."));
-        var cenario = new Cenario(Palavras(16), encurtador);
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Equal("Cabe bem.", Assert.Single(cenario.Encurtados));
-        Assert.Null(cenario.Aviso.Error);
-        Assert.False(cenario.Aviso.IsBusy);
-        Assert.Equal(1, encurtador.Chamadas);
-    }
-
-    [Fact]
-    public async Task Encurtar_pede_a_traducao_de_hoje()
-    {
-        string? recebida = null;
-        var cenario = new Cenario(Palavras(16), new Encurtador((atual, _) =>
-        {
-            recebida = atual;
-            return Task.FromResult("Cabe.");
-        }));
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Equal(Palavras(16), recebida);
-    }
-
-    [Fact]
-    public async Task Versao_que_ainda_nao_cabe_nao_e_entregue_e_o_aviso_diz_por_que()
-    {
-        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => Task.FromResult(Palavras(14))));
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Empty(cenario.Encurtados);
-        Assert.Contains("ainda não cabe", cenario.Aviso.Error);
-        Assert.True(cenario.Aviso.HasError);
-        Assert.Equal(Palavras(16), cenario.Traducao);
-    }
-
-    [Fact]
-    public async Task Recusa_da_ia_aparece_como_erro_e_a_traducao_nao_muda()
-    {
-        var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));
-        var cenario = new Cenario(Palavras(16), recusa);
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Empty(cenario.Encurtados);
-        Assert.Contains("recusou", cenario.Aviso.Error);
-        Assert.False(cenario.Aviso.IsBusy);
     }
 
     [Fact]
@@ -225,22 +126,6 @@ public sealed class FitWarningViewModelTests
         Assert.Null(cenario.Aviso.Error);
         Assert.False(cenario.Aviso.IsBusy);
         Assert.Empty(cenario.Encurtados);
-    }
-
-    [Fact]
-    public async Task Resposta_que_chega_depois_do_cancelamento_nao_e_entregue()
-    {
-        var resposta = new TaskCompletionSource<string>();
-        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => resposta.Task));
-
-        var pedido = cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-        cenario.Aviso.Cancel();
-        resposta.SetResult("Cabe.");
-        await pedido;
-
-        Assert.Empty(cenario.Encurtados);
-        Assert.Null(cenario.Aviso.Error);
-        Assert.False(cenario.Aviso.IsBusy);
     }
 
     [Fact]

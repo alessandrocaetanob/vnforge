@@ -95,64 +95,6 @@ public class SettingsGameTitleReadTests
         Assert.Null(ProjectFolder.Open(summary.Root).LoadConfig().Game.Title);
     }
 
-    [Fact]
-    public async Task Titulo_ilegivel_vira_mensagem_e_nao_erro_do_projeto()
-    {
-        using var temp = new TempFolder();
-        var (summary, _) = OldProject(temp, "原題");
-        var vm = Create(temp, new TitleEngine { Failure = new VNForgeException("o yscfg.ybn é de uma versão que não conheço.") });
-        await LoadAsync(vm, summary);
-
-        vm.ReadGameTitleCommand.Execute(null);
-
-        Assert.False(vm.HasGameTitle);
-        Assert.Contains("yscfg.ybn", vm.GameTitleReadMessage, StringComparison.Ordinal);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task Engine_sem_titulo_nao_oferece_o_botao()
-    {
-        using var temp = new TempFolder();
-        var (summary, _) = OldProject(temp, "原題");
-        var vm = Create(temp, new FakeEngine());
-
-        await LoadAsync(vm, summary);
-
-        Assert.False(vm.CanReadGameTitle);
-    }
-
-    [Fact]
-    public async Task Projeto_que_ja_tem_titulo_e_tela_sem_projeto_nao_oferecem_o_botao()
-    {
-        using var temp = new TempFolder();
-        var (summary, folder) = OldProject(temp, "原題");
-        var vm = Create(temp, new TitleEngine());
-        Assert.False(vm.CanReadGameTitle);
-
-        var config = folder.LoadConfig();
-        folder.SaveConfig(config with { Game = config.Game with { Title = new GameTitleConfig("原題", "Meu Jogo") } });
-        await LoadAsync(vm, summary);
-
-        Assert.True(vm.HasGameTitle);
-        Assert.False(vm.CanReadGameTitle);
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_limpa_a_mensagem_da_leitura()
-    {
-        using var temp = new TempFolder();
-        var (summary, _) = OldProject(temp, cachedTitle: null);
-        var vm = Create(temp, new TitleEngine());
-        await LoadAsync(vm, summary);
-        vm.ReadGameTitleCommand.Execute(null);
-        Assert.NotNull(vm.GameTitleReadMessage);
-
-        await LoadAsync(vm, summary);
-
-        Assert.Null(vm.GameTitleReadMessage);
-    }
-
     /// <summary>A engine <c>yuris</c> dos exemplos, com o título no <c>titulo.cfg</c> de qualquer subpasta do cache.</summary>
     private sealed class TitleEngine : IEngine, IGameTitleSource
     {

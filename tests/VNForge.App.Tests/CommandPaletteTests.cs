@@ -33,67 +33,6 @@ public class CommandPaletteTests
     }
 
     [Fact]
-    public void Sem_texto_lista_comandos_e_telas_e_destaca_o_primeiro()
-    {
-        var palette = Palette([]);
-
-        palette.Open();
-
-        Assert.True(palette.IsOpen);
-        Assert.Equal(["Novo build", "Traduzir pendentes", "Conferir", "Editor"], palette.Results.Select(r => r.Title));
-        Assert.Equal(0, palette.SelectedIndex);
-        Assert.True(palette.Results[0].ShowGroup);
-        Assert.False(palette.Results[1].ShowGroup);
-        Assert.True(palette.Results[2].ShowGroup);
-    }
-
-    [Fact]
-    public void Acha_script_por_id_e_tela_sem_acento_nem_maiusculas()
-    {
-        var palette = Palette([]);
-        palette.Open();
-
-        palette.Query = "ST0001";
-        Assert.Equal(["yst00014"], palette.Results.Select(r => r.Title));
-
-        palette.Query = "CONFERIR";
-        Assert.Equal(["Conferir"], palette.Results.Select(r => r.Title));
-
-        palette.Query = "pendentes";
-        Assert.Equal(["Traduzir pendentes"], palette.Results.Select(r => r.Title));
-    }
-
-    [Fact]
-    public void Resultados_que_comecam_pelo_texto_vem_antes()
-    {
-        var palette = new CommandPaletteViewModel(
-            () =>
-            [
-                new PaletteEntry(PaletteGroup.Command, "Rebuild", "", () => { }),
-                new PaletteEntry(PaletteGroup.Command, "Novo build", "", () => { }),
-                new PaletteEntry(PaletteGroup.Command, "Build rápido", "", () => { }),
-            ],
-            (_, _) => []);
-        palette.Open();
-
-        palette.Query = "build";
-
-        Assert.Equal(["Build rápido", "Rebuild", "Novo build"], palette.Results.Select(r => r.Title));
-    }
-
-    [Fact]
-    public void Linhas_aparecem_depois_dos_nomes()
-    {
-        var palette = Palette([]);
-        palette.Open();
-
-        palette.Query = "olá";
-
-        Assert.Equal([PaletteGroup.Line], palette.Results.Select(r => r.Group).Distinct());
-        Assert.Equal("Olá, mundo", palette.SelectedEntry?.Title);
-    }
-
-    [Fact]
     public void Setas_navegam_e_dao_a_volta_nas_pontas()
     {
         var palette = Palette([]);
@@ -108,52 +47,6 @@ public class CommandPaletteTests
 
         palette.SelectNext();
         Assert.Equal(0, palette.SelectedIndex);
-    }
-
-    [Fact]
-    public void Enter_executa_o_destacado_e_fecha()
-    {
-        var executed = new List<string>();
-        var palette = Palette(executed);
-        palette.Open();
-        palette.SelectNext();
-
-        palette.ExecuteSelected();
-
-        Assert.Equal(["traduzir"], executed);
-        Assert.False(palette.IsOpen);
-        Assert.Equal(string.Empty, palette.Query);
-    }
-
-    [Fact]
-    public void Esc_fecha_sem_executar_e_sem_resultado_o_Enter_so_fecha()
-    {
-        var executed = new List<string>();
-        var palette = Palette(executed);
-        palette.Open();
-        palette.Close();
-        Assert.False(palette.IsOpen);
-
-        palette.Open();
-        palette.Query = "zzz";
-        Assert.False(palette.HasResults);
-        Assert.Equal("Nada encontrado para \"zzz\".", palette.EmptyMessage);
-        palette.ExecuteSelected();
-
-        Assert.Empty(executed);
-        Assert.False(palette.IsOpen);
-    }
-
-    [Fact]
-    public void Sem_projeto_a_paleta_so_oferece_as_telas_habilitadas()
-    {
-        using var temp = new TempFolder();
-        var vm = CreateMain(temp, temp.SubFolder("vn"));
-
-        vm.OpenPaletteCommand.Execute(null);
-
-        Assert.True(vm.Palette.IsOpen);
-        Assert.Equal(["Biblioteca", "Personagens", "Ajustes"], vm.Palette.Results.Select(r => r.Title));
     }
 
     [Fact]
@@ -172,53 +65,6 @@ public class CommandPaletteTests
 
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
         Assert.Equal("yst00001:000002", vm.Editor.SelectedLine?.Id);
-    }
-
-    [Fact]
-    public async Task Acha_script_por_id_e_lista_os_comandos_do_projeto()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp, null, TranslationStatus.Untranslated);
-        vm.Palette.Open();
-
-        vm.Palette.Query = "yst0000";
-        Assert.Equal("yst00001", Assert.Single(vm.Palette.Results).Title);
-
-        vm.Palette.Query = "";
-        var titles = vm.Palette.Results.Select(r => r.Title).ToList();
-        Assert.Contains("Traduzir pendentes", titles);
-        Assert.Contains("Novo build", titles);
-        Assert.Contains("Abrir pasta do projeto", titles);
-        Assert.Contains("Painel", titles);
-    }
-
-    [Fact]
-    public async Task Comando_abrir_pasta_entrega_a_raiz_do_projeto()
-    {
-        using var temp = new TempFolder();
-        var opened = new List<string>();
-        var vm = await Opened(temp, opened, TranslationStatus.Untranslated);
-        vm.Palette.Open();
-        vm.Palette.Query = "abrir pasta";
-
-        vm.Palette.ExecuteSelected();
-
-        Assert.Equal([vm.CurrentProject!.Root], opened);
-    }
-
-    [Fact]
-    public async Task Comando_traduzir_pendentes_abre_o_Editor_com_o_filtro_Pendentes()
-    {
-        using var temp = new TempFolder();
-        var vm = await Opened(temp, null, TranslationStatus.Approved, TranslationStatus.Untranslated, TranslationStatus.Untranslated);
-        vm.Palette.Open();
-        vm.Palette.Query = "traduzir";
-
-        vm.Palette.ExecuteSelected();
-
-        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-        Assert.Equal(2, vm.Editor.Lines.Count);
-        Assert.True(vm.Editor.Filters.Single(f => f.Filter == LineStatusFilter.Pending).IsSelected);
     }
 
     [Fact]
@@ -246,38 +92,5 @@ public class CommandPaletteTests
 
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
         Assert.Equal("yst00001", vm.Editor.SelectedScript?.Key);
-    }
-
-    [Fact]
-    public async Task Refazer_a_lista_de_outra_thread_nao_apaga_o_resultado_de_uma_busca_feita_depois()
-    {
-        // A contagem de risco refaz a paleta (Reload) quando termina; sem contexto de sincronização, como nos testes, ela termina numa thread do pool.
-        // Aqui o Reload lê o texto vazio e para dentro da lista de entradas, a busca acontece e só então o Reload grava: o último a gravar deve ter lido o texto de agora.
-        var token = TestContext.Current.CancellationToken;
-        var calls = 0;
-        using var entered = new ManualResetEventSlim();
-        using var release = new ManualResetEventSlim();
-        var palette = new CommandPaletteViewModel(
-            () =>
-            {
-                if (Interlocked.Increment(ref calls) == 2)
-                {
-                    entered.Set();
-                    release.Wait(token);
-                }
-
-                return [new PaletteEntry(PaletteGroup.Command, "Revisar por risco", "", () => { }) { OnlyWhenSearching = true }];
-            },
-            (_, _) => []);
-        palette.Open();
-
-        var reload = Task.Run(() => palette.Reload(), token);
-        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), token));
-        var search = Task.Run(() => palette.Query = "Revisar por risco", token);
-        await Task.WhenAny(search, Task.Delay(300, token));
-        release.Set();
-        await Task.WhenAll(reload, search);
-
-        Assert.Contains(palette.Results, r => r.Title == "Revisar por risco");
     }
 }

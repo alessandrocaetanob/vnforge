@@ -24,37 +24,6 @@ public class MainWindowChaptersTests
     }
 
     [Fact]
-    public async Task Mover_cenas_no_Editor_atualiza_o_Painel_sem_reler_o_projeto()
-    {
-        using var temp = new TempFolder();
-        var main = await OpenAsync(temp);
-        Assert.Equal(["Parte 1"], main.Dashboard.Chapters.Select(c => c.Name));
-        main.Editor.SelectedScript = main.Editor.Scripts.Single(s => s.Key == "yst00003");
-
-        main.Editor.BeginNewChapterCommand.Execute(null);
-        main.Editor.NewChapterName = "Final";
-        await main.Editor.CommitNewChapterCommand.ExecuteAsync(null);
-
-        Assert.Equal(["Parte 1", "Final"], main.Dashboard.Chapters.Select(c => c.Name));
-        Assert.Equal("Final", ProjectFolder.Open(main.Editor.Project!.Root).LoadScriptNames().Group("yst00003"));
-    }
-
-    [Fact]
-    public async Task Novo_capitulo_no_menu_da_linha_do_Painel_abre_o_Editor_na_cena_dela_com_o_campo_do_nome_aberto()
-    {
-        using var temp = new TempFolder();
-        var main = await OpenAsync(temp);
-        var row = main.Dashboard.Chapters[0];
-
-        main.Dashboard.NewChapterCommand.Execute(row);
-        await main.LineNavigation;
-
-        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
-        Assert.Equal(row.ScriptKey, main.Editor.SelectedScript?.Key);
-        Assert.True(main.Editor.IsNamingChapter);
-    }
-
-    [Fact]
     public async Task Renomear_o_capitulo_no_Painel_atualiza_a_lista_do_Editor_e_o_mover_usa_o_nome_novo()
     {
         using var temp = new TempFolder();

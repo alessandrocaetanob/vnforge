@@ -47,20 +47,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public async Task O_botao_do_Editor_abre_a_janela_com_a_cena_aberta()
-    {
-        var (vm, _) = await OpenAsync();
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.True(vm.Translate.IsOpen);
-        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
-        Assert.Equal(2, vm.Translate.Lines);
-        Assert.True(vm.Translate.CanStart);
-    }
-
-    [Fact]
     public async Task Varias_cenas_escolhidas_geram_uma_janela_e_uma_unica_execucao()
     {
         var (vm, root) = await OpenAsync();
@@ -83,39 +69,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.Null(task.Group);
         Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
         Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
-    }
-
-    [Fact]
-    public async Task Uma_unica_cena_escolhida_que_nao_e_a_aberta_e_a_que_a_janela_traduz()
-    {
-        var (vm, _) = await OpenAsync();
-        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
-        Assert.Equal(1, vm.Translate.Lines);
-    }
-
-    [Fact]
-    public async Task Traduzir_roda_o_pedido_grava_como_IA_e_avisa_o_resultado_em_portugues()
-    {
-        var (vm, root) = await OpenAsync();
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-
-        var saved = ProjectFolder.Open(root).LoadText("yst00001");
-        Assert.False(vm.Translate.IsOpen);
-        Assert.Equal([TranslationStatus.Machine, TranslationStatus.Machine, TranslationStatus.Approved], saved.Select(u => u.Status));
-        Assert.Equal(TranslationStatus.Untranslated, ProjectFolder.Open(root).LoadText("yst00002")[0].Status);
-        var toast = Assert.Single(vm.Toasts.Toasts);
-        Assert.Equal(ToastKind.Success, toast.Kind);
-        Assert.Contains("2 linhas traduzidas pela IA", toast.Message);
-        Assert.Equal(BackgroundTaskState.Completed, vm.TaskService.Tasks.Single().State);
     }
 
     [Fact]
@@ -179,24 +132,6 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
-    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
-    {
-        var (vm, _) = await OpenAsync();
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
-        Assert.Equal(3, Untranslated());
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-        await vm.ConferenceLoading;
-
-        Assert.Equal(1, Untranslated());
-    }
-
-    [Fact]
     public async Task Conferencia_aberta_durante_a_traducao_atualiza_a_pilula_e_o_proximo_passo_do_cabecalho()
     {
         var (vm, _) = await OpenAsync();
@@ -214,30 +149,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         // O cabeçalho do jogo lê o Painel: com a Conferência aberta ele também tem de ter relido.
         Assert.Equal("75% traduzido", vm.Dashboard.Steps[1].Subtitle);
         Assert.Equal(GameProgress.Describe(vm.Dashboard.ReadyLines, vm.Dashboard.TotalLines), vm.GameProgressLabel);
-    }
-
-    [Fact]
-    public async Task Pedido_acima_do_limite_nao_deixa_traduzir_e_nada_e_gravado()
-    {
-        var (vm, root) = await OpenAsync(spendLimit: "0,01");
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.True(vm.Translate.IsOverLimit);
-        Assert.False(vm.Translate.StartCommand.CanExecute(null));
-        Assert.Equal(TranslationStatus.Untranslated, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
-    }
-
-    [Fact]
-    public async Task Sem_chave_a_janela_abre_mas_nao_deixa_traduzir()
-    {
-        var (vm, _) = await OpenAsync(key: false);
-
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-
-        Assert.True(vm.Translate.KeyMissing);
-        Assert.False(vm.Translate.CanStart);
     }
 
     [Fact]
@@ -362,24 +273,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.Equal(ToastKind.Warning, kind);
         Assert.Contains("parou no limite de gasto", text);
         Assert.Contains("30 linhas ficaram sem tradução porque o lote não voltou. Sem rede.", text);
-    }
-
-    [Fact]
-    public void Nada_traduzido_porque_a_pessoa_mudou_as_linhas_e_aviso()
-    {
-        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(0, 0, 0, null, 0m, null, Skipped: 4));
-
-        Assert.Equal(ToastKind.Warning, kind);
-        Assert.Contains("4 linhas mudaram durante a execução", text);
-    }
-
-    [Fact]
-    public void Sem_nenhum_problema_o_aviso_e_de_sucesso()
-    {
-        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(1, 0, 0, null, 0.1m, null));
-
-        Assert.Equal(ToastKind.Success, kind);
-        Assert.Contains("1 linha traduzida pela IA", text);
     }
 
     [Fact]

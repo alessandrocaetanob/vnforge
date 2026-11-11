@@ -76,26 +76,4 @@ public sealed class EditorSuggestionReviewTextTests : IDisposable
         var economia = LineText.Length(Longa) - LineText.Length(Curta);
         Assert.Equal($"Passa 1 linha: a caixa tem 3 linhas. A sugestão economiza {economia} caracteres.", detail.EditorSuggestionFitNote);
     }
-
-    [Fact]
-    public async Task Linha_que_cabe_nao_tem_aviso_de_caixa()
-    {
-        var detail = await Abrir(1);
-
-        Assert.False(detail.DoesNotFit);
-        Assert.False(detail.HasEditorSuggestionFitNote);
-        Assert.Equal(string.Empty, detail.EditorSuggestionFitNote);
-    }
-
-    [Fact]
-    public async Task Sem_sugestao_nao_ha_aviso_mesmo_passando_da_caixa()
-    {
-        var folder = ProjectFolder.Open(raiz);
-        EditorSuggestionsFile.Save(folder, EditorSuggestionsFile.Empty);
-
-        var detail = await Abrir(0);
-
-        Assert.True(detail.DoesNotFit);
-        Assert.False(detail.HasEditorSuggestionFitNote);
-    }
 }

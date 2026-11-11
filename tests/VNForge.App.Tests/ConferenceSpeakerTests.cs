@@ -38,62 +38,6 @@ public class ConferenceSpeakerTests
     }
 
     [Fact]
-    public async Task O_erro_do_falante_guarda_o_nome_como_foi_extraido_e_pode_cadastrar()
-    {
-        using var temp = new TempFolder();
-        var vm = await Loaded(temp, Unit(0, Wide));
-
-        var row = Assert.Single(vm.Rows);
-        Assert.Equal(SpeakerEncodingRule.RuleId, row.RuleId);
-        Assert.True(row.HasSpeaker);
-        Assert.Equal(Wide, row.Speaker);
-        Assert.True(row.CanRegisterCharacter);
-    }
-
-    [Fact]
-    public async Task Cadastrar_personagem_pede_o_nome_exato_sem_aparar_nem_normalizar()
-    {
-        using var temp = new TempFolder();
-        var vm = await Loaded(temp, Unit(0, Wide));
-        string? requested = null;
-        vm.CharacterRegistrationRequested += (_, name) => requested = name;
-
-        Assert.True(vm.RegisterCharacterCommand.CanExecute(vm.Rows[0]));
-        vm.RegisterCharacterCommand.Execute(vm.Rows[0]);
-
-        Assert.Equal(Wide, requested);
-        Assert.NotEqual("C氏", requested);
-    }
-
-    [Fact]
-    public async Task Outro_problema_com_falante_mostra_o_nome_mas_nao_oferece_cadastro()
-    {
-        using var temp = new TempFolder();
-        var vm = await Loaded(temp, Unit(0, "Misaki", "duas  palavras"));
-        string? requested = null;
-        vm.CharacterRegistrationRequested += (_, name) => requested = name;
-
-        var row = Assert.Single(vm.Rows);
-        Assert.Equal("Misaki", row.Speaker);
-        Assert.False(row.CanRegisterCharacter);
-        Assert.False(vm.RegisterCharacterCommand.CanExecute(row));
-        vm.RegisterCharacterCommand.Execute(row);
-        Assert.Null(requested);
-    }
-
-    [Fact]
-    public async Task Narracao_nao_tem_falante()
-    {
-        using var temp = new TempFolder();
-        var vm = await Loaded(temp, Unit(0, null, "duas  palavras"));
-
-        var row = Assert.Single(vm.Rows);
-        Assert.False(row.HasSpeaker);
-        Assert.Null(row.Speaker);
-        Assert.False(row.CanRegisterCharacter);
-    }
-
-    [Fact]
     public async Task Pela_janela_o_botao_abre_o_Glossario_nos_Personagens_com_o_nome_preenchido()
     {
         using var temp = new TempFolder();

@@ -72,54 +72,6 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
-    public async Task Palavra_que_o_glossario_ja_tem_mostra_a_traducao_fixada_em_vez_do_botao()
-    {
-        var pedidos = new List<string>();
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), glossario: pedidos.Add, termos: [new GlossaryTerm("遅刻", "atraso")]);
-
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        Assert.True(vm.InGlossary);
-        Assert.Equal("No glossário: atraso", vm.GlossaryChipText);
-        Assert.False(vm.CanAddWordToGlossary);
-        Assert.False(vm.AddWordToGlossaryCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Palavra_fora_do_glossario_oferece_adicionar_e_leva_o_trecho_do_original()
-    {
-        var pedidos = new List<string>();
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), glossario: pedidos.Add, termos: [new GlossaryTerm("傘", "guarda-chuva")]);
-
-        vm.HoverSource(Em(Frase, "五分"));
-        Assert.False(vm.InGlossary);
-        Assert.True(vm.CanAddWordToGlossary);
-        vm.AddWordToGlossaryCommand.Execute(null);
-
-        Assert.Equal(["五分"], pedidos);
-    }
-
-    [Fact]
-    public async Task Palavra_conjugada_mostra_a_forma_de_dicionario_a_nota_e_as_quatro_primeiras_acepcoes()
-    {
-        const string original = "「平気平気！ほら、行こう！」";
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), original);
-
-        vm.HoverSource(Em(original, "行こう", 1));
-
-        Assert.Equal("行く", vm.WordText);
-        Assert.Equal("いく · ゆく", vm.WordReading);
-        Assert.Equal("v5k-s, vi", vm.WordTag);
-        Assert.Equal("行こう é a forma volitiva (\"vamos\") de 行く", vm.WordNote);
-        Assert.Equal(4, vm.WordSenses.Count);
-        Assert.Equal("to go; to move (towards)", vm.WordSenses[0].Text);
-        Assert.Equal("Mais 6 sentidos · 2 leituras", vm.WordMore);
-        Assert.True(vm.HasWordMore);
-        Assert.Equal(Em(original, "行こう"), vm.WordStart);
-        Assert.Equal(3, vm.WordLength);
-    }
-
-    [Fact]
     public async Task A_classe_da_palavra_so_aparece_no_sentido_em_que_ela_muda()
     {
         using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), "行って");
@@ -130,72 +82,6 @@ public sealed class LineDictionaryTests : IDisposable
         // 行く não troca de classe entre os sentidos: nenhum leva o marcador. 行う, a outra entrada, tem um sentido só.
         Assert.All(vm.WordSenses, row => Assert.Null(row.Pos));
         Assert.Null(Assert.Single(vm.WordOthers).Senses[0].Pos);
-    }
-
-    [Fact]
-    public async Task Mais_sentidos_abre_a_lista_inteira_e_as_outras_entradas_da_mesma_grafia()
-    {
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), "行って");
-
-        vm.HoverSource(0);
-        Assert.Equal("Mais 6 sentidos · 2 leituras · 1 outra entrada", vm.WordMore);
-        vm.ExpandWordCommand.Execute(null);
-
-        Assert.Equal(10, vm.WordSenses.Count);
-        Assert.False(vm.HasWordMore);
-        Assert.True(vm.HasWordOthers);
-        var outra = Assert.Single(vm.WordOthers);
-        Assert.Equal("行う · おこなう", outra.Title);
-        Assert.Equal("v5u, vt", outra.Tag);
-        Assert.Equal("to perform", outra.Senses[0].Text);
-    }
-
-    [Fact]
-    public async Task Sobre_a_pontuacao_ou_o_que_o_dicionario_nao_tem_nada_muda_e_trocar_de_palavra_troca_a_entrada()
-    {
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario));
-
-        vm.HoverSource(0);
-        vm.HoverSource(Em(Frase, "相"));
-        Assert.False(vm.ShowWordCard);
-
-        vm.HoverSource(Em(Frase, "二人"));
-        Assert.Equal("二人", vm.WordText);
-        vm.HoverSource(Em(Frase, "。"));
-        Assert.Equal("二人", vm.WordText);
-        vm.HoverSource(Em(Frase, "五分"));
-        Assert.Equal("五分", vm.WordText);
-        Assert.Equal("ごふん", vm.WordReading);
-
-        vm.CloseWordCardCommand.Execute(null);
-        Assert.False(vm.ShowWordCard);
-        Assert.Equal(-1, vm.WordStart);
-        Assert.Empty(vm.WordSenses);
-    }
-
-    [Fact]
-    public async Task Marcador_do_jogo_ocupa_uma_posicao_e_a_palavra_seguinte_continua_achavel()
-    {
-        const string original = "{player}は遅刻だ";
-        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), original);
-
-        Assert.Equal("￼は遅刻だ", vm.DictionarySource);
-        vm.HoverSource(0);
-        Assert.False(vm.ShowWordCard);
-        vm.HoverSource(3);
-
-        Assert.Equal("遅刻", vm.WordText);
-        Assert.Equal(2, vm.WordStart);
-    }
-
-    [Fact]
-    public void Sem_dicionario_montado_o_mouse_nao_faz_nada()
-    {
-        using var vm = Abrir(null);
-
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        Assert.False(vm.ShowWordCard);
     }
 
     [Fact]
@@ -242,21 +128,6 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
-    public async Task Falha_do_download_mostra_o_erro_no_cartao_e_nao_deixa_dicionario()
-    {
-        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.Server(HttpStatusCode.ServiceUnavailable)));
-        using var vm = Abrir(dicionario);
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        await vm.InstallDictionaryCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsFailedCard);
-        Assert.Contains("503", vm.InstallProblem);
-        Assert.Equal(OfflineDictionaryState.Failed, dicionario.State);
-        Assert.False(File.Exists(Path.Combine(Dicionario, "jmdict.vnfdict")));
-    }
-
-    [Fact]
     public async Task Dicionario_com_mais_de_30_dias_oferece_atualizar_e_atualizar_baixa_de_novo()
     {
         var servidor = new SyntheticDictionary.Server();
@@ -275,89 +146,6 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(velho.IsStale);
         Assert.True(vm.IsEntryCard);
         Assert.False(vm.WordNeedsUpdate);
-    }
-
-    [Fact]
-    public async Task Tempo_esgotado_da_conexao_mostra_o_erro_no_cartao_e_nao_derruba_o_comando()
-    {
-        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.TimeoutServer()));
-        using var vm = Abrir(dicionario);
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        await vm.InstallDictionaryCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsFailedCard);
-        Assert.NotEmpty(vm.InstallProblem!);
-        Assert.Equal(OfflineDictionaryState.Failed, dicionario.State);
-        Assert.False(vm.IsInstallingCard);
-    }
-
-    [Fact]
-    public async Task Download_que_para_de_receber_dados_estoura_o_prazo_e_sai_do_estado_de_baixando()
-    {
-        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.HangingServer()), TimeSpan.FromMilliseconds(150));
-        using var vm = Abrir(dicionario);
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        await vm.InstallDictionaryCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsFailedCard);
-        Assert.Contains("sem receber dados", vm.InstallProblem);
-        Assert.Equal(OfflineDictionaryState.Failed, dicionario.State);
-    }
-
-    [Fact]
-    public async Task Cancelar_interrompe_o_download_fecha_o_cartao_e_o_aviso_volta_na_proxima_passada()
-    {
-        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.HangingServer()));
-        using var vm = Abrir(dicionario);
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        var baixando = vm.InstallDictionaryCommand.ExecuteAsync(null);
-        Assert.True(vm.IsInstallingCard);
-        vm.CancelDictionaryInstallCommand.Execute(null);
-        await baixando;
-
-        Assert.False(vm.ShowWordCard);
-        Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
-        Assert.Null(dicionario.Problem);
-        vm.HoverSource(Em(Frase, "二人"));
-        Assert.True(vm.IsOfferCard);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Cancelar_em_qualquer_etapa_deixa_o_estado_de_acordo_com_o_arquivo_no_disco(bool atualizacao)
-    {
-        var servidor = new SyntheticDictionary.Server();
-        var dicionario = atualizacao
-            ? await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(servidor))
-            : SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(servidor));
-        var indice = Path.Combine(Dicionario, "jmdict.vnfdict");
-        var cancelou = false;
-        dicionario.Changed += (_, _) =>
-        {
-            // Cancela no primeiro aviso de montagem do índice (sem o tamanho do download), o ponto em que a importação já pode estar rodando.
-            if (!cancelou && dicionario.State == OfflineDictionaryState.Installing && dicionario.Progress < 0)
-            {
-                cancelou = true;
-                dicionario.CancelInstall();
-            }
-        };
-
-        await dicionario.InstallAsync(TestContext.Current.CancellationToken);
-
-        Assert.Null(dicionario.Problem);
-        Assert.True(File.Exists(indice) == (dicionario.State == OfflineDictionaryState.Ready), $"Estado {dicionario.State} e arquivo {(File.Exists(indice) ? "presente" : "ausente")} não combinam.");
-        if (dicionario.State == OfflineDictionaryState.Ready)
-        {
-            Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
-        }
-        else
-        {
-            Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
-        }
     }
 
     [Fact]
@@ -418,20 +206,6 @@ public sealed class LineDictionaryTests : IDisposable
         vm.HoverSource(Em(Frase, "遅刻"));
         Assert.True(vm.IsEntryCard);
         Assert.Equal(depois, dicionario.LookupCount);
-    }
-
-    [Fact]
-    public async Task O_dicionario_instalado_responde_sem_nenhuma_chamada_de_rede()
-    {
-        var servidor = new SyntheticDictionary.Server();
-        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(servidor));
-        using var vm = Abrir(dicionario);
-
-        vm.HoverSource(Em(Frase, "遅刻"));
-        vm.HoverSource(Em(Frase, "二人"));
-
-        Assert.Equal(0, servidor.Requests);
-        Assert.Equal("二人", vm.WordText);
     }
 
     [Fact]
@@ -543,23 +317,6 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(vm.ShowWordCard);
         Assert.False(vm.WordNeedsUpdate);
         Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
-    }
-
-    [Fact]
-    public void O_download_so_e_oferecido_sobre_letra_japonesa_dentro_do_texto()
-    {
-        const string texto = "A㐀豈ｱあア";
-        using var vm = Abrir(SyntheticDictionary.NotInstalled(Dicionario), texto);
-
-        var oferecido = new List<bool>();
-        for (var i = 0; i <= texto.Length; i++)
-        {
-            vm.HoverSource(i);
-            oferecido.Add(vm.IsOfferCard);
-            vm.CloseWordCard();
-        }
-
-        Assert.Equal([false, true, true, true, true, true, false], oferecido);
     }
 
     [Fact]

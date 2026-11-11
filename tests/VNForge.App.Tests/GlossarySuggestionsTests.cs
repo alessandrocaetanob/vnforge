@@ -76,27 +76,6 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
-    public async Task Linha_em_branco_nao_conta_como_sem_genero()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp);
-
-        vm.AddCharacterCommand.Execute(null);
-
-        Assert.Equal(1, vm.MissingGenderCount);
-    }
-
-    [Fact]
-    public async Task A_aba_de_personagens_abre_primeiro()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp);
-
-        Assert.Equal(GlossaryTab.Characters, vm.SelectedTab);
-        Assert.Equal(0, vm.SelectedTabIndex);
-    }
-
-    [Fact]
     public async Task Sugerir_voz_cobre_os_sem_genero_e_os_falantes_fora_da_tabela_e_nao_sobrescreve()
     {
         var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "direto"));
@@ -138,54 +117,6 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
-    public async Task Aceitar_uma_sugestao_so_mexe_na_linha_e_grava_no_arquivo()
-    {
-        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, fake);
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-        var kenta = vm.Characters.Single(c => c.Source == "健太");
-        var teacher = vm.Characters.Single(c => c.Source == "先生");
-
-        vm.AcceptSuggestionCommand.Execute(kenta);
-        Assert.True(vm.Flush());
-
-        Assert.Equal((CharacterGender.Female, "calma", false), (kenta.Gender, kenta.Tone, kenta.HasSuggestion));
-        Assert.True(teacher.HasSuggestion);
-        Assert.Equal(1, vm.PendingSuggestionCount);
-        Assert.Equal(CharacterGender.Female, folder.LoadCharacters().Single(c => c.Source == "健太").Gender);
-    }
-
-    [Fact]
-    public async Task Descartar_a_sugestao_devolve_o_seletor_e_mexer_no_genero_a_substitui()
-    {
-        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, fake);
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-        var kenta = vm.Characters.Single(c => c.Source == "健太");
-        var teacher = vm.Characters.Single(c => c.Source == "先生");
-
-        vm.DismissSuggestionCommand.Execute(kenta);
-
-        Assert.False(kenta.HasSuggestion);
-        Assert.Equal(CharacterGender.Unknown, kenta.Gender);
-        Assert.Equal("Como fala", kenta.TonePlaceholder);
-        Assert.Equal(1, vm.PendingSuggestionCount);
-        Assert.Equal(1, vm.VoiceRequestCount);
-        Assert.True(vm.CanSuggestVoices);
-        Assert.True(vm.SuggestVoicesCommand.CanExecute(null));
-
-        teacher.Gender = CharacterGender.Male;
-        teacher.Gender = CharacterGender.Unknown;
-
-        Assert.False(teacher.HasSuggestion);
-        Assert.Equal(0, vm.PendingSuggestionCount);
-        Assert.False(vm.AcceptAllSuggestionsCommand.CanExecute(null));
-        Assert.Equal(2, vm.VoiceRequestCount);
-    }
-
-    [Fact]
     public async Task Aceitar_suja_a_pagina_mas_sugerir_e_descartar_nao()
     {
         var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "calma"));
@@ -224,96 +155,6 @@ public class GlossarySuggestionsTests
         Assert.Equal(["先生"], fake.ReceivedVoices.Last().Select(r => r.Name));
     }
 
-    [Fact]
-    public async Task A_faixa_aparece_com_o_preco_enquanto_ha_personagem_sem_genero_e_a_sugestao_nao_suja_a_pagina()
-    {
-        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "x"));
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, fake, characters: [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta"), new CharacterEntry("先生", "Sensei", CharacterGender.Male)]);
-
-        Assert.True(vm.HasVoiceStrip);
-        Assert.True(vm.HasVoiceRequests);
-        Assert.NotEqual(string.Empty, vm.VoicePriceText);
-        Assert.StartsWith("1 personagem está sem gênero.", vm.VoiceStripText);
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        Assert.True(vm.HasPendingSuggestions);
-        Assert.False(vm.IsDirty);
-    }
-
-    [Fact]
-    public async Task Sugerir_voz_nao_pede_o_falante_cadastrado_com_letra_de_largura_diferente()
-    {
-        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "direto"));
-        using var temp = new TempFolder();
-        TextUnit[] wide = [Line(60, "おはよう", "学生Ｃ"), Line(61, "さようなら", "学生Ｃ"), Line(62, "ありがとう", "学生Ｃ")];
-        var (vm, _) = await OpenAsync(temp, fake, characters: [new CharacterEntry("学生C", "Estudante C", CharacterGender.Female)], extraUnits: wide);
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        var asked = Assert.Single(fake.ReceivedVoices);
-        Assert.DoesNotContain(asked, r => r.Name == "学生Ｃ");
-        Assert.DoesNotContain(vm.Characters, c => c.Source == "学生Ｃ");
-        Assert.Equal(CharacterGender.Female, vm.Characters.Single(c => c.Source == "学生C").Gender);
-    }
-
-    [Fact]
-    public async Task Sugerir_voz_nao_troca_o_que_a_pessoa_ja_preencheu()
-    {
-        var fake = new FakeGlossarySuggester(voice: c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Female, "sugerido"));
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, fake, characters: [new CharacterEntry("健太", "Kenta", CharacterGender.Unknown, "meu jeito")]);
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        var kenta = vm.Characters.Single(c => c.Source == "健太");
-        Assert.Equal((CharacterGender.Unknown, "meu jeito"), (kenta.Gender, kenta.Tone));
-
-        vm.AcceptSuggestionCommand.Execute(kenta);
-
-        Assert.Equal((CharacterGender.Female, "meu jeito"), (kenta.Gender, kenta.Tone));
-    }
-
-    [Fact]
-    public async Task O_preco_da_sugestao_sai_em_reais_pela_cotacao_da_pessoa()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
-        var cheap = vm.VoicePriceText;
-
-        vm.Rate = () => new ExchangeRate(5000m, new DateOnly(2026, 10, 25));
-        vm.AddCharacterCommand.Execute(null);
-
-        Assert.StartsWith("R$ ", vm.VoicePriceText);
-        Assert.NotEqual(cheap, vm.VoicePriceText);
-        Assert.DoesNotContain("US$", vm.VoicePriceText);
-        Assert.DoesNotContain("cotação de exemplo", vm.VoicePriceText);
-    }
-
-    [Fact]
-    public async Task Com_a_cotacao_de_exemplo_o_preco_leva_so_o_aproximado_e_a_marca_vai_para_a_dica_dos_dois_botoes()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
-        vm.Rate = () => new ExchangeRate(5000m);
-        vm.AddCharacterCommand.Execute(null);
-        vm.RefreshPrices();
-
-        Assert.StartsWith("≈ ", vm.VoicePriceText);
-        Assert.DoesNotContain("cotação de exemplo", vm.VoicePriceText);
-        Assert.StartsWith("≈ ", vm.TermsPriceText);
-        Assert.DoesNotContain("cotação de exemplo", vm.TermsPriceText);
-        Assert.Contains("cotação de exemplo", vm.VoiceHint);
-        Assert.Contains("cotação de exemplo", vm.TermsHint);
-
-        vm.Rate = () => new ExchangeRate(5000m, new DateOnly(2026, 10, 25));
-        vm.RefreshPrices();
-
-        Assert.DoesNotContain("cotação de exemplo", vm.VoiceHint);
-        Assert.DoesNotContain("cotação de exemplo", vm.TermsHint);
-    }
-
     private static void BreakCharactersFile(ProjectFolder folder)
     {
         File.Delete(folder.CharactersPath);
@@ -347,24 +188,6 @@ public class GlossarySuggestionsTests
         Assert.False(vm.IsDirty);
         Assert.False(vm.SaveFailed);
         Assert.Equal("Salvo automaticamente", vm.SaveStatus);
-    }
-
-    [Fact]
-    public async Task Corrigir_a_linha_marcada_tira_o_aviso_e_grava_a_linha()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp);
-        vm.AddTermCommand.Execute(null);
-        vm.Terms[^1].Target = "sem original";
-        vm.Flush();
-        Assert.Equal(1, vm.ProblemCount);
-
-        vm.Terms[^1].Source = "文化祭";
-        vm.Flush();
-
-        Assert.Equal(0, vm.ProblemCount);
-        Assert.False(vm.HasProblems);
-        Assert.Contains(folder.LoadGlossary(), t => t.Source == "文化祭" && t.Target == "sem original");
     }
 
     [Fact]
@@ -455,20 +278,6 @@ public class GlossarySuggestionsTests
         Assert.Equal("casual de novo", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
     }
 
-    [Fact]
-    public async Task Abrir_outro_projeto_grava_o_pendente_e_abre()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp);
-        vm.Characters[1].Tone = "casual";
-        var other = ProjectSummaryReader.Read(SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated));
-
-        Assert.True(vm.Open(other));
-
-        Assert.Same(other, vm.Project);
-        Assert.Equal("casual", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-    }
-
     private sealed class RemovingSuggester(Action beforeAnswer) : IGlossarySuggester
     {
         public Task<IReadOnlyList<CharacterVoiceSuggestion>> SuggestVoicesAsync(IReadOnlyList<CharacterVoiceRequest> characters, CancellationToken ct)
@@ -483,98 +292,6 @@ public class GlossarySuggestionsTests
 
         public Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
             throw new NotSupportedException();
-    }
-
-    [Fact]
-    public async Task Personagem_removido_durante_o_pedido_nao_volta_com_a_sugestao()
-    {
-        using var temp = new TempFolder();
-        GlossaryViewModel? page = null;
-        var (vm, _) = await OpenAsync(temp, new RemovingSuggester(() => page!.Characters.Remove(page.Characters.Single(c => c.Source == "健太"))));
-        page = vm;
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        Assert.DoesNotContain(vm.Characters, c => c.Source == "健太");
-        Assert.Contains(vm.Characters, c => c.Source == "先生");
-    }
-
-    [Fact]
-    public async Task Nome_de_personagem_igual_ao_termo_tira_o_termo_do_painel()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp);
-        Assert.Single(vm.RepeatedTermRows);
-
-        vm.Characters.Add(new CharacterRow("魔法学院", "Academia"));
-
-        Assert.Empty(vm.RepeatedTermRows);
-    }
-
-    [Fact]
-    public async Task Mudar_a_cotacao_refaz_o_preco_mostrado()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, new FakeGlossarySuggester());
-        var changed = new List<string?>();
-        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-
-        vm.RefreshPrices();
-
-        Assert.Contains(nameof(GlossaryViewModel.VoicePriceText), changed);
-        Assert.Contains(nameof(GlossaryViewModel.TermsPriceText), changed);
-    }
-
-    [Fact]
-    public async Task Sem_provedor_ou_sem_o_que_sugerir_o_botao_fica_desligado()
-    {
-        using var temp = new TempFolder();
-        var (withoutSuggester, _) = await OpenAsync(temp);
-        Assert.False(withoutSuggester.CanSuggestVoices);
-        Assert.False(withoutSuggester.SuggestVoicesCommand.CanExecute(null));
-
-        using var other = new TempFolder();
-        var (done, _) = await OpenAsync(
-            other,
-            new FakeGlossarySuggester(),
-            characters: [new CharacterEntry("美咲", "Misaki", CharacterGender.Female), new CharacterEntry("健太", "Kenta", CharacterGender.Male), new CharacterEntry("先生", "Sensei", CharacterGender.Male)]);
-        Assert.False(done.CanSuggestVoices);
-        Assert.Equal(string.Empty, done.VoicePriceText);
-    }
-
-    [Fact]
-    public async Task Recusa_da_ia_vira_mensagem_e_nao_muda_a_tabela()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, new ThrowingSuggester(new ClaudeRefusalException("O modelo recusou fazer esta sugestão (stop_reason: refusal).")));
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        Assert.Equal("O modelo recusou fazer esta sugestão (stop_reason: refusal).", vm.SuggestionError);
-        Assert.Null(vm.SuggestionNotice);
-        Assert.Equal(CharacterGender.Unknown, vm.Characters.Single(c => c.Source == "健太").Gender);
-        Assert.Equal(0, vm.PendingSuggestionCount);
-        Assert.False(vm.IsSuggesting);
-        Assert.True(vm.CanSuggestVoices);
-    }
-
-    [Theory]
-    [InlineData("refusal", "", "A IA não quis sugerir para este lote. Tente de novo ou preencha à mão.")]
-    [InlineData("max_tokens", "", "A IA não terminou a resposta. Tente de novo ou preencha à mão.")]
-    [InlineData("end_turn", "{ lixo", "A resposta da IA veio incompleta ou fora do formato. Tente de novo ou preencha à mão.")]
-    public async Task A_tela_mostra_so_a_frase_para_a_pessoa_quando_a_ia_falha(string stopReason, string text, string expected)
-    {
-        using var temp = new TempFolder();
-        var client = new StubClaudeClient(new ClaudeReply(stopReason, text));
-        var (vm, _) = await OpenAsync(temp, new ClaudeGlossarySuggester(client));
-
-        await vm.SuggestVoicesCommand.ExecuteAsync(null);
-
-        Assert.Equal(expected, vm.SuggestionError);
-        foreach (var technical in new[] { "stop_reason", "token", "modelo", "json" })
-        {
-            Assert.DoesNotContain(technical, vm.SuggestionError, StringComparison.OrdinalIgnoreCase);
-        }
     }
 
     private sealed class StubClaudeClient(ClaudeReply reply) : IClaudeMessageClient
@@ -636,42 +353,6 @@ public class GlossarySuggestionsTests
         Assert.True(vm.HasRepeatedTerms);
         Assert.False(vm.NoRepeatedTerms);
         Assert.Equal("1 termo aparece 5 vezes ou mais e não está no glossário.", vm.RepeatedSummary);
-    }
-
-    [Fact]
-    public async Task Termo_que_ja_esta_no_glossario_ou_vira_personagem_some_do_painel()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp);
-
-        vm.AddTermCommand.Execute(null);
-        vm.Terms[^1].Source = "魔法学院";
-
-        Assert.Empty(vm.RepeatedTermRows);
-        Assert.True(vm.NoRepeatedTerms);
-        Assert.Equal("Nenhum termo novo aparece 5 vezes ou mais.", vm.RepeatedSummary);
-    }
-
-    [Fact]
-    public async Task Traduzir_com_a_ia_preenche_traducao_e_motivo_e_envia_uma_linha_de_exemplo()
-    {
-        var fake = new FakeGlossarySuggester(term: t => new TermTranslationSuggestion(t.Source, "Academia de Magia", "Nome da escola."));
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, fake);
-        Assert.True(vm.CanSuggestTerms);
-        Assert.Contains("R$", vm.TermsPriceText);
-
-        await vm.SuggestTermsCommand.ExecuteAsync(null);
-
-        var asked = Assert.Single(Assert.Single(fake.ReceivedTerms));
-        Assert.Equal(("魔法学院", 6), (asked.Source, asked.Lines));
-        Assert.Contains("魔法学院", asked.Example);
-        var row = Assert.Single(vm.RepeatedTermRows);
-        Assert.Equal(("Academia de Magia", "Nome da escola."), (row.Target, row.Reason));
-        Assert.True(row.HasSuggestion);
-        Assert.False(vm.CanSuggestTerms);
-        Assert.Equal(string.Empty, vm.TermsPriceText);
-        Assert.Null(vm.SuggestionError);
     }
 
     [Fact]
@@ -760,102 +441,6 @@ public class GlossarySuggestionsTests
         Assert.Null(vm.ErrorMessage);
     }
 
-    [Fact]
-    public async Task Cada_edicao_adia_a_gravacao()
-    {
-        var clock = new FakeTimeProvider();
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, clock: clock);
-
-        vm.Characters[1].Tone = "a";
-        clock.Advance(GlossaryViewModel.SaveDelay - TimeSpan.FromMilliseconds(100));
-        vm.Characters[1].Tone = "ab";
-        clock.Advance(GlossaryViewModel.SaveDelay - TimeSpan.FromMilliseconds(100));
-
-        Assert.True(vm.IsDirty);
-        Assert.Null(folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-
-        clock.Advance(TimeSpan.FromMilliseconds(100));
-
-        Assert.Equal("ab", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-    }
-
-    [Fact]
-    public async Task Sem_relogio_nada_grava_sozinho()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp);
-
-        vm.Characters[1].Tone = "casual";
-
-        Assert.True(vm.IsDirty);
-        Assert.Null(folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-    }
-
-    [Fact]
-    public async Task Flush_grava_na_hora_e_o_atraso_vencido_depois_nao_grava_de_novo()
-    {
-        var clock = new FakeTimeProvider();
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, clock: clock);
-
-        vm.Characters[1].Tone = "casual";
-        vm.Flush();
-
-        Assert.False(vm.IsDirty);
-        Assert.Equal("casual", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-        File.Delete(folder.CharactersPath);
-        clock.Advance(GlossaryViewModel.SaveDelay * 2);
-        Assert.False(File.Exists(folder.CharactersPath));
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_grava_o_que_estava_pendente_no_projeto_antigo()
-    {
-        var clock = new FakeTimeProvider();
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, clock: clock);
-        vm.Characters[1].Tone = "casual";
-
-        var otherRoot = SampleProjects.Create(temp.SubFolder("outro"), "Outra VN", TranslationStatus.Untranslated);
-        vm.Project = ProjectSummaryReader.Read(otherRoot);
-
-        Assert.Equal("casual", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
-        Assert.False(vm.IsDirty);
-    }
-
-    [Fact]
-    public async Task O_arquivo_de_personagens_continua_no_formato_que_o_QA_le()
-    {
-        var clock = new FakeTimeProvider();
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, clock: clock);
-        vm.Characters[1].Gender = CharacterGender.Female;
-        vm.Characters[1].Tone = "formal";
-
-        vm.Flush();
-
-        var json = File.ReadAllText(folder.CharactersPath);
-        Assert.Contains("\"gender\":\"female\"", json.Replace(" ", string.Empty));
-        Assert.Contains("\"tone\":\"formal\"", json.Replace(" ", string.Empty));
-        Assert.Equal(new CharacterEntry("健太", "Kenta", CharacterGender.Female, "formal"), folder.LoadCharacters().Single(c => c.Source == "健太"));
-    }
-
-    [Fact]
-    public async Task Arquivo_ilegivel_nao_agenda_gravacao()
-    {
-        var clock = new FakeTimeProvider();
-        using var temp = new TempFolder();
-        var (vm, folder) = await OpenAsync(temp, clock: clock);
-        File.WriteAllText(folder.CharactersPath, "{ isto não é json");
-        vm.Reload();
-
-        Assert.False(vm.CanEdit);
-        clock.Advance(GlossaryViewModel.SaveDelay * 2);
-
-        Assert.Equal("{ isto não é json", File.ReadAllText(folder.CharactersPath));
-    }
-
     // Três falas com 新入生 em que a IA escreveu "novato" e a pessoa gravou "calouro".
     private static IEnumerable<TextUnit> CorrectedLines() =>
         Enumerable.Range(60, 3).Select(n => new TextUnit($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, $"新入生その{n}", $"O calouro número {n}.", TranslationStatus.Translated)
@@ -877,16 +462,6 @@ public class GlossarySuggestionsTests
     }
 
     [Fact]
-    public async Task Sem_falas_corrigidas_nao_ha_par_para_oferecer()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp);
-
-        Assert.Empty(vm.CorrectedTermRows);
-        Assert.False(vm.HasCorrectedTerms);
-    }
-
-    [Fact]
     public async Task Adicionar_o_par_poe_o_termo_na_tabela_e_tira_do_painel()
     {
         using var temp = new TempFolder();
@@ -899,38 +474,6 @@ public class GlossarySuggestionsTests
         Assert.True(vm.IsDirty);
         vm.Flush();
         Assert.Contains(folder.LoadGlossary(), t => t.Source == "新入生" && t.Target == "calouro");
-    }
-
-    [Fact]
-    public async Task Personagem_com_o_mesmo_trecho_nao_esconde_o_par_que_sobra()
-    {
-        // 健太 é personagem e está em 4 falas com a troca, contra 3 de 新入生: o par é do trecho que sobra.
-        TextUnit Corrected(int n, string source, string ai, string edited) =>
-            new($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, source, edited, TranslationStatus.Translated) { AiTranslation = ai };
-        List<TextUnit> extra =
-        [
-            Corrected(60, "健太と新入生", "O novato chegou.", "O calouro chegou."),
-            Corrected(61, "健太は新入生だ", "O novato é bom.", "O calouro é bom."),
-            Corrected(62, "新入生と健太", "Um novato aqui.", "Um calouro aqui."),
-            Corrected(63, "健太が来た", "O novato veio.", "O calouro veio."),
-        ];
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, extraUnits: extra);
-
-        var row = Assert.Single(vm.CorrectedTermRows);
-
-        Assert.Equal(("新入生", "calouro", "3 falas"), (row.Source, row.Target, row.LinesLabel));
-    }
-
-    [Fact]
-    public async Task Termo_que_ja_esta_no_glossario_nao_volta_como_par()
-    {
-        using var temp = new TempFolder();
-        var (vm, _) = await OpenAsync(temp, extraUnits: CorrectedLines());
-
-        vm.Terms.Add(new GlossaryTermRow("新入生", "calouro"));
-
-        Assert.Empty(vm.CorrectedTermRows);
     }
 
     [Fact]

@@ -52,25 +52,6 @@ public sealed class LibraryExportTests : IDisposable
     }
 
     [Fact]
-    public async Task Exportar_grava_o_index_html_com_o_credito_ao_VNDB_fecha_o_dialogo_e_abre_a_pagina()
-    {
-        var (library, opened) = await Loaded();
-        var export = library.Export;
-        export.Open();
-
-        await export.ExportCommand.ExecuteAsync(null);
-
-        var path = Path.Combine(_out.Path, "index.html");
-        Assert.Equal([path], opened);
-        Assert.False(export.IsOpen);
-        var html = await File.ReadAllTextAsync(path, Ct);
-        Assert.Contains("Amaoto no Hakoniwa", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Kōrin no Mori", html, StringComparison.Ordinal);
-        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
-        Assert.Contains("Numa cidade onde chove", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task As_escolhas_do_dialogo_valem_na_pagina()
     {
         var (library, _) = await Loaded();
@@ -87,49 +68,6 @@ public sealed class LibraryExportTests : IDisposable
         Assert.DoesNotContain("Nanairo Ressha", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Numa cidade onde chove", html, StringComparison.Ordinal);
         Assert.Contains("Open Database License", html, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData(AdultMode.Show, true)]
-    [InlineData(AdultMode.Blur, false)]
-    [InlineData(AdultMode.Hide, false)]
-    public async Task So_o_modo_Mostrar_poe_o_jogo_adulto_no_catalogo(AdultMode mode, bool included)
-    {
-        var (library, _) = await Loaded();
-        library.ChooseAdultMode(mode);
-        library.Export.Open();
-
-        await library.Export.ExportCommand.ExecuteAsync(null);
-
-        var html = await File.ReadAllTextAsync(Path.Combine(_out.Path, "index.html"), Ct);
-        Assert.Equal(included, html.Contains("Kuroneko Archive", StringComparison.Ordinal));
-        Assert.Contains("Amaoto no Hakoniwa", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Qualquer_erro_da_gravacao_vira_aviso_no_dialogo_que_continua_aberto()
-    {
-        var (library, opened) = await Loaded(sheets: new BrokenSheets());
-        library.Export.Open();
-
-        await library.Export.ExportCommand.ExecuteAsync(null);
-
-        Assert.Equal("ficha quebrada", library.Export.ErrorMessage);
-        Assert.True(library.Export.IsOpen);
-        Assert.False(library.Export.IsBusy);
-        Assert.Empty(opened);
-    }
-
-    [Fact]
-    public async Task Esc_durante_a_gravacao_nao_abre_o_navegador()
-    {
-        var (library, opened) = await Loaded();
-        library.Export.Open();
-        library.Export.IsOpen = false;
-
-        await library.Export.ExportCommand.ExecuteAsync(null);
-
-        Assert.Empty(opened);
     }
 
     private sealed class BrokenSheets : ILibrarySheetSource

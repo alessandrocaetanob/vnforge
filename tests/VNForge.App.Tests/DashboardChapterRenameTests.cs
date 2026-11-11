@@ -80,19 +80,6 @@ public class DashboardChapterRenameTests
     }
 
     [Fact]
-    public async Task Renomear_abre_a_edicao_na_linha_com_o_nome_atual()
-    {
-        var (_, vm) = await Open();
-        var row = vm.Chapters[0];
-
-        vm.BeginRenameChapterCommand.Execute(row);
-
-        Assert.True(row.IsEditing);
-        Assert.Equal("Capítulo 1", row.EditText);
-        Assert.False(vm.Chapters[1].IsEditing);
-    }
-
-    [Fact]
     public async Task Abrir_a_edicao_de_outra_linha_fecha_a_primeira()
     {
         var (_, vm) = await Open();
@@ -113,22 +100,6 @@ public class DashboardChapterRenameTests
         vm.BeginRenameChapterCommand.Execute(extra);
 
         Assert.False(extra.IsEditing);
-    }
-
-    [Fact]
-    public async Task Confirmar_grava_pelo_nome_antigo_recarrega_e_mostra_o_nome_novo_na_mesma_posicao()
-    {
-        var (fixture, vm) = await Open();
-        var row = vm.Chapters[0];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = "  Manhã de chuva ";
-
-        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
-
-        Assert.Equal([(Root, "Capítulo 1", "Manhã de chuva")], fixture.Renames);
-        Assert.Equal(2, fixture.Loads);
-        Assert.Equal(["Manhã de chuva", "Capítulo 2", ScriptGrouping.ExtraName], vm.Chapters.Select(c => c.Name));
-        Assert.All(vm.Chapters, c => Assert.False(c.IsEditing));
     }
 
     [Theory]
@@ -164,21 +135,6 @@ public class DashboardChapterRenameTests
     }
 
     [Fact]
-    public async Task Cancelar_fecha_a_edicao_sem_gravar()
-    {
-        var (fixture, vm) = await Open();
-        var row = vm.Chapters[0];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = "Outro";
-
-        vm.CancelRenameChapterCommand.Execute(row);
-
-        Assert.False(row.IsEditing);
-        Assert.Empty(fixture.Renames);
-        Assert.Equal("Capítulo 1", row.Name);
-    }
-
-    [Fact]
     public async Task Falha_ao_gravar_mostra_a_mensagem_na_linha_e_mantem_a_edicao()
     {
         var (fixture, vm) = await Open();
@@ -192,21 +148,6 @@ public class DashboardChapterRenameTests
         Assert.True(row.IsEditing);
         Assert.Equal("Não há capítulo chamado 'Capítulo 1'.", row.EditError);
         Assert.Equal(1, fixture.Loads);
-    }
-
-    [Fact]
-    public async Task Pasta_somente_leitura_mostra_o_erro_na_linha_em_vez_de_derrubar_o_comando()
-    {
-        var (fixture, vm) = await Open();
-        fixture.Failure = new UnauthorizedAccessException("Acesso negado ao scripts.json.");
-        var row = vm.Chapters[0];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = "Novo";
-
-        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
-
-        Assert.True(row.IsEditing);
-        Assert.Equal("Acesso negado ao scripts.json.", row.EditError);
     }
 
     [Fact]

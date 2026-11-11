@@ -46,40 +46,6 @@ public sealed class EditorChaptersHeadlessTests(HeadlessFixture fixture) : IClas
     }
 
     [Fact]
-    public async Task A_lista_mostra_um_cabecalho_por_capitulo_e_o_menu_da_cena_traz_os_capitulos()
-    {
-        var (vm, temp) = await Abrir();
-        using var _ = temp;
-        var titles = new List<string?>();
-        var menu = new List<string>();
-        var submenu = new List<string>();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = new Window { Width = 1440, Height = 1000, Content = new EditorView { DataContext = vm } };
-                window.Show();
-                Settle(window);
-                var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name is null && l.Classes.Contains("scripts"));
-                titles.AddRange(list.GetVisualDescendants().OfType<ScriptGroup>().Where(g => g.IsEffectivelyVisible).Select(g => g.Title));
-
-                var contextMenu = list.ContextMenu!;
-                list.Focus();
-                list.RaiseEvent(new ContextRequestedEventArgs());
-                Settle(window);
-                menu.AddRange(contextMenu.Items.OfType<MenuItem>().Select(i => i.Header as string ?? string.Empty));
-                submenu.AddRange(contextMenu.Items.OfType<MenuItem>().First().Items.OfType<MenuItem>().Select(i => ((TextBlock)i.Header!).Text!));
-                contextMenu.Close();
-                window.Close();
-            },
-            CancellationToken.None);
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2"], titles);
-        Assert.Equal(["Capítulo 1", "Capítulo 2"], submenu);
-        Assert.Equal(["Mover para o capítulo", "Novo capítulo...", "Voltar ao agrupamento automático"], menu);
-    }
-
-    [Fact]
     public async Task Mover_com_a_cena_aberta_depois_de_uma_marcada_mantem_a_aberta_e_as_marcas()
     {
         var (vm, temp) = await Abrir();

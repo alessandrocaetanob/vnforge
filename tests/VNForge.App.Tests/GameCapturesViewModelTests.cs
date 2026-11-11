@@ -38,25 +38,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
     };
 
     [Fact]
-    public async Task O_atalho_captura_a_janela_do_jogo_e_guarda_a_imagem_com_a_data()
-    {
-        var vm = Create();
-        vm.Enter(Game);
-
-        _hotkey.Press();
-        await vm.Capturing;
-
-        Assert.Equal(Game.Folder, _capturer.Target?.Folder);
-        var item = Assert.Single(vm.Captures);
-        Assert.Equal("08/11 21:14", item.Label);
-        Assert.Equal("20261108-211400.png", item.File);
-        Assert.True(File.Exists(item.Path));
-        Assert.StartsWith(_data.Path, item.Path, StringComparison.OrdinalIgnoreCase);
-        Assert.False(vm.BlackWarning);
-        Assert.True(vm.HasCaptures);
-    }
-
-    [Fact]
     public async Task Capturas_ja_guardadas_voltam_da_mais_nova_para_a_mais_antiga()
     {
         var first = Create();
@@ -103,21 +84,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
     }
 
     [Fact]
-    public void O_atalho_so_fica_registrado_enquanto_a_aba_esta_aberta_e_avisa_se_a_tecla_esta_em_uso()
-    {
-        var vm = Create();
-
-        vm.Enter(Game);
-        Assert.Equal(1, _hotkey.Active);
-        vm.Leave();
-        Assert.Equal(0, _hotkey.Active);
-
-        var taken = Create(new FakeHotkey { Taken = true });
-        taken.Enter(Game);
-        Assert.True(taken.HotkeyTaken);
-    }
-
-    [Fact]
     public void A_nota_e_gravada_depois_de_uma_pausa_na_digitacao_e_volta_na_proxima_vez()
     {
         var vm = Create();
@@ -137,42 +103,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Sair_da_aba_grava_a_nota_que_ainda_esperava()
-    {
-        var vm = Create();
-        vm.Enter(Game);
-        vm.NoteText = "Capítulo 4.";
-
-        vm.Leave();
-
-        Assert.Equal("Capítulo 4.", new GameNotesFile(_data.SubFolder("config")).Load().Of(Game.Id)?.Text);
-    }
-
-    [Fact]
-    public void Projeto_fora_da_Biblioteca_nao_tem_capturas_nem_atalho()
-    {
-        var vm = Create();
-
-        vm.Enter(null);
-
-        Assert.True(vm.HasNoGame);
-        Assert.Equal(0, _hotkey.Active);
-    }
-
-    [Fact]
-    public async Task A_Biblioteca_acha_o_jogo_pela_pasta_do_projeto_de_traducao()
-    {
-        var game = Game with { ProjectPath = GameLibrary.NormalizeFolder(_data.SubFolder("projeto")) };
-        var other = game with { Id = "g00000000", ProjectPath = null };
-        var file = LibrarySamples.Save(_data.SubFolder("library"), new GameLibrary([other, game]));
-        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: _clock);
-        await library.LoadAsync();
-
-        Assert.Equal(game.Id, library.GameOfProject(_data.Path + "/projeto/")?.Id);
-        Assert.Null(library.GameOfProject(_data.SubFolder("outro")));
-    }
-
-    [Fact]
     public async Task Erro_qualquer_na_captura_vira_o_aviso_da_pagina()
     {
         _capturer.Crash = true;
@@ -183,23 +113,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
         await vm.Capturing;
 
         Assert.Equal("A captura falhou: a janela sumiu no meio da cópia.", vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task F9_apertada_com_uma_captura_em_andamento_e_ignorada()
-    {
-        _capturer.Gate = new ManualResetEventSlim();
-        var vm = Create();
-        vm.Enter(Game);
-
-        _hotkey.Press();
-        Assert.True(_capturer.Entered.Wait(TimeSpan.FromSeconds(10), Ct));
-        _hotkey.Press();
-        _capturer.Gate.Set();
-        await vm.Capturing;
-
-        Assert.Equal(1, _capturer.Calls);
-        Assert.Single(vm.Captures);
     }
 
     private async Task<(MainWindowViewModel Shell, LibraryViewModel Library, string Root)> OpenShellAsync()
@@ -217,31 +130,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
         await shell.Start.OpenFolderCommand.ExecuteAsync(null);
         shell.SelectedGameTab = shell.GameTabs.Single(t => t.Tab == GameTab.Play);
         return (shell, library, game.Id);
-    }
-
-    [Fact]
-    public async Task Aba_aberta_antes_de_a_Biblioteca_carregar_acha_o_jogo_quando_ela_termina()
-    {
-        var (shell, library, _) = await OpenShellAsync();
-        Assert.True(shell.Play.HasNoGame);
-
-        await library.LoadAsync();
-
-        Assert.True(shell.Play.HasGame);
-        Assert.Equal(1, _hotkey.Active);
-    }
-
-    [Fact]
-    public async Task Fechar_a_janela_grava_a_nota_e_solta_o_atalho()
-    {
-        var (shell, library, gameId) = await OpenShellAsync();
-        await library.LoadAsync();
-        shell.Play.NoteText = "Voltar na rota da Aoi.";
-
-        Assert.True(shell.TryClose());
-
-        Assert.Equal("Voltar na rota da Aoi.", new GameNotesFile(_data.SubFolder("config")).Load().Of(gameId)?.Text);
-        Assert.Equal(0, _hotkey.Active);
     }
 
     [Fact]

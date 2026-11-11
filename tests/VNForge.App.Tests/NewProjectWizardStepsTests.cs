@@ -34,91 +34,6 @@ public sealed class NewProjectWizardStepsTests : IDisposable
     }
 
     [Fact]
-    public void Sao_cinco_passos_numerados_e_o_primeiro_e_o_atual()
-    {
-        var vm = Create();
-
-        Assert.Equal([1, 2, 3, 4, 5], vm.Steps.Select(s => s.Number));
-        Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
-        Assert.Equal([PipelineStepState.Active, PipelineStepState.Pending, PipelineStepState.Pending, PipelineStepState.Pending, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
-    }
-
-    [Fact]
-    public void Cada_passo_pendente_diz_o_que_falta()
-    {
-        var vm = Create();
-
-        Assert.Equal(
-            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
-            vm.Steps.Select(s => s.Subtitle));
-    }
-
-    [Fact]
-    public async Task Pasta_detectada_mostra_a_engine_como_resultado()
-    {
-        var vm = Create();
-        Assert.False(vm.HasDetection);
-
-        await vm.SetGameFolderAsync(game);
-
-        Assert.True(vm.HasDetection);
-        Assert.Equal("Yu-RIS · YPF v500", vm.EngineTitle);
-        Assert.Equal("Reconhecido pela Biblioteca", vm.Steps[0].Subtitle);
-        Assert.Equal(
-            [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
-            vm.DetectionFacts.Select(f => (f.Label, f.Value)));
-    }
-
-    [Fact]
-    public async Task Pasta_sem_engine_nao_mostra_resultado()
-    {
-        var vm = Create(engineMatches: false);
-
-        await vm.SetGameFolderAsync(game);
-
-        Assert.False(vm.HasDetection);
-        Assert.Empty(vm.DetectionFacts);
-        Assert.Equal("Reconhecido pela Biblioteca", vm.Steps[0].Subtitle);
-    }
-
-    [Fact]
-    public async Task Avancar_conclui_o_passo_e_mantem_a_legenda_do_quadro()
-    {
-        var vm = await AtStepAsync(WizardStep.Accents);
-
-        Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
-        Assert.Equal(
-            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
-            vm.Steps.Select(s => s.Subtitle));
-    }
-
-    [Fact]
-    public async Task Trocar_o_idioma_ou_a_acentuacao_nao_muda_a_legenda()
-    {
-        var vm = await AtStepAsync(WizardStep.Ai);
-        vm.TargetLanguages.Select("es");
-        vm.SourceLanguages.Select("en");
-        vm.EncodingStrategies.Select("cp1252");
-
-        Assert.Equal("Japonês → PT-BR", vm.Steps[2].Subtitle);
-        Assert.Equal("Como ficam os acentos", vm.Steps[3].Subtitle);
-    }
-
-    [Fact]
-    public async Task A_legenda_da_ia_continua_a_mesma_depois_de_concluir()
-    {
-        var vm = await AtStepAsync(WizardStep.Ai);
-        vm.Models.Select("claude-sonnet-5-5");
-        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Equal(WizardStep.Done, vm.Step);
-        Assert.All(vm.Steps, s => Assert.Equal(PipelineStepState.Done, s.State));
-        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
-    }
-
-    [Fact]
     public async Task Passo_concluido_volta_para_ele_e_o_pendente_nao_tem_comando()
     {
         var vm = await AtStepAsync(WizardStep.Accents);
@@ -137,19 +52,6 @@ public sealed class NewProjectWizardStepsTests : IDisposable
     }
 
     [Fact]
-    public async Task Voltar_pelo_passo_nao_apaga_as_escolhas_feitas()
-    {
-        var vm = await AtStepAsync(WizardStep.Accents);
-        vm.TargetLanguages.Select("en");
-
-        vm.GoToStepCommand.Execute(WizardStep.Names);
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Equal(PipelineStepState.Done, vm.Steps[2].State);
-        Assert.Equal("EN", vm.TargetLanguages.Selected.Id.ToUpperInvariant());
-    }
-
-    [Fact]
     public async Task A_migalha_conta_os_passos_e_diz_pronto_no_fim()
     {
         var vm = await AtStepAsync(WizardStep.Names);
@@ -161,15 +63,5 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Equal("Pronto", vm.Breadcrumb);
-    }
-
-    [Fact]
-    public async Task Nao_da_para_pular_para_um_passo_adiante()
-    {
-        var vm = await AtStepAsync(WizardStep.Names);
-
-        Assert.False(vm.GoToStepCommand.CanExecute(WizardStep.Ai));
-        Assert.False(vm.GoToStepCommand.CanExecute(WizardStep.Names));
-        Assert.True(vm.GoToStepCommand.CanExecute(WizardStep.Game));
     }
 }

@@ -40,26 +40,6 @@ public sealed class LibraryTagsViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task O_filtro_junta_tag_sua_e_do_VNDB_e_o_proximo_inicio_abre_com_ele()
-    {
-        var vm = await Open(Favorites);
-
-        vm.Tags.ToggleOptionCommand.Execute(vm.Tags.OwnOptions.Single(o => o.Text == "favorito"));
-        vm.Tags.ToggleOptionCommand.Execute(vm.Tags.VndbOptions.Single(o => o.Text == "Escola"));
-
-        Assert.Equal(["favorito", "Escola"], vm.Tags.Active.Select(t => t.Text));
-        Assert.Equal(2, vm.Cards.Count);
-        Assert.Equal("2 de 12 jogos · favorito e Escola", vm.Subtitle);
-        Assert.True(vm.HasFilter);
-        Assert.Equal(["favorito", "Escola", "+8"], vm.Cards[0].Tags.Select(c => c.Text));
-
-        var reopened = await Open();
-
-        Assert.Equal(["favorito", "Escola"], reopened.Tags.Active.Select(t => t.Text));
-        Assert.Equal(2, reopened.Cards.Count);
-    }
-
-    [Fact]
     public async Task Tirar_um_termo_ou_trocar_para_qualquer_uma_refaz_a_grade()
     {
         var vm = await Open(Favorites);

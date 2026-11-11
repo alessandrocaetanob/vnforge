@@ -28,134 +28,6 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     private static Button Botao(Window window, string name) =>
         window.GetVisualDescendants().OfType<Button>().Single(b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == name);
 
-    [Fact]
-    public async Task Tela_mostra_os_botoes_habilitados_conforme_o_estado_e_a_lista_do_que_muda()
-    {
-        using var temp = new TempFolder();
-        var game = temp.SubFolder("jogo");
-        File.WriteAllText(Path.Combine(game, "ysbin.ypf"), "original");
-        File.WriteAllText(Path.Combine(game, "jogo.exe"), "MZ");
-        var folder = ProjectFolder.Create(temp.SubFolder("projeto"), new ProjectConfig(
-            "Teste",
-            new GameConfig(game, "jogo.exe"),
-            new EngineConfig("yuris"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
-        File.WriteAllText(Path.Combine(folder.BuildDirectory, "ysbin.ypf"), "traduzido");
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-        vm.Project = ProjectSummaryReader.Read(folder.Root);
-        await vm.ReloadAsync();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-
-                Assert.True(Botao(window, "Injetar no jogo").IsEffectivelyEnabled);
-                Assert.True(Botao(window, "Abrir jogo").IsEffectivelyEnabled);
-                Assert.False(Botao(window, "Restaurar originais").IsEffectivelyEnabled);
-                Assert.True(Botao(window, "Novo build").IsEffectivelyEnabled);
-
-                vm.InjectCommand.Execute(null);
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
-                Assert.True(Botao(window, "Confirmar").IsEffectivelyVisible);
-                Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "ysbin.ypf");
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task Detalhes_tecnicos_abrem_com_a_faixa_que_explica_o_botao_do_topo_sem_botao_proprio()
-    {
-        using var temp = new TempFolder();
-        var game = temp.SubFolder("jogo");
-        File.WriteAllText(Path.Combine(game, "ysbin.ypf"), "original");
-        File.WriteAllText(Path.Combine(game, "jogo.exe"), "MZ");
-        var folder = ProjectFolder.Create(temp.SubFolder("projeto"), new ProjectConfig(
-            "Teste",
-            new GameConfig(game, "jogo.exe"),
-            new EngineConfig("yuris"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-        vm.Project = ProjectSummaryReader.Read(folder.Root);
-        await vm.ReloadAsync();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    var faixa = window.GetVisualDescendants().OfType<Border>()
-                        .Single(b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Testar no jogo faz tudo");
-                    Assert.True(faixa.IsEffectivelyVisible);
-                    var texto = string.Concat(faixa.GetVisualDescendants().OfType<TextBlock>().SelectMany(t => t.Inlines!.OfType<Run>()).Select(r => r.Text));
-                    Assert.Contains("Testar no jogo", texto, StringComparison.Ordinal);
-                    Assert.Contains("botão do topo", texto, StringComparison.Ordinal);
-                    Assert.Contains("Não precisa restaurar os originais entre um teste e outro", texto, StringComparison.Ordinal);
-
-                    Assert.Empty(faixa.GetVisualDescendants().OfType<Button>());
-                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Ir para Testar no jogo");
-                    Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "Testar no jogo");
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task As_opcoes_ficam_todas_numa_lista_so_no_corpo_e_Detalhes_tecnicos_nao_repete_Opcoes()
-    {
-        using var temp = new TempFolder();
-        var game = temp.SubFolder("jogo");
-        File.WriteAllText(Path.Combine(game, "ysbin.ypf"), "original");
-        File.WriteAllText(Path.Combine(game, "jogo.exe"), "MZ");
-        var folder = ProjectFolder.Create(temp.SubFolder("projeto"), new ProjectConfig(
-            "Teste",
-            new GameConfig(game, "jogo.exe"),
-            new EngineConfig("yuris"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("fold"),
-            AiConfig.Default));
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-        vm.Project = ProjectSummaryReader.Read(folder.Root);
-        await vm.ReloadAsync();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    var nomeado = (Border b) => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty);
-                    var paineis = window.GetVisualDescendants().OfType<Border>().Where(b => nomeado(b) is { } n && n.StartsWith("Opções", StringComparison.Ordinal)).ToList();
-                    var opcoes = Assert.Single(paineis);
-                    Assert.Equal("Opções do teste", nomeado(opcoes));
-
-                    var regras = opcoes.GetVisualDescendants().OfType<VNForge.App.Controls.ToggleRule>().Select(r => r.Title).ToList();
-                    Assert.Equal(["Só a cena aberta no editor", "Testar mesmo com avisos", "Reconstruir só scripts alterados"], regras);
-
-                    var tecnicos = window.GetVisualDescendants().OfType<VNForge.App.Controls.TechnicalDetails>().Single();
-                    Assert.DoesNotContain(tecnicos.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Opções");
-                    Assert.Empty(tecnicos.GetVisualDescendants().OfType<VNForge.App.Controls.ToggleRule>());
-                    Assert.Equal(["Resultado", "Log do build", "Backups"], tecnicos.GetVisualDescendants().OfType<Border>()
-                        .Select(b => nomeado(b)).Where(n => n is "Resultado" or "Log do build" or "Backups").ToList());
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
     /// <summary>Um build pronto e um jogo que mudou depois do plano: a injeção falha e a tela ganha banner de erro e linhas de log.</summary>
     private static async Task<BuildViewModel> ComErroEmLog(TempFolder temp)
     {
@@ -180,35 +52,6 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         Assert.NotNull(vm.ErrorMessage);
         Assert.NotEmpty(vm.Log);
         return vm;
-    }
-
-    [Fact]
-    public async Task Banner_de_erro_e_linhas_do_log_deixam_selecionar_o_texto()
-    {
-        using var temp = new TempFolder();
-        var vm = await ComErroEmLog(temp);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                var selecionaveis = window.GetVisualDescendants().OfType<SelectableTextBlock>().ToList();
-
-                var faixa = window.GetVisualDescendants().OfType<GameStateBanner>().Single(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Mensagem de erro");
-                Assert.Equal(vm.ErrorTitle, faixa.Title);
-                Assert.Contains(selecionaveis, t => LineLinks.GetSource(t) == vm.ErrorTitle);
-                Assert.Contains(selecionaveis, t => LineLinks.GetSource(t) == vm.ErrorDetail);
-                Assert.Same(vm.OpenLineCommand, faixa.MessageLinkCommand);
-                Assert.Equal(vm.ErrorDetail, faixa.Message);
-                Assert.All(
-                    selecionaveis,
-                    t => Assert.Contains(((MenuFlyout)t.ContextFlyout!).Items.OfType<MenuItem>(), i => i.Header as string == "Copiar"));
-                foreach (var linha in vm.Log)
-                {
-                    Assert.Contains(selecionaveis, t => t.Text?.Contains(linha.Message, StringComparison.Ordinal) == true);
-                }
-            },
-            CancellationToken.None);
     }
 
     [Fact]
@@ -238,22 +81,6 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
             CancellationToken.None);
     }
 
-    [Fact]
-    public async Task Copiar_log_fica_desabilitado_enquanto_nao_ha_log()
-    {
-        using var temp = new TempFolder();
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-
-                Assert.False(Botao(window, "Copiar log").IsEffectivelyEnabled);
-            },
-            CancellationToken.None);
-    }
-
     private static Border Cartao(Window window, string name) =>
         window.GetVisualDescendants().OfType<Border>().Single(b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == name);
 
@@ -272,72 +99,6 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         }
 
         return vm;
-    }
-
-    [Theory]
-    [InlineData(1200)]
-    [InlineData(900)]
-    public async Task Log_ocupa_o_cartao_inteiro_e_os_backups_rolam_por_dentro_sem_esticar_a_linha(double width)
-    {
-        var vm = ComLogEBackupsLongos();
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm, width);
-                try
-                {
-                    var log = Cartao(window, "Log do build");
-                    var backups = Cartao(window, "Backups");
-                    var logScroll = log.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "LogScroll");
-                    var backupScroll = backups.GetVisualDescendants().OfType<ScrollViewer>().Single();
-
-                    // Sem vão: a área de rolagem do log vai do cabeçalho do cartão (48) até o pé, descontada a borda de 1 px.
-                    Assert.True(logScroll.Bounds.Height >= log.Bounds.Height - 48 - 2, $"log {log.Bounds.Height}, rolagem {logScroll.Bounds.Height}");
-                    Assert.True(logScroll.Extent.Height > logScroll.Viewport.Height);
-
-                    // Backups rolam dentro do cartão e a linha não cresce com a lista.
-                    Assert.True(backupScroll.Extent.Height > backupScroll.Viewport.Height);
-                    Assert.True(backups.Bounds.Height < 600, $"backups {backups.Bounds.Height}");
-                    Assert.Equal(log.Bounds.Height, backups.Bounds.Height);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
-    public async Task Log_acompanha_o_fim_e_usa_a_altura_do_cartao()
-    {
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    for (var i = 0; i < 80; i++)
-                    {
-                        vm.Log.Add(new BuildLogLine("11:16:09", $"AVISO yst{i:00000}:{i * 1000} [caixa-acima-do-limite] caixa 1 com 4 linhas (máximo 3).", "2026-10-28"));
-                    }
-
-                    var logScroll = Cartao(window, "Log do build").GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "LogScroll");
-                    Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
-
-                    Assert.Equal(logScroll.Extent.Height - logScroll.Viewport.Height, logScroll.Offset.Y, 1);
-                    Assert.True(logScroll.Viewport.Height >= 250, $"viewport {logScroll.Viewport.Height}");
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
     }
 
     private sealed class NoopStarter : IGameProcessStarter

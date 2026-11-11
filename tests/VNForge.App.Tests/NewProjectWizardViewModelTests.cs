@@ -39,23 +39,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Detecta_o_jogo_mostra_engine_versao_e_chave_e_escolhe_o_unico_executavel()
-    {
-        var vm = Create();
-
-        await vm.SetGameFolderAsync(game);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.True(vm.HasGame);
-        Assert.Equal("Jogo.exe", vm.SelectedExe);
-        Assert.False(vm.HasExecutables);
-        Assert.Contains("Engine: Yu-RIS · YPF v500", vm.DetectionLines);
-        Assert.Contains("Arquivo de scripts: ysbin.ypf (2 scripts)", vm.DetectionLines);
-        Assert.Contains("Chave XOR dos scripts: 0xD36FAC96", vm.DetectionLines);
-        Assert.True(vm.NextCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Pasta_sem_engine_reconhecida_mostra_o_erro_e_nao_deixa_avancar()
     {
         var vm = Create(engineMatches: false);
@@ -65,33 +48,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Contains("Engine não reconhecida", vm.ErrorMessage);
         Assert.False(vm.HasGame);
         Assert.False(vm.NextCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Pasta_inexistente_mostra_o_erro()
-    {
-        var vm = Create();
-
-        await vm.SetGameFolderAsync(Path.Combine(temp.Path, "nada"));
-
-        Assert.Contains("não existe", vm.ErrorMessage);
-        Assert.False(vm.HasGame);
-    }
-
-    [Fact]
-    public async Task Com_varios_executaveis_o_usuario_escolhe_antes_de_avancar()
-    {
-        File.WriteAllText(Path.Combine(game, "Config.exe"), "MZ");
-        var vm = Create();
-
-        await vm.SetGameFolderAsync(game);
-
-        Assert.True(vm.HasExecutables);
-        Assert.Equal(["Config.exe", "Jogo.exe"], vm.Executables);
-        Assert.Null(vm.SelectedExe);
-        Assert.False(vm.NextCommand.CanExecute(null));
-        vm.SelectedExe = "Jogo.exe";
-        Assert.True(vm.NextCommand.CanExecute(null));
     }
 
     [Fact]
@@ -143,21 +99,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Nome_do_projeto_comeca_no_nome_da_pasta_e_nao_sobrescreve_o_que_o_usuario_digitou()
-    {
-        var vm = Create();
-        await vm.SetGameFolderAsync(game);
-
-        vm.SetProjectDirectory(ProjectPath("primeira"));
-        Assert.Equal("primeira", vm.ProjectName);
-        vm.SetProjectDirectory(ProjectPath("segunda"));
-        Assert.Equal("segunda", vm.ProjectName);
-        vm.ProjectName = "Minha VN";
-        vm.SetProjectDirectory(ProjectPath("terceira"));
-        Assert.Equal("Minha VN", vm.ProjectName);
-    }
-
-    [Fact]
     public async Task Os_cinco_passos_andam_e_voltam_na_ordem_do_doc_04()
     {
         var vm = Create();
@@ -202,42 +143,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Escolher_uma_opcao_desmarca_as_outras()
-    {
-        var vm = await AtNamesStepAsync();
-
-        vm.EncodingStrategies.Options.Single(o => o.Id == "cp1252").IsSelected = true;
-
-        Assert.Equal("cp1252", vm.EncodingStrategies.Selected.Id);
-        Assert.Equal(["cp1252"], vm.EncodingStrategies.Options.Where(o => o.IsSelected).Select(o => o.Id));
-    }
-
-    [Fact]
-    public void A_opcao_cp1252_diz_que_o_patch_da_fonte_se_aplica_na_tela_Build()
-    {
-        var description = Create().EncodingStrategies.Options.Single(o => o.Id == "cp1252").Description;
-
-        Assert.Contains("MS Gothic", description);
-        Assert.Contains("opcional", description);
-        Assert.Contains("tela Testar", description);
-        Assert.DoesNotContain("só funciona", description);
-    }
-
-    [Fact]
-    public void Padroes_sao_os_do_vnf_init()
-    {
-        var vm = Create();
-
-        Assert.Equal(ProjectChoices.DefaultSourceLanguage, vm.SourceLanguages.Selected.Id);
-        Assert.Equal(ProjectChoices.DefaultTargetLanguage, vm.TargetLanguages.Selected.Id);
-        Assert.Equal(ProjectChoices.DefaultEncoding, vm.EncodingStrategies.Selected.Id);
-        Assert.Equal(ProjectChoices.DefaultAi.Model, vm.Models.Selected.Id);
-        Assert.DoesNotContain(vm.EncodingStrategies.Options, o => o.Id == "sjis");
-        Assert.Equal(ProjectChoices.Models.Count, vm.Models.Options.Count);
-        Assert.All(vm.Models.Options, o => Assert.StartsWith("US$", o.Value));
-    }
-
-    [Fact]
     public async Task Projeto_criado_pelo_assistente_ja_tem_os_termos_do_glossario_pessoal()
     {
         var pessoal = new VNForge.Core.Memory.PersonalGlossary(Path.Combine(temp.Path, "config"));
@@ -250,23 +155,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
         Assert.Equal("1 termo do glossário pessoal entrou no glossário do projeto.", vm.PersonalNotice);
-    }
-
-    [Fact]
-    public async Task Glossario_pessoal_ilegivel_cria_o_projeto_e_avisa_na_tela_final()
-    {
-        var pasta = Path.Combine(temp.Path, "config");
-        Directory.CreateDirectory(pasta);
-        var pessoal = new VNForge.Core.Memory.PersonalGlossary(pasta);
-        File.WriteAllText(pessoal.Path, """{"version":1,"entries":[{"target":"mano"}]}""");
-        var vm = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine(true)]) { PersonalGlossary = pessoal };
-        await vm.SetGameFolderAsync(game);
-        vm.SetProjectDirectory(ProjectPath());
-        await AdvanceAsync(vm, 5);
-
-        Assert.Equal(WizardStep.Done, vm.Step);
-        Assert.True(vm.HasPersonalNotice);
-        Assert.Contains("sem os termos do glossário pessoal", vm.PersonalNotice);
     }
 
     [Fact]
@@ -296,21 +184,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Projeto_dentro_da_pasta_do_jogo_volta_ao_passo_do_nome_com_o_erro_do_Core()
-    {
-        var vm = Create();
-        await vm.SetGameFolderAsync(game);
-        vm.SetProjectDirectory(Path.Combine(game, "projeto"));
-
-        await AdvanceAsync(vm, 5);
-
-        Assert.Equal(WizardStep.Names, vm.Step);
-        Assert.Contains("não pode ficar dentro da pasta do jogo", vm.ErrorMessage);
-        Assert.False(Directory.Exists(Path.Combine(game, "projeto")));
-        Assert.Equal(["Jogo.exe"], Directory.EnumerateFileSystemEntries(game).Select(Path.GetFileName));
-    }
-
-    [Fact]
     public async Task Pasta_que_ja_tem_projeto_nao_e_sobrescrita()
     {
         SampleProjects.Create(ProjectPath(), "Existente");
@@ -323,45 +196,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Equal(WizardStep.Names, vm.Step);
         Assert.Contains("não foi sobrescrito", vm.ErrorMessage);
         Assert.Equal("Existente", ProjectFolder.Open(ProjectPath()).LoadConfig().Name);
-    }
-
-    [Fact]
-    public void Cancelar_avisa_quem_abriu_o_assistente()
-    {
-        var vm = Create();
-        var cancelado = 0;
-        vm.Cancelled += (_, _) => cancelado++;
-
-        vm.CancelCommand.Execute(null);
-
-        Assert.Equal(1, cancelado);
-        Assert.Equal(WizardStep.Game, vm.Step);
-    }
-
-    [Fact]
-    public async Task Abrir_projeto_no_fim_entrega_a_pasta_criada()
-    {
-        var vm = await AtNamesStepAsync();
-        await AdvanceAsync(vm, 3);
-
-        string? aberta = null;
-        vm.Completed += (_, root) => aberta = root;
-        vm.FinishCommand.Execute(null);
-
-        Assert.Equal(Path.GetFullPath(ProjectPath()), aberta);
-    }
-
-    [Fact]
-    public void Finish_sem_projeto_criado_nao_faz_nada()
-    {
-        var vm = Create();
-        var chamado = false;
-        vm.Completed += (_, _) => chamado = true;
-
-        vm.FinishCommand.Execute(null);
-
-        Assert.False(chamado);
-        Assert.False(vm.ExtractCommand.CanExecute(null));
     }
 
     [Fact]

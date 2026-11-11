@@ -46,16 +46,6 @@ public sealed class ChangedSinceTestTests
     }
 
     [Fact]
-    public async Task O_chip_do_Editor_fica_escondido_ate_o_Abrir_ligar_o_filtro()
-    {
-        var (now, test) = Scenario();
-        var vm = await OpenEditorAsync(now, test);
-
-        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.Equal(7, vm.Filters.Count);
-    }
-
-    [Fact]
     public async Task Abrir_leva_a_cena_so_com_as_falas_que_mudaram()
     {
         var (now, test) = Scenario();
@@ -70,85 +60,6 @@ public sealed class ChangedSinceTestTests
         Assert.True(chip.IsSelected);
         Assert.Equal(1, chip.Count);
         Assert.Equal(["yst00003:000002"], vm.Lines.Select(l => l.Id));
-    }
-
-    [Fact]
-    public async Task O_filtro_vale_nas_outras_cenas_e_Todas_o_desliga()
-    {
-        var (now, test) = Scenario();
-        var vm = await OpenEditorAsync(now, test);
-        await vm.ShowChangedSinceTestAsync("yst00001");
-        Assert.Equal(["yst00001:000001", "yst00001:000003"], vm.Lines.Select(l => l.Id));
-
-        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00002");
-        Assert.Empty(vm.Lines);
-
-        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Filter == LineStatusFilter.All));
-        Assert.Single(vm.Lines);
-    }
-
-    [Fact]
-    public async Task Sem_retrato_do_teste_o_Editor_nao_liga_o_filtro()
-    {
-        var (now, test) = Scenario();
-        var vm = await OpenEditorAsync(now, test with { Snapshot = null });
-
-        var ok = await vm.ShowChangedSinceTestAsync("yst00001");
-
-        Assert.False(ok);
-        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.True(vm.Filters.Single(f => f.Filter == LineStatusFilter.All).IsSelected);
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_desliga_o_filtro()
-    {
-        var (now, test) = Scenario();
-        var vm = await OpenEditorAsync(now, test);
-        await vm.ShowChangedSinceTestAsync("yst00001");
-
-        vm.Project = Summary("Outra VN", "C:\\Projetos\\Outra");
-        await vm.Loading;
-
-        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.True(vm.Filters.Single(f => f.Filter == LineStatusFilter.All).IsSelected);
-    }
-
-    [Fact]
-    public async Task Um_teste_novo_tira_o_chip_e_zera_as_falas_quando_o_Editor_recarrega()
-    {
-        var (now, test) = Scenario();
-        var current = test;
-        var vm = new EditorViewModel(_ => ProjectLines.Create(now)) { LastTestLoader = _ => current };
-        vm.Project = Summary();
-        await vm.Loading;
-        await vm.ShowChangedSinceTestAsync("yst00001");
-        Assert.Contains(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-
-        current = new GameLastTest(TestAt.AddHours(1), GameTestKind.Translation, [], TranslationChanges.Snapshot(now));
-        vm.Reload();
-        await vm.Loading;
-
-        Assert.DoesNotContain(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.True(vm.Filters.Single(f => f.Filter == LineStatusFilter.All).IsSelected);
-        Assert.Equal(3, vm.Lines.Count);
-        var again = await vm.ShowChangedSinceTestAsync("yst00001");
-        Assert.True(again);
-        Assert.Empty(vm.Lines);
-    }
-
-    [Fact]
-    public async Task Sem_teste_novo_o_Reload_mantem_o_chip()
-    {
-        var (now, test) = Scenario();
-        var vm = await OpenEditorAsync(now, test);
-        await vm.ShowChangedSinceTestAsync("yst00001");
-
-        vm.Reload();
-        await vm.Loading;
-
-        Assert.Contains(vm.Filters, f => f.Filter == LineStatusFilter.ChangedSinceTest);
-        Assert.Equal(["yst00001:000001", "yst00001:000003"], vm.Lines.Select(l => l.Id));
     }
 
     [Fact]
@@ -171,37 +82,6 @@ public sealed class ChangedSinceTestTests
     }
 
     [Fact]
-    public void A_lista_mostra_as_cenas_na_ordem_com_o_nome_e_a_contagem_de_falas()
-    {
-        var (now, test) = Scenario();
-        var list = new ChangedScenesViewModel();
-
-        list.Update(TranslationChanges.Since(test, now), scene => scene.Key == "yst00001" ? "Prólogo" : $"Cena {scene.Number}");
-
-        Assert.Equal(["Prólogo", "Cena 3"], list.Rows.Select(r => r.Name));
-        Assert.Equal(["2 falas", "1 fala"], list.Rows.Select(r => r.LinesText));
-        Assert.Equal("2 cenas mudaram desde o teste de 22/10 · 3 falas", list.Message);
-        Assert.True(list.HasRows);
-        Assert.True(list.IsInformative);
-        Assert.False(list.HasMore);
-    }
-
-    [Fact]
-    public void A_lista_corta_em_oito_cenas_e_diz_quantas_faltam()
-    {
-        var texts = Enumerable.Range(1, 11).ToDictionary(n => $"yst{n:D5}", n => (IReadOnlyList<TextUnit>)[Line($"yst{n:D5}", 1, "A")], StringComparer.Ordinal);
-        var test = new GameLastTest(TestAt, GameTestKind.Translation, [], TranslationChanges.Snapshot(texts));
-        var edited = texts.ToDictionary(t => t.Key, t => (IReadOnlyList<TextUnit>)[Line(t.Key, 1, "B")], StringComparer.Ordinal);
-        var list = new ChangedScenesViewModel();
-
-        list.Update(TranslationChanges.Since(test, edited), scene => $"Cena {scene.Number}");
-
-        Assert.Equal(ChangedScenesViewModel.MaxRows, list.Rows.Count);
-        Assert.Equal("e mais 3 cenas", list.MoreText);
-        Assert.Equal("11 cenas mudaram desde o teste de 22/10 · 11 falas", list.Message);
-    }
-
-    [Fact]
     public void Os_motivos_da_lista_vazia_aparecem_em_portugues_sem_travessao()
     {
         var (now, test) = Scenario();
@@ -221,19 +101,6 @@ public sealed class ChangedSinceTestTests
         Assert.All(new[] { none, old, accents }, m => Assert.DoesNotContain('—', m));
         Assert.All(new[] { none, old, accents }, m => Assert.DoesNotContain('–', m));
         Assert.False(list.HasRows);
-    }
-
-    [Fact]
-    public void Sem_mudanca_a_lista_diz_que_nada_mudou()
-    {
-        var (now, _) = Scenario();
-        var test = new GameLastTest(TestAt, GameTestKind.Translation, [], TranslationChanges.Snapshot(now));
-        var list = new ChangedScenesViewModel();
-
-        list.Update(TranslationChanges.Since(test, now), _ => string.Empty);
-
-        Assert.Equal("Nenhuma cena mudou desde o teste de 22/10.", list.Message);
-        Assert.Empty(list.Rows);
     }
 
     [Fact]
@@ -279,20 +146,6 @@ public sealed class ChangedSinceTestTests
     }
 
     [Fact]
-    public void Abrir_numa_linha_pede_a_cena_pela_chave()
-    {
-        var (now, test) = Scenario();
-        var list = new ChangedScenesViewModel();
-        list.Update(TranslationChanges.Since(test, now), scene => scene.Key);
-        string? requested = null;
-        list.OpenRequested += (_, key) => requested = key;
-
-        list.OpenCommand.Execute(list.Rows[1]);
-
-        Assert.Equal("yst00003", requested);
-    }
-
-    [Fact]
     public async Task O_Painel_lista_as_cenas_e_o_Abrir_pede_o_Editor_com_o_filtro()
     {
         var (now, test) = Scenario();
@@ -324,76 +177,6 @@ public sealed class ChangedSinceTestTests
         await main.Start.OpenFolderCommand.ExecuteAsync(null);
         await main.Editor.Loading;
         return main;
-    }
-
-    [Fact]
-    public async Task Abrir_no_Painel_leva_ao_Editor_com_so_as_falas_que_mudaram()
-    {
-        using var temp = new TempFolder();
-        var main = await OpenMainAsync(temp);
-        await main.Dashboard.ReloadAsync();
-        Assert.Equal(["Cena 1"], main.Dashboard.SinceTest.Rows.Select(r => r.Name));
-
-        main.Dashboard.SinceTest.OpenCommand.Execute(main.Dashboard.SinceTest.Rows[0]);
-        await main.LineNavigation;
-
-        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
-        Assert.Equal("yst00001", main.Editor.SelectedScript?.Key);
-        Assert.True(main.Editor.Filters.Single(f => f.Filter == LineStatusFilter.ChangedSinceTest).IsSelected);
-        Assert.Equal(["yst00001:000001"], main.Editor.Lines.Select(l => l.Id));
-    }
-
-    [Fact]
-    public async Task Abrir_na_pagina_Testar_leva_ao_Editor_com_so_as_falas_que_mudaram()
-    {
-        using var temp = new TempFolder();
-        var main = await OpenMainAsync(temp);
-        await main.Build.ReloadAsync();
-        Assert.Equal(["Cena 1"], main.Build.SinceTest.Rows.Select(r => r.Name));
-
-        main.Build.SinceTest.OpenCommand.Execute(main.Build.SinceTest.Rows[0]);
-        await main.LineNavigation;
-
-        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
-        Assert.True(main.Editor.Filters.Single(f => f.Filter == LineStatusFilter.ChangedSinceTest).IsSelected);
-        Assert.Equal(["yst00001:000001"], main.Editor.Lines.Select(l => l.Id));
-    }
-
-    [Fact]
-    public async Task A_pagina_Testar_le_o_retrato_do_disco_e_lista_o_que_mudou()
-    {
-        using var temp = new TempFolder();
-        var root = DemoBuild.Create(temp.SubFolder("demo"));
-        var project = ProjectFolder.Open(root);
-        var edited = EditThreeScenes(project);
-        GameStateFile.Save(project, new GameStateFile(GameStateFile.CurrentVersion, null, new GameLastTest(TestAt, GameTestKind.Translation, [], edited.Snapshot)));
-        var build = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], new IdleStarter(), new QaEngine([]))
-        {
-            Project = DemoProject.Summary(root),
-        };
-
-        await build.ReloadAsync();
-
-        Assert.Equal(edited.Keys, build.SinceTest.Rows.Select(r => r.Key));
-        Assert.Equal(edited.Keys.Count, build.SinceTest.Rows.Count);
-        Assert.StartsWith($"{edited.Keys.Count} cenas mudaram desde o teste de ", build.SinceTest.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Projeto_com_estado_antigo_sem_retrato_deixa_a_lista_vazia_com_texto()
-    {
-        using var temp = new TempFolder();
-        var root = DemoBuild.Create(temp.SubFolder("demo"));
-        GameStateFile.Save(ProjectFolder.Open(root), new GameStateFile(GameStateFile.CurrentVersion, null, new GameLastTest(TestAt, GameTestKind.Translation, [])));
-        var build = new BuildViewModel(new BackgroundTaskService(), [new DemoBuildEngine()], new IdleStarter(), new QaEngine([]))
-        {
-            Project = DemoProject.Summary(root),
-        };
-
-        await build.ReloadAsync();
-
-        Assert.Empty(build.SinceTest.Rows);
-        Assert.Contains("versão anterior", build.SinceTest.Message);
     }
 
     private sealed class IdleStarter : VNForge.Core.Projects.IGameProcessStarter

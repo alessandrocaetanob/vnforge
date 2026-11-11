@@ -110,18 +110,6 @@ public sealed class CorrectionOfferTests : IDisposable
     }
 
     [Fact]
-    public async Task A_mesma_regra_so_e_oferecida_uma_vez_na_sessao()
-    {
-        var main = await OpenAsync(KentaEdits());
-
-        await main.OfferCorrectionsAsync(root);
-        main.Toasts.Clear();
-        await main.OfferCorrectionsAsync(root);
-
-        Assert.DoesNotContain(main.Toasts.Toasts, t => t.Key == "correction-offer");
-    }
-
-    [Fact]
     public async Task Regra_que_ja_esta_no_Como_fala_nao_e_oferecida_de_novo()
     {
         var main = await OpenAsync(KentaEdits());

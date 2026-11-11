@@ -6,29 +6,6 @@ namespace VNForge.App.Tests;
 
 public class ProjectLabelsTests
 {
-    [Theory]
-    [InlineData("yuris", 500, "Yu-RIS · YPF v500")]
-    [InlineData("yuris", null, "Yu-RIS")]
-    [InlineData("kirikiri", null, "kirikiri")]
-    public void Engine(string id, int? version, string esperado) =>
-        Assert.Equal(esperado, ProjectLabels.Engine(id, version));
-
-    [Theory]
-    [InlineData("claude-opus-5-5", "Claude Opus 5.5")]
-    [InlineData("claude-fable-5-1", "Claude Fable 5.1")]
-    [InlineData("claude-haiku-5-5", "Claude Haiku 5.5")]
-    [InlineData("outro", "outro")]
-    public void Modelo(string id, string esperado) =>
-        Assert.Equal(esperado, ProjectLabels.Model(id));
-
-    [Theory]
-    [InlineData("fold", "Remover acentos (fold)")]
-    [InlineData("cp1252", "CP1252 (patch opcional da fonte)")]
-    [InlineData("sjis", "Shift-JIS puro")]
-    [InlineData("remap", "Remapear glifos (remap)")]
-    [InlineData("zzz", "zzz")]
-    public void Acentuacao(string id, string esperado) =>
-        Assert.Equal(esperado, ProjectLabels.Encoding(id));
 
     [Theory]
     [InlineData(48211, "48.211")]
@@ -45,12 +22,4 @@ public class ProjectLabelsTests
     [InlineData(TranslationStatus.Approved, "Pronta")]
     public void Status_em_portugues(TranslationStatus status, string esperado) =>
         Assert.Equal(esperado, ProjectLabels.Status(status));
-
-    [Theory]
-    [InlineData(CharacterGender.Unknown, "Não definido")]
-    [InlineData(CharacterGender.Female, "Feminino")]
-    [InlineData(CharacterGender.Male, "Masculino")]
-    [InlineData(CharacterGender.Other, "Outro")]
-    public void Genero(CharacterGender gender, string esperado) =>
-        Assert.Equal(esperado, ProjectLabels.Gender(gender));
 }

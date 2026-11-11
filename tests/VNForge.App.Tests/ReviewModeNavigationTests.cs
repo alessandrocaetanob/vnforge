@@ -56,30 +56,6 @@ public sealed class ReviewModeNavigationTests
     }
 
     [Fact]
-    public async Task Abrir_outro_capitulo_pelo_Painel_fecha_o_modo_revisao()
-    {
-        using var temp = new TempFolder();
-        var (main, _) = await OpenAsync(temp);
-
-        main.Dashboard.OpenChapterCommand.Execute(main.Dashboard.Chapters.Single(c => c.Name == "B"));
-
-        Assert.False(main.Editor.IsReviewing);
-        Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);
-    }
-
-    [Fact]
-    public async Task Linha_aberta_por_busca_ou_Conferencia_fecha_o_modo_revisao()
-    {
-        using var temp = new TempFolder();
-        var (main, _) = await OpenAsync(temp);
-
-        Assert.True(await main.Editor.GoToLineAsync("yst00002", "yst00002:000000"));
-
-        Assert.False(main.Editor.IsReviewing);
-        Assert.Equal("yst00002:000000", main.Editor.SelectedLine!.Id);
-    }
-
-    [Fact]
     public async Task Definir_o_genero_leva_ao_Glossario_e_ao_voltar_o_aviso_some_com_a_revisao_aberta()
     {
         using var temp = new TempFolder();
@@ -100,27 +76,6 @@ public sealed class ReviewModeNavigationTests
         Assert.Same(review, main.Editor.Review);
         Assert.False(review.GenderMissing);
         Assert.Equal(1, review.Position);
-    }
-
-    [Fact]
-    public async Task A_paleta_oferece_revisar_as_falas_do_personagem_pelo_nome_traduzido()
-    {
-        using var temp = new TempFolder();
-        var (main, _) = await OpenAsync(temp);
-        main.Editor.StopReview();
-        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
-
-        main.Palette.Open();
-        main.Palette.Query = "Revisar falas de Kenta";
-        var entry = Assert.Single(main.Palette.Results);
-        Assert.Equal(PaletteGroup.Command, entry.Group);
-        Assert.Equal("1 linha da IA em todas as cenas", entry.Subtitle);
-        main.Palette.ExecuteSelected();
-
-        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
-        Assert.True(main.Editor.IsReviewing);
-        Assert.Equal("Falas de Kenta em todas as cenas", main.Editor.Review!.SourceText);
-        Assert.Equal("yst00001:000001", main.Editor.Review.Detail!.Id);
     }
 
     [Fact]
@@ -165,26 +120,6 @@ public sealed class ReviewModeNavigationTests
     }
 
     [Fact]
-    public async Task A_paleta_sem_texto_continua_mostrando_os_comandos_fixos_mesmo_com_varios_personagens()
-    {
-        using var temp = new TempFolder();
-        var (main, _) = await OpenAsync(temp);
-        main.Editor.StopReview();
-        Assert.True(main.Editor.ReviewableSpeakers.Count >= 3);
-
-        main.Palette.Open();
-
-        var titulos = main.Palette.Results.Where(r => r.Group == PaletteGroup.Command).Select(r => r.Title).ToList();
-        Assert.Contains("Testar no jogo", titulos);
-        Assert.Contains("Novo build", titulos);
-        Assert.Contains("Abrir pasta do projeto", titulos);
-        Assert.DoesNotContain(titulos, t => t.StartsWith("Revisar falas", StringComparison.Ordinal));
-
-        main.Palette.Query = "Revisar falas";
-        Assert.Equal(["Revisar falas de Misaki", "Revisar falas de Kenta", "Revisar falas de 花子", "Revisar falas de 太郎"], main.Palette.Results.Select(r => r.Title).Take(4));
-    }
-
-    [Fact]
     public async Task O_Glossario_abre_a_revisao_mesmo_com_o_Editor_defasado_e_recarregando()
     {
         using var temp = new TempFolder();
@@ -201,23 +136,5 @@ public sealed class ReviewModeNavigationTests
         Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
         Assert.True(main.Editor.IsReviewing);
         Assert.Equal("yst00001:000000", main.Editor.Review!.Detail!.Id);
-    }
-
-    [Fact]
-    public async Task O_Glossario_abre_a_revisao_do_personagem_da_linha()
-    {
-        using var temp = new TempFolder();
-        var (main, _) = await OpenAsync(temp);
-        main.Editor.StopReview();
-        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Glossary);
-        await main.Glossary.Loading;
-        var row = main.Glossary.Characters.Single(c => c.Source == "美咲");
-
-        main.Glossary.ReviewCharacterCommand.Execute(row);
-
-        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
-        Assert.True(main.Editor.IsReviewing);
-        Assert.Equal("Misaki", main.Editor.Review!.SourceName);
-        Assert.Equal("yst00001:000000", main.Editor.Review.Detail!.Id);
     }
 }

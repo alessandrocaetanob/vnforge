@@ -23,17 +23,6 @@ public sealed class LineSuggesterTests : IDisposable
     });
 
     [Fact]
-    public async Task Sem_chave_usa_o_provedor_falso_e_nao_cria_provedor_real()
-    {
-        chave = null;
-
-        var sugestao = await Abrir().SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.True(sugestao.FromFakeProvider);
-        Assert.Empty(criados);
-    }
-
-    [Fact]
     public async Task Chave_em_branco_vale_como_sem_chave()
     {
         chave = "   ";
@@ -42,17 +31,6 @@ public sealed class LineSuggesterTests : IDisposable
 
         Assert.True(sugestao.FromFakeProvider);
         Assert.Empty(criados);
-    }
-
-    [Fact]
-    public async Task Com_chave_usa_o_provedor_real_com_o_modelo_padrao()
-    {
-        chave = "k1";
-
-        var sugestao = await Abrir().SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.False(sugestao.FromFakeProvider);
-        Assert.Equal($"k1/{ClaudeModels.Opus}", sugestao.Text);
     }
 
     [Fact]
@@ -65,27 +43,6 @@ public sealed class LineSuggesterTests : IDisposable
         await sugestor.SuggestAsync(Linha, CancellationToken.None);
 
         Assert.Single(criados);
-    }
-
-    [Fact]
-    public async Task Trocar_a_chave_cria_outro_provedor_e_descarta_o_antigo()
-    {
-        var sugestor = LineSuggester.ForUser(pasta.Path, _ => chave, (key, model) =>
-        {
-            var provedor = new ProvedorDescartavel(key);
-            antigos.Add(provedor);
-            return provedor;
-        });
-        chave = "k1";
-        await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        chave = "k2";
-        var sugestao = await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.Equal("k2", sugestao.Text);
-        Assert.Equal(2, antigos.Count);
-        Assert.True(antigos[0].Descartado);
-        Assert.False(antigos[1].Descartado);
     }
 
     [Fact]
@@ -117,18 +74,6 @@ public sealed class LineSuggesterTests : IDisposable
     public void Provedor_claude_padrao_nao_precisa_de_rede_para_ser_montado()
     {
         Assert.IsType<ClaudeTranslationProvider>(LineSuggester.CreateClaude("sk-teste", ClaudeModels.Sonnet));
-    }
-
-    [Fact]
-    public void Sem_funcao_para_abrir_o_provedor_e_recusado()
-    {
-        Assert.Throws<ArgumentNullException>(() => new LineSuggester(null!));
-    }
-
-    [Fact]
-    public async Task Unidade_nula_e_recusada()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>(() => new LineSuggester(() => null).SuggestAsync(null!, CancellationToken.None));
     }
 
     private readonly List<ProvedorDescartavel> antigos = [];

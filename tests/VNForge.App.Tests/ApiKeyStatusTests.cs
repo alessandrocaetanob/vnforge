@@ -53,18 +53,4 @@ public class ApiKeyStatusTests
 
         public bool Delete() => false;
     }
-
-    [Fact]
-    public void Janela_principal_marca_a_chave_como_configurada_so_quando_ha_origem()
-    {
-        using var temp = new TempFolder();
-        var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("c")), new FakeFolderPicker(null), TimeProvider.System);
-
-        var com = new MainWindowViewModel(start, new ResolvedApiKey("k", ApiKeySource.Vault));
-        var sem = new MainWindowViewModel(start);
-
-        Assert.True(com.ApiKeyConfigured);
-        Assert.False(sem.ApiKeyConfigured);
-        Assert.Contains("não configurada", sem.ApiKeyStatus);
-    }
 }

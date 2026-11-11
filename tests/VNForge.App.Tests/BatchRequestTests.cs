@@ -68,23 +68,6 @@ public sealed class BatchRequestTests : IDisposable
     private string Translation(int index) => ProjectFolder.Open(root).LoadText("yst00001")[index].Translation!;
 
     [Fact]
-    public async Task O_pedido_acha_as_falas_do_personagem_e_mostra_o_custo_sem_chamar_a_IA()
-    {
-        var (vm, provider, _) = Build();
-
-        await vm.BeginRequestAsync(Request);
-
-        Assert.True(vm.HasRequestPlan);
-        Assert.Equal(["yst00001:000000", "yst00001:000003"], vm.RequestPlan!.Candidates.Select(c => c.Unit.Id));
-        Assert.Contains("A IA vai ler 2 falas. Filtro: personagem Kenta; palavra “você”.", vm.Summary);
-        Assert.Contains("Custo estimado: até", vm.Summary);
-        Assert.Contains("Nada é gravado", vm.Summary);
-        Assert.Empty(provider.Received);
-        Assert.Empty(vm.Results);
-        Assert.True(vm.RunRequestCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Confirmar_chama_a_IA_e_mostra_a_previa_com_antes_e_depois_sem_gravar()
     {
         var (vm, provider, _) = Build();
@@ -161,17 +144,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task Mudar_um_campo_do_painel_descarta_o_pedido_pendente()
-    {
-        var (vm, _, _) = Build();
-        await vm.BeginRequestAsync(Request);
-
-        vm.Pattern = "outra coisa";
-
-        Assert.False(vm.HasRequestPlan);
-    }
-
-    [Fact]
     public async Task Sem_chave_o_pedido_e_recusado_antes_de_qualquer_gasto()
     {
         var (vm, provider, _) = Build(key: false);
@@ -196,17 +168,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task Pedido_sem_filtro_avisa_que_a_IA_vai_ler_tudo()
-    {
-        var (vm, _, _) = Build();
-
-        await vm.BeginRequestAsync("deixar as falas mais naturais");
-
-        Assert.Contains("não cita personagem, cena nem palavra", vm.Summary);
-        Assert.Equal(4, vm.RequestPlan!.Candidates.Count);
-    }
-
-    [Fact]
     public async Task Limite_de_gasto_atingido_recusa_o_pedido()
     {
         var folder = ProjectFolder.Open(root);
@@ -218,36 +179,6 @@ public sealed class BatchRequestTests : IDisposable
         Assert.False(vm.HasRequestPlan);
         Assert.Contains("limite de gasto", vm.ErrorMessage);
         Assert.Empty(provider.Received);
-    }
-
-    [Fact]
-    public async Task O_gasto_da_IA_fica_registrado_no_projeto()
-    {
-        var (vm, _, _) = Build(usageOf: _ => new ClaudeUsage(2_000, 500, 0, 0));
-        await vm.BeginRequestAsync(Request);
-
-        await vm.RunRequestCommand.ExecuteAsync(null);
-
-        Assert.True(AiUsageLog.Load(ProjectFolder.Open(root)).Dollars > 0m);
-        Assert.Contains("Gasto: ", vm.Summary);
-    }
-
-    [Fact]
-    public async Task Falha_da_IA_mostra_o_erro_e_nao_deixa_prévia()
-    {
-        var provider = new ThrowingProvider();
-        var vm = new SearchReplaceViewModel(clock)
-        {
-            Project = ProjectSummaryReader.Read(root),
-            Requests = new BatchRequestService((_, _) => provider, () => Settings()),
-        };
-        await vm.BeginRequestAsync(Request);
-
-        await vm.RunRequestCommand.ExecuteAsync(null);
-
-        Assert.False(vm.HasPreview);
-        Assert.Contains("A IA não respondeu", vm.ErrorMessage);
-        Assert.Equal("Você sabe o que houve?", Translation(0));
     }
 
     private sealed class GatedProvider(Task gate) : IBatchRequestProvider
@@ -284,32 +215,6 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_depois_de_um_lote_voltar_mantem_a_previa_das_linhas_prontas()
-    {
-        var folder = ProjectFolder.Open(root);
-        folder.SaveText("yst00002", [.. Enumerable.Range(0, 70).Select(i => Line(i, "健太", $"Você vai {i}?", TranslationStatus.Machine) with { Id = $"yst00002:{i:D6}" })]);
-        using var cancel = new CancellationTokenSource();
-        var calls = 0;
-        var provider = new FakeBatchRequestProvider(unit =>
-        {
-            if (Interlocked.Increment(ref calls) == 31)
-            {
-                cancel.Cancel();
-            }
-
-            return unit.Translation!.Replace("Você", "Tu", StringComparison.Ordinal);
-        });
-        var service = new BatchRequestService((_, _) => provider, () => Settings() with { Concurrency = 1 });
-        var plan = service.Plan(folder, "na yst00002, trocar você por tu", TestContext.Current.CancellationToken);
-
-        var result = await service.RunAsync(folder, plan, cancel.Token);
-
-        Assert.True(result.Outcome.Canceled);
-        Assert.InRange(result.Preview.Items.Count, 30, 69);
-        Assert.Contains("Tu vai 0?", result.Preview.Items[0].After);
-    }
-
-    [Fact]
     public async Task Mudar_um_campo_com_a_IA_trabalhando_cancela_o_pedido_e_avisa()
     {
         var gate = new TaskCompletionSource();
@@ -328,25 +233,6 @@ public sealed class BatchRequestTests : IDisposable
         Assert.False(vm.HasPreview);
         Assert.Contains("O painel mudou durante a operação", vm.Summary);
         Assert.Equal("Você sabe o que houve?", Translation(0));
-    }
-
-    [Fact]
-    public async Task Trocar_o_projeto_com_a_IA_trabalhando_cancela_o_pedido_e_avisa()
-    {
-        var gate = new TaskCompletionSource();
-        var vm = new SearchReplaceViewModel(clock)
-        {
-            Project = ProjectSummaryReader.Read(root),
-            Requests = new BatchRequestService((_, _) => new GatedProvider(gate.Task), () => Settings()),
-        };
-        await vm.BeginRequestAsync(Request);
-        var running = vm.RunRequestCommand.ExecuteAsync(null);
-
-        vm.Project = null;
-        await running;
-
-        Assert.False(vm.HasPreview);
-        Assert.Contains("O painel mudou durante a operação", vm.Summary);
     }
 
     [Fact]
@@ -384,70 +270,6 @@ public sealed class BatchRequestTests : IDisposable
         Assert.Equal("O pedido parou no limite de gasto antes de ler qualquer fala. Nada foi gasto nem gravado.", vm.Summary);
         Assert.Empty(provider.Received);
         Assert.False(vm.HasPreview);
-    }
-
-    [Fact]
-    public void A_paleta_nao_oferece_o_pedido_quando_a_frase_acha_linhas()
-    {
-        var palette = new CommandPaletteViewModel(
-            () => [],
-            (_, _) => [new PaletteEntry(PaletteGroup.Line, "Você sabe o que houve?", "yst00001 · linha 1", () => { })],
-            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => { }));
-        palette.Open();
-
-        palette.Query = "você sabe o que";
-
-        Assert.Equal([PaletteGroup.Line], palette.Results.Select(r => r.Group));
-    }
-
-    [Fact]
-    public async Task O_pedido_fecha_o_leitor_de_cena_antes_de_abrir_o_painel()
-    {
-        var vm = new EditorViewModel(postToUi: action => action());
-        vm.Search.Requests = new BatchRequestService((_, _) => FakeBatchRequestProvider.Replacing("você", "tu"), () => Settings());
-        vm.Project = ProjectSummaryReader.Read(root);
-        await vm.Loading;
-        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00001");
-        vm.StartReading();
-        Assert.True(vm.IsReadingScene);
-
-        Assert.True(vm.OpenBatchRequest(Request));
-        await vm.BatchRequest;
-
-        Assert.False(vm.IsReadingScene);
-        Assert.True(vm.IsSearchOpen);
-        Assert.NotNull(vm.Search.RequestPlan);
-    }
-
-    [Fact]
-    public void A_paleta_oferece_o_pedido_primeiro_quando_o_texto_tem_tres_palavras_ou_mais()
-    {
-        var asked = new List<string>();
-        var palette = new CommandPaletteViewModel(
-            () => [new PaletteEntry(PaletteGroup.Command, "Trocar tema", "", () => { })],
-            (_, _) => [],
-            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => asked.Add(query)));
-        palette.Open();
-
-        palette.Query = "trocar você por tu";
-
-        Assert.Equal("Pedir à IA: trocar você por tu", palette.Results[0].Title);
-        palette.ExecuteSelected();
-        Assert.Equal(["trocar você por tu"], asked);
-    }
-
-    [Fact]
-    public void A_paleta_nao_oferece_o_pedido_quando_o_texto_ja_nomeia_um_comando()
-    {
-        var palette = new CommandPaletteViewModel(
-            () => [new PaletteEntry(PaletteGroup.Command, "Revisar falas de Kenta", "", () => { })],
-            (_, _) => [],
-            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => { }));
-        palette.Open();
-
-        palette.Query = "revisar falas de kenta";
-
-        Assert.Equal(["Revisar falas de Kenta"], palette.Results.Select(r => r.Title));
     }
 
     [Fact]

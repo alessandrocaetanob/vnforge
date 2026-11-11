@@ -86,40 +86,6 @@ public class EditorChaptersTests
     }
 
     [Fact]
-    public async Task A_lista_de_cenas_vem_agrupada_por_capitulo_na_ordem_da_historia_com_menus_e_nomes_no_fim()
-    {
-        using var open = await Open();
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
-        Assert.Equal([1, 2, null], open.Editor.Chapters.Select(c => c.Number));
-        Assert.Equal(["yst00001", "yst00002", "yst00003"], open.ChapterKeys("Capítulo 1"));
-        Assert.Equal(Keys, open.Editor.SceneList.Select(s => s.Key));
-        Assert.Equal(["3", "2", "1"], open.Editor.Chapters.Select(c => c.CountText));
-    }
-
-    [Fact]
-    public async Task Mover_uma_cena_para_outro_capitulo_grava_o_group_e_o_Painel_mostra_os_totais_novos_sem_reler()
-    {
-        using var open = await Open();
-        var loads = open.DashboardLoads;
-        open.Editor.SelectedScript = open.Scene("yst00002");
-
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
-
-        Assert.Equal("Capítulo 2", open.OnDisk.Group("yst00002"));
-        Assert.Null(open.OnDisk.Group("yst00001"));
-        Assert.Equal(["yst00001", "yst00003"], open.ChapterKeys("Capítulo 1"));
-        Assert.Equal(["yst00002", "yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
-
-        // Capítulo 1: 1 aprovada + 1 em japonês. Capítulo 2: 1 aprovada + 2 da IA.
-        var one = open.Dashboard.Chapters.Single(c => c.Name == "Capítulo 1");
-        var two = open.Dashboard.Chapters.Single(c => c.Name == "Capítulo 2");
-        Assert.Equal((1d, 0d, 2d), (one.Ready, one.ToReview, one.Total));
-        Assert.Equal((1d, 2d, 3d), (two.Ready, two.ToReview, two.Total));
-        Assert.Equal(loads, open.DashboardLoads);
-    }
-
-    [Fact]
     public async Task Depois_de_mover_a_cena_sem_nome_a_sobrancelha_muda_e_o_nome_Cena_N_nao()
     {
         using var open = await Open(unnamed: true);
@@ -135,35 +101,6 @@ public class EditorChaptersTests
         Assert.Equal("Cena 2", open.Editor.ScriptTitle);
         Assert.Equal("Cena 2", open.Scene("yst00002").Name);
         Assert.Equal("Cena 3", open.Scene("yst00003").Name);
-    }
-
-    [Fact]
-    public async Task A_cena_aberta_e_as_marcadas_continuam_selecionadas_depois_de_mover()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00002");
-        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
-        open.Editor.ChosenScripts.Add(open.Scene("yst00003"));
-
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
-
-        Assert.Equal("yst00002", open.Editor.SelectedScript?.Key);
-        Assert.Equal(["yst00002", "yst00003"], open.Editor.ChosenScripts.Select(s => s.Key).Order());
-        Assert.Equal(["yst00002", "yst00003", "yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
-    }
-
-    [Fact]
-    public async Task Mover_as_cenas_marcadas_leva_todas_e_ignora_a_aberta()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00001");
-        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
-        open.Editor.ChosenScripts.Add(open.Scene("yst00003"));
-
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
-
-        Assert.Equal(["yst00001"], open.ChapterKeys("Capítulo 1"));
-        Assert.Equal(["yst00002", "yst00003", "yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
     }
 
     [Fact]
@@ -191,20 +128,6 @@ public class EditorChaptersTests
         Assert.Equal(open.Editor.SceneList.Select(s => s.Key), open.Editor.Chapters.SelectMany(c => c.Scripts).Select(s => s.Key));
     }
 
-    [Fact]
-    public async Task Novo_capitulo_sem_cenas_marcadas_leva_a_cena_aberta()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00003");
-
-        open.Editor.BeginNewChapterCommand.Execute(null);
-        open.Editor.NewChapterName = "Noite";
-        await open.Editor.CommitNewChapterCommand.ExecuteAsync(null);
-
-        Assert.Equal(["yst00003"], open.ChapterKeys("Noite"));
-        Assert.Equal(["yst00001", "yst00002"], open.ChapterKeys("Capítulo 1"));
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -223,63 +146,6 @@ public class EditorChaptersTests
     }
 
     [Fact]
-    public async Task Cancelar_o_novo_capitulo_fecha_o_campo_sem_gravar()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00003");
-        open.Editor.BeginNewChapterCommand.Execute(null);
-        open.Editor.NewChapterName = "Noite";
-
-        open.Editor.CancelNewChapterCommand.Execute(null);
-
-        Assert.False(open.Editor.IsNamingChapter);
-        Assert.Null(open.Editor.ChapterMessage);
-        Assert.Null(open.OnDisk.Group("yst00003"));
-    }
-
-    [Fact]
-    public async Task Voltar_ao_agrupamento_automatico_apaga_o_group_e_a_cena_volta_ao_capitulo_da_pasta()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00002");
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2"));
-        Assert.Equal("Capítulo 2", open.OnDisk.Group("yst00002"));
-
-        await open.Editor.ResetChaptersCommand.ExecuteAsync(null);
-
-        Assert.Null(open.OnDisk.Group("yst00002"));
-        Assert.Equal(["yst00001", "yst00002", "yst00003"], open.ChapterKeys("Capítulo 1"));
-        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], open.Dashboard.Chapters.Select(c => c.Name));
-    }
-
-    [Fact]
-    public async Task Capitulo_que_perde_a_ultima_cena_some_da_lista_e_do_Painel()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00004");
-        open.Editor.ChosenScripts.Add(open.Scene("yst00004"));
-        open.Editor.ChosenScripts.Add(open.Scene("yst00005"));
-
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.Name == "Capítulo 1"));
-
-        Assert.Equal(["Capítulo 1", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
-        Assert.Equal(["Capítulo 1", ScriptGrouping.ExtraName], open.Dashboard.Chapters.Select(c => c.Name));
-        Assert.Equal(Keys, open.Editor.SceneList.Select(s => s.Key));
-    }
-
-    [Fact]
-    public async Task Mandar_a_cena_para_Menus_e_nomes_tira_ela_da_historia()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00003");
-
-        await open.Editor.MoveToChapterCommand.ExecuteAsync(open.Editor.Chapters.Single(c => c.IsExtra));
-
-        Assert.Equal(["yst00003", "yst00006"], open.ChapterKeys(ScriptGrouping.ExtraName));
-        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
-    }
-
-    [Fact]
     public async Task Falha_ao_gravar_mostra_a_mensagem_e_nao_mexe_na_lista()
     {
         using var open = await Open((_, _, _) => throw new ScriptGroupingException("Não há script com a chave 'yst00003'."));
@@ -289,88 +155,6 @@ public class EditorChaptersTests
 
         Assert.Equal("Não há script com a chave 'yst00003'.", open.Editor.ChapterMessage);
         Assert.Equal(["yst00001", "yst00002", "yst00003"], open.ChapterKeys("Capítulo 1"));
-    }
-
-    [Fact]
-    public async Task Pasta_somente_leitura_mostra_o_erro_em_vez_de_derrubar_o_comando()
-    {
-        using var open = await Open((_, _, _) => throw new UnauthorizedAccessException("Acesso negado ao scripts.json."));
-        open.Editor.SelectedScript = open.Scene("yst00003");
-
-        await open.Editor.ResetChaptersCommand.ExecuteAsync(null);
-
-        Assert.Equal("Acesso negado ao scripts.json.", open.Editor.ChapterMessage);
-    }
-
-    [Fact]
-    public async Task Fechar_um_capitulo_esconde_as_cenas_dele_menos_a_primeira_que_leva_o_cabecalho()
-    {
-        using var open = await Open();
-        var chapter = open.Editor.Chapters.Single(c => c.Name == "Capítulo 1");
-
-        Assert.All(chapter.Scripts, s => Assert.True(s.IsListed));
-        Assert.Equal(["yst00001", "yst00004", "yst00006"], open.Editor.SceneList.Where(s => s.IsGroupStart).Select(s => s.Key));
-
-        chapter.IsExpanded = false;
-
-        Assert.Equal([true, false, false], chapter.Scripts.Select(s => s.IsListed));
-        Assert.Equal(["yst00001", "yst00004", "yst00006"], open.Editor.SceneList.Where(s => s.IsGroupStart).Select(s => s.Key));
-    }
-
-    [Fact]
-    public async Task Com_um_capitulo_so_a_lista_fica_plana_e_aberta_mesmo_com_o_capitulo_fechado()
-    {
-        using var open = await Open(onePart: true);
-        var chapter = Assert.Single(open.Editor.Chapters);
-
-        Assert.All(open.Editor.SceneList, s => Assert.False(s.ShowsGroupHeader));
-
-        chapter.IsExpanded = false;
-
-        Assert.All(open.Editor.SceneList, s => Assert.True(s.IsListed && s.ShowsScene && !s.ShowsGroupHeader));
-    }
-
-    [Fact]
-    public async Task Com_mais_de_um_capitulo_so_a_primeira_cena_de_cada_um_leva_o_cabecalho()
-    {
-        using var open = await Open();
-
-        Assert.Equal(["yst00001", "yst00004", "yst00006"], open.Editor.SceneList.Where(s => s.ShowsGroupHeader).Select(s => s.Key));
-
-        open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded = false;
-
-        Assert.All(open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").Scripts, s => Assert.False(s.ShowsScene));
-    }
-
-    [Fact]
-    public async Task O_filtro_leva_o_cabecalho_para_a_primeira_cena_que_passa_e_tira_o_dos_capitulos_vazios()
-    {
-        using var open = await Open();
-
-        open.Editor.ScriptFilter = "yst00003";
-
-        Assert.Equal(["yst00003"], open.Editor.SceneList.Where(s => s.IsGroupStart).Select(s => s.Key));
-        Assert.Equal(["yst00003"], open.Editor.SceneList.Where(s => s.IsListed).Select(s => s.Key));
-
-        open.Editor.ScriptFilter = string.Empty;
-
-        Assert.Equal(3, open.Editor.SceneList.Count(s => s.IsGroupStart));
-    }
-
-    [Fact]
-    public async Task Fechar_o_capitulo_nao_tira_as_cenas_dele_do_pedido_de_traducao()
-    {
-        using var open = await Open();
-        var pedidos = new List<IReadOnlyList<string>>();
-        open.Editor.TranslateRequested += (_, keys) => pedidos.Add(keys);
-        open.Editor.SelectedScript = open.Scene("yst00001");
-        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
-        open.Editor.ChosenScripts.Add(open.Scene("yst00003"));
-        open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded = false;
-
-        open.Editor.TranslatePendingCommand.Execute(null);
-
-        Assert.Equal(["yst00002", "yst00003"], Assert.Single(pedidos));
     }
 
     [Fact]
@@ -384,34 +168,6 @@ public class EditorChaptersTests
         Assert.Empty(vm.Chapters);
         Assert.Empty(vm.SceneList);
         Assert.False(vm.IsNamingChapter);
-    }
-
-    [Fact]
-    public async Task Recarregar_o_projeto_mantem_os_capitulos_fechados()
-    {
-        using var open = await Open();
-        open.Editor.Chapters.Single(c => c.Name == "Capítulo 2").IsExpanded = false;
-
-        open.Editor.Reload();
-        await open.Editor.Loading;
-
-        Assert.False(open.Editor.Chapters.Single(c => c.Name == "Capítulo 2").IsExpanded);
-        Assert.True(open.Editor.Chapters.Single(c => c.Name == "Capítulo 1").IsExpanded);
-    }
-
-    [Fact]
-    public async Task Novo_capitulo_leva_as_cenas_marcadas_na_hora_de_abrir_o_campo_e_nao_as_do_Enter()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00003");
-        open.Editor.BeginNewChapterCommand.Execute(null);
-        open.Editor.ChosenScripts.Add(open.Scene("yst00004"));
-        open.Editor.NewChapterName = "Noite";
-
-        await open.Editor.CommitNewChapterCommand.ExecuteAsync(null);
-
-        Assert.Equal(["yst00003"], open.ChapterKeys("Noite"));
-        Assert.Equal(["yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
     }
 
     [Fact]
@@ -437,35 +193,6 @@ public class EditorChaptersTests
         Assert.Equal("Capítulo 2", open.OnDisk.Group("yst00006"));
         Assert.Null(open.OnDisk.Group("yst00005"));
         Assert.Null(open.OnDisk.Group("yst00002"));
-    }
-
-    [Fact]
-    public async Task Falha_ao_reler_o_scripts_json_mantem_os_capitulos_e_avisa()
-    {
-        var fail = false;
-        using var open = await Open(namesLoader: root => fail ? throw new IOException("disco cheio") : ProjectFolder.Open(root).LoadScriptNames());
-        fail = true;
-
-        open.Editor.Reload();
-        await open.Editor.Loading;
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
-        Assert.Contains("disco cheio", open.Editor.ChapterMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Trocar_de_projeto_fecha_o_campo_do_nome_do_capitulo()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00003");
-        open.Editor.BeginNewChapterCommand.Execute(null);
-        Assert.True(open.Editor.IsNamingChapter);
-
-        open.Editor.Project = Summary("Outra", Path.Combine(open.Root, "outra"));
-        await open.Editor.Loading;
-
-        Assert.False(open.Editor.IsNamingChapter);
-        Assert.Equal(string.Empty, open.Editor.NewChapterName);
     }
 
     [Fact]

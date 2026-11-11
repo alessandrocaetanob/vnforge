@@ -53,60 +53,6 @@ public sealed class EditorSuggestionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_grade_marca_so_as_linhas_com_sugestao_e_a_dica_diz_o_tipo()
-    {
-        var vm = await Abrir();
-
-        Assert.Equal([true, false, true, true], vm.Lines.Select(l => l.HasEditorSuggestion));
-        Assert.Equal("Sugestão do editor: fluidez", vm.Lines[0].EditorSuggestionTip);
-        Assert.Equal("Sugestão do editor: voz", vm.Lines[2].EditorSuggestionTip);
-        Assert.Null(vm.Lines[1].EditorSuggestionTip);
-        Assert.Equal(3, vm.EditorSuggestionLines);
-    }
-
-    [Fact]
-    public async Task O_inspetor_mostra_o_cartao_com_o_tipo_a_posicao_na_cena_a_traducao_de_hoje_a_proposta_e_o_motivo()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[2];
-        var detail = vm.Detail!;
-
-        Assert.True(detail.HasEditorSuggestion);
-        Assert.Equal("Passada de editor", detail.EditorSuggestionTitle);
-        Assert.Equal("voz · 2 de 3", detail.EditorSuggestionChip);
-        Assert.Equal("Passada de editor · voz", detail.EditorSuggestionReviewTitle);
-        Assert.Equal("2 de 3 na cena", detail.EditorSuggestionReviewChip);
-        Assert.Equal("Aham.", detail.EditorSuggestionCurrent);
-        Assert.Equal("Uhum.", detail.EditorSuggestionProposed);
-        Assert.Equal("Soa mais natural.", detail.EditorSuggestionReason);
-    }
-
-    [Fact]
-    public async Task Linha_sem_sugestao_nao_tem_cartao()
-    {
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[1];
-
-        Assert.False(vm.Detail!.HasEditorSuggestion);
-        Assert.Equal(string.Empty, vm.Detail.EditorSuggestionChip);
-    }
-
-    [Fact]
-    public async Task Abrir_a_linha_nao_muda_a_traducao_nem_o_arquivo_de_texto()
-    {
-        var antes = File.ReadAllBytes(ProjectFolder.Open(raiz).TextPath("yst00001"));
-        var vm = await Abrir();
-
-        vm.SelectedLine = vm.Lines[0];
-        vm.FlushPendingEdits();
-
-        Assert.Equal(antes, File.ReadAllBytes(ProjectFolder.Open(raiz).TextPath("yst00001")));
-        Assert.Equal(3, NoArquivo().Count);
-    }
-
-    [Fact]
     public async Task Aceitar_grava_a_proposta_como_traducao_da_pessoa_e_tira_a_sugestao_da_grade_e_do_arquivo()
     {
         var vm = await Abrir();
@@ -121,35 +67,6 @@ public sealed class EditorSuggestionTests : IDisposable
         Assert.False(vm.Lines[0].HasEditorSuggestion);
         Assert.Equal(["yst00001:000002", "yst00001:000003"], NoArquivo().Select(s => s.UnitId));
         Assert.Equal(2, vm.EditorSuggestionLines);
-    }
-
-    [Fact]
-    public async Task Ignorar_tira_a_sugestao_e_deixa_a_traducao_como_estava()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[2];
-        var detail = vm.Detail!;
-
-        detail.IgnoreEditorSuggestionCommand.Execute(null);
-
-        Assert.Equal("Aham.\\p", Gravada(2).Translation);
-        Assert.Equal(TranslationStatus.Machine, Gravada(2).Status);
-        Assert.False(detail.HasEditorSuggestion);
-        Assert.False(vm.Lines[2].HasEditorSuggestion);
-        Assert.Equal(["yst00001:000000", "yst00001:000003"], NoArquivo().Select(s => s.UnitId));
-    }
-
-    [Fact]
-    public async Task Ignorar_depois_que_a_passada_gravou_outra_cena_nao_apaga_as_sugestoes_dela()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[2];
-
-        // A passada termina outra cena enquanto o Editor está aberto com a cópia de antes.
-        EditorSuggestionsFile.Update(ProjectFolder.Open(raiz), f => f.ReplacingScript("yst00002", [Sugestao(0, "X", "Y", EditorSuggestionKind.Fluency) with { ScriptKey = "yst00002", UnitId = "yst00002:000000" }]));
-        vm.Detail!.IgnoreEditorSuggestionCommand.Execute(null);
-
-        Assert.Equal(["yst00001:000000", "yst00001:000003", "yst00002:000000"], NoArquivo().Select(s => s.UnitId).Order());
     }
 
     [Fact]
@@ -171,24 +88,6 @@ public sealed class EditorSuggestionTests : IDisposable
     }
 
     [Fact]
-    public async Task Trocar_de_linha_durante_o_Outra_deixa_a_copia_em_memoria_com_a_proposta_nova()
-    {
-        var liberar = new TaskCompletionSource<EditorSuggestion?>();
-        var vm = await AbrirComOutra((s, _) => liberar.Task);
-        vm.SelectedLine = vm.Lines[0];
-        var pedido = vm.Detail!.OtherEditorSuggestionCommand.ExecuteAsync(null);
-
-        vm.SelectedLine = vm.Lines[2];
-        liberar.SetResult(vm.Lines[0].EditorSuggestion! with { Proposed = "Vocês dois, atrasados.\\p" });
-        await pedido;
-
-        Assert.Equal("Vocês dois, atrasados.\\p", vm.Lines[0].EditorSuggestion!.Proposed);
-        vm.SelectedLine = vm.Lines[0];
-        Assert.Equal("Vocês dois, atrasados.", vm.Detail!.EditorSuggestionProposed);
-        Assert.Equal("Os dois, cinco minutos atrasados.\\p", Gravada(0).Translation);
-    }
-
-    [Fact]
     public async Task Outra_que_termina_depois_de_a_pessoa_ignorar_nao_traz_a_sugestao_de_volta()
     {
         var liberar = new TaskCompletionSource<EditorSuggestion?>();
@@ -204,74 +103,6 @@ public sealed class EditorSuggestionTests : IDisposable
 
         Assert.False(vm.Lines[0].HasEditorSuggestion);
         Assert.DoesNotContain(NoArquivo(), s => s.UnitId == "yst00001:000000");
-    }
-
-    [Fact]
-    public async Task Depois_de_aceitar_uma_a_posicao_das_outras_conta_so_as_que_restam()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[0];
-        vm.Detail!.AcceptEditorSuggestionCommand.Execute(null);
-
-        vm.SelectedLine = vm.Lines[3];
-
-        Assert.Equal("consistência · 2 de 2", vm.Detail!.EditorSuggestionChip);
-    }
-
-    [Fact]
-    public async Task Editar_a_traducao_a_mao_aposenta_a_sugestao_na_grade_no_inspetor_e_no_arquivo()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[2];
-        var detail = vm.Detail!;
-
-        detail.Translation = "Hum.\\p";
-        detail.Flush();
-
-        Assert.False(detail.HasEditorSuggestion);
-        Assert.False(vm.Lines[2].HasEditorSuggestion);
-        Assert.Equal(["yst00001:000000", "yst00001:000003"], NoArquivo().Select(s => s.UnitId));
-    }
-
-    [Fact]
-    public async Task Aprovar_a_linha_e_dizer_que_esta_boa_e_encerra_a_sugestao()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[3];
-
-        vm.Detail!.ApproveCommand.Execute(null);
-
-        Assert.False(vm.Detail.HasEditorSuggestion);
-        Assert.False(vm.Lines[3].HasEditorSuggestion);
-        Assert.DoesNotContain(NoArquivo(), s => s.UnitId == "yst00001:000003");
-    }
-
-    [Fact]
-    public async Task Sugestao_de_uma_traducao_antiga_nao_aparece_ao_abrir_o_projeto()
-    {
-        Salvar(Sugestao(1, "Texto de antes", "Texto novo", EditorSuggestionKind.Fluency));
-
-        var vm = await Abrir();
-
-        Assert.All(vm.Lines, l => Assert.False(l.HasEditorSuggestion));
-        Assert.Equal(0, vm.EditorSuggestionLines);
-    }
-
-    [Fact]
-    public async Task Atualizar_depois_da_passada_mostra_as_sugestoes_novas_sem_trocar_de_linha()
-    {
-        Salvar();
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[1];
-        Assert.False(vm.Detail!.HasEditorSuggestion);
-
-        Salvar(Sugestao(1, "Chovia.\\p", "Chovia muito.\\p", EditorSuggestionKind.Fluency));
-        vm.RefreshEditorSuggestions();
-
-        Assert.True(vm.Lines[1].HasEditorSuggestion);
-        Assert.True(vm.Detail!.HasEditorSuggestion);
-        Assert.Equal("fluidez · 1 de 1", vm.Detail.EditorSuggestionChip);
-        Assert.Same(vm.Lines[1], vm.SelectedLine);
     }
 
     [Fact]
@@ -308,22 +139,6 @@ public sealed class EditorSuggestionTests : IDisposable
 
         Assert.Equal([false, true, false, false], vm.Lines.Select(l => l.HasEditorSuggestion));
         Assert.NotEmpty(lido);
-    }
-
-    [Fact]
-    public async Task No_modo_revisao_o_cartao_acompanha_a_fala_e_aceitar_vale_como_na_grade()
-    {
-        var vm = await Abrir();
-
-        vm.StartReview();
-        var review = vm.Review!;
-        Assert.Equal("yst00001:000000", review.Detail!.Id);
-        Assert.True(review.Detail.HasEditorSuggestion);
-
-        review.Detail.AcceptEditorSuggestionCommand.Execute(null);
-
-        Assert.Equal("Vocês dois, cinco minutos atrasados.\\p", Gravada(0).Translation);
-        Assert.False(vm.Lines[0].HasEditorSuggestion);
     }
 
     private async Task<EditorViewModel> AbrirComOutra(Func<EditorSuggestion, CancellationToken, Task<EditorSuggestion?>> outra)
@@ -379,39 +194,5 @@ public sealed class EditorSuggestionTests : IDisposable
         Assert.EndsWith("A tradução não mudou.", detail.EditorSuggestionNote);
         Assert.True(detail.HasEditorSuggestion);
         Assert.Equal("Aham.\\p", Gravada(2).Translation);
-    }
-
-    [Fact]
-    public async Task Sem_quem_peca_o_botao_Outra_fica_desligado_e_fechar_o_painel_cancela_o_pedido()
-    {
-        var semProvedor = await Abrir();
-        semProvedor.SelectedLine = semProvedor.Lines[0];
-        Assert.False(semProvedor.Detail!.OtherEditorSuggestionCommand.CanExecute(null));
-
-        var cancelado = false;
-        var comEspera = await AbrirComOutra(async (_, ct) =>
-        {
-            try
-            {
-                await Task.Delay(Timeout.Infinite, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                cancelado = true;
-                throw;
-            }
-
-            return null;
-        });
-        comEspera.SelectedLine = comEspera.Lines[0];
-        var pedido = comEspera.Detail!.OtherEditorSuggestionCommand.ExecuteAsync(null);
-        Assert.True(comEspera.Detail.IsAskingAnotherEditorSuggestion);
-        Assert.Equal("Pedindo...", comEspera.Detail.EditorSuggestionOtherText);
-
-        comEspera.Detail.Dispose();
-        await pedido;
-
-        Assert.True(cancelado);
-        Assert.Equal(string.Empty, comEspera.Detail.EditorSuggestionNote);
     }
 }

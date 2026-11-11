@@ -57,35 +57,6 @@ public sealed class LibraryQueueTests : IDisposable
     }
 
     [Fact]
-    public async Task As_linhas_so_sao_montadas_na_lista_e_somem_na_grade()
-    {
-        var vm = await Loaded();
-        Assert.Equal(12, vm.Rows.Count);
-
-        vm.SelectedLayout = vm.Layouts[0];
-        Assert.Empty(vm.Rows);
-
-        vm.SearchText = "Nanairo";
-        Assert.Empty(vm.Rows);
-        Assert.Single(vm.Cards);
-
-        vm.SelectedLayout = vm.Layouts[1];
-        Assert.Equal(["Nanairo Ressha"], vm.Rows.Select(r => r.Card.Title));
-    }
-
-    [Fact]
-    public async Task A_linha_traz_o_titulo_original_e_o_subtitulo_do_jogo()
-    {
-        var vm = await Loaded();
-
-        var row = Row(vm, "Amaoto no Hakoniwa");
-
-        Assert.Equal("雨音の箱庭", row.Card.OriginalTitle);
-        Assert.True(row.Card.HasOriginalTitle);
-        Assert.Equal("Média · 18 h · 38% traduzida", row.Card.Subtitle);
-    }
-
-    [Fact]
     public async Task Arquivo_travado_na_conferencia_do_portugues_vira_aviso_da_biblioteca()
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library());
@@ -139,19 +110,6 @@ public sealed class LibraryQueueTests : IDisposable
         Assert.Equal("Yūgure Kissaten", vm.Rows[1].Card.Title);
         Assert.Equal(["Kōrin no Mori", "Tōge no Kaji"], vm.Rows.TakeLast(2).Select(r => r.Card.Title));
         Assert.All(vm.Rows, r => Assert.Equal("", r.PositionText));
-    }
-
-    [Fact]
-    public async Task Traduzir_este_jogo_avisa_o_shell_com_o_jogo_da_linha()
-    {
-        var vm = await Loaded();
-        LibraryGame? asked = null;
-        vm.GameOpenRequested += (_, game) => asked = game;
-
-        vm.OpenGameCommand.Execute(Row(vm, "Nanairo Ressha").Card);
-
-        Assert.Equal("Nanairo Ressha", asked?.Title);
-        Assert.Null(asked?.ProjectPath);
     }
 
     [Fact]

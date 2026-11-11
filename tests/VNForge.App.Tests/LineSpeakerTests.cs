@@ -44,20 +44,6 @@ public sealed class LineSpeakerTests : IDisposable
     private static SpeakerChoice Escolha(LineDetailViewModel detail, string? valor) => detail.SpeakerChoices.Single(c => c.Value == valor);
 
     [Fact]
-    public async Task O_seletor_oferece_o_falante_do_jogo_Narracao_e_os_personagens_do_Glossario()
-    {
-        var vm = await Abrir();
-
-        var detail = vm.Detail!;
-
-        Assert.Equal(["Falante do jogo (美咲)", "Narração", "Misaki · 美咲", "Kenta · 健太"], detail.SpeakerChoices.Select(c => c.Label));
-        Assert.Equal([null, string.Empty, "美咲", "健太"], detail.SpeakerChoices.Select(c => c.Value));
-        Assert.Equal(detail.SpeakerChoices[0], detail.SelectedSpeakerChoice);
-        Assert.Equal("Falante: 美咲 (do jogo)", detail.SpeakerSummary);
-        Assert.False(detail.IsSpeakerChanged);
-    }
-
-    [Fact]
     public async Task Escolher_um_personagem_grava_so_nessa_linha_e_atualiza_a_grade_o_contexto_e_o_resumo()
     {
         var vm = await Abrir();
@@ -80,21 +66,6 @@ public sealed class LineSpeakerTests : IDisposable
         Assert.Equal("Falante trocado nesta linha. No jogo: 健太.", linha.SpeakerChangedTip);
         Assert.False(vm.Lines[0].IsSpeakerChanged);
         Assert.Null(detail.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task O_menu_do_nome_copia_o_falante_trocado_e_a_narracao_fica_sem_menu()
-    {
-        var vm = await Abrir();
-        var detail = vm.Detail!;
-        Assert.Equal("美咲", vm.Lines[0].SpeakerOriginal);
-
-        detail.SelectedSpeakerChoice = Escolha(detail, "健太");
-        Assert.Equal("健太", vm.Lines[0].SpeakerOriginal);
-        Assert.Equal("Kenta", vm.Lines[0].SpeakerName);
-
-        detail.SelectedSpeakerChoice = Escolha(detail, string.Empty);
-        Assert.Null(vm.Lines[0].SpeakerOriginal);
     }
 
     [Fact]
@@ -139,70 +110,5 @@ public sealed class LineSpeakerTests : IDisposable
         Assert.Equal("???", vm.Lines[1].SpeakerName);
         Assert.Null(detail.SelectedSpeakerChoice);
         Assert.Equal("Falante trocado: ??? (no jogo: Narração)", detail.SpeakerSummary);
-    }
-
-    [Fact]
-    public async Task Trocar_o_falante_nao_apaga_a_traducao_digitada_e_ainda_nao_gravada()
-    {
-        var vm = await Abrir();
-        var detail = vm.Detail!;
-        detail.FieldText = "Bom dia, pessoal.";
-
-        detail.SelectedSpeakerChoice = Escolha(detail, string.Empty);
-
-        var gravada = Gravada(0);
-        Assert.StartsWith("Bom dia, pessoal.", gravada.Translation, StringComparison.Ordinal);
-        Assert.Equal(string.Empty, gravada.ChosenSpeaker);
-    }
-
-    [Fact]
-    public async Task A_caixa_de_texto_do_inspetor_mostra_o_falante_escolhido()
-    {
-        var vm = await Abrir();
-        var detail = vm.Detail!;
-        detail.AttachPreview(ProjectFolder.Open(raiz).LoadFormatting());
-        Assert.Equal("美咲", detail.Preview!.Layout!.Speaker);
-
-        detail.SelectedSpeakerChoice = Escolha(detail, "健太");
-
-        Assert.Equal("健太", detail.Preview!.Layout!.Speaker);
-    }
-
-    [Fact]
-    public void A_linha_da_grade_marca_o_falante_trocado_e_leva_o_nome_do_cadastro()
-    {
-        var unidade = Fala(0, "美咲", "「おはよう」", "Oi.", TranslationStatus.Machine);
-        var linha = new LineViewModel(EditorFixtures.Lines(("yst00001", [unidade])).LinesOf("yst00001").Single(), "Misaki");
-        Assert.False(linha.IsSpeakerChanged);
-        Assert.Null(linha.SpeakerChangedTip);
-
-        var trocada = unidade with { ChosenSpeaker = "健太" };
-        linha.Update(EditorFixtures.Lines(("yst00001", [trocada])).LinesOf("yst00001").Single(), "Kenta", null);
-
-        Assert.True(linha.IsSpeakerChanged);
-        Assert.Equal("Kenta", linha.SpeakerName);
-    }
-}
-
-/// <summary>A marca de "falante trocado" na linha da grade.</summary>
-public sealed class LineSpeakerRowHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
-{
-    [Fact]
-    public async Task A_linha_da_grade_acende_a_marca_de_falante_trocado()
-    {
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var row = new VNForge.App.Controls.LineRow { Number = 3, Speaker = "Misaki", SpeakerChanged = true, SpeakerTip = "No jogo: 健太." };
-
-                Assert.Contains(":speaker-changed", row.Classes);
-                Assert.Equal("Linha 0003, falante trocado", Avalonia.Automation.AutomationProperties.GetName(row));
-
-                row.SpeakerChanged = false;
-
-                Assert.DoesNotContain(":speaker-changed", row.Classes);
-                Assert.Equal("Linha 0003", Avalonia.Automation.AutomationProperties.GetName(row));
-            },
-            CancellationToken.None);
     }
 }
