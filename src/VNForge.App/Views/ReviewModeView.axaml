@@ -260,7 +260,7 @@
             <StackPanel Spacing="12">
               <c:OverlineText Classes="overline" FontWeight="Normal" Text="Tradução"/>
               <TextBlock FontSize="{DynamicResource Vnf.FontSize.ReviewTranslation}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewTranslation}" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
-              <Button Classes="sm" Foreground="{DynamicResource Vnf.TextSecondary}" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
+              <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
                       ToolTip.Tip="Pede à IA outra tradução para esta fala. A atual só muda se você usar a sugestão.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>

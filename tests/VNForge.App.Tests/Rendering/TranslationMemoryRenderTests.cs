@@ -100,10 +100,10 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     var buttons = card.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content as string == "Usar").ToList();
                     Assert.Equal(2, buttons.Count);
                     Assert.All(buttons, b => Assert.DoesNotContain("accent", b.Classes));
-                    // Quadro (#580): o cartão da memória fica 14 px abaixo da caixa do Original.
+                    // Quadro (#580): o cartão da memória fica 9 px abaixo da caixa do Original (.insp.tight).
                     var originalBox = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "OriginalBox" && b.IsEffectivelyVisible);
                     var originalBottom = Avalonia.VisualExtensions.TranslatePoint(originalBox, new Avalonia.Point(0, originalBox.Bounds.Height), window)!.Value.Y;
-                    Assert.Equal(14, Avalonia.VisualExtensions.TranslatePoint(card, default, window)!.Value.Y - originalBottom, 0.5);
+                    Assert.Equal(9, Avalonia.VisualExtensions.TranslatePoint(card, default, window)!.Value.Y - originalBottom, 0.5);
                     // O selo de porcentagem é o chip do tema comum: Vnf.PillHeight (20 px), em Noto Sans (não mono).
                     var pills = card.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("memory-pill") && b.IsEffectivelyVisible).ToList();
                     Assert.Equal(2, pills.Count);
@@ -189,10 +189,10 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     Assert.Equal(78, banner.Bounds.Height);
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "No projeto");
                     Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Difere do projeto");
-                    // O cabeçalho da tabela do quadro é regular, não semibold.
+                    // O cabeçalho da tabela do quadro (.table th) é semibold.
                     var heads = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Text is "Em japonês" or "Em português" or "Observação para a IA" or "Vem de").ToList();
                     Assert.Equal(4, heads.Count);
-                    Assert.All(heads, t => Assert.Equal(FontWeight.Normal, t.FontWeight));
+                    Assert.All(heads, t => Assert.Equal(FontWeight.SemiBold, t.FontWeight));
                     // Os dois cartões vão até o pé da página, e a nota do rodapé fica na base do cartão da tabela.
                     var scroller = window.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "PageScroll");
                     var table = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("panel") && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Termos que valem em toda VN"));

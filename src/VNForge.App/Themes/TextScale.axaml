@@ -34,7 +34,7 @@
   <x:Double x:Key="Vnf.LineHeight.TitleMd">25</x:Double>
   <x:Double x:Key="Vnf.FontSize.JpBody">19</x:Double>
   <x:Double x:Key="Vnf.LineHeight.JpBody">30</x:Double>
-  <x:Double x:Key="Vnf.FontSize.InspectorSource">20</x:Double>
+  <x:Double x:Key="Vnf.FontSize.InspectorSource">19</x:Double>
   <x:Double x:Key="Vnf.LineHeight.InspectorSource">32</x:Double>
   <x:Double x:Key="Vnf.FontSize.JpRow">13</x:Double>
   <x:Double x:Key="Vnf.LineHeight.JpRow">18</x:Double>

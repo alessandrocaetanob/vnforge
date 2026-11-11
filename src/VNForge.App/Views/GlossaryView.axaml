@@ -530,10 +530,10 @@
                   </Border>
                   <Border Grid.Row="2" Classes="divider-bottom" Padding="0,10">
                     <Grid ColumnDefinitions="127,147,*,120,222">
-                      <TextBlock Classes="caption secondary" Margin="12,0" Text="Em japonês"/>
-                      <TextBlock Grid.Column="1" Classes="caption secondary" Margin="12,0" Text="Em português"/>
-                      <TextBlock Grid.Column="2" Classes="caption secondary" Margin="12,0" Text="Observação para a IA"/>
-                      <TextBlock Grid.Column="3" Classes="caption secondary" Margin="12,0" Text="Vem de" HorizontalAlignment="Right"/>
+                      <TextBlock Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Em japonês"/>
+                      <TextBlock Grid.Column="1" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Em português"/>
+                      <TextBlock Grid.Column="2" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Observação para a IA"/>
+                      <TextBlock Grid.Column="3" Classes="caption secondary" FontWeight="SemiBold" Margin="12,0" Text="Vem de" HorizontalAlignment="Right"/>
                     </Grid>
                   </Border>
                   <TextBlock Grid.Row="3" Classes="body-sm secondary" Margin="16,12" TextWrapping="Wrap" Text="{x:Static vm:PersonalGlossaryViewModel.EmptyText}" IsVisible="{Binding IsEmpty}"/>
