@@ -4,3 +4,4 @@
 // (a suíte inteira levou 906 s em série e 968 s em paralelo), e o JUnit com espera de fila desbalanceia o
 // `circleci tests split --split-by=timings`. Em série, o tempo de cada teste é o dele.
 [assembly: Xunit.v3.Parallelization(Mode = Xunit.Sdk.ParallelMode.None)]
+[assembly: Xunit.AssemblyFixture(typeof(VNForge.App.Tests.HeadlessSessionFixture))]

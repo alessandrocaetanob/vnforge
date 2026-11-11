@@ -40,10 +40,26 @@ public static class HeadlessEntry
 /// <summary>Uma sessão para o processo todo: o Avalonia só aceita uma instância de aplicativo por thread de UI, então as classes de teste a dividem.</summary>
 public sealed class HeadlessFixture
 {
-    private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() => HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry)));
+    private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() =>
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry), AvaloniaTestIsolationLevel.PerAssembly);
+        // Um Application só: o Dispatcher.UIThread pertence à thread da sessão desde o primeiro Dispatch, e qualquer teste que o leia antes dele
+        // (um ViewModel que posta na interface) criaria um dispatcher preso à thread do xUnit.
+        session.Dispatch(() => 0, CancellationToken.None).GetAwaiter().GetResult();
+        return session;
+    });
+
+    /// <summary>Sobe a sessão antes do primeiro teste do assembly (<see cref="HeadlessSessionFixture"/>).</summary>
+    internal static void Warm() => _ = Shared.Value;
 
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
     public ResilientHeadlessSession Session { get; } = new(Shared.Value);
+}
+
+/// <summary>Fixture do assembly: abre a sessão headless uma vez, antes de qualquer teste, ver <see cref="HeadlessFixture"/>.</summary>
+public sealed class HeadlessSessionFixture
+{
+    public HeadlessSessionFixture() => HeadlessFixture.Warm();
 }
 
 /// <summary>
