@@ -302,4 +302,27 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Contains("spoiler escondido", vm.Notice, StringComparison.Ordinal);
         Assert.Empty(notices);
     }
+
+    [Fact]
+    public async Task Caminho_de_projeto_invalido_vira_aviso_uma_vez_so_e_nao_deixa_a_pagina_muda()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = "projeto ruim" }));
+        var notices = new List<(string Text, ToastKind Kind)>();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Notify = (text, kind) => notices.Add((text, kind)) };
+
+        vm.Open("c101");
+        await vm.LoadAsync();
+
+        Assert.NotNull(vm.Page);
+        Assert.Contains("Moon Flower", Assert.Single(notices).Text, StringComparison.Ordinal);
+
+        vm.Open("c101");
+        await vm.LoadAsync();
+        vm.BackCommand.Execute(null);
+        vm.OpenCharacterCommand.Execute(vm.Items.Single(i => i.Name == "Hana Tsukino"));
+        await vm.ExtrasLoading;
+
+        Assert.Single(notices);
+    }
 }

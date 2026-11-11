@@ -42,6 +42,7 @@ public sealed partial class CharactersViewModel : ObservableObject
     private string? openId;
     private int generation;
     private Extras? extras;
+    private readonly HashSet<string> warnedProjects = new(StringComparer.Ordinal);
     private int allTraitCount;
     private bool applying;
 
@@ -431,7 +432,7 @@ public sealed partial class CharactersViewModel : ObservableObject
     }
 
     /// <summary>O que a página do personagem lê dos projetos: o andamento de cada jogo dele e o cartão "Na tradução". Lê-se uma vez ao abrir a página, fora da thread da tela, e a página reaproveita enquanto aberta.</summary>
-    private sealed record Extras(string Id, IReadOnlyDictionary<string, StatusCounts?> Counts, CharacterTranslation? Translation, IReadOnlyList<string> Unreadable);
+    private sealed record Extras(string Id, IReadOnlyDictionary<string, StatusCounts?> Counts, CharacterTranslation? Translation, IReadOnlyDictionary<string, string> Unreadable);
 
     private async Task LoadExtrasAsync(string id)
     {
@@ -446,9 +447,10 @@ public sealed partial class CharactersViewModel : ObservableObject
         {
             extras = read;
             Rebuild();
-            if (read.Unreadable.Count > 0)
+            var fresh = read.Unreadable.Where(u => warnedProjects.Add(u.Key)).Select(u => u.Value).ToList();
+            if (fresh.Count > 0)
             {
-                Notify?.Invoke($"Não foi possível ler {(read.Unreadable.Count == 1 ? "o projeto de" : "os projetos de")} {string.Join(", ", read.Unreadable)}. A página mostra só o que veio dos outros.", ToastKind.Warning);
+                Notify?.Invoke($"Não foi possível ler {(fresh.Count == 1 ? "o projeto de" : "os projetos de")} {string.Join(", ", fresh)}. A página mostra só o que veio dos outros.", ToastKind.Warning);
             }
         }
     }
@@ -458,7 +460,7 @@ public sealed partial class CharactersViewModel : ObservableObject
     {
         var visualNovels = data.Characters.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase))?.Appearances.Select(a => a.VisualNovelId).ToHashSet(StringComparer.Ordinal) ?? [];
         var games = data.Library.Games.Where(g => g.ProjectPath is not null && g.VndbId is not null && visualNovels.Contains(g.VndbId)).ToList();
-        var unreadable = new List<string>();
+        var unreadable = new Dictionary<string, string>(StringComparer.Ordinal);
         var counts = games.ToDictionary(g => g.Id, g => ReadCounts(g, unreadable), StringComparer.Ordinal);
         CharacterTranslation? translation = null;
         foreach (var game in games)
@@ -478,9 +480,9 @@ public sealed partial class CharactersViewModel : ObservableObject
                     $"{lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {game.Title}");
                 break;
             }
-            catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or JsonException)
+            catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException or JsonException)
             {
-                MarkUnreadable(unreadable, game);
+                unreadable[game.Id] = game.Title;
             }
         }
 
@@ -488,31 +490,23 @@ public sealed partial class CharactersViewModel : ObservableObject
     }
 
     /// <summary><see cref="LibraryCatalog.ReadTranslation"/> devolve nulo quando a pasta some ou está presa; para um jogo com projeto isso é um projeto ilegível, que vira aviso em vez de sumir calado.</summary>
-    private static StatusCounts? ReadCounts(LibraryGame game, List<string> unreadable)
+    private static StatusCounts? ReadCounts(LibraryGame game, Dictionary<string, string> unreadable)
     {
-        StatusCounts? counts = null;
         try
         {
-            counts = LibraryCatalog.ReadTranslation(game);
+            if (LibraryCatalog.ReadTranslation(game) is { } counts)
+            {
+                return counts;
+            }
         }
         catch (JsonException)
         {
+            unreadable[game.Id] = game.Title;
+            return null;
         }
 
-        if (counts is null)
-        {
-            MarkUnreadable(unreadable, game);
-        }
-
-        return counts;
-    }
-
-    private static void MarkUnreadable(List<string> unreadable, LibraryGame game)
-    {
-        if (!unreadable.Contains(game.Title, StringComparer.Ordinal))
-        {
-            unreadable.Add(game.Title);
-        }
+        unreadable[game.Id] = game.Title;
+        return null;
     }
 
     private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance, StatusCounts? translation)
