@@ -56,6 +56,12 @@ public sealed partial class MainWindowViewModel
     /// <summary>O item "Mais" da segunda linha; a tela abre o menu em vez de trocar de página quando ele é escolhido.</summary>
     public NavItemViewModel MoreSection => moreItem;
 
+    /// <summary>"Abrir inventário" do cabeçalho do jogo, na página de Imagens: delega ao comando da página e só vale com imagens no inventário.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenImagesInventory))]
+    private void OpenImagesInventory() => Images.OpenInventoryCommand.Execute(null);
+
+    private bool CanOpenImagesInventory() => Images.CanOpenInventory;
+
     /// <summary>A aba Ficha do jogo (d9, #554).</summary>
     public GameSheetViewModel Sheet { get; }
 

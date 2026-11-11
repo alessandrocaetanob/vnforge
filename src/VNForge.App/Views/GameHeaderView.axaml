@@ -38,10 +38,10 @@
       <Setter Property="Margin" Value="32,12,32,0"/>
     </Style>
     <!-- No compacto as ações sobem para a linha do nome e largam o texto (o nome acessível e a dica ficam); só Traduzir com IA mantém o rótulo. -->
-    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions TextBlock.btn-label">
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions TextBlock.btn-label, v|GameHeaderView.compact StackPanel#ImagesActions TextBlock.btn-label">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions Button, v|GameHeaderView.compact StackPanel#EditorActions ToggleButton">
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions Button, v|GameHeaderView.compact StackPanel#EditorActions ToggleButton, v|GameHeaderView.compact StackPanel#ImagesActions Button">
       <Setter Property="Padding" Value="10,0"/>
     </Style>
     <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
@@ -214,6 +214,17 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
           <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
+    <!-- Imagens: Abrir inventário na linha do seletor de seções, em cinza de apoio, como no quadro do #587. -->
+    <StackPanel Name="ImagesActions" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,1" IsVisible="False">
+      <Button Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding OpenImagesInventoryCommand}" AutomationProperties.Name="Abrir inventário"
+              ToolTip.Tip="Abre o images.json, o inventário das imagens do projeto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+          <TextBlock Classes="btn-label" Text="Abrir inventário" TextWrapping="NoWrap"/>
         </StackPanel>
       </Button>
     </StackPanel>
