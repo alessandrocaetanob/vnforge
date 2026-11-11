@@ -16,15 +16,7 @@ public sealed record DictionaryLine(string Source, IReadOnlyList<string> Speaker
     /// <summary>Verdadeiro quando todas as condições batem.</summary>
     public bool Matches(IReadOnlyList<DictionaryCondition> conditions)
     {
-        foreach (var condition in conditions)
-        {
-            if (!Holds(condition))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return conditions.All(Holds);
     }
 
     /// <summary>As posições, em <paramref name="conditions"/>, das condições que não batem; vazio quando todas batem.</summary>

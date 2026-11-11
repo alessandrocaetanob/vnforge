@@ -47,7 +47,7 @@ public sealed class ClaudeEditorPassProvider(IClaudeMessageClient client, Claude
             Parse,
             Refused: null);
         var found = await _caller.RunOnceAsync(line, spec, ct).ConfigureAwait(false);
-        return found.FirstOrDefault();
+        return found.Count > 0 ? found[0] : null;
     }
 
     private static string BuildSystem(TranslationBatch batch)
@@ -93,7 +93,7 @@ public sealed class ClaudeEditorPassProvider(IClaudeMessageClient client, Claude
         sb.AppendLine();
     }
 
-    private static IReadOnlyList<EditorPassProposal> Parse(string text, TranslationBatch batch)
+    private static List<EditorPassProposal> Parse(string text, TranslationBatch batch)
     {
         var ids = batch.Lines.Select(u => u.Id).ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);

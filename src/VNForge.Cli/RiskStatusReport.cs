@@ -86,7 +86,7 @@ internal static class RiskStatusReport
         ansi.Write(table);
     }
 
-    private static IRenderable Bar(RiskQueue queue, int width)
+    private static Markup Bar(RiskQueue queue, int width)
     {
         var cells = DistributionBar.Allocate([queue.Count(RiskLevel.High), queue.Count(RiskLevel.Medium), queue.Count(RiskLevel.Low)], width);
         var markup = new StringBuilder();
@@ -101,7 +101,7 @@ internal static class RiskStatusReport
         return new Markup(markup.ToString());
     }
 
-    private static IRenderable Legend(RiskDistribution distribution)
+    private static Markup Legend(RiskDistribution distribution)
     {
         int[] shares = [distribution.High, distribution.Medium, distribution.Low];
         return new Markup(string.Join("  ", Levels.Select((level, i) => $"[{CliPalette.Hex(level.Color)}]{level.Glyph}[/] {level.Label} {shares[i]}%")));

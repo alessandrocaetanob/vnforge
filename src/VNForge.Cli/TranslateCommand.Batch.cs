@@ -38,22 +38,27 @@ internal static partial class TranslateCommand
 
     private static bool WantsBatch(ParseResult parseResult) => parseResult.GetValue(BatchOption) || parseResult.GetValue(CancelBatchOption);
 
+    private sealed record BatchConsole(TextWriter Output, TextWriter Error, bool Json);
+
+    private sealed record BatchScope(
+        AiRunSettings Settings,
+        System.Text.RegularExpressions.Regex? Filter,
+        int? Limit,
+        HashSet<TranslationStatus> Statuses,
+        LineSelection Selection,
+        TranslationBatchBuilder Builder,
+        TranslationCache Cache);
+
     private static async Task<int> RunBatchAsync(
         VnfCli cli,
         ParseResult parseResult,
-        TextWriter output,
-        TextWriter error,
-        bool json,
+        BatchConsole console,
         ProjectFolder project,
-        AiRunSettings settings,
-        System.Text.RegularExpressions.Regex? filter,
-        int? limit,
-        HashSet<TranslationStatus> statuses,
-        LineSelection selection,
-        TranslationBatchBuilder builder,
-        TranslationCache cache,
+        BatchScope scope,
         CancellationToken token)
     {
+        var (output, error, json) = console;
+        var (settings, filter, limit, statuses, selection, builder, cache) = scope;
         var open = new NightBatchStore(project).Open();
         bool Wanted(TextUnit u) => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source);
         IMessageBatchClient Client() => cli.MessageBatchClientFactory?.Invoke() ?? ClaudeProviderFactory.CreateBatchClient(RequireApiKey(cli));
@@ -137,7 +142,7 @@ internal static partial class TranslateCommand
         var exitCode = anyFailed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = checks.Select(c => BatchJson(c.State, c.Info)) }, exitCode));
+            await output.WriteLineAsync(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = checks.Select(c => BatchJson(c.State, c.Info)) }, exitCode));
             return exitCode;
         }
 
@@ -197,19 +202,19 @@ internal static partial class TranslateCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = canceled.Select(s => BatchJson(s)) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = canceled.Select(s => BatchJson(s)) }));
             return ErrorHandler.OkExitCode;
         }
 
         if (canceled.Count == 0)
         {
-            output.WriteLine("Nenhum lote em aberto neste projeto.");
+            await output.WriteLineAsync("Nenhum lote em aberto neste projeto.");
             return ErrorHandler.OkExitCode;
         }
 
         foreach (var state in canceled)
         {
-            output.WriteLine($"Cancelamento pedido para o lote {state.Id} ({state.Title}). O que já tinha voltado é gravado quando a API encerrar o lote: rode 'vnf translate --batch' mais tarde.");
+            await output.WriteLineAsync($"Cancelamento pedido para o lote {state.Id} ({state.Title}). O que já tinha voltado é gravado quando a API encerrar o lote: rode 'vnf translate --batch' mais tarde.");
         }
 
         return ErrorHandler.OkExitCode;

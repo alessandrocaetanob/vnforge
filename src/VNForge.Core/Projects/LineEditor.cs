@@ -179,7 +179,7 @@ public sealed class LineEditor
         new(translation, new TranslationOrigin(ManualProvider, null, clock.GetUtcNow()), read);
 
     private BatchTranslationResult SetTranslationForScripts(
-        IReadOnlyList<(string ScriptKey, string Id)> targets,
+        List<(string ScriptKey, string Id)> targets,
         TranslationRun run,
         IProgress<BatchProgress>? progress = null,
         CancellationToken cancellation = default)

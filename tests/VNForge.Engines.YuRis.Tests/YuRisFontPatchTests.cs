@@ -251,7 +251,7 @@ public sealed class YuRisFontPatchTests : IDisposable
     [Fact]
     public void Engine_YU_RIS_oferece_o_patch_para_o_executavel_do_projeto()
     {
-        var provider = Assert.IsAssignableFrom<IGamePatchProvider>(new YuRisEngine());
+        var provider = Assert.IsType<IGamePatchProvider>(new YuRisEngine(), exactMatch: false);
 
         var patch = Assert.Single(provider.CreatePatches("bin/jogo.exe"));
 

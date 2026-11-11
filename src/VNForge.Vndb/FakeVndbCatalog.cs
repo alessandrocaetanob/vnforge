@@ -208,7 +208,7 @@ public sealed class FakeVndbCatalog : IVndbCatalog, IVndbUserList
         }
     }
 
-    private IEnumerable<VndbCharacter> CharactersOf(ICollection<string> visualNovelIds) =>
+    private IEnumerable<VndbCharacter> CharactersOf(HashSet<string> visualNovelIds) =>
         _characters.Where(c => c.Appearances.Any(a => visualNovelIds.Contains(a.VisualNovelId)));
 
     private void Record(string method, string argument)

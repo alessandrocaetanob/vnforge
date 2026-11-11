@@ -11,7 +11,7 @@ namespace VNForge.Core.Text;
 /// <remarks>
 /// Só troca quando o substituto é gravável pelo encoder, e caractere fora da tabela fica como está: o erro continua visível para a pessoa decidir.
 /// A pontuação japonesa que a tabela de <see cref="JapanesePunctuation"/> cobre e esta não (<c>。 、 【 】</c>) segue a tabela dela. Idempotente,
-/// porque todo substituto é ASCII.
+/// porque cada substituto é ASCII.
 /// </remarks>
 public static class UnwritableCharacters
 {
@@ -116,12 +116,9 @@ public static class UnwritableCharacters
 
         var decomposed = original.Normalize(NormalizationForm.FormD);
         var bare = new StringBuilder(decomposed.Length);
-        foreach (var c in decomposed)
+        foreach (var c in decomposed.Where(c => c is < '\u0300' or > '\u036F'))
         {
-            if (c is < '̀' or > 'ͯ')
-            {
-                bare.Append(c);
-            }
+            bare.Append(c);
         }
 
         return bare.Length > 0 && bare.Length < decomposed.Length && bare.ToString() != original ? bare.ToString() : null;

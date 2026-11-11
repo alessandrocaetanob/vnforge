@@ -23,6 +23,7 @@ internal sealed partial class TestWindow : IDisposable
     private static readonly nint PerMonitorAwareV2 = -4;
 
     private readonly string _className = "VNForgeTestWindow" + Guid.NewGuid().ToString("N");
+    private readonly nint _classNameBuffer;
     private readonly nint _previousDpi;
     private readonly nint _brush;
 
@@ -33,6 +34,7 @@ internal sealed partial class TestWindow : IDisposable
         Title = "VNForge captura de teste " + Guid.NewGuid().ToString("N");
         _brush = CreateSolidBrush((uint)(red | (green << 8) | (blue << 16)));
         var instance = GetModuleHandleW(null);
+        _classNameBuffer = Marshal.StringToHGlobalUni(_className);
         var defaultProcedure = NativeLibrary.GetExport(NativeLibrary.Load("user32.dll"), "DefWindowProcW");
         var window = new WindowClass
         {
@@ -40,7 +42,7 @@ internal sealed partial class TestWindow : IDisposable
             Procedure = defaultProcedure,
             Instance = instance,
             Background = _brush,
-            ClassName = _className,
+            ClassName = _classNameBuffer,
         };
         if (RegisterClassExW(ref window) == 0)
         {
@@ -89,13 +91,14 @@ internal sealed partial class TestWindow : IDisposable
         DestroyWindow(Handle);
         UnregisterClassW(_className, GetModuleHandleW(null));
         DeleteObject(_brush);
+        Marshal.FreeHGlobal(_classNameBuffer);
         if (_previousDpi != 0)
         {
             SetThreadDpiAwarenessContext(_previousDpi);
         }
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct WindowClass
     {
         public uint Size;
@@ -107,8 +110,8 @@ internal sealed partial class TestWindow : IDisposable
         public nint Icon;
         public nint Cursor;
         public nint Background;
-        public string? MenuName;
-        public string ClassName;
+        public nint MenuName;
+        public nint ClassName;
         public nint SmallIcon;
     }
 
@@ -124,42 +127,49 @@ internal sealed partial class TestWindow : IDisposable
         public int Y;
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern ushort RegisterClassExW(ref WindowClass windowClass);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    private static partial ushort RegisterClassExW(ref WindowClass windowClass);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool UnregisterClassW(string className, nint instance);
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UnregisterClassW(string className, nint instance);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern nint CreateWindowExW(uint extendedStyle, string className, string title, uint style, int x, int y, int width, int height, nint parent, nint menu, nint instance, nint parameter);
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    private static partial nint CreateWindowExW(uint extendedStyle, string className, string title, uint style, int x, int y, int width, int height, nint parent, nint menu, nint instance, nint parameter);
 
-    [DllImport("user32.dll")]
-    private static extern bool DestroyWindow(nint window);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DestroyWindow(nint window);
 
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(nint window, int command);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ShowWindow(nint window, int command);
 
-    [DllImport("user32.dll")]
-    private static extern bool UpdateWindow(nint window);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UpdateWindow(nint window);
 
-    [DllImport("user32.dll")]
-    private static extern bool PeekMessageW(out Message message, nint window, uint min, uint max, uint remove);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PeekMessageW(out Message message, nint window, uint min, uint max, uint remove);
 
-    [DllImport("user32.dll")]
-    private static extern bool TranslateMessage(ref Message message);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool TranslateMessage(ref Message message);
 
-    [DllImport("user32.dll")]
-    private static extern nint DispatchMessageW(ref Message message);
+    [LibraryImport("user32.dll")]
+    private static partial nint DispatchMessageW(ref Message message);
 
-    [DllImport("user32.dll")]
-    private static extern nint SetThreadDpiAwarenessContext(nint context);
+    [LibraryImport("user32.dll")]
+    private static partial nint SetThreadDpiAwarenessContext(nint context);
 
-    [DllImport("gdi32.dll")]
-    private static extern nint CreateSolidBrush(uint color);
+    [LibraryImport("gdi32.dll")]
+    private static partial nint CreateSolidBrush(uint color);
 
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(nint item);
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DeleteObject(nint item);
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    private static extern nint GetModuleHandleW(string? name);
+    [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial nint GetModuleHandleW(string? name);
 }

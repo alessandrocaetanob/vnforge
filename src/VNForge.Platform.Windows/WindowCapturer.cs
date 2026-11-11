@@ -28,7 +28,7 @@ public sealed class WindowCapturer : IWindowCapturer
         return Copy(system, window);
     }
 
-    private static IWindowSystem NativeSystem()
+    private static NativeWindowSystem NativeSystem()
     {
         if (!OperatingSystem.IsWindows())
         {

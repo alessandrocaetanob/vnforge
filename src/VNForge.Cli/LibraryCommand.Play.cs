@@ -75,7 +75,7 @@ internal static partial class LibraryCommand
         if (!json)
         {
             var how = launch.ViaLocaleEmulator ? " pelo Locale Emulator" : string.Empty;
-            parseResult.InvocationConfiguration.Error.WriteLine($"Abrindo {game.Title}{how}. O tempo conta até o jogo fechar; Ctrl+C para de contar e deixa o jogo aberto.");
+            await parseResult.InvocationConfiguration.Error.WriteLineAsync($"Abrindo {game.Title}{how}. O tempo conta até o jogo fechar; Ctrl+C para de contar e deixa o jogo aberto.");
         }
 
         var file = new PlayLogFile(cli.UserConfigDirectory, cli.Clock);
@@ -87,7 +87,7 @@ internal static partial class LibraryCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 game = GameData(game, library.Privacy, stats),
                 launch = new { executable = launch.Executable, gameExecutable = launch.GameExecutable, viaLocaleEmulator = launch.ViaLocaleEmulator },
@@ -97,10 +97,10 @@ internal static partial class LibraryCommand
         }
         else
         {
-            output.WriteLine(session.Interrupted
+            await output.WriteLineAsync(session.Interrupted
                 ? $"{game.Title}: contagem interrompida em {PlayTime.Format(session.Duration)}; o jogo continua aberto."
                 : $"{game.Title}: o jogo fechou. Sessão de {PlayTime.Format(session.Duration)}.");
-            output.WriteLine($"Total: {PlayTime.Format(stats.Total)} em {CliFormat.Count(stats.Sessions, "sessão", "sessões")}.");
+            await output.WriteLineAsync($"Total: {PlayTime.Format(stats.Total)} em {CliFormat.Count(stats.Sessions, "sessão", "sessões")}.");
         }
 
         token.ThrowIfCancellationRequested();
@@ -180,12 +180,21 @@ internal static partial class LibraryCommand
         }
         else
         {
-            output.WriteLine(current is not null
-                ? $"Locale Emulator: {current}.{(changed ? " Gravado." : string.Empty)}"
-                : $"Locale Emulator: não configurado.{(changed ? " Caminho esquecido." : " Informe com vnf library emulator <pasta ou LEProc.exe>.")}");
+            output.WriteLine(EmulatorSummary(current, changed));
         }
 
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string EmulatorSummary(string? current, bool changed)
+    {
+        if (current is not null)
+        {
+            return $"Locale Emulator: {current}.{(changed ? " Gravado." : string.Empty)}";
+        }
+
+        var hint = changed ? " Caminho esquecido." : " Informe com vnf library emulator <pasta ou LEProc.exe>.";
+        return $"Locale Emulator: não configurado.{hint}";
     }
 
     private static void WriteWarnings(ParseResult parseResult, PlayLogFile file, PlayLog played)

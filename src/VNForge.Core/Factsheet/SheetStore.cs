@@ -140,12 +140,18 @@ public sealed partial class SheetStore(string directory)
             ? throw new LibraryException("falta o id ou o nome do personagem.")
             : character with { Aliases = character.Aliases ?? [], Traits = character.Traits ?? [], Appearances = character.Appearances ?? [] };
 
-    private static string RequireId(string id, char prefix) =>
-        id is not null && IdPattern(prefix).IsMatch(id)
-            ? id
-            : throw new LibraryException($"'{id}' não é um id do VNDB de {(prefix == 'v' ? "jogo" : "personagem")} (esperado {prefix}1234).");
+    private static string RequireId(string id, char prefix)
+    {
+        if (id is not null && IdPattern(prefix).IsMatch(id))
+        {
+            return id;
+        }
 
-    private T? Read<T>(string path, string what, Func<T, T> check)
+        var kind = prefix == 'v' ? "jogo" : "personagem";
+        throw new LibraryException($"'{id}' não é um id do VNDB de {kind} (esperado {prefix}1234).");
+    }
+
+    private static T? Read<T>(string path, string what, Func<T, T> check)
         where T : class
     {
         if (!File.Exists(path))

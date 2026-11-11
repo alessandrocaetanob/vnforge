@@ -154,7 +154,7 @@ internal static class CheckCommand
                 {
                     if (written.Add(setting.Conflict.Field))
                     {
-                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Describe())}  {RuleTag(issue.RuleId)}");
+                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Summary())}  {RuleTag(issue.RuleId)}");
                     }
 
                     continue;
@@ -294,7 +294,7 @@ internal static class CheckCommand
         public bool Owns(QaIssue issue) =>
             issue.RuleId == FormattingConflictRule.RuleId && issue.Message.StartsWith(Prefix(Conflict), StringComparison.Ordinal);
 
-        public string Describe()
+        public string Summary()
         {
             var count = Errors == Lines
                 ? CliFormat.Count(Lines, "linha com erro", "linhas com erro")
@@ -371,9 +371,16 @@ internal static class CheckCommand
                 translation = v.Translation,
                 reference = v.IsReference,
                 lines = v.Lines.Select(l => new { unit = l.UnitId, script = l.ScriptKey }),
-                diff = v.Diff.Select(d => new { kind = d.Kind == TextDiffKind.Same ? "same" : d.Kind == TextDiffKind.Added ? "added" : "missing", text = d.Text }),
+                diff = v.Diff.Select(d => new { kind = DiffKindName(d.Kind), text = d.Text }),
             }),
         }),
         issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
+    };
+
+    private static string DiffKindName(TextDiffKind kind) => kind switch
+    {
+        TextDiffKind.Same => "same",
+        TextDiffKind.Added => "added",
+        _ => "missing",
     };
 }

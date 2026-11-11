@@ -121,16 +121,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
             return lines;
         }
 
-        var result = new List<LineEntry>();
-        foreach (var line in lines)
-        {
-            if (Matches(line))
-            {
-                result.Add(line);
-            }
-        }
-
-        return result;
+        return [.. lines.Where(Matches)];
     }
 
     public int Count(IReadOnlyList<LineEntry> lines)
@@ -141,16 +132,7 @@ public sealed record LineFilter(LineStatusFilter Status = LineStatusFilter.All, 
             return lines.Count;
         }
 
-        var count = 0;
-        foreach (var line in lines)
-        {
-            if (Matches(line))
-            {
-                count++;
-            }
-        }
-
-        return count;
+        return lines.Count(Matches);
     }
 
     private bool MatchesStatus(LineEntry line) => Status switch

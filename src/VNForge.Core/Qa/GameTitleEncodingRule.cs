@@ -22,6 +22,11 @@ public sealed class GameTitleEncodingRule : IQaRule
     public IEnumerable<QaIssue> Check(QaContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        return CheckTitle(context);
+    }
+
+    private static IEnumerable<QaIssue> CheckTitle(QaContext context)
+    {
         if (context.Encoder is not { } encoder || context.GameTitle is not { } title)
         {
             yield break;

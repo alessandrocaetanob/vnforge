@@ -120,7 +120,7 @@ public static partial class ScriptGrouping
     }
 
     /// <summary>
-    /// Os rótulos só valem quando descrevem o jogo todo. Um script solto com prefixo "0x" ou uma pasta de sistema entre dezenas de scripts sem rótulo não
+    /// Os rótulos só valem quando descrevem o jogo inteiro. Um script solto com prefixo "0x" ou uma pasta de sistema entre dezenas de scripts sem rótulo não
     /// é um capítulo: o resto da história cairia em <see cref="ExtraName"/>. Rótulos numerados precisam cobrir ao menos metade dos scripts e, se não cobrem
     /// todos, formar ao menos dois capítulos; os demais rótulos precisam cobrir ao menos metade.
     /// </summary>

@@ -32,16 +32,15 @@ internal static class VndbRules
         ArgumentNullException.ThrowIfNull(update);
         if (update.Vote.Kind == VndbChangeKind.Set)
         {
+            // S3236 é falso positivo: o ParamName "update" faz parte do contrato da exceção.
             ArgumentOutOfRangeException.ThrowIfLessThan(update.Vote.Value, MinVote, nameof(update));
             ArgumentOutOfRangeException.ThrowIfGreaterThan(update.Vote.Value, MaxVote, nameof(update));
         }
 
-        foreach (var id in update.LabelsSet.Concat(update.LabelsUnset))
+        var invalid = update.LabelsSet.Concat(update.LabelsUnset).Cast<int?>().FirstOrDefault(id => id is < 1 or > MaxLabelId || id == VotedLabelId);
+        if (invalid is { } label)
         {
-            if (id is < 1 or > MaxLabelId || id == VotedLabelId)
-            {
-                throw new ArgumentOutOfRangeException(nameof(update), id, $"Rótulo inválido: o VNDB aceita de 1 a {MaxLabelId}, e o {VotedLabelId} (Voted) sai sozinho com o voto.");
-            }
+            throw new ArgumentOutOfRangeException(nameof(update), label, $"Rótulo inválido: o VNDB aceita de 1 a {MaxLabelId}, e o {VotedLabelId} (Voted) sai sozinho com o voto.");
         }
     }
 

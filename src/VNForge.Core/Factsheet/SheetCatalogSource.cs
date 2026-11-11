@@ -29,11 +29,11 @@ public sealed class SheetCatalogSource(SheetStore store) : ILibrarySheetSource
         StaleCharacters += loaded.Count(c => c.HasUnknownSpoiler(id));
         var characters = loaded.Select(c => Character(c, id, terms)).ToList();
         var tagNames = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var tag in sheet.Tags)
+        foreach (var tagId in sheet.Tags.Select(tag => tag.Id))
         {
-            if (terms.Find(SheetTermKind.Tag, tag.Id) is { Text.HasTarget: true } term)
+            if (terms.Find(SheetTermKind.Tag, tagId) is { Text.HasTarget: true } term)
             {
-                tagNames[tag.Id] = term.Text.Target!;
+                tagNames[tagId] = term.Text.Target!;
             }
         }
 

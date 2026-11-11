@@ -52,8 +52,9 @@ public static class EvalReading
         var percent = (int)Math.Round(chosen.MeanChrf / reference.MeanChrf * 100, MidpointRounding.AwayFromZero);
         var text = $"{chosen.Config.Id} chega a {percent}% do chrF de {reference.Config.Id}{PriceClause(chosen, reference)}";
         var (wins, total) = round.HeadToHead(chosen.Config.Id, reference.Config.Id);
+        var pairNoun = total == 1 ? "par" : "pares";
         text += total > 0
-            ? $", e você preferiu {chosen.Config.Id} em {wins} de {total} {(total == 1 ? "par" : "pares")} contra {reference.Config.Id}."
+            ? $", e você preferiu {chosen.Config.Id} em {wins} de {total} {pairNoun} contra {reference.Config.Id}."
             : $". A rodada às cegas ainda não comparou {chosen.Config.Id} com {reference.Config.Id}.";
 
         var worst = round.Reports.Where(r => r != reference && r.Lines.Count > 0).OrderBy(r => r.MeanChrf).FirstOrDefault();

@@ -107,7 +107,7 @@ public sealed partial class GameInjector
         string gameDirectory,
         string staging,
         IReadOnlyList<string> relatives,
-        IReadOnlyDictionary<string, string> targetHashes,
+        Dictionary<string, string> targetHashes,
         BackupHistory history)
     {
         var files = new List<PlannedFile>();

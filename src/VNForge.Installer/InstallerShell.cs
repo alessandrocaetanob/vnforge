@@ -37,16 +37,13 @@ public static class GameExecutable
 {
     public static string? Find(string folder, PatchManifest manifest)
     {
-        foreach (var file in manifest.Files)
+        var patched = manifest.Files
+            .Where(file => file.Path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            .Select(file => Path.GetFullPath(Path.Combine(folder, file.Path)))
+            .FirstOrDefault(File.Exists);
+        if (patched is not null)
         {
-            if (file.Path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                var path = Path.GetFullPath(Path.Combine(folder, file.Path));
-                if (File.Exists(path))
-                {
-                    return path;
-                }
-            }
+            return patched;
         }
 
         var candidates = Directory.Exists(folder)

@@ -66,14 +66,24 @@ internal static class LinesCommand
 
         var unchanged = requested - changed.Count;
         var output = parseResult.InvocationConfiguration.Output;
-        var kind = speaker is null ? "original" : speaker.Length == 0 ? "narracao" : "nome";
+        var kind = speaker switch
+        {
+            null => "original",
+            { Length: 0 } => "narracao",
+            _ => "nome",
+        };
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new { action = "speaker", speaker = kind, name = speaker, changed = changed.Count, unchanged, lines = changed, scripts = byScript.Keys }));
             return ErrorHandler.OkExitCode;
         }
 
-        var what = speaker is null ? "devolvidas ao falante do jogo" : speaker.Length == 0 ? "com o falante trocado para Narração" : $"com o falante trocado para {speaker}";
+        var what = speaker switch
+        {
+            null => "devolvidas ao falante do jogo",
+            { Length: 0 } => "com o falante trocado para Narração",
+            _ => $"com o falante trocado para {speaker}",
+        };
         var rest = unchanged > 0 ? $" ({CliFormat.Count(unchanged, "linha já estava", "linhas já estavam")} assim)" : string.Empty;
         output.WriteLine($"{CliFormat.Count(changed.Count, "linha", "linhas")} {what}{rest}.");
         return ErrorHandler.OkExitCode;
@@ -167,9 +177,12 @@ internal static class LinesCommand
             }
         }
 
-        return unknown.Count == 0
-            ? byScript
-            : throw new VNForgeException($"Não existe linha nem script com {(unknown.Count == 1 ? "o alvo" : "os alvos")} '{string.Join("', '", unknown)}' nos text/*.json do projeto.");
+        if (unknown.Count > 0)
+        {
+            throw new VNForgeException($"Não existe linha nem script com {(unknown.Count == 1 ? "o alvo" : "os alvos")} '{string.Join("', '", unknown)}' nos text/*.json do projeto.");
+        }
+
+        return byScript;
     }
 
     private static void AddAll(SortedDictionary<string, List<string>> byScript, HashSet<string> seen, string key, IEnumerable<string> ids)
@@ -179,12 +192,9 @@ internal static class LinesCommand
             byScript[key] = list = [];
         }
 
-        foreach (var id in ids)
+        foreach (var id in ids.Where(seen.Add))
         {
-            if (seen.Add(id))
-            {
-                list.Add(id);
-            }
+            list.Add(id);
         }
     }
 }

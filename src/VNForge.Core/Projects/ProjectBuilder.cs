@@ -164,7 +164,7 @@ public static class ProjectBuilder
         DropWarningsReportedByQa(warnings, qaReport);
 
         var previous = options?.OnlyChanged == true ? BuildState.Load(project) : null;
-        var (rebuilt, built, state, reused) = RebuildScripts(project, game, ResolveSpeakers(texts, new CharacterBook(characters), encoder, gameKeys), encoder, previous, warnings, progress, cancellationToken);
+        var (rebuilt, built, state, reused) = RebuildScripts(project, game, ResolveSpeakers(texts, new CharacterBook(characters), encoder, gameKeys), new RebuildContext(encoder, previous, warnings), progress, cancellationToken);
         if (title is not null)
         {
             rebuilt.Add(title.Script);
@@ -316,7 +316,7 @@ public static class ProjectBuilder
     /// A Conferência já recusa o nome que não dá para gravar (<see cref="SpeakerEncodingRule"/>); aqui a recusa só vale para quem roda o build sem essa regra.
     /// </summary>
     /// <exception cref="VNForgeException">O nome de uma linha não pode ser gravado na estratégia.</exception>
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> ResolveSpeakers(
+    private static SortedDictionary<string, IReadOnlyList<TextUnit>> ResolveSpeakers(
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         CharacterBook characters,
         ITextEncoder encoder,
@@ -368,16 +368,17 @@ public static class ProjectBuilder
         }
     }
 
+    private sealed record RebuildContext(ITextEncoder Encoder, BuildState? Previous, List<string> Warnings);
+
     private static (List<RebuiltScript> Rebuilt, List<BuiltScript> Built, Dictionary<string, BuildStateScript> State, int Reused) RebuildScripts(
         ProjectFolder project,
         UnpackedGame game,
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
-        ITextEncoder encoder,
-        BuildState? previous,
-        List<string> warnings,
+        RebuildContext context,
         IProgress<ScriptWorkProgress>? progress,
         CancellationToken cancellationToken)
     {
+        var (encoder, previous, warnings) = context;
         var rebuilt = new List<RebuiltScript>();
         var built = new List<BuiltScript>();
         var state = new Dictionary<string, BuildStateScript>(StringComparer.Ordinal);

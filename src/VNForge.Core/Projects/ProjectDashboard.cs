@@ -111,9 +111,19 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
             ScriptNames = TryLoad(project.LoadScriptNames, ScriptNames.Empty),
             CharacterNames = TryLoad(project.LoadCharacters, []).GroupBy(c => c.Source.Trim(), Glossary.CharacterBook.NameComparer)
                 .ToDictionary(g => g.Key, g => g.First().Target, Glossary.CharacterBook.NameComparer),
-            Build = built ? BuildStatus.Current : BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale,
+            Build = BuildOf(project, built),
             LastBackupAt = restore?.Manifest.CreatedAt,
         };
+    }
+
+    private static BuildStatus BuildOf(ProjectFolder project, bool built)
+    {
+        if (built)
+        {
+            return BuildStatus.Current;
+        }
+
+        return BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale;
     }
 
     // Um arquivo de apoio inválido (nomes, personagens) não derruba o Painel: os números dependem só de text/*.json.

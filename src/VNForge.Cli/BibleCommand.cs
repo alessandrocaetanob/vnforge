@@ -491,7 +491,7 @@ internal static class BibleCommand
 
         var key = ValidateSceneEdit(project, request);
         var fields = ChangedFields(request);
-        var relations = request.Relations.Select(ParseRelation).ToList();
+        var relations = request.Relations.Select(relation => ParseRelation(relation)).ToList();
         project.UpdateBible(bible =>
         {
             var scene = ApplyEdit(bible.Scene(key) ?? new BibleScene(key), request);
@@ -649,7 +649,7 @@ internal static class BibleCommand
             : new BibleRelation(text[..at].Trim(), text[(at + 1)..].Trim());
     }
 
-    private static IEnumerable<string> SplitList(string text) =>
+    private static string[] SplitList(string text) =>
         text.Split(text.Contains(';', StringComparison.Ordinal) ? ';' : ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static int Export(VnfCli cli, ParseResult parseResult, string? path)

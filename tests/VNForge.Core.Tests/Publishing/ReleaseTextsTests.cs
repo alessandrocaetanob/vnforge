@@ -28,7 +28,7 @@ public sealed class ReleaseTextsTests : IDisposable
     private static TextUnit Unit(string id, string? translation, string? speaker = null) =>
         new(id, speaker is null ? TextUnitKind.Narration : TextUnitKind.Dialogue, speaker, "原文" + id, translation, translation is null ? TranslationStatus.Untranslated : TranslationStatus.Translated);
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts(params (string Key, TextUnit[] Units)[] scenes) =>
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts(params (string Key, TextUnit[] Units)[] scenes) =>
         scenes.ToDictionary(s => s.Key, s => (IReadOnlyList<TextUnit>)s.Units, StringComparer.Ordinal);
 
     private static ChangesSinceTest Changed(params ChangedScene[] scenes) => new(ChangesSinceTestState.Changed, null, false, scenes);

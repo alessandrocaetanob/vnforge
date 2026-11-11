@@ -62,7 +62,7 @@ public sealed record LibraryMatchRun(
 /// </summary>
 public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = null)
 {
-    private static readonly IReadOnlyDictionary<TermSource, double> Weights = new Dictionary<TermSource, double>
+    private static readonly Dictionary<TermSource, double> Weights = new Dictionary<TermSource, double>
     {
         [TermSource.WindowTitle] = 1.0,
         [TermSource.Folder] = 0.95,
@@ -94,19 +94,19 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
         var found = new Dictionary<string, VndbVisualNovel>(StringComparer.Ordinal);
         List<Scored> ranked = [];
         var searched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var term in terms)
+        foreach (var termText in terms.Select(term => term.Text))
         {
             if (searched.Count >= options.MaxSearches)
             {
                 break;
             }
 
-            if (!searched.Add(term.Text))
+            if (!searched.Add(termText))
             {
                 continue;
             }
 
-            foreach (var result in await catalog.SearchVisualNovelsAsync(term.Text, options.SearchLimit, cancellationToken).ConfigureAwait(false))
+            foreach (var result in await catalog.SearchVisualNovelsAsync(termText, options.SearchLimit, cancellationToken).ConfigureAwait(false))
             {
                 found.TryAdd(result.Id, result);
             }
@@ -218,7 +218,19 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
                 library.Replace(matched);
                 onMatched?.Invoke(matched);
                 consecutive = 0;
-                (matched.IsConfirmed ? confirmed : matched.Candidates.Count > 0 ? pending : notFound).Add(matched);
+                if (matched.IsConfirmed)
+                {
+                    confirmed.Add(matched);
+                }
+                else if (matched.Candidates.Count > 0)
+                {
+                    pending.Add(matched);
+                }
+                else
+                {
+                    notFound.Add(matched);
+                }
+
                 progress?.Report(new LibraryMatchProgress(i + 1, queue.Count, matched));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -73,11 +73,11 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
             items.Add(new SheetTranslationItem(SheetField.OfCharacter(character.Id).Key, SheetItemKind.CharacterDescription, character.Description!.Source, character.Name));
         }
 
-        foreach (var tag in game.Tags)
+        foreach (var tagId in game.Tags.Select(tag => tag.Id))
         {
-            if (terms.Find(SheetTermKind.Tag, tag.Id) is { } term && Needs(term.Text, force))
+            if (terms.Find(SheetTermKind.Tag, tagId) is { } term && Needs(term.Text, force))
             {
-                items.Add(new SheetTranslationItem(SheetField.OfTag(tag.Id).Key, SheetItemKind.TagName, term.Text.Source, term.Context));
+                items.Add(new SheetTranslationItem(SheetField.OfTag(tagId).Key, SheetItemKind.TagName, term.Text.Source, term.Context));
             }
         }
 
@@ -219,28 +219,18 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
     private static (List<(SheetTranslationItem Item, string Text)> Accepted, List<SheetTranslationFailure> Rejected) Check(
         IReadOnlyList<SheetTranslationItem> batch, IReadOnlyList<SheetTranslation> reply)
     {
-        var byKey = new Dictionary<string, string>(StringComparer.Ordinal);
-        var repeated = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var translation in reply)
-        {
-            if (translation?.Key is not null && !byKey.TryAdd(translation.Key, translation.Text ?? string.Empty))
-            {
-                repeated.Add(translation.Key);
-            }
-        }
+        var keyed = reply.Where(t => t?.Key is not null).GroupBy(t => t.Key, StringComparer.Ordinal).ToList();
+        var byKey = keyed.ToDictionary(g => g.Key, g => g.First().Text ?? string.Empty, StringComparer.Ordinal);
+        var repeated = keyed.Where(g => g.Skip(1).Any()).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
 
         List<(SheetTranslationItem, string)> accepted = [];
         List<SheetTranslationFailure> rejected = [];
         foreach (var item in batch)
         {
-            var problem = !byKey.TryGetValue(item.Key, out var text) ? "A IA não devolveu este item."
-                : repeated.Contains(item.Key) ? "A IA devolveu este item mais de uma vez."
-                : string.IsNullOrWhiteSpace(text) ? "A IA devolveu o item vazio."
-                : item.IsProse && !SheetMarkup.SameSpoilerLayout(text, item.Source) ? "A IA perdeu ou mudou um trecho de spoiler."
-                : null;
+            var problem = Problem(item, byKey, repeated);
             if (problem is null)
             {
-                accepted.Add((item, text!.Trim()));
+                accepted.Add((item, byKey[item.Key].Trim()));
             }
             else
             {
@@ -249,6 +239,26 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
         }
 
         return (accepted, rejected);
+    }
+
+    private static string? Problem(SheetTranslationItem item, Dictionary<string, string> byKey, HashSet<string> repeated)
+    {
+        if (!byKey.TryGetValue(item.Key, out var text))
+        {
+            return "A IA não devolveu este item.";
+        }
+
+        if (repeated.Contains(item.Key))
+        {
+            return "A IA devolveu este item mais de uma vez.";
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "A IA devolveu o item vazio.";
+        }
+
+        return item.IsProse && !SheetMarkup.SameSpoilerLayout(text, item.Source) ? "A IA perdeu ou mudou um trecho de spoiler." : null;
     }
 
     /// <summary>Grava o lote relendo cada texto sob a trava: só entra o que ainda tem o mesmo original e ainda precisa de tradução (a pessoa pode ter mexido no meio).</summary>
@@ -270,7 +280,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                             s.SaveGame(game);
                             saved++;
                             break;
-                        case SheetFieldKind.Character when s.LoadCharacter(field.Id!) is { Description: { } description } character && Fresh(description, item, force, overwrite):
+                        case SheetFieldKind.Character when field.Id is { } characterId && s.LoadCharacter(characterId) is { Description: { } description } character && Fresh(description, item, force, overwrite):
                             s.SaveCharacter(character with { Description = description.TranslatedByAi(target) });
                             saved++;
                             break;

@@ -101,7 +101,7 @@ public static class BibleSerializer
         for (var i = 0; i < bible.Scenes.Count; i++)
         {
             var scene = bible.Scenes[i] ?? throw new GlossaryFileException(filePath, $"$.scenes[{i}]: a cena é nula.");
-            if (string.IsNullOrWhiteSpace(scene.Key) || scene.Key != scene.Key.Trim().ToLowerInvariant())
+            if (string.IsNullOrWhiteSpace(scene.Key) || !string.Equals(scene.Key, scene.Key.Trim().ToLowerInvariant(), StringComparison.Ordinal))
             {
                 throw new GlossaryFileException(filePath, $"$.scenes[{i}].key: a chave '{scene.Key}' é inválida; use minúsculas e sem espaços nas pontas.");
             }

@@ -43,7 +43,8 @@ public static class PortugueseTranslations
 
             foreach (var language in release.Languages.Where(l => Languages.Contains(l.Language, StringComparer.OrdinalIgnoreCase)))
             {
-                var status = language.MachineTranslated ? PortugueseStatus.MachineOnly : link.ReleaseType == "partial" ? PortugueseStatus.Partial : PortugueseStatus.Complete;
+                var humanStatus = link.ReleaseType == "partial" ? PortugueseStatus.Partial : PortugueseStatus.Complete;
+                var status = language.MachineTranslated ? PortugueseStatus.MachineOnly : humanStatus;
                 found.Add((status, release.Id));
             }
         }

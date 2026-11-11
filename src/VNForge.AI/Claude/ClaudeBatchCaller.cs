@@ -31,7 +31,7 @@ internal sealed class ClaudeBatchCaller(IClaudeMessageClient client, ClaudeOptio
     }
 
     /// <summary>
-    /// Uma chamada só para o lote inteiro, sem refazer linha a linha numa recusa: serve ao pedido que só faz sentido com o lote todo (a passada de editor lê a cena
+    /// Uma chamada só para o lote inteiro, sem refazer linha a linha numa recusa: serve ao pedido que só faz sentido com o lote inteiro (a passada de editor lê a cena
     /// inteira). A recusa sobe como <see cref="ClaudeRefusalException"/>.
     /// </summary>
     public Task<IReadOnlyList<T>> RunOnceAsync<T>(TranslationBatch batch, ClaudeBatchSpec<T> spec, CancellationToken ct)

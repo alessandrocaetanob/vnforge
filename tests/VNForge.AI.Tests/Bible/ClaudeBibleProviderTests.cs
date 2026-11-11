@@ -21,15 +21,19 @@ public sealed class ClaudeBibleProviderTests
         }
     }
 
+    private static readonly string[] SceneCharacters = ["Kenta", "Ren"];
+    private static readonly string[] SceneTone = ["cômico leve"];
+    private static readonly string[] SceneJokes = ["o guarda-chuva"];
+
     private static string SceneJson(string key, string summary = "Kenta e Ren chegam à escola.") =>
         JsonSerializer.Serialize(new
         {
             key,
             name = "Atraso no portão",
             summary,
-            characters = new[] { "Kenta", "Ren" },
-            tone = new[] { "cômico leve" },
-            jokes = new[] { "o guarda-chuva" },
+            characters = SceneCharacters,
+            tone = SceneTone,
+            jokes = SceneJokes,
             relations = new[] { new { between = "Kenta e Ren", note = "Amigos de infância" } },
         });
 
