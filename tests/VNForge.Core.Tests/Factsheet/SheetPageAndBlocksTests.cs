@@ -39,11 +39,11 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     {
         Assert.Equal(0, new SheetVisibility(-3).SpoilerLevel);
         Assert.Equal(2, new SheetVisibility(9).SpoilerLevel);
-        Assert.Equal(new SheetVisibility(2, true), SheetVisibility.From(new LibraryPrivacy(ShowSpoilers: true, ShowAdult: true)));
+        Assert.Equal(new SheetVisibility(2, AdultMode.Show), SheetVisibility.From(new LibraryPrivacy(ShowSpoilers: true, Adult: AdultMode.Show)));
         Assert.Equal(new SheetVisibility(), SheetVisibility.From(new LibraryPrivacy()));
         Assert.False(new SheetVisibility(1).ShowsSpoilers);
         Assert.True(new SheetVisibility(2).ShowsSpoilers);
-        Assert.Equal(new LibraryPrivacy(true, true), new SheetVisibility(2, true).ToPrivacy());
+        Assert.Equal(new LibraryPrivacy(true, AdultMode.Show), new SheetVisibility(2, AdultMode.Show).ToPrivacy());
         Assert.Equal(["Escondido", "Escondido", "Leve", "Tudo"], new[] { -1, 0, 1, 2 }.Select(SheetVisibility.LevelName));
     }
 
@@ -86,7 +86,7 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         await Translated();
 
         var hidden = Card(new SheetVisibility());
-        var adult = Card(new SheetVisibility(2, showAdult: true));
+        var adult = Card(new SheetVisibility(2, AdultMode.Show));
 
         Assert.Equal((2, 1, 1), (hidden.HiddenTags, hidden.HiddenSpoilerTags, hidden.HiddenAdultTags));
         Assert.Equal((0, 0, 0), (adult.HiddenTags, adult.HiddenSpoilerTags, adult.HiddenAdultTags));
@@ -230,7 +230,7 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     {
         await Translated();
 
-        var traits = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
+        var traits = Blocks(new SheetVisibility(0, AdultMode.Show))[2].Pairs[1];
 
         Assert.True(traits.IsList);
         Assert.Equal([SheetField.OfTrait("i1"), SheetField.OfTrait("i104")], traits.Fields);
@@ -305,7 +305,7 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     {
         await Translated();
         SheetEditor.Review(Store, Game1, [SheetField.OfTrait("i104")]);
-        var pair = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
+        var pair = Blocks(new SheetVisibility(0, AdultMode.Show))[2].Pairs[1];
 
         SheetBlocks.EditPair(Store, Game1, pair, "Cabelo longo,  PT: Virgin Sex");
 
@@ -318,7 +318,7 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     public async Task Editar_uma_lista_com_o_numero_errado_de_nomes_recusa_e_nao_grava_nada()
     {
         await Translated();
-        var pair = Blocks(new SheetVisibility(0, true))[2].Pairs[1];
+        var pair = Blocks(new SheetVisibility(0, AdultMode.Show))[2].Pairs[1];
 
         var ex = Assert.Throws<LibraryException>(() => SheetBlocks.EditPair(Store, Game1, pair, "Só um"));
 

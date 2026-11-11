@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             xmlns:core="using:VNForge.Core.Library"
+             x:Class="VNForge.App.Views.GamePlayStatsView"
+             x:DataType="vm:GamePlayViewModel"
+            >
+
+  <UserControl.Styles>
+    <!-- A barra do gráfico por semana: accent-soft nas semanas de antes e accent na de agora. -->
+    <Style Selector="Border.play-bar">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="CornerRadius" Value="4,4,0,0"/>
+    </Style>
+    <Style Selector="Border.play-bar.current">
+      <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Spacing="16" IsVisible="{Binding HasGame}">
+    <Border Classes="sheet-card">
+      <StackPanel Spacing="12">
+        <TextBlock Classes="sheet-h3" Text="Tempo de jogo"/>
+        <TextBlock Name="TotalText" FontFamily="{DynamicResource Vnf.FontDisplay}" FontSize="40" LineHeight="44" FontWeight="Bold" Text="{Binding TotalText}"/>
+        <TextBlock Name="AverageText" Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding AverageText}"/>
+        <ItemsControl Name="Bars" Height="80" ItemsSource="{Binding Bars}" Margin="-3,0" AutomationProperties.Name="Tempo de jogo por semana">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:WeekBar">
+              <Border Classes="play-bar" Classes.current="{Binding IsCurrent}" Height="{Binding Height}" Margin="3,0" VerticalAlignment="Bottom" ToolTip.Tip="{Binding Tip}"/>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="lib-dim" FontSize="11" LineHeight="20" Foreground="{DynamicResource Vnf.TextTertiary}" Text="12 semanas atrás"/>
+          <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="11" LineHeight="20" Foreground="{DynamicResource Vnf.TextTertiary}" Text="esta semana"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="sheet-card">
+      <StackPanel Spacing="12">
+        <TextBlock Classes="sheet-h3" Text="Último jogado"/>
+        <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="Este jogo fica no topo da Biblioteca, em Continuar jogando, por até 30 dias."/>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -40,6 +40,31 @@ internal sealed class TempFolder : IDisposable
     }
 }
 
+internal static class TestFiles
+{
+    /// <summary>
+    /// Grava um arquivo do projeto que um ViewModel ainda pode estar lendo em segundo plano (o Painel, a Conferência, o Glossário e o Editor leem o texto ao abrir):
+    /// no Windows a gravação cai em violação de compartilhamento enquanto a leitura segura o arquivo. A leitura dura milissegundos, então esperar basta;
+    /// um handle que nunca fecha estoura o prazo e a IOException original sobe.
+    /// </summary>
+    public static void WriteAllTextWhileReadersFinish(string path, string text)
+    {
+        var deadline = Environment.TickCount64 + 10_000;
+        while (true)
+        {
+            try
+            {
+                File.WriteAllText(path, text);
+                return;
+            }
+            catch (IOException) when (Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(10);
+            }
+        }
+    }
+}
+
 internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
 {
     public override DateTimeOffset GetUtcNow() => now.ToUniversalTime();

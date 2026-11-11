@@ -9,7 +9,7 @@ namespace VNForge.Core.Tests.Library;
 public sealed class LibraryScreenModelsTests
 {
     private static readonly LibraryPrivacy Hidden = new();
-    private static readonly LibraryPrivacy Everything = new(ShowSpoilers: true, ShowAdult: true);
+    private static readonly LibraryPrivacy Everything = new(ShowSpoilers: true, Adult: AdultMode.Show);
 
     private static LibraryGame Yuris(string name) =>
         Plain(name) with { Engine = new LibraryEngine("yuris", "Yu-RIS", LibraryEngineSource.Engine) };
@@ -81,19 +81,21 @@ public sealed class LibraryScreenModelsTests
     }
 
     [Fact]
-    public void Capa_adulta_fica_escondida_sem_o_estado_do_casamento_e_aparece_quando_a_pessoa_deixa()
+    public void Capa_adulta_leva_o_selo_em_todo_modo_e_so_o_desfocar_pede_o_borrao()
     {
         var game = Matched(Signature("Kuroneko Archive", "KiriKiri"), adult: true);
 
-        var hidden = LibraryCards.Describe(game, Hidden);
+        var blur = LibraryCards.Describe(game, Hidden);
         var shown = LibraryCards.Describe(game, Everything);
+        var hide = LibraryCards.Describe(game, new LibraryPrivacy(Adult: AdultMode.Hide));
 
-        Assert.Equal(LibraryCoverKind.AdultVeil, hidden.Cover);
-        Assert.Null(hidden.Image);
-        Assert.Equal(LibraryMatchState.None, hidden.Match);
-        Assert.Equal(LibraryCoverKind.Image, shown.Cover);
-        Assert.Equal(VndbImageVisibility.AdultLevel, shown.Image!.Sexual);
-        Assert.Equal(LibraryMatchState.Matched, shown.Match);
+        Assert.All([blur, shown, hide], c => Assert.True(c.Adult));
+        Assert.All([blur, shown, hide], c => Assert.Equal(LibraryCoverKind.Image, c.Cover));
+        Assert.True(blur.CoverBlurred);
+        Assert.False(shown.CoverBlurred);
+        Assert.False(hide.CoverBlurred);
+        Assert.Equal(LibraryMatchState.Matched, blur.Match);
+        Assert.Equal(VndbImageVisibility.AdultLevel, blur.Image!.Sexual);
     }
 
     [Fact]

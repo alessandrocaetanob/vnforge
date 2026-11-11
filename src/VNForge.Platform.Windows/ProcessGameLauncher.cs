@@ -11,6 +11,7 @@ namespace VNForge.Platform.Windows;
 /// aberto pelo <c>LEProc.exe</c>) entrem na contagem mesmo depois que o pai sai.
 /// Limites: o processo é colocado no job logo depois de iniciado, então um filho criado nesse intervalo de milissegundos fica de fora; e um jogo que pede
 /// administrador abre pelo shell (com o aviso do UAC) e não entra no job, então só o processo aberto é acompanhado, sem os filhos.
+/// Um jogo marcado como "abre um lançador antes" (<see cref="GameLaunch.OpensLauncher"/>) é acompanhado pelo executável dele (<see cref="LauncherAwareProcess"/>), já que o lançador pode abri-lo fora do job.
 /// </summary>
 public sealed class ProcessGameLauncher : IGameLauncher
 {
@@ -29,8 +30,9 @@ public sealed class ProcessGameLauncher : IGameLauncher
     }
 
     [SupportedOSPlatform("windows")]
-    private static JobGameProcess StartOnWindows(GameLaunch launch)
+    private static IGameProcess StartOnWindows(GameLaunch launch)
     {
+        HashSet<int> before = launch.OpensLauncher ? Running().Select(p => p.Id).ToHashSet() : [];
         var process = Open(launch, useShell: false);
         var job = JobObject.TryCreate();
         if (job is not null && !TryAssign(job, process))
@@ -39,7 +41,47 @@ public sealed class ProcessGameLauncher : IGameLauncher
             job = null;
         }
 
-        return new JobGameProcess(process, job);
+        var opened = new JobGameProcess(process, job);
+        return launch.OpensLauncher && launch.GameFolder is { } folder
+            ? new LauncherAwareProcess(opened, () => PollGame(launch.GameExecutable, folder, before))
+            : opened;
+    }
+
+    // O jogo que o lançador abre não é filho do processo aberto, então fica fora do job. O executável guardado é o do lançador: o jogo é um programa novo da pasta dele.
+    [SupportedOSPlatform("windows")]
+    private static GameProcessState? PollGame(string launcherExecutable, string gameFolder, IReadOnlySet<int> before)
+    {
+        var ids = LauncherGameFinder.Find(Running(), launcherExecutable, gameFolder, before);
+        return ids.Count == 0 ? null : ids.All(JobGameProcess.IsSuspended) ? GameProcessState.Suspended : GameProcessState.Running;
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static List<RunningProgram> Running()
+    {
+        var running = new List<RunningProgram>();
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                running.Add(new RunningProgram(process.Id, PathOf(process)));
+            }
+        }
+
+        return running;
+    }
+
+    // Sem acesso ao processo (ele roda como administrador) o caminho fica nulo e o processo não é confirmado: contar pelo nome do executável poderia pegar outro programa.
+    [SupportedOSPlatform("windows")]
+    private static string? PathOf(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch (Exception e) when (e is Win32Exception or InvalidOperationException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private static Process Open(GameLaunch launch, bool useShell)
@@ -111,7 +153,7 @@ public sealed class ProcessGameLauncher : IGameLauncher
         }
 
         // O Windows não tem "processo suspenso": ele está suspenso quando todas as threads esperam com o motivo Suspended.
-        private static bool IsSuspended(int processId)
+        internal static bool IsSuspended(int processId)
         {
             try
             {

@@ -7,7 +7,7 @@ namespace VNForge.Core.Library;
 /// Uma vez que a pessoa jogou. <paramref name="Duration"/> é o tempo contado (sem o tempo suspenso por mais que o limite nem o tempo em que o PC dormiu), então é
 /// no máximo <c><paramref name="EndedAt"/> - <paramref name="StartedAt"/></c>; nunca é negativa e <paramref name="EndedAt"/> nunca é anterior a <paramref name="StartedAt"/>.
 /// <paramref name="Open"/> marca a sessão em andamento: <paramref name="EndedAt"/> e <paramref name="Duration"/> valem até o último instante visto. Uma sessão que ficou aberta
-/// sem ninguém atualizá-la (o app ou o terminal fechou no meio) vira <paramref name="Interrupted"/>, com o que foi contado até ali.
+/// sem ninguém atualizá-la (o app ou o terminal fechou no meio) vira <paramref name="Interrupted"/>, com o que foi contado até ali. <paramref name="ViaLocaleEmulator"/> diz que o jogo abriu pelo Locale Emulator.
 /// </summary>
 public sealed record PlaySession(
     string Id,
@@ -15,7 +15,8 @@ public sealed record PlaySession(
     DateTimeOffset EndedAt,
     TimeSpan Duration,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Interrupted = false,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Open = false)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Open = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool ViaLocaleEmulator = false)
 {
     /// <summary>Uma sessão de <paramref name="Id"/> novo.</summary>
     public static string NewId() => Guid.NewGuid().ToString("N");

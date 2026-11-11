@@ -63,7 +63,7 @@ public sealed class LibraryTagFilterTests
         var (tags, games) = Setup();
 
         var withoutExplicit = LibraryTagFilter.Create(["favorito"], any: false, ["Cena Explícita", "x"]);
-        Assert.Equal(["CLANNAD"], Run(withoutExplicit, tags, games, new LibraryPrivacy(ShowAdult: true)));
+        Assert.Equal(["CLANNAD"], Run(withoutExplicit, tags, games, new LibraryPrivacy(Adult: AdultMode.Show)));
         Assert.Equal(["CLANNAD", "Eroge"], Run(withoutExplicit, tags, games));
         Assert.Equal(["Sem VNDB"], Run(LibraryTagFilter.Create(null, any: false, ["favorito"]), tags, games));
         Assert.Equal(["Eroge", "Sem VNDB"], Run(LibraryTagFilter.Create(null, any: false, ["rejogar"]), tags, games));
@@ -110,7 +110,7 @@ public sealed class LibraryTagFilterTests
         var filter = LibraryTagFilter.Create(["vndb:cena explícita"], any: false, null);
 
         Assert.Empty(Run(filter, tags, games));
-        Assert.Equal(["Eroge"], Run(filter, tags, games, new LibraryPrivacy(ShowAdult: true)));
+        Assert.Equal(["Eroge"], Run(filter, tags, games, new LibraryPrivacy(Adult: AdultMode.Show)));
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class LibraryTagFilterTests
 
         Assert.Equal([Drama], LibraryVisibility.VisibleTags(plain, Hidden));
         Assert.Empty(filter.Apply([plain], tags, Hidden));
-        Assert.Single(filter.Apply([plain], tags, new LibraryPrivacy(ShowAdult: true)));
+        Assert.Single(filter.Apply([plain], tags, new LibraryPrivacy(Adult: AdultMode.Show)));
         Assert.Equal(LibraryVisibility.Card(plain, Hidden)!.Tags, LibraryVisibility.VisibleTags(plain, Hidden));
     }
 
@@ -163,7 +163,7 @@ public sealed class LibraryTagFilterTests
         var filter = LibraryTagFilter.Create(["vndb:plot twist", "drama", "favorito", "cena explícita"], any: false, ["vndb:g3", "vndb:xyz"]);
 
         var masked = filter.Masked(games, tags, Hidden, out var count);
-        var revealed = filter.Masked(games, tags, new LibraryPrivacy(ShowSpoilers: true, ShowAdult: true), out var none);
+        var revealed = filter.Masked(games, tags, new LibraryPrivacy(ShowSpoilers: true, Adult: AdultMode.Show), out var none);
 
         Assert.Equal(3, count);
         Assert.Equal([LibraryTagFilter.HiddenTerm, "drama", "favorito", LibraryTagFilter.HiddenTerm], masked.Include);

@@ -66,6 +66,9 @@ public interface IVndbImageSource
     /// <summary>A privacidade da Biblioteca mudou (o ajuste foi trocado no app ou na CLI). Pode vir de qualquer thread; os controles na tela releem a imagem.</summary>
     event EventHandler? PrivacyChanged;
 
+    /// <summary>A privacidade em vigor, da memória (sem tocar o disco). O controle a lê para borrar a imagem adulta no <see cref="AdultMode.Blur"/>.</summary>
+    LibraryPrivacy Privacy => new();
+
     /// <summary>A posse do bitmap se ele já está na memória e a privacidade deixa ver; nulo senão. Não toca o disco nem a rede, então serve para a thread de UI. Quem recebe devolve a posse (<see cref="BitmapLease.Dispose"/>).</summary>
     BitmapLease? TryGet(VndbImageRef image);
 
@@ -112,6 +115,8 @@ public sealed class VndbImageSource : IVndbImageSource, IDisposable
     }
 
     public event EventHandler? PrivacyChanged;
+
+    public LibraryPrivacy Privacy => _privacy?.Current() ?? new LibraryPrivacy();
 
     public BitmapLease? TryGet(VndbImageRef image)
     {

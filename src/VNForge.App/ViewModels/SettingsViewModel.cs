@@ -404,10 +404,23 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasLocaleEmulator => LocaleEmulator is not null;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Jogos).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PageMaxWidth))]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab))]
     public partial int SelectedTab { get; set; }
+
+    /// <summary>A aba Privacidade (o modo do conteúdo adulto); nula, a aba fica escondida. O shell a liga à Biblioteca.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPrivacy))]
+    public partial PrivacySettingsViewModel? Privacy { get; set; }
+
+    public bool HasPrivacy => Privacy is not null;
+
+    /// <summary>A aba Privacidade está aberta: o aviso de cima fala da Biblioteca, não do projeto.</summary>
+    public bool IsPrivacyTab => SelectedTab == PrivacyTab;
+
+    /// <summary>Índice da aba Privacidade, logo depois de Aparência.</summary>
+    public const int PrivacyTab = 6;
 
     /// <summary>A aba VNDB (token e sincronização da lista); nula, a aba fica escondida. O App liga o serviço real ao montar a janela.</summary>
     [ObservableProperty]
@@ -418,6 +431,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     /// <summary>Índice da aba Dicionários.</summary>
     public const int DictionariesTab = 4;
+
+    /// <summary>Índice da aba Jogos.</summary>
+    public const int GamesTab = 6;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }

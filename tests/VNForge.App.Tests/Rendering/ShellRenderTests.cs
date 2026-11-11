@@ -99,9 +99,9 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Equal(GameTab.Sheet, Assert.IsType<GameTabItem>(tabs.SelectedItem).Tab);
             Assert.False(Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections")).IsEffectivelyVisible);
 
-            // O botão principal do quadro na Ficha é "Jogar", desabilitado até a #549, e o próximo passo do Painel não aparece.
+            // O botão principal do quadro na Ficha é "Jogar", sem efeito porque o projeto de amostra não está na Biblioteca, e o próximo passo do Painel não aparece.
             var play = Assert.Single(header.GetVisualDescendants().OfType<Button>(), b => b.Name == "PlayButton" && b.IsEffectivelyVisible);
-            Assert.False(play.IsEnabled);
+            Assert.False(play.IsEffectivelyEnabled);
             Assert.Contains(play.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Jogar");
             Assert.DoesNotContain(header.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Dashboard.OpenNextStepCommand && b.IsEffectivelyVisible);
 
@@ -369,6 +369,129 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
             Assert.Equal("Biblioteca › " + vm.ProjectTitle, vm.Breadcrumb);
         });
+    }
+
+    /// <summary>
+    /// O Editor de imagens no shell, a 1440×1000, com as medidas do quadro (conferência do #587): a página cabe sem barra de rolagem, "Abrir inventário" está na linha das seções em cinza de apoio,
+    /// o campo "Texto na imagem" tem o fundo de cartão e o inspetor, a barra de ferramentas e os cartões têm os tamanhos do quadro.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Imagens_no_shell_a_1440_por_1000_tem_as_medidas_do_quadro(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await AbrirImagens(theme, ScreenRenderer.Width, false, (window, vm) =>
+        {
+            var area = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "PageArea");
+            var view = area.GetVisualDescendants().OfType<ImagesView>().Single();
+            var scroller = view.GetVisualDescendants().OfType<ScrollViewer>().First();
+            Assert.Equal(0, scroller.ScrollBarMaximum.Y);
+            Assert.Equal(703, (int)Math.Round(area.Bounds.Height));
+
+            Button Named(Visual root, string name) => root.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == name);
+            double Width(Visual root, string name) => Math.Round(Named(root, name).Bounds.Width);
+            double Y(Visual visual) => visual.TranslatePoint(default, window)!.Value.Y;
+            Avalonia.Media.Color Token(string key) => window.TryFindResource(key, theme, out var found) && found is Avalonia.Media.ISolidColorBrush brush ? brush.Color : throw new InvalidOperationException($"O token {key} não é uma cor lisa no tema {themeName}.");
+
+            // "Abrir inventário" sobe para a linha das seções, em cinza de apoio; a página não tem mais o botão.
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            var sections = header.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "Sections");
+            var open = Named(header, "Abrir inventário");
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Abrir inventário");
+            Assert.True(open.IsEnabled);
+            Assert.Equal(Token("Vnf.TextSecondary"), Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(open.Foreground).Color);
+            Assert.InRange(Y(open) + (open.Bounds.Height / 2), Y(sections), Y(sections) + sections.Bounds.Height);
+
+            // O campo "Texto na imagem" tem o fundo de cartão, como os outros campos sobre o cartão.
+            var text = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "ImageText");
+            Assert.Equal(Token("Vnf.BgCard"), Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(text.Background).Color);
+
+            // O inspetor: "Lido pela IA" com 66 px, "Cor" 4 px abaixo de "Contorno", "Contorno" com 208 px.
+            var read = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "桜ヶ丘高校 校門").FindAncestorOfType<Border>()!;
+            Assert.Equal(66, Math.Round(read.Bounds.Height));
+            var overlines = view.GetVisualDescendants().OfType<OverlineText>().ToList();
+            var color = overlines.Single(o => o.Text == "Cor");
+            var outline = overlines.Single(o => o.Text == "Contorno");
+            Assert.Equal(4, Math.Round(Y(color) - Y(outline)));
+            Assert.Equal(208, Math.Round(outline.Bounds.Width));
+
+            // A barra de ferramentas: Apagar com 97 px e Texto com 84.
+            Assert.Equal(97, Width(view, "Apagar"));
+            Assert.Equal(84, Width(view, "Texto"));
+
+            // Os cartões Original e Traduzida com 302 px de altura e "O que muda no build" 11 px sob eles.
+            var cards = view.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text is "Original" or "Traduzida")).ToList();
+            Assert.Equal(2, cards.Count);
+            Assert.All(cards, c => Assert.Equal(302, Math.Round(c.Bounds.Height)));
+            var build = view.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("panel") && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "O que muda no build"));
+            Assert.Equal(11, Math.Round(Y(build) - (Y(cards[0]) + cards[0].Bounds.Height)));
+
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-pagina-imagens-inventario", theme)));
+        });
+    }
+
+    /// <summary>"Abrir inventário" fica na linha das seções sem cobrir nenhum item do seletor nem as abas: a 960 px, numa janela estreita onde desce para a linha de baixo e no cabeçalho compacto.</summary>
+    [Theory]
+    [InlineData("Dark", 960, false)]
+    [InlineData("Light", 960, false)]
+    [InlineData("Dark", 760, false)]
+    [InlineData("Dark", 1440, true)]
+    [InlineData("Dark", 960, true)]
+    public async Task Abrir_inventario_nao_cobre_o_seletor_de_secoes(string themeName, int width, bool compact)
+    {
+        await AbrirImagens(ThemeOf(themeName), width, compact, (window, _) =>
+        {
+            var header = Assert.Single(window.GetVisualDescendants().OfType<GameHeaderView>(), v => v.IsEffectivelyVisible);
+            Assert.Equal(compact, header.IsCompact);
+            var open = header.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Abrir inventário");
+            Rect Box(Control control) => new(control.TranslatePoint(default, header)!.Value, control.Bounds.Size);
+            var button = Box(open);
+            var sections = header.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "Sections");
+            var tabs = header.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "GameTabs");
+            var covered = sections.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyVisible).Cast<Control>().Append(tabs)
+                .Where(c => Box(c).Intersects(button)).Select(c => $"{c.GetType().Name} {Box(c)}").ToList();
+            Assert.True(covered.Count == 0, $"Abrir inventário ({button}) cobre {string.Join("; ", covered)} a {width} px");
+            Assert.True(button.Right <= header.Bounds.Width + 0.5, $"o botão {button} passa da largura {header.Bounds.Width}");
+            Assert.True(open.IsEnabled);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"shell-imagens-inventario-{(compact ? "compacto-" : string.Empty)}{width}", ThemeOf(themeName))));
+        });
+    }
+
+    /// <summary>O shell com a página de Imagens populada (a mesma dos testes de render), ligada pelo construtor como em produção, na página de Imagens.</summary>
+    private async Task AbrirImagens(ThemeVariant theme, int width, bool compact, Action<MainWindow, MainWindowViewModel> verificar)
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var composer = new AvaloniaImageComposer();
+                var images = ImagesRenderTests.NewPage(composer);
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(demoFolder.Root), new FixedClock(Now));
+                var vm = new MainWindowViewModel(start, images: images) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
+                var window = new MainWindow { Width = width, Height = ScreenRenderer.Height, RequestedThemeVariant = theme, DataContext = vm, HeaderCompactOverride = compact ? true : null };
+                try
+                {
+                    window.Show();
+                    await start.OpenFolderCommand.ExecuteAsync(null);
+                    await vm.ProjectOpening;
+                    await vm.Editor.Loading;
+                    // O projeto de demonstração não tem inventário de imagens: o editor populado dos testes de render assume a página depois de o jogo abrir.
+                    var (_, temp) = await ImagesRenderTests.Open(composer, images);
+                    using (temp)
+                    {
+                        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Images);
+                        ScreenRenderer.Settle(window);
+                        verificar(window, vm);
+                    }
+                }
+                finally
+                {
+                    window.Close();
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
     }
 
     private async Task Abrir(ThemeVariant theme, int width, int height, NavKey page, Action<MainWindow, MainWindowViewModel> verificar)

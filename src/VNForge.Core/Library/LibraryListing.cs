@@ -53,12 +53,13 @@ public static class LibraryListing
         };
     }
 
-    public static LibraryCounts Count(IEnumerable<LibraryGame> games, Func<LibraryGame, int?> percentOf)
+    /// <summary>As contagens dos chips. Com <paramref name="privacy"/>, o jogo que o <see cref="AdultMode.Hide"/> tira da Biblioteca não conta.</summary>
+    public static LibraryCounts Count(IEnumerable<LibraryGame> games, Func<LibraryGame, int?> percentOf, LibraryPrivacy? privacy = null)
     {
         ArgumentNullException.ThrowIfNull(games);
         ArgumentNullException.ThrowIfNull(percentOf);
         int all = 0, inTranslation = 0, noPortuguese = 0, unsupported = 0, supported = 0;
-        foreach (var game in games)
+        foreach (var game in games.Where(g => privacy is null || !privacy.Hides(g)))
         {
             var percent = percentOf(game);
             all++;
@@ -73,7 +74,8 @@ public static class LibraryListing
 
     /// <summary>
     /// Os jogos que cumprem o filtro e a busca, na ordem de <paramref name="games"/>. A busca é por palavra: todas as palavras têm de aparecer no título, no título original, no da janela,
-    /// no nome da pasta ou numa tag (as do VNDB que a privacidade deixa ver e as da pessoa), sem diferenciar maiúsculas nem acentos.
+    /// no nome da pasta ou numa tag (as do VNDB que a privacidade deixa ver e as da pessoa), sem diferenciar maiúsculas nem acentos. O jogo que o <see cref="AdultMode.Hide"/> tira
+    /// da Biblioteca nunca sai, nem por busca.
     /// </summary>
     public static IReadOnlyList<LibraryGame> Filter(IEnumerable<LibraryGame> games, LibraryFilter filter, string? query, Func<LibraryGame, int?> percentOf, UserTags? userTags, LibraryPrivacy privacy)
     {
@@ -83,7 +85,7 @@ public static class LibraryListing
         var words = Words(query);
         return
         [
-            .. games.Where(g => Matches(g, filter, percentOf(g)) && (words.Length == 0 || ContainsAll(Haystack(g, userTags, privacy), words))),
+            .. games.Where(g => !privacy.Hides(g) && Matches(g, filter, percentOf(g)) && (words.Length == 0 || ContainsAll(Haystack(g, userTags, privacy), words))),
         ];
     }
 

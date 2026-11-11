@@ -85,7 +85,7 @@ public sealed class VndbListRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                 {
                     window.Show();
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
-                    vm.Settings.SelectedTab = 7;
+                    vm.Settings.SelectedTab = 8;
                     await settings.Vndb!.RefreshAsync();
                     ScreenRenderer.Settle(window);
 

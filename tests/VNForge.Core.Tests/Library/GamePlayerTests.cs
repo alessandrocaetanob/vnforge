@@ -56,6 +56,18 @@ public sealed class GamePlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Espera_do_lancador_nao_conta_e_a_sessao_guarda_que_abriu_pelo_Locale_Emulator()
+    {
+        var launcher = new FakeLauncher(_clock, (Minute * 10, GameProcessState.Waiting), (Minute * 20, GameProcessState.Running), (Minute, GameProcessState.Exited));
+
+        var session = await Player(launcher).PlayAsync("g1", Launch with { ViaLocaleEmulator = true }, Ct);
+
+        Assert.Equal(TimeSpan.FromMinutes(21), session.Duration);
+        Assert.Equal(Start.AddMinutes(31), session.EndedAt);
+        Assert.True(Saved().SessionsOf("g1").Single().ViaLocaleEmulator);
+    }
+
+    [Fact]
     public async Task Suspenso_por_ate_o_limite_conta_e_por_mais_que_o_limite_nao()
     {
         var launcher = new FakeLauncher(
