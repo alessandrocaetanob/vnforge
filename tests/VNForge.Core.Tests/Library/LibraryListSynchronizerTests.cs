@@ -498,7 +498,7 @@ public sealed class LibraryListSynchronizerTests
             var fake = new FakeVndbCatalog();
             var writing = new DuringUpdate(fake, () => other.Update(l =>
             {
-                l.Privacy = new LibraryPrivacy(ShowAdult: true);
+                l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show);
                 l.Replace(l.Games[1] with { Title = "Mudou fora", ProjectPath = "C:\\Projetos\\g2" });
             }));
             var synchronizer = new LibraryListSynchronizer(writing, new FakeTimeProvider(Latest));

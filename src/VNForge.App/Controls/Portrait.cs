@@ -63,6 +63,8 @@ public sealed class Portrait : VndbImageControl
         set => SetValue(TintProperty, value);
     }
 
+    protected override double BlurThumbnail => 8;
+
     protected override string DefaultAutomationName => IsNarrator ? "Narração" : Seed is { Length: > 0 } name ? $"Retrato de {name}" : "Retrato";
 
     /// <summary>Um lado em px que vale no lugar do token do tamanho: a lista e a página de personagens passam de 64 px. Sem valor (NaN), vale o token.</summary>

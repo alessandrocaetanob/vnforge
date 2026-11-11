@@ -18,16 +18,20 @@ public enum LibraryFilter
 
     /// <summary>A engine foi reconhecida por assinatura de arquivo mas o VNForge ainda não a traduz. Engine que nem isso foi reconhecida não entra.</summary>
     Unsupported,
+
+    /// <summary>A engine é uma que o VNForge traduz.</summary>
+    Supported,
 }
 
 /// <summary>A contagem de cada chip de filtro.</summary>
-public sealed record LibraryCounts(int All, int InTranslation, int NoPortuguese, int Unsupported)
+public sealed record LibraryCounts(int All, int InTranslation, int NoPortuguese, int Unsupported, int Supported = 0)
 {
     public int Of(LibraryFilter filter) => filter switch
     {
         LibraryFilter.InTranslation => InTranslation,
         LibraryFilter.NoPortuguese => NoPortuguese,
         LibraryFilter.Unsupported => Unsupported,
+        LibraryFilter.Supported => Supported,
         _ => All,
     };
 }
@@ -44,30 +48,34 @@ public static class LibraryListing
             LibraryFilter.InTranslation => game.ProjectPath is not null && (percent ?? 0) < 100,
             LibraryFilter.NoPortuguese => game.ProjectPath is null && game.CurrentPortuguese?.Status != PortugueseStatus.Complete,
             LibraryFilter.Unsupported => game.Engine.Source == LibraryEngineSource.Signature,
+            LibraryFilter.Supported => game.Engine.Translatable,
             _ => true,
         };
     }
 
-    public static LibraryCounts Count(IEnumerable<LibraryGame> games, Func<LibraryGame, int?> percentOf)
+    /// <summary>As contagens dos chips. Com <paramref name="privacy"/>, o jogo que o <see cref="AdultMode.Hide"/> tira da Biblioteca não conta.</summary>
+    public static LibraryCounts Count(IEnumerable<LibraryGame> games, Func<LibraryGame, int?> percentOf, LibraryPrivacy? privacy = null)
     {
         ArgumentNullException.ThrowIfNull(games);
         ArgumentNullException.ThrowIfNull(percentOf);
-        int all = 0, inTranslation = 0, noPortuguese = 0, unsupported = 0;
-        foreach (var game in games)
+        int all = 0, inTranslation = 0, noPortuguese = 0, unsupported = 0, supported = 0;
+        foreach (var game in games.Where(g => privacy is null || !privacy.Hides(g)))
         {
             var percent = percentOf(game);
             all++;
             inTranslation += Matches(game, LibraryFilter.InTranslation, percent) ? 1 : 0;
             noPortuguese += Matches(game, LibraryFilter.NoPortuguese, percent) ? 1 : 0;
             unsupported += Matches(game, LibraryFilter.Unsupported, percent) ? 1 : 0;
+            supported += Matches(game, LibraryFilter.Supported, percent) ? 1 : 0;
         }
 
-        return new LibraryCounts(all, inTranslation, noPortuguese, unsupported);
+        return new LibraryCounts(all, inTranslation, noPortuguese, unsupported, supported);
     }
 
     /// <summary>
     /// Os jogos que cumprem o filtro e a busca, na ordem de <paramref name="games"/>. A busca é por palavra: todas as palavras têm de aparecer no título, no título original, no da janela,
-    /// no nome da pasta ou numa tag (as do VNDB que a privacidade deixa ver e as da pessoa), sem diferenciar maiúsculas nem acentos.
+    /// no nome da pasta ou numa tag (as do VNDB que a privacidade deixa ver e as da pessoa), sem diferenciar maiúsculas nem acentos. O jogo que o <see cref="AdultMode.Hide"/> tira
+    /// da Biblioteca nunca sai, nem por busca.
     /// </summary>
     public static IReadOnlyList<LibraryGame> Filter(IEnumerable<LibraryGame> games, LibraryFilter filter, string? query, Func<LibraryGame, int?> percentOf, UserTags? userTags, LibraryPrivacy privacy)
     {
@@ -77,7 +85,7 @@ public static class LibraryListing
         var words = Words(query);
         return
         [
-            .. games.Where(g => Matches(g, filter, percentOf(g)) && (words.Length == 0 || ContainsAll(Haystack(g, userTags, privacy), words))),
+            .. games.Where(g => !privacy.Hides(g) && Matches(g, filter, percentOf(g)) && (words.Length == 0 || ContainsAll(Haystack(g, userTags, privacy), words))),
         ];
     }
 

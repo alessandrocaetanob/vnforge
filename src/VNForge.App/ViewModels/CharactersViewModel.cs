@@ -282,7 +282,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     private void RebuildFrom(Snapshot data)
     {
-        var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.ShowAdult);
+        var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.Adult);
         var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
         var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
         LibraryCharacterList basis, shown;

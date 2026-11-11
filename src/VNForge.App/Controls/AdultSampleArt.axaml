@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VNForge.App.Controls.AdultSampleArt">
+
+  <!-- O desenho de exemplo da capa nos cartões da aba Privacidade (a mesma arte do quadro do #631): lua, colina e um gato. Vale como amostra; a capa real vem do VNDB. -->
+  <Border CornerRadius="{DynamicResource Vnf.RadiusMd}" ClipToBounds="True" Background="{DynamicResource Vnf.BgInset}">
+    <Viewbox Name="Art" Stretch="Fill">
+      <Canvas Width="300" Height="400">
+        <Canvas.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#7b2f78" Offset="0"/>
+            <GradientStop Color="#1d1230" Offset="1"/>
+          </LinearGradientBrush>
+        </Canvas.Background>
+        <Ellipse Canvas.Left="162" Canvas.Top="58" Width="104" Height="104" Fill="#f3d9a4"/>
+        <Path Fill="#12091f" Data="M0 330 C60 290 120 300 170 270 C220 240 260 270 300 250 V400 H0Z"/>
+        <Ellipse Canvas.Left="72" Canvas.Top="184" Width="76" Height="104" Fill="#0b0614"/>
+        <Ellipse Canvas.Left="82" Canvas.Top="140" Width="56" Height="56" Fill="#0b0614"/>
+        <Path Fill="#0b0614" Data="M88 150 L96 120 L112 146Z M132 150 L124 120 L108 146Z"/>
+        <Ellipse Canvas.Left="96" Canvas.Top="162" Width="8" Height="8" Fill="#f3d9a4"/>
+        <Ellipse Canvas.Left="116" Canvas.Top="162" Width="8" Height="8" Fill="#f3d9a4"/>
+      </Canvas>
+    </Viewbox>
+  </Border>
+</UserControl>

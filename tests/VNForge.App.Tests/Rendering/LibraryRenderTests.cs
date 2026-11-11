@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
@@ -24,7 +25,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     private static ThemeVariant ThemeOf(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
-    private static List<string> Texts(Window window) =>
+    private static List<string> Texts(Visual window) =>
         [.. window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).SelectMany(t => t.Inlines is { Count: > 0 } inlines ? inlines.OfType<Avalonia.Controls.Documents.Run>().Select(r => r.Text ?? string.Empty) : [t.Text ?? string.Empty]).Where(t => t.Length > 0)];
 
     [Theory]
@@ -40,17 +41,20 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Contains("Varrer de novo", texts);
             Assert.Contains("Adicionar pasta", texts);
             Assert.Contains(window.GetVisualDescendants().OfType<TextBox>(), t => t.PlaceholderText == "Buscar por título, original ou tag");
-            Assert.Equal(["Grade", "Lista"], window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Classes.Contains("libseg")).GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            Assert.Equal(["Grade", "Lista"], window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LayoutSwitch").GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
 
             var chips = window.GetVisualDescendants().OfType<FilterChip>().ToList();
-            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte"], chips.Select(c => c.Label));
-            Assert.Equal([12, 2, 9, 5], chips.Select(c => c.Count));
+            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte", "Engine suportada"], chips.Select(c => c.Label));
+            Assert.Equal([12, 2, 9, 5, 6], chips.Select(c => c.Count));
             Assert.True(chips[0].IsChecked);
 
-            foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Conteúdo adulto escondido", "18+" })
+            foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Adulto", "Desfocar", "Mostrar", "18+" })
             {
                 Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
             }
+
+            // O véu cinza de antes deu lugar ao desfoque: nenhuma capa adulta traz mais o texto "Conteúdo adulto escondido".
+            Assert.DoesNotContain("Conteúdo adulto escondido", texts);
 
             Assert.Contains("Média · 18 h · 38% traduzida", texts);
             Assert.Contains("Curta · 7 h · 100% traduzida", texts);
@@ -269,6 +273,53 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public Task Lista_mostra_a_fila_de_traducao_com_o_portugues_a_engine_o_texto_e_a_acao(string themeName) => MostrarFila(themeName, gaveta: false);
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public Task Fila_com_a_gaveta_aberta_cabe_sem_reticencias_nas_colunas_de_texto_e_duracao(string themeName) => MostrarFila(themeName, gaveta: true);
+
+    private async Task MostrarFila(string themeName, bool gaveta)
+    {
+        var theme = ThemeOf(themeName);
+        var checkedAt = LibrarySamples.Now.AddHours(-1);
+        LibraryGame Checked(LibraryGame g, PortugueseStatus status) => g with { Portuguese = new LibraryPortuguese(g.VndbId!, status, checkedAt, []) };
+        var games = LibrarySamples.Games()
+            .Select(g => g.ProjectPath is null && g.IsConfirmed ? Checked(g, g.Title == "Akatsuki no Kōro" ? PortugueseStatus.Partial : PortugueseStatus.None) : g)
+            .ToList();
+        await Abrir(theme, library =>
+        {
+            library.SelectFilter(LibraryFilter.NoPortuguese);
+            library.SelectedSort = library.Sorts[0];
+            library.SelectedLayout = library.Layouts[1];
+            if (gaveta)
+            {
+                library.Select(library.Cards.Single(c => c.Title == "Nanairo Ressha"));
+            }
+        }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[]
+                     {
+                         "Ordenar por", "Fila", "Título", "Duração", "Jogo", "Português no VNDB", "Engine", "Texto", "Não há", "Parcial", "Yu-RIS · traduz", "Siglus · sem suporte",
+                         "≈ 10 mil linhas", "Curta · 5 h", "Traduzir este jogo", "Sem suporte ainda", "Traduzir este jogo cria o projeto já preenchido",
+                         "Personagens, gêneros e sinopse vêm do VNDB. Você só confirma o jogo e escolhe os idiomas.",
+                     })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            var rows = window.GetVisualDescendants().OfType<Border>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("qrow")).ToList();
+            Assert.Equal(gaveta ? 1 : 0, rows.Count(r => r.Classes.Contains("sel")));
+            Assert.Equal(3, window.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Classes.Contains("accent") && b.Classes.Contains("sm")));
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(gaveta ? "biblioteca-fila-gaveta" : "biblioteca-fila", theme)));
+        }, games: games);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Filtro_por_tag_junta_a_sua_e_a_do_VNDB_com_o_popover_das_tags(string themeName)
     {
         var theme = ThemeOf(themeName);
@@ -344,15 +395,144 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         });
     }
 
-    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false)
+    public static TheoryData<string, AdultMode> AdultCases
+    {
+        get
+        {
+            var data = new TheoryData<string, AdultMode>();
+            foreach (var theme in new[] { "Dark", "Light" })
+            {
+                foreach (var mode in Enum.GetValues<AdultMode>())
+                {
+                    data.Add(theme, mode);
+                }
+            }
+
+            return data;
+        }
+    }
+
+    private static IEnumerable<Cover> KuronekoCovers(Visual root) =>
+        root.GetVisualDescendants().OfType<Cover>().Where(c => c.IsEffectivelyVisible && c.Image?.Url.Contains("kuroneko_archive", StringComparison.Ordinal) == true);
+
+    private static List<Button> RevealButtons(Visual root) =>
+        [.. root.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("rvb"))];
+
+    [Theory]
+    [MemberData(nameof(AdultCases))]
+    public async Task O_modo_adulto_decide_a_capa_o_selo_e_o_aviso_do_cabecalho_da_Biblioteca(string themeName, AdultMode mode)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, _ => { }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            var covers = KuronekoCovers(window).ToList();
+            Assert.Contains("Adulto", texts);
+            Assert.Contains(AdultModeItem.NameOf(mode), texts);
+            Assert.DoesNotContain("Conteúdo adulto escondido", texts);
+
+            if (mode == AdultMode.Hide)
+            {
+                Assert.Empty(covers);
+                Assert.DoesNotContain("18+", texts);
+                Assert.DoesNotContain("Kuroneko Archive", texts);
+                Assert.Contains("1 adulto escondido", texts);
+                Assert.Equal(11, window.GetVisualDescendants().OfType<FilterChip>().First().Count);
+                Assert.StartsWith("11 jogos em 2 pastas", texts.Single(t => t.Contains("em 2 pastas", StringComparison.Ordinal)), StringComparison.Ordinal);
+            }
+            else
+            {
+                var cover = Assert.Single(covers);
+                Assert.Contains("18+", texts);
+                Assert.DoesNotContain("1 adulto escondido", texts);
+                Assert.Equal(mode == AdultMode.Blur, cover.IsBlurred);
+                Assert.Equal(mode == AdultMode.Blur ? 1 : 0, RevealButtons(window).Count);
+                Assert.Contains("Kuroneko Archive", texts);
+            }
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName($"biblioteca-adulto-{AdultModeItem.NameOf(mode).ToLowerInvariant()}", theme)));
+        }, adultMode: mode);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task O_atalho_Adulto_abre_o_popover_dos_tres_modos_e_escolher_um_grava_e_fecha(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library => library.IsAdultPopoverOpen = true, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[]
+                     {
+                         "Conteúdo adulto", "Mostrar", "Desfocar", "Esconder", "Capa, tags, traços e imagens aparecem como vêm do VNDB.",
+                         "Capa e imagens ficam borradas e um clique mostra. Tags e traços esperam o clique.",
+                         "O jogo adulto sai da grade, da lista, da busca, de Continuar jogando, da fila e do catálogo.", "Vale para toda a Biblioteca. Mais em", "Ajustes · Privacidade",
+                     })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            // O popover leva a sombra dos flutuantes, como o das tags.
+            Assert.All(window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("lib-pop") && b.IsEffectivelyVisible), b => Assert.True(b.BoxShadow.Count > 0, "o popover perdeu a sombra dos flutuantes"));
+            var rows = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("adult-row")).ToList();
+            // A frase de cada modo em peso regular; só o nome é semibold.
+            Assert.All(rows.SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>()).Where(t => t.Classes.Contains("lib-dim")), t => Assert.Equal(FontWeight.Normal, t.FontWeight));
+            Assert.All(rows.Select(r => r.GetVisualDescendants().OfType<TextBlock>().First()), t => Assert.Equal(FontWeight.SemiBold, t.FontWeight));
+            Assert.Equal(["Mostrar", "Desfocar", "Esconder"], rows.Select(r => Avalonia.Automation.AutomationProperties.GetName(r)));
+            Assert.Equal([false, true, false], rows.Select(r => r.Classes.Contains("on")));
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-adulto-popover", theme)));
+
+            var hide = rows[2];
+            var at = hide.TranslatePoint(new Point(hide.Bounds.Width / 2, hide.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(at, MouseButton.Left);
+            window.MouseUp(at, MouseButton.Left);
+            ScreenRenderer.Settle(window);
+
+            Assert.Equal(AdultMode.Hide, vm.Library.AdultMode);
+            Assert.False(vm.Library.IsAdultPopoverOpen);
+            Assert.Empty(KuronekoCovers(window));
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task A_gaveta_do_jogo_adulto_borra_a_capa_e_o_mostrar_revela_a_capa_nas_duas_telas(string themeName)
+    {
+        var theme = ThemeOf(themeName);
+        await Abrir(theme, library => library.Select(library.Cards.Single(c => c.Title == "Kuroneko Archive")), (window, vm) =>
+        {
+            var drawer = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("lib-drawer"));
+            var drawerCover = drawer.GetVisualDescendants().OfType<Cover>().Single();
+            Assert.True(drawerCover.IsBlurred);
+            Assert.Contains("18+", drawer.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            Assert.Equal(2, RevealButtons(window).Count);
+            // O Desfocar esconde as tags eróticas: a pílula tracejada "Adulto escondido" vem depois da de spoiler.
+            var chips = drawer.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).Where(t => t is "Spoiler escondido" or "Adulto escondido").ToList();
+            Assert.Equal(["Spoiler escondido", "Adulto escondido"], chips);
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("biblioteca-adulto-gaveta", theme)));
+
+            var button = drawer.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DrawerReveal");
+            button.Command!.Execute(button.CommandParameter);
+            ScreenRenderer.Settle(window);
+
+            Assert.All(KuronekoCovers(window), c => Assert.False(c.IsBlurred));
+            Assert.Empty(RevealButtons(window));
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Name == "DrawerConceal" && b.IsEffectivelyVisible);
+        });
+    }
+
+    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false, IEnumerable<LibraryGame>? games = null, AdultMode adultMode = AdultMode.Blur)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
             {
                 using var config = new TempFolder();
                 var previous = VndbImages.Source;
-                VndbImages.Source = new LibrarySamples.Images();
-                var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library());
+                VndbImages.Source = new LibrarySamples.Images(new LibraryPrivacy(Adult: adultMode));
+                var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library(games));
                 var playLog = new PlayLogFile(config.Path);
                 if (played)
                 {
@@ -367,6 +547,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 {
                     window.Show();
                     await library.LoadAsync();
+                    library.ChooseAdultMode(adultMode);
                     montar(library);
                     ScreenRenderer.Settle(window);
                     verificar(window, vm);

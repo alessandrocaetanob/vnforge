@@ -23,6 +23,8 @@
           <StackPanel Orientation="Horizontal" Spacing="4">
             <PathIcon IsVisible="{Binding IsHidden}" Data="{StaticResource Icon.EyeOff}"/>
             <TextBlock Text="{Binding Text}"/>
+            <Button Classes="sheet-reveal" IsVisible="{Binding CanReveal}" Content="Mostrar" AutomationProperties.Name="Mostrar as tags de conteúdo adulto"
+                    Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).RevealAdultCommand}"/>
           </StackPanel>
         </Border>
         <Rectangle IsVisible="{Binding IsHidden}" IsHitTestVisible="False" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}"
@@ -101,7 +103,11 @@
                       <Border Classes="sheet-tile" Margin="0,0,12,12" AutomationProperties.Name="{Binding AutomationName}">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                           <Panel VerticalAlignment="Top" Width="56" Height="56">
-                            <c:Portrait Size="Md" Image="{Binding Image}" Seed="{Binding Name}" IsVisible="{Binding ShowsPortrait}"/>
+                            <c:Portrait Size="Md" Image="{Binding Image}" Revealed="{Binding Revealed}" Seed="{Binding Name}" IsVisible="{Binding ShowsPortrait}"/>
+                            <Button Classes="sheet-pveil" IsVisible="{Binding ShowsImageBlurred}" AutomationProperties.Name="Mostrar o retrato de conteúdo adulto"
+                                    Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).RevealAdultCommand}">
+                              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
+                            </Button>
                             <Border Classes="sheet-portrait-box" IsVisible="{Binding ShowsPlaceholder}">
                               <PathIcon Width="24" Height="24" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Person}"/>
                             </Border>

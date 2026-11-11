@@ -70,6 +70,9 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>A capa do cabeçalho está sem o borrão: a pessoa revelou este jogo na Biblioteca nesta sessão.</summary>
+    public bool GameCoverRevealed => Library.Reveal.IsRevealed(Sheet.VisualNovelId);
+
     private void ReadVndbLink(string root)
     {
         VndbLink? link = null;
@@ -85,6 +88,7 @@ public sealed partial class MainWindowViewModel
         GameOriginalTitle = link?.OriginalTitle ?? string.Empty;
         GameCover = link?.Cover;
         Sheet.Open(link?.VisualNovelId, link?.Title ?? ProjectTitle);
+        OnPropertyChanged(nameof(GameCoverRevealed));
         Sheet.ListCard = Library.ListCardForProject(root, link?.VisualNovelId);
     }
 

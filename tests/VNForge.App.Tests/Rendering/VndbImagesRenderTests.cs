@@ -186,7 +186,7 @@ public sealed class VndbImagesRenderTests(HeadlessFixture fixture) : IClassFixtu
         await fixture.Session.Dispatch<int>(
             async () =>
             {
-                using var scope = Scope.Start(() => new LibraryPrivacy());
+                using var scope = Scope.Start(() => new LibraryPrivacy(Adult: AdultMode.Hide));
                 var shown = new Portrait { Size = PortraitSize.Md, Image = KentaFace, Seed = "Kenta" };
                 var again = new Portrait { Size = PortraitSize.Sm, Image = KentaFace, Seed = "Kenta" };
                 var hidden = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };

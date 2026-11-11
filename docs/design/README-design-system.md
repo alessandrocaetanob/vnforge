@@ -19,7 +19,7 @@ Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Ava
 - `brand-shu` é só do selo 訳. `accent` e o verde de "Pronta" (`status-approved-*`) são parentes: por isso todo selo de estado leva uma palavra e a barra de progresso leva legenda.
 - Estados da linha usam os pares `status-*-bg` e `status-*-fg`: Pronta (`approved`), Revisada (`reviewed`), Sua (`translated`), IA (`ai`), Em japonês (`pending`). Aviso e erro do QA usam `signal-warning-*` e `signal-error-*`.
 - Barras e anel usam `seg-*`. A caixa do jogo usa `textbox-*` e o palco da revisão usa `stage-*`, iguais nos dois temas porque representam o jogo.
-- Selo e dica sobre a capa usam `cover-chip-*`; o jogo adulto usa `cover-veil-bg`, opaco. Nome de personagem usa `speaker-1` a `speaker-8`: cada personagem guarda um índice e a cor sai do tema.
+- Selo e dica sobre a capa usam `cover-chip-*`; o jogo adulto borrado usa `blur-scrim` sobre a capa. Nome de personagem usa `speaker-1` a `speaker-8`: cada personagem guarda um índice e a cor sai do tema.
 - Contraste: todo texto passa 4,5:1 sobre os fundos citados na nota do token; borda de controle, anel de foco, acento e barras passam 3:1. A tabela está em "Contraste".
 
 ## Tipografia
@@ -39,7 +39,7 @@ Sistema visual do VNForge, o aplicativo Windows que traduz visual novels, em Ava
 ## Capa e personagem
 
 - A **capa** é um elemento de primeira classe: proporção fixa 3:4, `radius-lg`, `shadow-cover`, imagem cortada por centro (`UniformToFill`). Tamanhos: `cover-card-min` (200 de largura mínima na grade), `cover-drawer-width` (150 na gaveta), `cover-thumb-width` (44 em cabeçalho e lista).
-- Estados da capa: **selecionada** (anel de 3 px em `accent`, afastado 3 px), **sem suporte** (selo "Engine · sem suporte" em `cover-chip-warn`), **para confirmar** (ícone de aviso no canto), **sem casamento** (ícone de link e capa substituída pelo nome), **adulto** (véu opaco `cover-veil-bg`, ícone de olho riscado, "18+"), **em tradução** (faixa de 5 px de progresso na base). Spoiler não cobre a capa: cobre tags, sinopse e personagens, e a tag tracejada diz quantas há.
+- Estados da capa: **selecionada** (anel de 3 px em `accent`, afastado 3 px), **sem suporte** (selo "Engine · sem suporte" em `cover-chip-warn`), **para confirmar** (ícone de aviso no canto), **sem casamento** (ícone de link e capa substituída pelo nome), **adulto** (capa borrada com `blur-scrim`, botão "Mostrar" e selo "18+"; no Mostrar só o selo), **em tradução** (faixa de 5 px de progresso na base). Spoiler não cobre a capa: cobre tags, sinopse e personagens, e a tag tracejada diz quantas há.
 - O **retrato de personagem** tem três tamanhos (`portrait-sm` 28 em círculo, `portrait-md` 56 e `portrait-lg` 64 em quadrado de `radius-lg`). Sem imagem, vira silhueta sobre degradê do matiz do personagem; o narrador usa o ícone Book sobre `bg-inset`. Selecionado, ganha anel de 2 px em `accent`.
 
 ## Estados e movimento

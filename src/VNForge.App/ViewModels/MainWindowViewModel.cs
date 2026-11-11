@@ -111,10 +111,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, ImagesViewModel? images = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        Images = images ?? new();
         Library = library ?? LibraryViewModel.Detached();
         Library.RecentProjects = () => recentProjects;
         start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
@@ -167,6 +168,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.Rate = () => Settings.Rate;
         Bible.Rate = () => Settings.Rate;
         Bible.Limits = () => Settings.Budget;
+        Images.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ImagesViewModel.CanOpenInventory))
+            {
+                OpenImagesInventoryCommand.NotifyCanExecuteChanged();
+            }
+        };
         Images.Rate = () => Settings.Rate;
         Images.Limits = () => Settings.Budget;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
@@ -193,13 +201,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Sections = [dashboardItem, editorItem, reviewItem, conferenceItem, buildItem, glossaryItem, moreItem];
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
-        Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet") };
+        Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet"), Reveals = Library.Reveal };
         Characters.Notify = (text, kind) => Toasts.Show(text, kind, key: "characters");
         Sheet.CharacterRequested += (_, request) =>
         {
             Characters.Open(request.Id, request.RevealSpoilers);
             SelectedNav = charactersItem;
         };
+        Library.Reveal.Changed += (_, _) => OnPropertyChanged(nameof(GameCoverRevealed));
+        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode, () => Library.ErrorMessage);
+        Library.AdultModeChanged += (_, _) => Settings.Privacy?.Refresh();
         // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
         Library.GamesLoaded += (_, _) =>
         {
@@ -217,7 +228,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(Breadcrumb));
             }
         };
-        Play = new GameCapturesViewModel { OpenFolder = this.openFolder, ShowEditor = () => SelectedNav = editorItem };
+        var session = new GamePlayViewModel(Library);
+        session.SettingsRequested += (_, _) =>
+        {
+            Settings.SelectedTab = SettingsViewModel.GamesTab;
+            SelectedNav = settingsItem;
+        };
+        Play = new GameCapturesViewModel { OpenFolder = this.openFolder, ShowEditor = () => SelectedNav = editorItem, Session = session };
         selectedNav = startItem;
         CurrentPage = Library;
         Palette = new CommandPaletteViewModel(PaletteNamedEntries, PaletteLines, PaletteRequest);
@@ -359,7 +376,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public BibleViewModel Bible { get; } = new();
 
     /// <summary>O editor de imagens com texto (#535).</summary>
-    public ImagesViewModel Images { get; } = new();
+    public ImagesViewModel Images { get; }
 
     public BuildViewModel Build { get; }
 
@@ -561,6 +578,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
                     DashboardRefresh = Dashboard.ReloadAsync();
+                }
+
+                if (value.Key is not (NavKey.Start or NavKey.Sheet))
+                {
+                    // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca e da Ficha.
+                    Library.Reveal.Clear();
                 }
 
                 if (value.Key == NavKey.Start)
@@ -883,7 +906,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
-    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null)
+    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null, string? vndbId = null)
     {
         if (create is null)
         {
@@ -894,7 +917,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         wizard.PropertyChanged += OnWizardVndbChanged;
         if (gameFolder is not null)
         {
-            WizardPreparing = wizard.SetGameFolderAsync(gameFolder);
+            WizardPreparing = wizard.SetGameFolderAsync(gameFolder, vndbId);
         }
 
         wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();
@@ -987,6 +1010,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Editor.Project = summary;
         Settings.Load(summary);
         ReadVndbLink(summary.Root);
+        Play.Session?.Open(summary.Root);
         ReadGameLanguages(summary.Root);
         OnPropertyChanged(nameof(StatusNote));
         // Reabrir o mesmo projeto não pode descartar o que o usuário editou e ainda não salvou; outro projeto só abre depois de gravar o que está pendente.

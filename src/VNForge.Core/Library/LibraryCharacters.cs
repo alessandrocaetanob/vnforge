@@ -12,7 +12,7 @@ public sealed record LibraryCharacterAppearance(string GameId, string GameTitle,
 /// <summary>
 /// Um personagem da Biblioteca como a página dele o mostra, com a privacidade já aplicada: texto em português quando existe (senão o original do VNDB), traços de spoiler e
 /// conteúdo adulto fora, <paramref name="HiddenAppearances"/> contando os jogos escondidos por spoiler. <paramref name="Image"/> vem nulo quando o retrato foi escondido
-/// (<paramref name="ImageHidden"/>).
+/// (<paramref name="ImageHidden"/>), exceto no <see cref="AdultMode.Blur"/>, em que a tela o mostra borrado. Os jogos que o <see cref="AdultMode.Hide"/> tira da Biblioteca não entram nas aparições.
 /// </summary>
 public sealed record LibraryCharacterCard(
     string Id,
@@ -120,7 +120,7 @@ public static class LibraryCharacters
         GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, Query query, out int hidden)
     {
         var max = SheetViewer.MaxSpoilerLevel(privacy);
-        var byVisualNovel = library.Games.Where(g => g.VndbId is not null).ToLookup(g => g.VndbId!, StringComparer.Ordinal);
+        var byVisualNovel = library.Games.Where(g => g.VndbId is not null && !privacy.Hides(g)).ToLookup(g => g.VndbId!, StringComparer.Ordinal);
         var cards = new List<LibraryCharacterCard>();
         hidden = 0;
         foreach (var character in characters)
@@ -179,7 +179,7 @@ public static class LibraryCharacters
             character.Name,
             character.Original,
             character.Aliases,
-            imageHidden ? null : character.Image,
+            imageHidden && privacy.Adult != AdultMode.Blur ? null : character.Image,
             imageHidden,
             character.Description is { } description ? SheetViewer.Shown(description, privacy) : null,
             SheetLabels.Gender(visibleGender),

@@ -348,6 +348,85 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         });
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Interruptor_da_biblioteca_mantem_a_bolinha_centrada_ao_alternar_em_tempo_de_execucao(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var toggle = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = false };
+            ui.Show(toggle);
+
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = true;
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = false;
+            AssertKnobCentered(toggle, ui);
+            toggle.IsChecked = true;
+            AssertKnobCentered(toggle, ui);
+        });
+    }
+
+    private static void AssertKnobCentered(ToggleSwitch toggle, Ui ui)
+    {
+        // A bolinha desliza por uma transição de Canvas.Left: espera ela parar antes de medir.
+        var moving = Part<Grid>(toggle, "PART_MovingKnobs");
+        var previous = double.NaN;
+        for (var i = 0; i < 100; i++)
+        {
+            ui.Settle();
+            var left = Avalonia.Controls.Canvas.GetLeft(moving);
+            if (left == previous)
+            {
+                break;
+            }
+
+            previous = left;
+            System.Threading.Thread.Sleep(30);
+        }
+
+        var track = Part<Border>(toggle, "OuterBorder");
+        var knob = Part<Avalonia.Controls.Shapes.Ellipse>(toggle, toggle.IsChecked == true ? "SwitchKnobOn" : "SwitchKnobOff");
+        var center = knob.TranslatePoint(new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), track);
+        Assert.NotNull(center);
+        var inset = toggle.IsChecked == true ? track.Bounds.Width - center.Value.X : center.Value.X;
+        Assert.Equal(10, inset, 1);
+        Assert.Equal(10, center.Value.Y, 1);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Interruptor_da_biblioteca_tem_trilho_de_36_e_bolinha_centrada(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var off = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = false };
+            var on = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = true };
+            ui.Show(new StackPanel { Children = { off, on } });
+
+            Assert.Equal(36, off.Bounds.Width);
+            Assert.Equal(36, on.Bounds.Width);
+            Assert.Equal(36, Part<Grid>(off, "SwitchAreaGrid").Bounds.Width);
+            Assert.Equal(36, Part<Border>(off, "OuterBorder").Bounds.Width);
+            Assert.Equal(36, Part<Border>(on, "SwitchKnobBounds").Bounds.Width);
+            // Bolinha de 16 e, desligado, trilho cheio de stroke-control com a bolinha na cor do cartão.
+            Assert.Equal(16, Part<Avalonia.Controls.Shapes.Ellipse>(off, "SwitchKnobOff").Bounds.Width);
+            Assert.Equal(16, Part<Avalonia.Controls.Shapes.Ellipse>(on, "SwitchKnobOn").Bounds.Width);
+            Assert.Equal(Token(off, "Vnf.StrokeControl"), ColorOf(Part<Border>(off, "OuterBorder").Background));
+            Assert.Equal(Token(off, "Vnf.BgCard"), ColorOf(Part<Avalonia.Controls.Shapes.Ellipse>(off, "SwitchKnobOff").Fill));
+            var track = Part<Border>(off, "OuterBorder").Bounds;
+            foreach (var (toggle, name) in new[] { (off, "SwitchKnobOff"), (on, "SwitchKnobOn") })
+            {
+                var knob = Part<Avalonia.Controls.Shapes.Ellipse>(toggle, name);
+                var center = knob.TranslatePoint(new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), Part<Border>(toggle, "OuterBorder"));
+                Assert.NotNull(center);
+                var inset = toggle.IsChecked == true ? track.Width - center.Value.X : center.Value.X;
+                Assert.Equal(track.Height / 2, inset, 1);
+                Assert.Equal(track.Height / 2, center.Value.Y, 1);
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- ToggleRule
 
     [Theory]
@@ -384,11 +463,11 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Segmentado_marca_um_segmento_em_accent_e_troca_ao_selecionar(string theme)
+    public async Task Segmentado_marca_um_segmento_em_pilula_neutra_e_troca_ao_selecionar(string theme)
     {
         await OnUi(theme, ui =>
         {
-            var seg = new ListBox { Classes = { "seg" } };
+            var seg = new ListBox { Classes = { "seg" }, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
             foreach (var text in Levels)
             {
                 seg.Items.Add(new ListBoxItem { Content = text });
@@ -399,15 +478,41 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             ui.Show(seg);
             ContentPresenter Presenter(int i) => PresenterOf(seg.GetVisualDescendants().OfType<ListBoxItem>().ElementAt(i));
 
-            Assert.Equal(Token(seg, "Vnf.Accent"), ColorOf(Presenter(1).Background));
-            Assert.Equal(Token(seg, "Vnf.OnAccent"), ColorOf(Presenter(1).Foreground));
-            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(0).Background));
-            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(30, i.Bounds.Height));
+            Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(1).Background));
+            Assert.Equal(Token(seg, "Vnf.TextPrimary"), ColorOf(Presenter(1).Foreground));
+            Assert.Equal(Token(seg, "Vnf.StrokeSubtle"), ColorOf(Presenter(1).BorderBrush));
+            Assert.Equal(Token(seg, "Vnf.TextSecondary"), ColorOf(Presenter(0).Foreground));
+            Assert.Equal(Colors.Transparent, ColorOf(Presenter(0).Background));
+            // Pílula inteira de bg-inset, sem contorno e sem divisor; a marcada é uma pílula de 28 a 3 px da borda.
+            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(seg.Background));
+            Assert.Equal(new Thickness(0), seg.BorderThickness);
+            Assert.True(seg.CornerRadius.TopLeft >= 17);
+            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(28, i.Bounds.Height));
+            Assert.Equal(new Thickness(3), seg.Padding);
+            Assert.Equal(34, seg.Bounds.Height);
 
             seg.SelectedIndex = 2;
             ui.Settle();
-            Assert.Equal(Token(seg, "Vnf.Accent"), ColorOf(Presenter(2).Background));
-            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(1).Background));
+            Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(2).Background));
+            Assert.Equal(Colors.Transparent, ColorOf(Presenter(1).Background));
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Segmentado_Semanas_Lista_tem_34_de_altura_e_largura_proxima_de_161(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var seg = new ListBox { Classes = { "seg" }, SelectedIndex = 0, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+            seg.Items.Add(new ListBoxItem { Content = "Semanas" });
+            seg.Items.Add(new ListBoxItem { Content = "Lista" });
+
+            ui.Show(seg);
+
+            // O quadro desenha 161. Com padding de 18 o Noto Sans fecha em 160 no Windows; a margem cobre a métrica de fonte do Linux.
+            Assert.InRange(seg.Bounds.Width, 158, 163);
+            Assert.Equal(34, seg.Bounds.Height);
         });
     }
 

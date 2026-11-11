@@ -37,7 +37,7 @@ public sealed class VndbImageCache : IDisposable
 
     /// <param name="directory">A pasta das imagens; <see cref="DefaultDirectory"/> é a do app e da CLI.</param>
     /// <param name="downloader">Quem baixa.</param>
-    /// <param name="privacy">A privacidade da Biblioteca, lida a cada pedido (trocar o ajuste vale na hora). Sem ela vale <see cref="LibraryPrivacy"/> padrão, que esconde o conteúdo adulto.</param>
+    /// <param name="privacy">A privacidade da Biblioteca, lida a cada pedido (trocar o ajuste vale na hora). Sem ela vale <see cref="LibraryPrivacy"/> padrão, que baixa o conteúdo adulto para a tela borrar.</param>
     /// <param name="time">O relógio da espera entre tentativas; o do sistema por padrão.</param>
     /// <param name="maxConcurrentDownloads">Quantas imagens baixam ao mesmo tempo.</param>
     public VndbImageCache(string directory, IImageDownloader downloader, Func<LibraryPrivacy>? privacy = null, TimeProvider? time = null, int maxConcurrentDownloads = 4)
@@ -193,11 +193,11 @@ public sealed class VndbImageCache : IDisposable
         return path;
     }
 
-    /// <summary>A imagem pode aparecer agora: o endereço é do VNDB e a privacidade da Biblioteca não a esconde. Lê a privacidade a cada chamada.</summary>
+    /// <summary>A imagem pode ser baixada e mostrada agora: o endereço é do VNDB e a privacidade da Biblioteca não a barra (<see cref="VndbImageVisibility.MayLoad"/>: o conteúdo adulto só fica de fora no <see cref="AdultMode.Hide"/>). Lê a privacidade a cada chamada.</summary>
     public bool IsVisible(VndbImageRef image)
     {
         ArgumentNullException.ThrowIfNull(image);
-        return VndbImageVisibility.IsAllowedSource(image.Url) && !VndbImageVisibility.IsHidden(image, _privacy());
+        return VndbImageVisibility.IsAllowedSource(image.Url) && VndbImageVisibility.MayLoad(image, _privacy());
     }
 
     private bool RecentlyFailed(string url) =>

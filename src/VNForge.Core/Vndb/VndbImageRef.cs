@@ -19,21 +19,39 @@ public sealed record VndbImageRef([property: JsonRequired] string Url, double Se
 }
 
 /// <summary>
-/// Quando uma imagem do VNDB pode ser mostrada e de onde pode ser baixada. A privacidade é a da Biblioteca (<see cref="LibraryPrivacy"/>): <see cref="LibraryPrivacy.ShowAdult"/>
-/// libera as duas marcas, a sexual e a de violência.
+/// Quando uma imagem do VNDB pode ser mostrada e de onde pode ser baixada. A privacidade é a da Biblioteca (<see cref="LibraryPrivacy"/>): o modo adulto vale para as duas marcas,
+/// a sexual e a de violência.
 /// </summary>
 public static class VndbImageVisibility
 {
     /// <summary>A partir desta média de votos (0 a 2) a imagem conta como adulta. A Biblioteca usa o mesmo corte para marcar a capa do jogo.</summary>
     public const double AdultLevel = 1.0;
 
-    /// <summary>A privacidade esconde a imagem: ela é sexual ou violenta (média de votos a partir de <see cref="AdultLevel"/>) e <see cref="LibraryPrivacy.ShowAdult"/> é falso.</summary>
+    /// <summary>A imagem é sexual ou violenta: a média de votos (0 a 2) passa de <see cref="AdultLevel"/>.</summary>
+    public static bool IsAdult(VndbImageRef image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        return image.Sexual >= AdultLevel || image.Violence >= AdultLevel;
+    }
+
+    /// <summary>A privacidade não deixa ver a imagem como ela vem: ela é adulta e <see cref="LibraryPrivacy.ShowAdult"/> é falso (borrar ou esconder).</summary>
     public static bool IsHidden(VndbImageRef image, LibraryPrivacy privacy)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(privacy);
-        return !privacy.ShowAdult && (image.Sexual >= AdultLevel || image.Violence >= AdultLevel);
+        return !privacy.ShowAdult && IsAdult(image);
     }
+
+    /// <summary>A tela mostra a imagem borrada: ela é adulta e o modo é <see cref="AdultMode.Blur"/>.</summary>
+    public static bool IsBlurred(VndbImageRef image, LibraryPrivacy privacy)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(privacy);
+        return privacy.Adult == AdultMode.Blur && IsAdult(image);
+    }
+
+    /// <summary>O app pode baixar e guardar a imagem: tudo que a privacidade deixa ver, inclusive a adulta que a tela vai borrar. Só o <see cref="AdultMode.Hide"/> a barra.</summary>
+    public static bool MayLoad(VndbImageRef image, LibraryPrivacy privacy) => !IsHidden(image, privacy) || IsBlurred(image, privacy);
 
     /// <summary>
     /// O endereço é de <c>vndb.org</c> (ou de um subdomínio, como <c>t.vndb.org</c>) por HTTPS. <c>vndb.json</c> e <c>characters.json</c> são editáveis à mão, então

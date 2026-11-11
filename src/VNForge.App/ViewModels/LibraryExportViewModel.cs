@@ -103,7 +103,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
     {
         var all = Pick(LibraryExportScope.All);
         var unmatched = library.AllGames.Count(g => g.Info is null);
-        var adult = IncludeSensitive ? 0 : library.AllGames.Count(g => g.Info is { Adult: true });
+        var adult = AdultMode == AdultMode.Blur ? library.AllGames.Count(g => g.Info is { Adult: true }) : 0;
         var reasons = new List<string>();
         if (unmatched > 0)
         {
@@ -188,16 +188,19 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         DateTimeOffset Now,
         ILibrarySheetSource? Sheets);
 
+    private AdultMode AdultMode => library.AdultMode;
+
     private ExportPlan Plan()
     {
         var chosen = Pick(Scope);
-        var privacy = new LibraryPrivacy(ShowSpoilers: IncludeSensitive, ShowAdult: IncludeSensitive);
+        // O jogo adulto só entra no modo Mostrar (Pick); a opção do diálogo decide só as tags e os traços sensíveis dos jogos que entram.
+        var privacy = new LibraryPrivacy(ShowSpoilers: IncludeSensitive, Adult: IncludeSensitive ? AdultMode.Show : AdultMode);
         return new ExportPlan(
             Folder,
             new GameLibrary([.. library.AllGames]),
             chosen,
             privacy,
-            new LibraryCatalogOptions(privacy, IncludeSheet: IncludeSheet, IncludePlayed: IncludePlayed, IncludeVote: IncludeVote, IncludeTranslation: IncludeTranslation),
+            new LibraryCatalogOptions(privacy, IncludeSheet: IncludeSheet, IncludePlayed: IncludePlayed, IncludeVote: IncludeVote, IncludeTranslation: IncludeTranslation, IncludeAdultGames: AdultMode == AdultMode.Show),
             chosen.ToDictionary(g => g.Id, library.TranslationOf, StringComparer.Ordinal),
             library.Played,
             library.Clock.GetLocalNow(),
@@ -225,7 +228,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
         var result = LibraryCatalog.Render(new GameLibrary(plan.Chosen, plan.Privacy), plan.Played, plan.Now, plan.Options, plan.Sheets, g => plan.Translations.GetValueOrDefault(g.Id));
         if (result.Games == 0)
         {
-            throw new LibraryException("Nenhum jogo entra com esta escolha: faltam jogos casados com o VNDB, ou eles são de conteúdo adulto e a opção de spoiler e conteúdo adulto está desligada.");
+            throw new LibraryException("Nenhum jogo entra com esta escolha: faltam jogos casados com o VNDB, ou eles são de conteúdo adulto e o modo do conteúdo adulto não é Mostrar.");
         }
 
         LibraryCatalog.Write(path, result.Html);
@@ -246,7 +249,7 @@ public sealed partial class LibraryExportViewModel(LibraryViewModel library) : O
     private List<LibraryGame> Pick(LibraryExportScope scope) =>
     [
         .. (scope == LibraryExportScope.CurrentFilter ? library.ShownGames : library.AllGames)
-            .Where(g => g.Info is not null && (IncludeSensitive || !g.Info.Adult) && (scope != LibraryExportScope.WithPortuguese || !LibraryListing.Matches(g, LibraryFilter.NoPortuguese, library.ReadyPercentOf(g)))),
+            .Where(g => g.Info is not null && (AdultMode == AdultMode.Show || !g.Info.Adult) && (scope != LibraryExportScope.WithPortuguese || !LibraryListing.Matches(g, LibraryFilter.NoPortuguese, library.ReadyPercentOf(g)))),
     ];
 
     private string FilterText()

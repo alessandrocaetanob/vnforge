@@ -101,6 +101,39 @@
   <Style Selector="Border.sheet-tag.warn TextBlock"><Setter Property="Foreground" Value="{DynamicResource Vnf.SignalWarningFg}"/></Style>
 
   <!-- A pílula tracejada do quadro (.spoil): o estado do spoiler e o "Mostrar" do cartão escondido. -->
+  <!-- Conteúdo adulto (#631): o "Mostrar" dentro do chip das tags escondidas, e o olho no retrato borrado (".pveil": 38% de bg-base sobre o retrato). -->
+  <Style Selector="Button.sheet-reveal">
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.sheet-reveal /template/ ContentPresenter#PART_ContentPresenter, Button.sheet-reveal:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="Button.sheet-pveil">
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BlurScrim}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <Style Selector="Button.sheet-pveil /template/ ContentPresenter#PART_ContentPresenter, Button.sheet-pveil:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BlurScrim}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
   <Style Selector="Button.sheet-spoil">
     <Setter Property="Padding" Value="10,2"/>
     <Setter Property="MinHeight" Value="0"/>

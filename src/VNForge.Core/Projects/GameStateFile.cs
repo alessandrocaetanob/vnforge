@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using VNForge.Core.Injection;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Projects;
 
@@ -79,7 +80,9 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
         try
         {
             var path = PathFor(project);
-            var read = File.Exists(path) ? JsonSerializer.Deserialize<GameStateFile>(File.ReadAllText(path, Encoding.UTF8), Json) : null;
+            // Leitura curta, com nova tentativa se a troca por rename (Save) a pegar no meio. No Windows o rename falha enquanto qualquer leitura está aberta, mesmo com
+            // FileShare.Delete; quem segura é a nova tentativa do ProjectFileIo.Move no Save, que espera a leitura terminar.
+            var read = File.Exists(path) ? JsonSerializer.Deserialize<GameStateFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart('﻿'), Json) : null;
             return read is { Version: CurrentVersion } ? read : Empty;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
@@ -88,15 +91,14 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
         }
     }
 
-    /// <summary>Grava o estado de forma atômica (arquivo temporário e troca).</summary>
-    public static void Save(ProjectFolder project, GameStateFile state)
+    /// <summary>Grava o estado de forma atômica (arquivo temporário e troca), esperando quem estiver lendo o arquivo: o Painel, o Editor e a faixa de teste o leem em segundo plano.</summary>
+    public static void Save(ProjectFolder project, GameStateFile state) => Save(project, state, null);
+
+    /// <summary>Como <see cref="Save(ProjectFolder, GameStateFile)"/>, com a espera entre as tentativas da troca na mão de quem chama (os testes soltam o arquivo nela).</summary>
+    internal static void Save(ProjectFolder project, GameStateFile state, Action<int>? wait)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var path = PathFor(project);
-        Directory.CreateDirectory(project.CacheDirectory);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(state with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false));
-        File.Move(temp, path, overwrite: true);
+        AtomicFile.WriteAllText(PathFor(project), JsonSerializer.Serialize(state with { Version = CurrentVersion }, Json) + "\n", wait);
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Core.Library;
 
 /// <summary>
-/// Como gerar o catálogo. <paramref name="Privacy"/> decide o que sai escondido (spoiler e conteúdo adulto, como na Biblioteca); sem <c>ShowAdult</c>, o jogo marcado como adulto nem entra na página. <paramref name="IncludeNotes"/> põe as notas de
+/// Como gerar o catálogo. <paramref name="Privacy"/> decide o que sai escondido (spoiler e conteúdo adulto, como na Biblioteca); o jogo marcado como adulto só entra na página com <paramref name="IncludeAdultGames"/> (padrão: o modo da <paramref name="Privacy"/> é <see cref="AdultMode.Show"/>); o Desfocar e o Esconder o deixam de fora, porque um arquivo HTML não borra. <paramref name="IncludeNotes"/> põe as notas de
 /// texto que a pessoa escreveu em cada jogo; ficam de fora por padrão, porque o catálogo é feito para ser mostrado. Os outros quatro escolhem o que entra de cada jogo (o diálogo do app):
 /// <paramref name="IncludeSheet"/> é a sinopse, as tags e os personagens, <paramref name="IncludePlayed"/> o estado da lista, as datas e o tempo jogado, <paramref name="IncludeVote"/> a nota e
 /// <paramref name="IncludeTranslation"/> o andamento do projeto de tradução. Entram por padrão; título, capa e o crédito ao VNDB entram sempre.
@@ -19,7 +19,8 @@ public sealed record LibraryCatalogOptions(
     bool IncludeSheet = true,
     bool IncludePlayed = true,
     bool IncludeVote = true,
-    bool IncludeTranslation = true);
+    bool IncludeTranslation = true,
+    bool? IncludeAdultGames = null);
 
 /// <summary>A página gerada. <paramref name="Games"/> são os jogos que entraram; <paramref name="Skipped"/> são os que ficaram de fora por ainda não terem jogo do VNDB confirmado; <paramref name="Adult"/> são os de conteúdo adulto que a privacidade deixou de fora.</summary>
 public sealed record LibraryCatalogResult(string Html, int Games, int Skipped, int Adult = 0);
@@ -108,7 +109,7 @@ public static partial class LibraryCatalog
         translation ??= ReadTranslation;
 
         var matched = library.Sorted().Where(g => g.Info is not null).ToList();
-        var games = matched.Where(g => options.Privacy.ShowAdult || !g.Info!.Adult).ToList();
+        var games = matched.Where(g => (options.IncludeAdultGames ?? options.Privacy.ShowAdult) || !g.Info!.Adult).ToList();
         var skipped = library.Games.Count - matched.Count;
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html>\n");

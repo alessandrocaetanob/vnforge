@@ -38,10 +38,10 @@
       <Setter Property="Margin" Value="32,12,32,0"/>
     </Style>
     <!-- No compacto as ações sobem para a linha do nome e largam o texto (o nome acessível e a dica ficam); só Traduzir com IA mantém o rótulo. -->
-    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions TextBlock.btn-label">
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions TextBlock.btn-label, v|GameHeaderView.compact StackPanel#ImagesActions TextBlock.btn-label">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions Button, v|GameHeaderView.compact StackPanel#EditorActions ToggleButton">
+    <Style Selector="v|GameHeaderView.compact StackPanel#EditorActions Button, v|GameHeaderView.compact StackPanel#EditorActions ToggleButton, v|GameHeaderView.compact StackPanel#ImagesActions Button">
       <Setter Property="Padding" Value="10,0"/>
     </Style>
     <!-- A densidade da grade é um botão de dois estados do tamanho dos outros. O Roteiro do quadro é um subtle: sem contorno e em semibold; marcado, ganha o accent-soft
@@ -94,7 +94,7 @@
             <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                     Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
               <Panel ClipToBounds="True">
-                <c:Cover Width="56" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+                <c:Cover Width="56" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding ProjectTitle}"/>
                 <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}">
                   <Border HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}"
                           Width="{Binding GameProgressPercent, Converter={x:Static v:GameHeaderView.CoverBarWidth}}"/>
@@ -115,7 +115,7 @@
                 </Border>
               </StackPanel>
             </StackPanel>
-            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
+            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar" (que vira "Jogando", desabilitado, durante a partida). -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
               <Panel IsVisible="{Binding ShowNextStepButton}">
                 <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
@@ -125,11 +125,10 @@
                   </StackPanel>
                 </Button>
               </Panel>
-              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
-                      ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
+              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Play.Session.PlayCommand}" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                  <TextBlock Text="Jogar"/>
+                  <TextBlock Text="{Binding Play.Session.PlayLabel}"/>
                 </StackPanel>
               </Button>
             </Panel>
@@ -157,7 +156,7 @@
           <Border Width="44" Height="58.67" CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                   Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
             <Panel ClipToBounds="True">
-              <c:Cover Width="44" Image="{Binding GameCover}" Seed="{Binding ProjectTitle}"/>
+              <c:Cover Width="44" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding ProjectTitle}"/>
             </Panel>
           </Border>
           <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -215,6 +214,17 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Sparkle}"/>
           <TextBlock Text="Traduzir com IA" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
+    <!-- Imagens: Abrir inventário na linha do seletor de seções, em cinza de apoio, como no quadro do #587. -->
+    <StackPanel Name="ImagesActions" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,1" IsVisible="False">
+      <Button Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding OpenImagesInventoryCommand}" AutomationProperties.Name="Abrir inventário"
+              ToolTip.Tip="Abre o images.json, o inventário das imagens do projeto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+          <TextBlock Classes="btn-label" Text="Abrir inventário" TextWrapping="NoWrap"/>
         </StackPanel>
       </Button>
     </StackPanel>

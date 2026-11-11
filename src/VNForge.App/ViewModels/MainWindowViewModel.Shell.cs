@@ -35,16 +35,6 @@ public static class GameProgress
     public static int Percent(double ready, double total) => total <= 0 ? 0 : (int)Math.Floor(100.0 * ready / total);
 }
 
-/// <summary>Página de uma aba do jogo que ainda não tem tela própria: uma frase e o caminho para o que existe.</summary>
-public sealed class GameTabPlaceholderViewModel(string message, string actionText, Action action)
-{
-    public string Message { get; } = message;
-
-    public string ActionText { get; } = actionText;
-
-    public IRelayCommand ActionCommand { get; } = new RelayCommand(action);
-}
-
 /// <summary>O shell: Biblioteca no trilho, o jogo aberto com o seu cabeçalho e, abaixo dele, as abas Ficha, Tradução e Jogar.</summary>
 public sealed partial class MainWindowViewModel
 {
@@ -66,10 +56,16 @@ public sealed partial class MainWindowViewModel
     /// <summary>O item "Mais" da segunda linha; a tela abre o menu em vez de trocar de página quando ele é escolhido.</summary>
     public NavItemViewModel MoreSection => moreItem;
 
+    /// <summary>"Abrir inventário" do cabeçalho do jogo, na página de Imagens: delega ao comando da página e só vale com imagens no inventário.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenImagesInventory))]
+    private void OpenImagesInventory() => Images.OpenInventoryCommand.Execute(null);
+
+    private bool CanOpenImagesInventory() => Images.CanOpenInventory;
+
     /// <summary>A aba Ficha do jogo (d9, #554).</summary>
     public GameSheetViewModel Sheet { get; }
 
-    /// <summary>A aba Jogar: capturas e notas do jogo (#553).</summary>
+    /// <summary>A aba Jogar: capturas e notas do jogo (#553), o tempo de jogo e o Jogar (#549, em <see cref="GameCapturesViewModel.Session"/>).</summary>
     public GameCapturesViewModel Play { get; }
 
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
@@ -81,7 +77,7 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
 
-    /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar" (que só existe com a #549); na Tradução é o próximo passo do Painel.</summary>
+    /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar"; na Tradução é o próximo passo do Painel.</summary>
     public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
     /// <summary>O próximo passo do Painel no lugar de "Jogar": na Tradução, e em nenhuma aba durante a revisão da ficha, que não leva botão no cabeçalho.</summary>
@@ -190,7 +186,7 @@ public sealed partial class MainWindowViewModel
         }
         else if (game.Engine.Translatable)
         {
-            ShowWizard(newProjectWizard, game.Folder);
+            ShowWizard(newProjectWizard, game.Folder, game.VndbId);
         }
         else
         {

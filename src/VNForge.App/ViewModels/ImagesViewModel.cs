@@ -189,6 +189,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     private readonly SemaphoreSlim thumbnailGate = new(3);
     private CancellationTokenSource? previewCts;
     private bool syncingOutline;
+    private const int IncrementalLimit = 16;
+    private const string MissingKeyMessage = "Falta a chave de API. Configure-a nos Ajustes para a IA ler as imagens do jogo.";
     private ImageScanPlan? scanPlan;
     private CancellationTokenSource? scanCts;
 
@@ -214,6 +216,9 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     /// <summary>Quem lê as imagens com a IA: recebe o modelo e devolve o leitor. Sem ele (sem chave de API) a tela avisa em vez de ler.</summary>
     public Func<string, IImageTextReader>? ReaderFactory { get; set; }
 
+    /// <summary>Diz se há chave de API, sem montar o leitor. Nulo: a falta da chave só aparece quando a leitura monta o leitor.</summary>
+    public Func<bool>? HasApiKey { get; set; }
+
     public Func<ExchangeRate> Rate { get; set; } = () => ExchangeRate.Placeholder;
 
     public Func<BudgetLimits> Limits { get; set; } = () => BudgetLimits.None;
@@ -230,7 +235,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ResultFact> ScanFacts { get; } = [];
 
-    public ObservableCollection<ImageItemViewModel> Visible { get; } = [];
+    public ResettableObservableCollection<ImageItemViewModel> Visible { get; } = [];
 
     public IReadOnlyList<ImageFilterChipViewModel> Chips { get; }
 
@@ -618,6 +623,13 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     /// <summary>Se o ponteiro está numa alça da área, devolve o canto oposto, que fica parado enquanto a alça é arrastada.</summary>
     public bool TryResizeAnchor(double x, double y, out (double X, double Y) anchor)
     {
+        // Sem área escolhida a região é 0,0,0,0 e as quatro alças cairiam no canto da imagem.
+        if (RegionWidth == 0 && RegionHeight == 0)
+        {
+            anchor = default;
+            return false;
+        }
+
         var (left, top, right, bottom) = (RegionX, RegionY, RegionX + RegionWidth, RegionY + RegionHeight);
         var reach = HandleSize;
         (double X, double Y, double AnchorX, double AnchorY)[] corners = [(left, top, right, bottom), (right, top, left, bottom), (left, bottom, right, top), (right, bottom, left, top)];
@@ -692,9 +704,9 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!CanCreateReader())
+        if (ReaderFactory is null || HasApiKey?.Invoke() == false)
         {
-            ErrorMessage = "Falta a chave de API. Configure-a nos Ajustes para a IA ler as imagens do jogo.";
+            ErrorMessage = MissingKeyMessage;
             return;
         }
 
@@ -810,7 +822,19 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             else
             {
                 var progress = new Progress<ImageScanProgress>(p => ScanProgressText = $"Lendo as imagens · {ProjectLabels.Number(p.Done)} de {ProjectLabels.Number(p.Total)}");
-                result = await new ImageTextScanner(factory(ScanModel), engines.SelectMany(e => e.Archives).ToList())
+                IImageTextReader reader;
+                try
+                {
+                    reader = factory(ScanModel);
+                }
+                catch (InvalidOperationException)
+                {
+                    // A chave sumiu entre a estimativa e o OK: a fábrica lança ao montar o cliente.
+                    ErrorMessage = MissingKeyMessage;
+                    return;
+                }
+
+                result = await new ImageTextScanner(reader, engines.SelectMany(e => e.Archives).ToList())
                     .ScanAsync(gameDirectory, plan, new ImageScanRun(), progress, cts.Token);
             }
 
@@ -861,19 +885,6 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         }
 
         return result.Cancelled ? "Leitura cancelada. O que já foi lido ficou no inventário." : null;
-    }
-
-    // Sem leitor ou sem chave (a fábrica lança ao montar o cliente) não adianta listar nem estimar.
-    private bool CanCreateReader()
-    {
-        try
-        {
-            return ReaderFactory is not null && ReaderFactory(ScanModel) is not null;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
     }
 
     private static void OpenInFileManager(string path)
@@ -1331,10 +1342,33 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             _ => true,
         }).ToList();
 
-        // Muda a lista no lugar: esvaziar e encher de novo faria a lista da tela soltar a imagem aberta e o editor sumiria ao marcar.
+        var shownSet = new HashSet<ImageItemViewModel>(shown, ReferenceEqualityComparer.Instance);
+        var removed = Visible.Count(v => !shownSet.Contains(v));
+        var added = shown.Count - (Visible.Count - removed);
+
+        // Poucas mudanças (marcar uma imagem num filtro): mexe no lugar, para a lista da tela não soltar a imagem aberta e o editor não sumir.
+        // Muitas (trocar de filtro): cada Insert ou RemoveAt no meio custa O(n), então troca tudo com um Reset só.
+        if (removed + added > IncrementalLimit || !TryPatchVisible(shown, shownSet))
+        {
+            var selected = SelectedItem;
+            Visible.ReplaceAll(shown);
+            if (selected is not null && SelectedItem is null && shownSet.Contains(selected))
+            {
+                SelectedItem = selected;
+            }
+        }
+    }
+
+    private bool TryPatchVisible(List<ImageItemViewModel> shown, HashSet<ImageItemViewModel> shownSet)
+    {
+        var present = new HashSet<ImageItemViewModel>(ReferenceEqualityComparer.Instance);
         for (var i = Visible.Count - 1; i >= 0; i--)
         {
-            if (!shown.Contains(Visible[i]))
+            if (shownSet.Contains(Visible[i]))
+            {
+                present.Add(Visible[i]);
+            }
+            else
             {
                 Visible.RemoveAt(i);
             }
@@ -1347,18 +1381,17 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
                 continue;
             }
 
-            var at = Visible.IndexOf(shown[i]);
-            if (at >= 0)
+            // Já está na lista mas em outro lugar: a ordem mudou, e só um Reset resolve sem IndexOf no laço.
+            if (!present.Add(shown[i]))
             {
-                Visible.Move(at, i);
+                return false;
             }
-            else
-            {
-                Visible.Insert(i, shown[i]);
-            }
-        }
-    }
 
+            Visible.Insert(i, shown[i]);
+        }
+
+        return true;
+    }
     private int CountArchives()
     {
         var extensions = engines.SelectMany(e => e.Archives).SelectMany(f => f.FileExtensions).ToHashSet(StringComparer.OrdinalIgnoreCase);

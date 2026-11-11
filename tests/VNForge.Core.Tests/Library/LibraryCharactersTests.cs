@@ -10,7 +10,7 @@ namespace VNForge.Core.Tests.Library;
 public sealed class LibraryCharactersTests : IDisposable
 {
     private static readonly LibraryPrivacy Hidden = new();
-    private static readonly LibraryPrivacy All = new(ShowSpoilers: true, ShowAdult: true);
+    private static readonly LibraryPrivacy All = new(ShowSpoilers: true, Adult: AdultMode.Show);
 
     private readonly TempFolder _dir = new();
 
@@ -321,11 +321,15 @@ public sealed class LibraryCharactersTests : IDisposable
         var (library, store) = await PrepareAsync();
         store.Update(s => s.SaveCharacter(s.LoadCharacter("c101")! with { Image = new VndbImageRef("https://t.vndb.org/ch/1.jpg", Sexual: 1.5) }));
 
-        var hidden = Assert.Single(List(library, store, Hidden).Characters, c => c.Id == "c101");
-        var shown = Assert.Single(List(library, store, new LibraryPrivacy(ShowAdult: true)).Characters, c => c.Id == "c101");
+        var blurred = Assert.Single(List(library, store, Hidden).Characters, c => c.Id == "c101");
+        var hidden = Assert.Single(List(library, store, new LibraryPrivacy(Adult: AdultMode.Hide)).Characters, c => c.Id == "c101");
+        var shown = Assert.Single(List(library, store, new LibraryPrivacy(Adult: AdultMode.Show)).Characters, c => c.Id == "c101");
 
+        Assert.True(blurred.ImageHidden);
+        Assert.NotNull(blurred.Image);
         Assert.True(hidden.ImageHidden);
         Assert.Null(hidden.Image);
+        Assert.False(shown.ImageHidden);
         Assert.NotNull(shown.Image);
     }
 

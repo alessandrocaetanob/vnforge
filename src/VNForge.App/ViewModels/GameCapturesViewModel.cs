@@ -46,6 +46,9 @@ public sealed partial class GameCapturesViewModel : ObservableObject
 
     public Action? ShowEditor { get; set; }
 
+    /// <summary>O Jogar, as sessões e o tempo de jogo (#549), que ficam na mesma aba.</summary>
+    public GamePlayViewModel? Session { get; init; }
+
     public ObservableCollection<GameCaptureItem> Captures { get; } = [];
 
     /// <summary>A última captura em andamento; os testes a aguardam.</summary>

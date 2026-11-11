@@ -85,7 +85,7 @@ internal static partial class LibraryCommand
 
         var exitCode = run is { Failures.Count: > 0 } or { AbortReason: not null } ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         var all = parseResult.GetValue(QueueAllOption);
-        var entries = TranslationQueue.Build(library.Games);
+        var entries = TranslationQueue.Build(library.Games, library.Privacy);
         var shown = all ? entries : [.. entries.Where(e => e.State == TranslationQueueState.Queued)];
         var queued = entries.Count(e => e.State == TranslationQueueState.Queued);
         if (json)
@@ -93,7 +93,7 @@ internal static partial class LibraryCommand
             output.WriteLine(JsonEnvelope.Result(
                 new
                 {
-                    total = library.Games.Count,
+                    total = library.Privacy.Listed(library.Games).Count,
                     queued,
                     shown = shown.Count,
                     checkedNow = run?.Checked.Count ?? 0,
@@ -116,7 +116,8 @@ internal static partial class LibraryCommand
 
     private static void WriteQueue(VnfCli cli, TextWriter output, GameLibrary library, IReadOnlyList<TranslationQueueEntry> shown, bool all, int queued, TranslationCheckRun? run)
     {
-        if (library.Games.Count == 0)
+        var listed = library.Privacy.Listed(library.Games).Count;
+        if (listed == 0)
         {
             output.WriteLine("A biblioteca está vazia. Rode vnf library scan <pasta> para reconhecer os seus jogos.");
             return;
@@ -177,7 +178,7 @@ internal static partial class LibraryCommand
 
         output.WriteLine(queued == 0
             ? "Nada na fila: todo jogo da biblioteca já tem projeto, já está em português no VNDB ou é de uma engine que o VNForge ainda não traduz. Veja tudo com --all."
-            : $"{CliFormat.Count(queued, "jogo na fila", "jogos na fila")} de {CliFormat.Number(library.Games.Count)} na biblioteca.");
+            : $"{CliFormat.Count(queued, "jogo na fila", "jogos na fila")} de {CliFormat.Number(listed)} na biblioteca.");
         if (queued > 0)
         {
             output.WriteLine("Para criar o projeto de um deles: vnf library translate <jogo>");

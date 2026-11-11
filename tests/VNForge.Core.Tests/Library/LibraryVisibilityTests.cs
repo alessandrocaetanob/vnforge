@@ -52,7 +52,7 @@ public class LibraryVisibilityTests
     [Fact]
     public void Mostrar_adulto_libera_a_capa_e_as_tags_eroticas()
     {
-        var card = LibraryVisibility.Card(Confirmed(adult: true), new LibraryPrivacy(ShowAdult: true))!;
+        var card = LibraryVisibility.Card(Confirmed(adult: true), new LibraryPrivacy(Adult: AdultMode.Show))!;
 
         Assert.Equal("https://example.test/capa.jpg", card.CoverUrl);
         Assert.False(card.CoverHidden);
@@ -99,7 +99,7 @@ public class LibraryVisibilityTests
             LibraryConfirmation.Manual);
 
         var hidden = LibraryVisibility.Card(game, new LibraryPrivacy())!;
-        var shown = LibraryVisibility.Card(game, new LibraryPrivacy(ShowAdult: true))!;
+        var shown = LibraryVisibility.Card(game, new LibraryPrivacy(Adult: AdultMode.Show))!;
 
         Assert.False(hidden.Adult);
         Assert.Equal(["Drama"], hidden.Tags.Select(t => t.Name));

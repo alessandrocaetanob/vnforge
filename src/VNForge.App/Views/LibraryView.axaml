@@ -13,7 +13,7 @@
       <Panel>
         <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
           <Panel>
-            <c:Cover FillWidth="True" LoadOnlyInViewport="True" HorizontalAlignment="Stretch" Image="{Binding Image}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
+            <c:Cover FillWidth="True" LoadOnlyInViewport="True" HorizontalAlignment="Stretch" Image="{Binding Image}" Revealed="{Binding Revealed}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
             <Border IsVisible="{Binding HasNoArt}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
               <Border.Background>
                 <LinearGradientBrush StartPoint="25%,0%" EndPoint="75%,100%">
@@ -26,18 +26,24 @@
                 <TextBlock Classes="jp-row secondary" FontSize="12" LineHeight="16" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
               </StackPanel>
             </Border>
-            <Border IsVisible="{Binding IsAdultVeil}" Background="{DynamicResource Vnf.CoverVeilBg}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
-                    CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
-              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
-                <PathIcon Width="28" Height="28" HorizontalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
-                <TextBlock Classes="lib-h2" FontSize="24" LineHeight="30" HorizontalAlignment="Center" Text="18+"/>
-                <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" TextAlignment="Center" Classes="lib-dim" Text="Conteúdo adulto escondido"/>
-              </StackPanel>
+            <Border Classes="bveil" IsVisible="{Binding IsBlurred}">
+              <Button Classes="rvb" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).RevealGameCommand}" CommandParameter="{Binding}"
+                      AutomationProperties.Name="{Binding Title, StringFormat='Mostrar a capa de {0}'}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
+                  <TextBlock Text="Mostrar"/>
+                </StackPanel>
+              </Button>
             </Border>
+            <Border Classes="cadult" IsVisible="{Binding IsAdult}"><TextBlock Text="18+"/></Border>
             <Border Classes="cchip" Classes.warn="{Binding ChipWarn}"><TextBlock Text="{Binding Chip}" VerticalAlignment="Center"/></Border>
             <Border Classes="cstate" Classes.warn="{Binding StateIsWarning}" IsVisible="{Binding HasState}" ToolTip.Tip="{Binding StateText}">
               <PathIcon HorizontalAlignment="Center" VerticalAlignment="Center" Data="{Binding StateIcon, Converter={x:Static c:IconKeyConverter.Instance}}"/>
             </Border>
+            <Button Classes="creblur" IsVisible="{Binding CanConceal}" ToolTip.Tip="Desfocar de novo" AutomationProperties.Name="{Binding Title, StringFormat='Desfocar de novo a capa de {0}'}"
+                    Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ConcealGameCommand}" CommandParameter="{Binding}">
+              <PathIcon Data="{StaticResource Icon.EyeOff}"/>
+            </Button>
             <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Progress}" IsVisible="{Binding HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
           </Panel>
         </Border>
@@ -81,24 +87,6 @@
       </Button>
     </DataTemplate>
 
-    <DataTemplate x:Key="ListRowTemplate" x:DataType="vm:LibraryCardViewModel">
-      <Button Classes="libcard" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ToggleCommand}" CommandParameter="{Binding}"
-              AutomationProperties.Name="{Binding AutomationName}">
-        <Border Classes="lib-card" Padding="12" Height="76" Margin="0,0,0,8" BorderBrush="{DynamicResource Vnf.StrokeSubtle}">
-          <Grid ColumnDefinitions="44,*,Auto,200" ColumnSpacing="16">
-            <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
-              <c:Cover Width="44" Image="{Binding Image}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
-            </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-              <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
-              <TextBlock Classes="jp-row secondary" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-            <Border Grid.Column="2" Classes="lib-tag" VerticalAlignment="Center"><TextBlock Text="{Binding Chip}"/></Border>
-            <TextBlock Grid.Column="3" Classes="lib-cs" VerticalAlignment="Center" Text="{Binding Subtitle}"/>
-          </Grid>
-        </Border>
-      </Button>
-    </DataTemplate>
   </UserControl.Resources>
 
   <Panel>
@@ -109,7 +97,14 @@
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="16">
             <StackPanel>
               <TextBlock Classes="lib-h1" Text="Biblioteca"/>
-              <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+                <StackPanel Name="HiddenAdult" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasHiddenAdult}">
+                  <TextBlock Classes="lib-sub" Foreground="{DynamicResource Vnf.TextTertiary}" Text=" · "/>
+                  <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextTertiary}" Data="{StaticResource Icon.EyeOff}"/>
+                  <TextBlock Name="HiddenAdultText" Classes="lib-sub" Foreground="{DynamicResource Vnf.TextTertiary}" Text="{Binding HiddenAdultText}"/>
+                </StackPanel>
+              </StackPanel>
             </StackPanel>
             <Button Grid.Column="1" Name="ExportButton" Command="{Binding Export.OpenCommand}" VerticalAlignment="Top">
               <StackPanel Orientation="Horizontal" Spacing="8">
@@ -143,7 +138,7 @@
                   <Border Classes="lib-card" Padding="10" Margin="8,0">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                       <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
-                        <c:Cover Width="44" Image="{Binding Card.Image}" Seed="{Binding Title}" IsVisible="{Binding Card.HasImage}"/>
+                        <c:Cover Width="44" Image="{Binding Card.Image}" Revealed="{Binding Card.Revealed}" Seed="{Binding Title}" IsVisible="{Binding Card.HasImage}"/>
                       </Border>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
@@ -169,20 +164,20 @@
           </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Name="FilterRow" ColumnSpacing="8" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+        <Grid Grid.Row="1" Name="FilterRow" RowDefinitions="Auto,Auto" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1000*" MinWidth="120" MaxWidth="320"/>
+            <ColumnDefinition Width="1000*" MinWidth="72" MaxWidth="320"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
-          <Border Classes="lib-input">
+          <Border Classes="lib-input" ClipToBounds="True">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
               <TextBox Grid.Column="1" Name="SearchBox" Classes="bare" Text="{Binding SearchText}" PlaceholderText="Buscar por título, original ou tag" AutomationProperties.Name="Buscar por título, original ou tag"/>
             </Grid>
           </Border>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <StackPanel Grid.Column="1" Name="FilterChips" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
             <ItemsControl ItemsSource="{Binding Filters}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
@@ -192,7 +187,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <ItemsControl Name="ActiveTags" ItemsSource="{Binding Tags.Active}">
+            <ItemsControl Name="ActiveTags" ItemsSource="{Binding Tags.Active}" IsVisible="{Binding Tags.HasActive}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:LibraryActiveTag">
@@ -212,35 +207,54 @@
                 <TextBlock Text="Tags"/>
               </StackPanel>
             </Button>
-            <!-- O popover "Tags": as suas tags e as do VNDB, com a contagem de jogos e a caixa que liga o termo no filtro. -->
-            <Popup Name="TagsPopup" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsButton}"
-                   Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsButton}">
-              <Border Classes="lib-pop">
-                <StackPanel Spacing="12">
-                  <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                      <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
-                      <TextBox Grid.Column="1" Name="TagSearch" Classes="bare" Text="{Binding Search}" PlaceholderText="Buscar tag" AutomationProperties.Name="Buscar tag"/>
-                    </Grid>
-                  </Border>
-                  <StackPanel IsVisible="{Binding HasOwn}">
-                    <c:OverlineText Classes="overline" Text="Suas tags" Margin="0,0,0,4"/>
-                    <ItemsControl Name="OwnTags" ItemsSource="{Binding OwnOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
-                  </StackPanel>
-                  <StackPanel IsVisible="{Binding HasVndb}">
-                    <c:OverlineText Classes="overline" Text="Tags do VNDB" Margin="0,0,0,4"/>
-                    <ItemsControl Name="VndbTags" ItemsSource="{Binding VndbOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
-                  </StackPanel>
-                  <Border Classes="lib-hr"/>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <Button Name="ManageTagsButton" Classes="subtle sm" HorizontalAlignment="Left" Padding="0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Command="{Binding OpenManageCommand}" Content="Gerenciar suas tags"/>
-                    <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding ShownText}"/>
-                  </Grid>
+            <Button Name="AdultButton" Classes="lib-tagbtn" Classes.ic="{Binding HasDrawer}" Command="{Binding ToggleAdultPopoverCommand}"
+                    AutomationProperties.Name="{Binding AdultModeName, StringFormat='Conteúdo adulto: {0}'}" ToolTip.Tip="{Binding AdultModeName, StringFormat='Conteúdo adulto: {0}'}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.EyeOff}"/>
+                <TextBlock Text="Adulto" IsVisible="{Binding !HasDrawer}"/>
+                <TextBlock Classes="lib-adultmode" Text="{Binding AdultModeName}" IsVisible="{Binding !HasDrawer}"/>
+              </StackPanel>
+            </Button>
+            <!-- O popover "Adulto": os três modos do conteúdo adulto; vale para toda a Biblioteca e é o mesmo ajuste da aba Privacidade. -->
+            <Popup Name="AdultPopup" IsOpen="{Binding IsAdultPopoverOpen, Mode=TwoWay}" PlacementTarget="{Binding #AdultButton}"
+                   Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #AdultButton}">
+              <Border Classes="lib-pop" Width="344" Padding="12">
+                <StackPanel Spacing="4">
+                  <c:OverlineText Classes="overline" Margin="8,4,8,8" Text="Conteúdo adulto"/>
+                  <ItemsControl Name="AdultModes" ItemsSource="{Binding AdultModes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:AdultModeItem">
+                        <Button Classes="adult-row" Classes.on="{Binding IsSelected}" AutomationProperties.Name="{Binding Name}"
+                                Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).SetAdultModeCommand}" CommandParameter="{Binding}">
+                          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Classes="adult-radio" Classes.on="{Binding IsSelected}">
+                              <Ellipse Width="8" Height="8" Fill="{DynamicResource Vnf.Accent}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                              <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Name}"/>
+                              <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                            </StackPanel>
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Border Classes="lib-hr" Margin="0,4,0,0"/>
+                  <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Margin="8,8,8,4">
+                    <Run Text="Vale para toda a Biblioteca. Mais em"/>
+                    <Run FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Text="Ajustes · Privacidade"/><Run Text="."/>
+                  </TextBlock>
                 </StackPanel>
               </Border>
             </Popup>
           </StackPanel>
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="12">
+          <WrapPanel Name="SortBar" Classes="sortbar" Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
+            <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="Ordenar por"/>
+            <ListBox Classes="libseg" Name="SortSwitch" ItemsSource="{Binding Sorts}" SelectedItem="{Binding SelectedSort}" AutomationProperties.Name="Ordem dos jogos">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibrarySortItem"><TextBlock Text="{Binding Label}"/></DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
             <Button Name="TagModeButton" Classes="subtle sm" VerticalAlignment="Center" IsVisible="{Binding Tags.HasMode}" Command="{Binding Tags.ToggleModeCommand}" Content="{Binding Tags.ModeText}"/>
             <StackPanel Name="TagsSaved" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding Tags.HasActive}">
               <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Check}"/>
@@ -251,7 +265,34 @@
                 <DataTemplate x:DataType="vm:LibraryLayoutItem"><TextBlock Text="{Binding Label}"/></DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-          </StackPanel>
+          </WrapPanel>
+          <!-- O popover "Tags": as suas tags e as do VNDB, com a contagem de jogos e a caixa que liga o termo no filtro. -->
+          <Popup Name="TagsPopup" DataContext="{Binding Tags}" x:DataType="vm:LibraryTagsViewModel" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsButton}"
+                 Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsButton}">
+            <Border Classes="lib-pop">
+              <StackPanel Spacing="12">
+                <Border Classes="lib-input" Height="{DynamicResource Vnf.ControlSm}">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <PathIcon Width="16" Height="16" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Search}"/>
+                    <TextBox Grid.Column="1" Name="TagSearch" Classes="bare" Text="{Binding Search}" PlaceholderText="Buscar tag" AutomationProperties.Name="Buscar tag"/>
+                  </Grid>
+                </Border>
+                <StackPanel IsVisible="{Binding HasOwn}">
+                  <c:OverlineText Classes="overline" Text="Suas tags" Margin="0,0,0,4"/>
+                  <ItemsControl Name="OwnTags" ItemsSource="{Binding OwnOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                </StackPanel>
+                <StackPanel IsVisible="{Binding HasVndb}">
+                  <c:OverlineText Classes="overline" Text="Tags do VNDB" Margin="0,0,0,4"/>
+                  <ItemsControl Name="VndbTags" ItemsSource="{Binding VndbOptions}" ItemTemplate="{StaticResource TagOptionTemplate}"/>
+                </StackPanel>
+                <Border Classes="lib-hr"/>
+                <Grid ColumnDefinitions="*,Auto">
+                  <Button Name="ManageTagsButton" Classes="subtle sm" HorizontalAlignment="Left" Padding="0" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Command="{Binding OpenManageCommand}" Content="Gerenciar suas tags"/>
+                  <TextBlock Grid.Column="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding ShownText}"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Popup>
         </Grid>
 
         <!-- O ScrollViewer vai 8 px além da folga da página para o contorno da capa escolhida não ser cortado; o Border devolve os 8. -->
@@ -262,13 +303,7 @@
             </ItemsControl>
           </Border>
         </ScrollViewer>
-        <ScrollViewer Grid.Row="2" Name="ListScroll" Margin="-8,-8,-8,0" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsList}">
-          <Border Padding="8,8,8,24">
-            <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource ListRowTemplate}">
-              <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-            </ItemsControl>
-          </Border>
-        </ScrollViewer>
+        <v:LibraryQueueTable Grid.Row="2" Name="ListScroll" Margin="-8,-8,-8,0" IsVisible="{Binding IsList}"/>
         <c:EmptyState Grid.Row="2" Name="NoResults" IsVisible="{Binding HasNoResults}" Message="Nenhum jogo combina com a busca ou com o filtro."/>
       </Grid>
 
@@ -281,7 +316,20 @@
                 <Panel VerticalAlignment="Top">
                   <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
                     <Panel>
-                      <c:Cover FillWidth="True" HorizontalAlignment="Stretch" Image="{Binding Card.Image}" Seed="{Binding Title}"/>
+                      <c:Cover FillWidth="True" HorizontalAlignment="Stretch" Image="{Binding Card.Image}" Revealed="{Binding Card.Revealed}" Seed="{Binding Title}"/>
+                      <Border Classes="bveil" IsVisible="{Binding Card.IsBlurred}">
+                        <Button Name="DrawerReveal" Classes="rvb sm" Command="{Binding Library.RevealGameCommand}" CommandParameter="{Binding Card}" AutomationProperties.Name="Mostrar a capa">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Eye}"/>
+                            <TextBlock Text="Mostrar"/>
+                          </StackPanel>
+                        </Button>
+                      </Border>
+                      <Border Classes="cadult" IsVisible="{Binding Card.IsAdult}"><TextBlock Text="18+"/></Border>
+                      <Button Name="DrawerConceal" Classes="creblur" IsVisible="{Binding Card.CanConceal}" ToolTip.Tip="Desfocar de novo" AutomationProperties.Name="Desfocar de novo a capa"
+                              Command="{Binding Library.ConcealGameCommand}" CommandParameter="{Binding Card}">
+                        <PathIcon Data="{StaticResource Icon.EyeOff}"/>
+                      </Button>
                       <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Card.Progress}" IsVisible="{Binding Card.HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
                     </Panel>
                   </Border>
@@ -420,6 +468,8 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <TextBlock Name="RevealNote" Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Margin="0,6,0,0" IsVisible="{Binding Card.IsBlurred}"
+                           Text="Mostrar libera a capa, as tags e os traços deste jogo até você sair da Biblioteca."/>
                 <!-- O escolhedor do "+ tag": as suas tags com a caixa marcada nas que o jogo tem, e o campo que cria uma tag nova já posta no jogo. -->
                 <Popup Name="GameTagsPopup" IsOpen="{Binding IsPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsPanel}" Placement="BottomEdgeAlignedLeft" VerticalOffset="4"
                        IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsPanel}">
