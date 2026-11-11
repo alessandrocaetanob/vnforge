@@ -252,4 +252,33 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Equal("hana", vm.SearchText);
         Assert.True(vm.ShowSpoilers);
     }
+
+    [Fact]
+    public async Task O_retrato_adulto_tem_uma_chave_so_na_lista_e_na_pagina_e_so_o_jogo_dela_o_revela()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, matched: true, showSpoilers: true, Ct, adultPortrait: true);
+        var reveals = new AdultReveal();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Reveals = reveals };
+        await vm.LoadAsync();
+        vm.RoleFacets.Single(f => f.Key == "side").IsSelected = true;
+        var hana = vm.Items.Single(i => i.Name == "Hana Tsukino");
+
+        // Com o filtro "Secundária" a lista mostra o papel do jogo Star, mas o retrato continua com a chave do papel mais importante.
+        Assert.Equal(CharactersSamples.Moon, hana.Portrait.RevealKey);
+        Assert.True(hana.Portrait.IsBlurred);
+        vm.OpenCharacterCommand.Execute(hana);
+        Assert.Equal(CharactersSamples.Moon, vm.Page!.Portrait.RevealKey);
+
+        reveals.Reveal(CharactersSamples.Star);
+
+        Assert.False(vm.Page!.Portrait.Revealed);
+        Assert.True(vm.Page.Portrait.IsBlurred);
+        Assert.True(vm.Page.Games.Single(g => g.Title == "Star Garden").Revealed);
+
+        vm.RevealPortraitCommand.Execute(vm.Page.Portrait.RevealKey);
+
+        Assert.True(reveals.IsRevealed(CharactersSamples.Moon));
+        Assert.True(vm.Page!.Portrait.Revealed);
+        Assert.False(vm.Page.Portrait.IsBlurred);
+    }
 }

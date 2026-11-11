@@ -350,13 +350,17 @@ public sealed partial class CharactersViewModel : ObservableObject
         card.AppearsIn.FirstOrDefault(a => selectedRoles.Contains(a.RoleCode)) ?? card.AppearsIn[0];
 
     private CharacterListItem ItemOf(LibraryCharacterCard card, AdultMode mode) =>
-        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"), PortraitOf(card, ShownAppearance(card), mode));
+        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"), PortraitOf(card, mode));
 
-    /// <summary>O olho só aparece no retrato adulto que o Desfocar borra; revelar vale para o jogo do papel mostrado, e o retrato fica à vista se qualquer jogo do personagem foi revelado.</summary>
-    private CharacterPortraitReveal PortraitOf(LibraryCharacterCard card, LibraryCharacterAppearance shown, AdultMode mode)
+    /// <summary>
+    /// O retrato tem uma chave só: o jogo do papel mais importante do personagem, igual na lista (com ou sem filtro de papel) e na página. O olho revela esse jogo e o retrato está
+    /// revelado se e só se ele está; revelar outro jogo do personagem não o mostra. O olho só aparece no retrato adulto que o Desfocar borra.
+    /// </summary>
+    private CharacterPortraitReveal PortraitOf(LibraryCharacterCard card, AdultMode mode)
     {
-        var revealed = card.AppearsIn.Any(a => Reveals.IsRevealed(a.VisualNovelId));
-        return new CharacterPortraitReveal(shown.VisualNovelId, revealed, card is { ImageHidden: true, Image: not null } && mode == AdultMode.Blur && !revealed);
+        var key = card.AppearsIn[0].VisualNovelId;
+        var revealed = Reveals.IsRevealed(key);
+        return new CharacterPortraitReveal(key, revealed, card is { ImageHidden: true, Image: not null } && mode == AdultMode.Blur && !revealed);
     }
 
     private void BuildFacets(IReadOnlyList<LibraryCharacterCard> basis)
@@ -456,7 +460,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             games,
             $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
             notes.Count > 0 ? string.Join(' ', notes) : null,
-            PortraitOf(card, card.AppearsIn[0], privacy.Adult),
+            PortraitOf(card, privacy.Adult),
             known?.Translation);
     }
 
@@ -645,11 +649,11 @@ public sealed partial class CharactersViewModel : ObservableObject
         }
     }
 
-    /// <summary>Volta da página do personagem para a lista, com a busca e os filtros que estavam.</summary>
     /// <summary>O olho do retrato borrado: libera o jogo (capa e retratos dele) em toda a Biblioteca até a pessoa sair dela.</summary>
     [RelayCommand]
     private void RevealPortrait(string? visualNovelId) => Reveals.Reveal(visualNovelId);
 
+    /// <summary>Volta da página do personagem para a lista, com a busca e os filtros que estavam.</summary>
     [RelayCommand]
     private void Back()
     {
