@@ -105,13 +105,13 @@ public sealed partial class LibraryViewModel
         try
         {
             var checker = createChecker();
-            var snapshot = await Task.Run(source.Load);
+            var snapshot = await Task.Run(source.Load, CancellationToken.None);
             if (!snapshot.Games.Any(g => PortugueseTranslationChecker.NeedsCheck(g)))
             {
                 return;
             }
 
-            var run = await Task.Run(() => checker.CheckAllAsync(snapshot, onChecked: game => KeepCheck(source, game)));
+            var run = await Task.Run(() => checker.CheckAllAsync(snapshot, onChecked: game => KeepCheck(source, game), cancellationToken: CancellationToken.None), CancellationToken.None);
             if (run.Checked.Count > 0)
             {
                 post(() => _ = LoadAsync());
