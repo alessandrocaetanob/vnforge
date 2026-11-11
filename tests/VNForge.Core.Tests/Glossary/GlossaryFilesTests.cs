@@ -75,13 +75,31 @@ public class GlossaryFilesTests : IDisposable
 
     [Theory]
     [InlineData("""{ "version": 1 }""", "entries")]
+    [InlineData("""{ "entries": [] }""", "version")]
+    [InlineData("""{ "version": 2, "entries": [] }""", "mais nova")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "extra": 1 } ] }""", "extra")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a" } ] }""", "target")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": " ", "target": "b" } ] }""", "source")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b" }, { "source": "a", "target": "c" } ] }""", "aparece mais de uma vez")]
     [InlineData("""{ "version": 1, "entries": [ null ] }""", "entries[0]")]
+    [InlineData("{ não é json", "malformado")]
     public void Glossario_invalido_e_recusado_com_o_motivo(string json, string trecho)
     {
         var ex = Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Parse(json, "glossary.json"));
 
         Assert.Contains(trecho, ex.Reason);
         Assert.Equal("glossary.json", ex.FilePath);
+    }
+
+    [Theory]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": "robot" } ] }""", "gender")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": 1 } ] }""", "gender")]
+    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b" }, { "source": "a", "target": "c" } ] }""", "aparece mais de uma vez")]
+    public void Personagens_invalidos_sao_recusados_com_o_motivo(string json, string trecho)
+    {
+        var ex = Assert.Throws<GlossaryFileException>(() => CharacterSerializer.Parse(json, "characters.json"));
+
+        Assert.Contains(trecho, ex.Reason);
     }
 
     [Fact]
@@ -97,16 +115,6 @@ public class GlossaryFilesTests : IDisposable
     public void Serialize_recusa_surrogate_solitario()
     {
         Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a\uD800", "x")]));
-    }
-
-    [Fact]
-    public void Mensagem_de_erro_do_json_vem_em_portugues()
-    {
-        var ex = Assert.Throws<GlossaryFileException>(() =>
-            CharacterSerializer.Parse("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": "robot" } ] }""", "c.json"));
-
-        Assert.Contains("valor inválido", ex.Reason);
-        Assert.DoesNotContain("could not", ex.Reason);
     }
 
     [Fact]

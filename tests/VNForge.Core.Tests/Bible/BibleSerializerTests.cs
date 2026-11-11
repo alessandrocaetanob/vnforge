@@ -49,7 +49,10 @@ public sealed class BibleSerializerTests
     [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1", "cor": "azul" } ] }""", "desconhecido")]
     [InlineData("""{ "version": 2, "scenes": [] }""", "mais nova")]
     [InlineData("""{ "version": 0, "scenes": [] }""", "não existe")]
+    [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1" }, { "key": "yst1" } ] }""", "mais de uma vez")]
     [InlineData("""{ "version": 1, "scenes": [ { "key": "YST1" } ] }""", "inválida")]
+    [InlineData("""{ "version": 1, "scenes": [ { "key": "yst1", "edited": [ "resumo" ] } ] }""", "scenes")]
+    [InlineData("não é json", "JSON")]
     public void Arquivo_invalido_diz_o_que_esta_errado(string json, string expected)
     {
         var ex = Assert.Throws<GlossaryFileException>(() => BibleSerializer.Parse(json, "bible.json"));

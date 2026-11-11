@@ -70,6 +70,18 @@ public sealed class UserTagsFileTests : IDisposable
     }
 
     [Fact]
+    public void Update_devolve_o_resultado_e_com_arquivo_ilegivel_recusa_sem_sobrescrever()
+    {
+        var file = new UserTagsFile(_dir.Path);
+        Assert.Equal(1, file.Update(t => t.Add("g1", "a") is { } ? 1 : 0));
+        File.WriteAllText(file.Path, "{ isto não é json");
+
+        Assert.Throws<LibraryException>(() => file.Update(t => t.Add("g1", "b")));
+
+        Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
+    }
+
+    [Fact]
     public void Update_que_falha_na_mudanca_nao_grava()
     {
         var file = new UserTagsFile(_dir.Path);

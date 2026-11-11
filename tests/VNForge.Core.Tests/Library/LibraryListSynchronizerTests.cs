@@ -327,6 +327,18 @@ public sealed class LibraryListSynchronizerTests
     }
 
     [Fact]
+    public async Task Token_invalido_para_a_sincronizacao_inteira_antes_de_ler()
+    {
+        var (library, fake) = Setup(Entry(vote: 80));
+        var synchronizer = new LibraryListSynchronizer(fake);
+
+        var ex = await Assert.ThrowsAsync<VndbException>(() => synchronizer.PlanAsync(library, "token-errado", new LibrarySyncOptions(), Ct));
+
+        Assert.Equal(401, ex.StatusCode);
+        Assert.Equal(["GetAuthInfoAsync(***)"], fake.Calls);
+    }
+
+    [Fact]
     public async Task Resposta_401_na_gravacao_e_tres_falhas_seguidas_param_o_resto()
     {
         var unauthorized = new GameLibrary([Game("g1", "v4"), Game("g2", "v17")]);

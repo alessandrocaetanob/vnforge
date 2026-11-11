@@ -18,14 +18,19 @@ public class FormattingProfileSerializerTests
     }
 
     [Theory]
+    [InlineData("""{ "wrap": { "maxWidth": 0 } }""", "$.wrap.maxWidth")]
     [InlineData("""{ "wrap": { "maxWidth": "larga" } }""", "$.wrap.maxWidth")]
+    [InlineData("""{ "wrap": { "maxWidth": null } }""", "$.wrap.maxWidth")]
     [InlineData("""{ "wrap": { "maxLines": 0 } }""", "$.wrap.maxLines")]
     [InlineData("""{ "wrap": { "enabled": "sim" } }""", "$.wrap.enabled")]
     [InlineData("""{ "wrap": { "charWidth": "larga" } }""", "$.wrap.charWidth")]
+    [InlineData("""{ "wrap": { "larguraMaxima": 5 } }""", "$.wrap.larguraMaxima")]
     [InlineData("""{ "wrap": 3 }""", "$.wrap")]
     [InlineData("""{ "kinds": ["fala"] }""", "$.kinds[0]")]
     [InlineData("""{ "kinds": "dialogue" }""", "$.kinds")]
     [InlineData("""{ "kinds": [] }""", "$.kinds")]
+    [InlineData("""{ "outro": 1 }""", "$.outro")]
+    [InlineData("[]", "$")]
     public void Valor_invalido_aponta_o_campo(string json, string field)
     {
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse(json));

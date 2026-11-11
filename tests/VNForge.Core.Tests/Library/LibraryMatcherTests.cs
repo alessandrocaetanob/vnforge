@@ -160,6 +160,22 @@ public class LibraryMatcherTests
     }
 
     [Fact]
+    public async Task Confirmar_a_mao_busca_a_ficha_e_recusa_id_que_o_vndb_nao_tem()
+    {
+        var matcher = Matcher(Catalog());
+        var game = Game("qualquer coisa");
+
+        var confirmed = await matcher.ConfirmAsync(game, "v17", Ct);
+        var e = await Assert.ThrowsAsync<LibraryException>(() => matcher.ConfirmAsync(game, "v999", Ct));
+
+        Assert.Equal("v17", confirmed.VndbId);
+        Assert.Equal(LibraryConfirmation.Manual, confirmed.Confirmation);
+        Assert.Equal("Steins;Gate", confirmed.Title);
+        Assert.Null(confirmed.MatchScore);
+        Assert.Contains("v999", e.Message);
+    }
+
+    [Fact]
     public async Task Confirmar_a_mao_um_candidato_guarda_a_pontuacao_dele()
     {
         var matcher = Matcher(Catalog());

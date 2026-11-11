@@ -29,7 +29,11 @@ public class LineIdsTests
     }
 
     [Theory]
+    [InlineData("yst00112")]
+    [InlineData("yst00112:")]
+    [InlineData("20:19:08")]
     [InlineData("yst00112:033792 depois")]
+    [InlineData("")]
     public void TryParse_recusa_o_que_nao_e_um_id_completo(string texto)
     {
         Assert.False(LineIds.TryParse(texto, out _));

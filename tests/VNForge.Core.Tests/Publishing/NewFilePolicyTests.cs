@@ -16,6 +16,11 @@ public sealed class NewFilePolicyTests : IDisposable
 
     [Theory]
     [InlineData("Game/novo.ypf")]
+    [InlineData("Game/novo.ybn")]
+    [InlineData("Game/novo.exe")]
+    [InlineData("Game/novo.dll")]
+    [InlineData("Game/novo.png")]
+    [InlineData("Game/semextensao")]
     public void Arquivo_novo_que_nao_e_texto_e_recusado_porque_iria_inteiro_no_patch(string path)
     {
         var error = Assert.Throws<VNForgeException>(() => NewFilePolicy.EnsureAllowed(_game, path));

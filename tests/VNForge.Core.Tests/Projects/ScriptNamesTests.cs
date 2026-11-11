@@ -25,26 +25,27 @@ public class ScriptNamesTests
     }
 
     [Fact]
-    public void A_extracao_descarta_o_detectado_de_script_que_sumiu_mas_guarda_o_nome_do_usuario()
+    public void A_extracao_atualiza_o_detectado_e_preserva_o_nome_do_usuario()
     {
         var antes = ScriptNames.Empty
-            .WithDetected(new Dictionary<string, string?> { [Yst1] = "um", [Yst2] = "dois" })
+            .WithDetected(new Dictionary<string, string?> { [Yst1] = "antigo", [Yst2] = "dois" })
             .Rename(Yst1, "Prólogo");
 
-        var depois = antes.WithDetected(new Dictionary<string, string?>());
+        var depois = antes.WithDetected(new Dictionary<string, string?> { [Yst1] = "novo", [Yst2] = "dois-b" });
 
         Assert.Equal("Prólogo", depois.DisplayName(Yst1));
-        Assert.Null(depois.DisplayName(Yst2));
-        Assert.Single(depois.Entries);
+        Assert.Equal("dois-b", depois.DisplayName(Yst2));
     }
 
     [Theory]
+    [InlineData("{", "malformado")]
     [InlineData("[]", "objeto")]
     [InlineData("{\"entries\":[]}", "version")]
     [InlineData("{\"version\":1}", "entries")]
     [InlineData("{\"version\":2,\"entries\":[]}", "mais nova")]
     [InlineData("{\"version\":1,\"entries\":[],\"extra\":1}", "extra")]
     [InlineData("{\"version\":1,\"entries\":[{\"name\":\"A\"}]}", "key")]
+    [InlineData("{\"version\":1,\"entries\":[{\"key\":\"\",\"name\":\"A\"}]}", "key")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"Yst1\",\"name\":\"A\"}]}", "Yst1")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"a\",\"nome\":\"A\"}]}", "nome")]
     [InlineData("{\"version\":1,\"entries\":[{\"key\":\"a\",\"name\":\"A\"},{\"key\":\"a\",\"name\":\"B\"}]}", "mais de uma vez")]

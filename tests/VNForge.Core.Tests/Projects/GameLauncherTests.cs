@@ -46,6 +46,32 @@ public sealed class GameLauncherTests : IDisposable
     }
 
     [Fact]
+    public void Recusa_game_path_relativo_com_ponto_ponto_que_cai_fora_da_pasta_registrada()
+    {
+        var outro = Path.Combine(_temp.Path, "outro");
+        Directory.CreateDirectory(outro);
+        File.WriteAllText(Path.Combine(outro, "jogo.exe"), "MZ");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../outro", "jogo.exe") });
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("game.path", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Fact]
+    public void Recusa_projeto_sem_pasta_de_jogo_registrada()
+    {
+        File.WriteAllText(Path.Combine(_game, "jogo.exe"), "MZ");
+        _project.SaveState(PipelineState.Empty);
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("vnf extract", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Fact]
     public void Aceita_pasta_registrada_so_pelo_manifesto_de_um_backup()
     {
         File.WriteAllText(Path.Combine(_game, "jogo.exe"), "MZ");
@@ -75,7 +101,25 @@ public sealed class GameLauncherTests : IDisposable
     }
 
     [Theory]
+    [InlineData("../fora.exe")]
+    [InlineData(@"..\fora.exe")]
+    [InlineData("bin/../../fora.exe")]
+    public void Recusa_exe_que_sai_da_pasta_do_jogo(string exe)
+    {
+        File.WriteAllText(Path.Combine(_temp.Path, "fora.exe"), "MZ");
+        UseExe(exe);
+
+        var erro = Assert.Throws<VNForgeException>(() => new GameLauncher(_starter).Launch(_project));
+
+        Assert.Contains("pasta do jogo", erro.Message);
+        Assert.Null(_starter.Executable);
+    }
+
+    [Theory]
     [InlineData("instalar.bat")]
+    [InlineData("atalho.lnk")]
+    [InlineData("script.cmd")]
+    [InlineData("jogo")]
     public void Recusa_o_que_nao_e_exe(string exe)
     {
         File.WriteAllText(Path.Combine(_game, exe), "x");

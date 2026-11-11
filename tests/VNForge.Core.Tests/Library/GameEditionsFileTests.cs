@@ -39,6 +39,8 @@ public sealed class GameEditionsFileTests : IDisposable
     [InlineData("null")]
     [InlineData("""{ "version": 7, "games": {} }""")]
     [InlineData("""{ "version": 1, "games": { " ": { "visualNovelId": "v1", "releaseIds": [] } } }""")]
+    [InlineData("""{ "version": 1, "games": { "g1": { "releaseIds": [] } } }""")]
+    [InlineData("""{ "version": 1, "games": { "g1": { "visualNovelId": "v1" } } }""")]
     [InlineData("""{ "version": 1, "games": { "g1": { "visualNovelId": "v1", "releaseIds": [" "] } } }""")]
     [InlineData("""{ "version": 1, "games": { "g1": null } }""")]
     public void Arquivo_ilegivel_e_recusado_citando_o_arquivo_e_nunca_sobrescrito(string json)

@@ -16,8 +16,12 @@ public sealed class LibraryListModelsTests
     }
 
     [Theory]
+    [InlineData("0")]
+    [InlineData("0.9")]
     [InlineData("10.5")]
+    [InlineData("8.55")]
     [InlineData("oito")]
+    [InlineData("")]
     public void Nota_fora_de_1_a_10_ou_com_mais_de_uma_casa_e_recusada(string text)
     {
         Assert.Throws<ArgumentException>(() => LibraryListRules.ParseVote(text));
@@ -87,8 +91,10 @@ public sealed class LibraryListModelsTests
     }
 
     [Theory]
+    [InlineData(9, 1)]
     [InlineData(101, 1)]
     [InlineData(50, 7)]
+    [InlineData(50, 0)]
     [InlineData(50, 1601)]
     public void Editar_recusa_voto_e_rotulo_invalidos(int vote, int label)
     {

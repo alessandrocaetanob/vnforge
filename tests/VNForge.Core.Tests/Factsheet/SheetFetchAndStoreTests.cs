@@ -11,6 +11,16 @@ public sealed class SheetFetchAndStoreTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task Jogo_que_o_VNDB_nao_tem_recusa_em_portugues()
+    {
+        using var folder = new TempFolder();
+
+        var ex = await Assert.ThrowsAsync<LibraryException>(() => SheetFetcher.FetchAsync(Catalog(), new SheetStore(folder.Path), "v1", cancellationToken: Ct));
+
+        Assert.Contains("v1", ex.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("../v1")]
     [InlineData("v")]

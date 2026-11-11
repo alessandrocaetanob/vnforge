@@ -48,19 +48,6 @@ public class SameSourceTests
     }
 
     [Fact]
-    public void O_indice_acompanha_as_linhas_trocadas_com_Replace()
-    {
-        var linhas = ProjectLines.Create(Textos());
-        var primeira = linhas.LinesOf("yst00001")[0];
-        var terceira = linhas.LinesOf("yst00001")[2];
-        linhas.Replace(terceira.WithUnit(terceira.Unit with { Translation = "Outra." }));
-
-        var iguais = linhas.SameSourceAs(primeira);
-
-        Assert.Equal("Outra.", iguais.First(l => l.Unit.Id == "yst00001:000002").Unit.Translation);
-    }
-
-    [Fact]
     public void Usar_em_todos_com_linha_que_nao_existe_avisa_sem_gravar_o_script()
     {
         using var pasta = new TempFolder();

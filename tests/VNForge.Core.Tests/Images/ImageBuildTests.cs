@@ -57,6 +57,22 @@ public sealed class ImageBuildTests : IDisposable
     private Dictionary<string, byte[]> Output() => WritableArchiveFormat.Read(Path.Combine(_out, Pack));
 
     [Fact]
+    public void ReplacesOnlyTheEditedImageAndKeepsTheOtherEntriesByteForByte()
+    {
+        SaveEdit(Edit(), _edited);
+
+        var result = Apply();
+
+        Assert.Equal([new RepackedArchive(Pack, 1)], result.Archives);
+        Assert.Empty(result.Warnings);
+        var written = Output();
+        Assert.Equal(_edited, written[Gate]);
+        Assert.Equal(_other, written["bg/outra.png"]);
+        Assert.Equal(new byte[] { 1, 2, 3 }, written["sys/dados.bin"]);
+        Assert.Equal(["bg/portao.png", "bg/outra.png", "sys/dados.bin"], written.Keys);
+    }
+
+    [Fact]
     public void BuildsOnTopOfAnArchiveThatTheScriptStepAlreadyWrote()
     {
         WritableArchiveFormat.Write(Path.Combine(_out, Pack), new Dictionary<string, byte[]> { [Gate] = _original, ["bg/outra.png"] = _other, ["sys/dados.bin"] = [9, 9] });

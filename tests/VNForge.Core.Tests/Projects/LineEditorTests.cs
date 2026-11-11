@@ -232,6 +232,15 @@ public class LineEditorTests
     }
 
     [Fact]
+    public void Script_inexistente_lanca_TextFileException()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Untranslated));
+
+        Assert.Throws<TextFileException>(() => editor.SetTranslation("yst99999", "yst99999:000001", "Oi."));
+    }
+
+    [Fact]
     public void Argumentos_invalidos_sao_recusados()
     {
         using var pasta = new TempFolder();
@@ -267,5 +276,14 @@ public class LineEditorTests
         Assert.Null(editor.SetChosenSpeaker("yst00001", "yst00001:000002", string.Empty).ChosenSpeaker);
 
         Assert.All(projeto.LoadText("yst00001"), u => Assert.Null(u.ChosenSpeaker));
+    }
+
+    [Fact]
+    public void SetChosenSpeaker_em_linha_inexistente_lanca()
+    {
+        using var pasta = new TempFolder();
+        var (_, editor) = Preparar(pasta.Path, Linha(1, TranslationStatus.Translated, "Oi"));
+
+        Assert.Throws<KeyNotFoundException>(() => editor.SetChosenSpeaker("yst00001", "yst00001:000099", "Inui"));
     }
 }

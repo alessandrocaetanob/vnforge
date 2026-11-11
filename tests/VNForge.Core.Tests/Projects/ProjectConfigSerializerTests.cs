@@ -42,12 +42,19 @@ public class ProjectConfigSerializerTests
     }
 
     [Theory]
+    [InlineData("\"id\": \"yuris\"", "\"id\": \"yuris\", \"id2\": 1", "$.engine.id2", "desconhecido")]
     [InlineData("\"id\": \"yuris\"", "\"id\": 7", "$.engine.id", "texto")]
     [InlineData("\"id\": \"yuris\"", "\"id\": \"  \"", "$.engine.id", "vazio")]
+    [InlineData("\"version\": 500", "\"version\": \"500\"", "$.engine.version", "número inteiro")]
     [InlineData("\"version\": 500", "\"version\": -1", "$.engine.version", "positivo")]
     [InlineData("0xD36FAC96", "D36FAC96", "$.engine.scriptKey", "0x")]
     [InlineData("\"engine\": { \"id\": \"yuris\", \"version\": 500, \"scriptKey\": \"0xD36FAC96\" }", "\"engine\": []", "$.engine", "objeto")]
+    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"latin\"", "$.encoding.strategy", "sjis, fold, remap, cp1252")]
+    [InlineData("\"effort\": \"medium\"", "\"effort\": \"extreme\"", "$.ai.effort", "low, medium, high")]
+    [InlineData("claude-opus-5-5", "claude-opus-9", "$.ai.model", "claude-opus-5-5")]
     [InlineData("\"batchSize\": 30", "\"batchSize\": 0", "$.ai.batchSize", "entre 1 e 200")]
+    [InlineData("\"target\": \"pt-BR\"", "\"target\": \"\"", "$.languages.target", "vazio")]
+    [InlineData("\"exe\": \"MinhaVN.exe\"", "\"exe\": null", "$.game.exe", "texto")]
     public void Parse_valor_invalido_aponta_o_campo(string trecho, string troca, string campo, string motivo)
     {
         var json = ExemploDoDoc02.Replace(trecho, troca);
@@ -61,17 +68,22 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
-    public void Parse_campo_desconhecido_com_ponto_no_nome_nao_vira_caminho_aninhado()
+    public void Parse_chave_de_api_no_arquivo_e_recusada_com_orientacao()
     {
-        var json = ExemploDoDoc02.Replace("\"name\"", "\"custom.option\": 1, \"name\"");
+        var json = ExemploDoDoc02.Replace("\"batchSize\": 30", "\"batchSize\": 30, \"apiKey\": \"sk-ant-x\"");
 
         var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
 
-        Assert.Equal("$['custom.option']", erro.Field);
+        Assert.Equal("$.ai.apiKey", erro.Field);
+        Assert.Contains("ANTHROPIC_API_KEY", erro.Message);
+        Assert.DoesNotContain("sk-ant-x", erro.Message);
     }
 
     [Theory]
+    [InlineData("api_key")]
     [InlineData("API-KEY")]
+    [InlineData("anthropicApiKey")]
+    [InlineData("ApiKey")]
     public void Parse_qualquer_variante_de_chave_de_api_e_recusada(string nome)
     {
         var json = ExemploDoDoc02.Replace("\"name\"", $"\"{nome}\": \"sk-ant-x\", \"name\"");
@@ -80,6 +92,23 @@ public class ProjectConfigSerializerTests
 
         Assert.Contains("ANTHROPIC_API_KEY", erro.Message);
         Assert.DoesNotContain("sk-ant-x", erro.Message);
+    }
+
+    [Theory]
+    [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"openai\"", "$.ai.provider")]
+    [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"Anthropic\"", "$.ai.provider")]
+    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"sk-ant-segredo\"", "$.encoding.strategy")]
+    [InlineData("claude-opus-5-5", "sk-ant-segredo", "$.ai.model")]
+    public void Parse_valor_recusado_nao_e_ecoado_na_mensagem(string trecho, string troca, string campo)
+    {
+        var json = ExemploDoDoc02.Replace(trecho, troca);
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal(campo, erro.Field);
+        Assert.DoesNotContain("sk-ant-segredo", erro.Message);
+        Assert.DoesNotContain("openai", erro.Message);
+        Assert.DoesNotContain("Anthropic", erro.Message);
     }
 
     [Fact]
@@ -91,6 +120,16 @@ public class ProjectConfigSerializerTests
         Assert.Matches(@"linha \d+, coluna \d+", erro.Message);
         Assert.DoesNotContain("LineNumber", erro.Message);
         Assert.DoesNotContain("BytePositionInLine", erro.Message);
+    }
+
+    [Fact]
+    public void Serialize_recusa_configuracao_invalida()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02) with { Encoding = new EncodingConfig("latin") };
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
+
+        Assert.Equal("$.encoding.strategy", erro.Field);
     }
 
     [Fact]
@@ -120,6 +159,18 @@ public class ProjectConfigSerializerTests
     }
 
     [Fact]
+    public void Titulo_do_jogo_com_campo_desconhecido_e_recusado()
+    {
+        var json = ExemploDoDoc02.Replace(
+            "\"exe\": \"MinhaVN.exe\" }",
+            "\"exe\": \"MinhaVN.exe\", \"title\": { \"original\": \"a\", \"extra\": 1 } }");
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
+
+        Assert.Equal("$.game.title.extra", erro.Field);
+    }
+
+    [Fact]
     public void Versao_do_jogo_faz_ida_e_volta_no_vnforge_json()
     {
         var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
@@ -129,6 +180,22 @@ public class ProjectConfigSerializerTests
 
         Assert.Contains("\"version\": \"1.01\"", texto, StringComparison.Ordinal);
         Assert.Equal("1.01", ProjectConfigSerializer.Parse(texto).Game.Version);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1.0\n2")]
+    [InlineData(" 1.0")]
+    [InlineData("1.0 ")]
+    public void Versao_do_jogo_invalida_aponta_o_campo(string version)
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+        config = config with { Game = config.Game with { Version = version } };
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
+
+        Assert.Equal("$.game.version", erro.Field);
     }
 
     [Fact]

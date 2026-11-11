@@ -7,6 +7,8 @@ public sealed class UserTagsTests
 
     [Theory]
     [InlineData(null)]
+    [InlineData("   ")]
+    [InlineData("vndb:drama")]
     [InlineData("a\u0001b")]
     public void Nome_invalido_e_recusado(string? input) =>
         Assert.Throws<LibraryException>(() => UserTagName.Normalize(input));
@@ -29,6 +31,8 @@ public sealed class UserTagsTests
         Assert.Throws<LibraryException>(() => UserTagName.Normalize(new string('a', UserTagName.MaxLength + 1)));
 
     [Theory]
+    [InlineData("vermelho")]
+    [InlineData("#fff")]
     [InlineData("#gg0000")]
     public void Cor_invalida_e_recusada(string input) =>
         Assert.Throws<LibraryException>(() => UserTagName.NormalizeColor(input));

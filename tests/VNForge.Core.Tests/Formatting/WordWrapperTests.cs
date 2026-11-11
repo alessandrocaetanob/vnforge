@@ -31,6 +31,7 @@ public class WordWrapperTests
     }
 
     [Theory]
+    [InlineData(@"abc\x")]
     [InlineData(@"abc\")]
     [InlineData("abc{VAR")]
     public void Marcador_invalido_e_recusado(string text)

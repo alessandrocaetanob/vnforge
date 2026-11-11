@@ -65,6 +65,16 @@ public sealed class AddressTermsTests : IDisposable
         Assert.Equal(gravado, File.ReadAllBytes(projeto.AddressTermsPath));
     }
 
+    [Fact]
+    public void O_par_repetido_e_recusado_mesmo_com_espacos_e_largura_diferentes()
+    {
+        var repetido = new AddressTerm[] { new("健太", "学生C", "あいつ", "ele"), new(" 健太 ", "学生Ｃ", "きみ", "você") };
+
+        var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Serialize(repetido));
+
+        Assert.Contains("mais de uma vez", ex.Reason);
+    }
+
     [Theory]
     [InlineData("健太", "  ")]
     public void Quem_fala_e_com_quem_fala_nao_podem_ser_vazios(string from, string to)
@@ -83,9 +93,11 @@ public sealed class AddressTermsTests : IDisposable
     }
 
     [Theory]
+    [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c"}]}""")]
     [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c","target":"d","extra":1}]}""")]
     [InlineData("""{"version":2,"entries":[]}""")]
     [InlineData("""{"entries":[]}""")]
+    [InlineData("não é json")]
     public void Arquivo_fora_do_formato_e_recusado_com_a_mensagem_do_arquivo(string json)
     {
         var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(json, "address-terms.json"));

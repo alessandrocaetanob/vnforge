@@ -85,8 +85,22 @@ public sealed class LibraryTranslationStarterTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root.Path, "projetos", "outro")));
     }
 
+    [Fact]
+    public async Task Projeto_ligado_que_sumiu_do_disco_tambem_recusa_e_diz_como_desligar()
+    {
+        var game = NewGame() with { ProjectPath = GameLibrary.NormalizeFolder(Path.Combine(_root.Path, "projetos", "apagado")) };
+        var library = new GameLibrary([game]);
+
+        var error = await Assert.ThrowsAsync<LibraryException>(() => LibraryTranslationStarter.StartAsync(library, game, ProjectFolderPath, [_engine], Catalog(), cancellationToken: Ct));
+
+        Assert.Contains("vnf library link", error.Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(ProjectFolderPath));
+    }
+
     [Theory]
+    [InlineData("Sakura no Uta", "Sakura no Uta")]
     [InlineData("Fate/stay night", "Fate stay night")]
+    [InlineData("  Alive...  ", "Alive")]
     [InlineData("///", "g1")]
     public void O_nome_da_pasta_sugerida_sai_do_titulo_sem_o_que_o_sistema_de_arquivos_recusa(string title, string expected)
     {

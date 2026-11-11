@@ -37,6 +37,18 @@ public sealed class GameNotesTests : IDisposable
     }
 
     [Fact]
+    public void Append_de_texto_vazio_e_recusado_sem_mexer_na_nota()
+    {
+        var notes = new GameNotes();
+        notes.Set("g1", "fica", Now);
+
+        var error = Assert.Throws<LibraryException>(() => notes.Append("g1", "  ", Now));
+
+        Assert.Contains("vazio", error.Message);
+        Assert.Equal("fica", notes.Of("g1")!.Text);
+    }
+
+    [Fact]
     public void Nota_longa_demais_e_recusada()
     {
         var notes = new GameNotes();
@@ -73,23 +85,6 @@ public sealed class GameNotesTests : IDisposable
         Assert.Equal("Tradução do título: \"Fim\" 終わり", loaded.Of("gb2")!.Text);
         Assert.Equal(GameNotesFile.Serialize(notes), File.ReadAllText(file.Path));
         Assert.EndsWith("library-notes.json", file.Path);
-    }
-
-    [Fact]
-    public void Update_relê_o_arquivo_e_nao_grava_quando_a_mudanca_falha()
-    {
-        var file = new GameNotesFile(_dir.Path);
-        file.Update(n => n.Set("g1", "antes", Now));
-        var before = File.ReadAllText(file.Path);
-
-        Assert.Throws<LibraryException>(() => file.Update(n =>
-        {
-            n.Set("g1", "depois", Now);
-            n.Append("g2", " ", Now);
-        }));
-
-        Assert.Equal(before, File.ReadAllText(file.Path));
-        Assert.Equal("antes", file.Load().Of("g1")!.Text);
     }
 
     [Fact]

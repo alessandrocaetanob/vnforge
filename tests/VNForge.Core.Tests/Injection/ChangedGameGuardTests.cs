@@ -65,6 +65,19 @@ public sealed class ChangedGameGuardTests : IDisposable
     }
 
     [Fact]
+    public void Plan_recusa_arquivo_do_jogo_alterado_depois_da_extracao_e_diz_qual()
+    {
+        SeedExtractedGame();
+        Game(Bgm, "atualizado-pelo-patch");
+
+        var erro = Assert.Throws<InjectionException>(() => GameInjector.Plan(_project));
+
+        Assert.Contains(Bgm, erro.Message);
+        Assert.DoesNotContain(Ysbin, erro.Message);
+        Assert.Contains("extra", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void A_recusa_leva_o_sha_esperado_e_o_encontrado_de_cada_arquivo()
     {
         SeedExtractedGame();

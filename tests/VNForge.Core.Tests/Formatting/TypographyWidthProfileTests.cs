@@ -22,8 +22,16 @@ public class TypographyWidthProfileTests
 
     [Theory]
     [InlineData("""{ "typography": { "quotes": "curvas" } }""", "$.typography.quotes")]
+    [InlineData("""{ "typography": { "ellipsis": 3 } }""", "$.typography.ellipsis")]
+    [InlineData("""{ "typography": { "dash": "--" } }""", "$.typography.dash")]
+    [InlineData("""{ "typography": { "dialogueDash": "" } }""", "$.typography.dialogueDash")]
+    [InlineData("""{ "typography": { "dialogueDash": 5 } }""", "$.typography.dialogueDash")]
+    [InlineData("""{ "typography": { "dash": "\\" } }""", "$.typography.dash")]
     [InlineData("""{ "typography": { "dialogueDash": "{" } }""", "$.typography.dialogueDash")]
+    [InlineData("""{ "typography": { "outro": 1 } }""", "$.typography.outro")]
+    [InlineData("""{ "width": { "mode": "cheia" } }""", "$.width.mode")]
     [InlineData("""{ "width": { "spaces": "sim" } }""", "$.width.spaces")]
+    [InlineData("""{ "width": [] }""", "$.width")]
     public void Valor_invalido_aponta_o_campo(string json, string field)
     {
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse(json));

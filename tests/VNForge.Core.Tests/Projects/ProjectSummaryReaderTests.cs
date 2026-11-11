@@ -3,6 +3,31 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
+public class ProjectSummaryReaderTests
+{
+    private static ProjectFolder NovoProjeto(string raiz) => ProjectFolder.Create(raiz, new ProjectConfig(
+        "Minha VN",
+        new GameConfig("D:/Jogos/MinhaVN", "MinhaVN.exe"),
+        new EngineConfig("yuris", 500, "0xD36FAC96"),
+        new LanguagesConfig("ja", "pt-BR"),
+        new EncodingConfig("fold"),
+        AiConfig.Default));
+
+    private static TextUnit Linha(string key, int n, TranslationStatus status) =>
+        new($"{key}:{n:D6}", TextUnitKind.Dialogue, null, $"原文{n}", status == TranslationStatus.Untranslated ? null : $"tradução {n}", status);
+
+    [Fact]
+    public void Texto_invalido_propaga_o_erro_do_arquivo()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        Directory.CreateDirectory(projeto.TextDirectory);
+        File.WriteAllText(Path.Combine(projeto.TextDirectory, "yst00001.json"), "{ isto não é json");
+
+        Assert.Throws<TextFileException>(() => ProjectSummaryReader.Read(temp.Path));
+    }
+}
+
 public class ProjectSummaryLastBuildTests
 {
     private static readonly DateTime BuiltAt = new(2026, 10, 22, 0, 41, 0, DateTimeKind.Utc);

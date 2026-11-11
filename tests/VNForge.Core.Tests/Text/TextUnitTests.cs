@@ -123,4 +123,15 @@ public class TextUnitTests
         Assert.Contains($"\"doubt\":{{\"kind\":\"{nome}\",\"note\":\"Não sei quem fala.\"}}", json, StringComparison.Ordinal);
         Assert.Equal(unidade.Doubt, TextUnitJson.Deserialize(json).Doubt);
     }
+
+    [Fact]
+    public void Doubt_com_tipo_desconhecido_ou_sem_frase_e_recusada()
+    {
+        var json = TextUnitJson.Serialize(Unidade());
+        var tipoNovo = json[..^1] + ",\"doubt\":{\"kind\":\"vibe\",\"note\":\"x\"}}";
+        var semFrase = json[..^1] + ",\"doubt\":{\"kind\":\"tone\"}}";
+
+        Assert.Throws<System.Text.Json.JsonException>(() => TextUnitJson.Deserialize(tipoNovo));
+        Assert.Throws<System.Text.Json.JsonException>(() => TextUnitJson.Deserialize(semFrase));
+    }
 }

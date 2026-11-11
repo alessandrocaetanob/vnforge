@@ -63,6 +63,38 @@ public class ProjectDashboardTests
     }
 
     [Fact]
+    public void So_avisos_de_estilo_nao_pedem_revisao_no_painel_mas_ficam_contados()
+    {
+        using var temp = new TempFolder();
+        var projeto = NovoProjeto(temp.Path);
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { Honorifics = HonorificsPolicy.Remove } });
+        projeto.SaveCharacters([new VNForge.Core.Glossary.CharacterEntry("美咲", "Misaki")]);
+        projeto.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "美咲", "原文", "Misaki-chan, espera!", TranslationStatus.Translated),
+            new TextUnit("yst00001:000002", TextUnitKind.Dialogue, "美咲", "原文二", "Vamos.", TranslationStatus.Translated),
+        ]);
+
+        var qa = ProjectDashboard.Read(projeto).Qa;
+
+        Assert.Equal(new QaTotals(0, 0) { StyleAdvice = 2 }, qa);
+        Assert.Equal(0, qa!.Total);
+    }
+
+    [Fact]
+    public void Glossario_invalido_deixa_a_conferencia_indisponivel_sem_derrubar_o_painel()
+    {
+        using var temp = new TempFolder();
+        var projeto = ProjetoComTextos(temp.Path);
+        File.WriteAllText(projeto.GlossaryPath, "isto nao e json");
+
+        var painel = ProjectDashboard.Read(projeto);
+
+        Assert.Null(painel.Qa);
+        Assert.Equal(6, painel.Status.Total.Total);
+    }
+
+    [Fact]
     public void Sem_build_o_estado_e_None_e_com_texto_diferente_do_build_e_Stale()
     {
         using var temp = new TempFolder();
@@ -82,22 +114,6 @@ public class ProjectDashboardTests
         using var temp = new TempFolder();
 
         Assert.Null(ProjectDashboard.Read(ProjetoComTextos(temp.Path)).LastBackupAt);
-    }
-
-    [Fact]
-    public void Nomes_de_script_e_de_personagem_vem_dos_arquivos_do_projeto()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoComTextos(temp.Path);
-        projeto.RenameScript("yst00001", "Prólogo");
-        projeto.SaveCharacters([new VNForge.Core.Glossary.CharacterEntry(" 美咲 ", "Misaki")]);
-
-        var painel = ProjectDashboard.Read(projeto);
-
-        Assert.Equal("Prólogo", painel.ScriptNames.DisplayName("yst00001"));
-        Assert.Null(painel.ScriptNames.DisplayName("yst00002"));
-        Assert.Equal("Misaki", painel.CharacterNames["美咲"]);
-        Assert.Equal("Misaki", painel.CharacterNames["　美咲"]);
     }
 
     [Fact]

@@ -39,6 +39,14 @@ public class RecentProjectsFileBordasTests
     }
 
     [Fact]
+    public void Add_recusa_caminho_vazio()
+    {
+        using var temp = new TempFolder();
+
+        Assert.Throws<ArgumentException>(() => new RecentProjectsFile(temp.Path).Add(" ", DateTimeOffset.UnixEpoch));
+    }
+
+    [Fact]
     public void Load_de_arquivo_ilegivel_continua_devolvendo_lista_vazia()
     {
         using var temp = new TempFolder();

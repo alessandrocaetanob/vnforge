@@ -10,6 +10,30 @@ public class ScriptContractsTests
     private const string Fake001Txt = "fake001.txt";
 
     [Fact]
+    public void UnitId_recusa_posicao_negativa()
+    {
+        var script = new ScriptFile("a.bin", ReadOnlyMemory<byte>.Empty);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => script.UnitId(-1));
+    }
+
+    [Fact]
+    public void ScriptFile_recusa_nome_vazio()
+    {
+        Assert.Throws<ArgumentException>(() => new ScriptFile(" ", ReadOnlyMemory<byte>.Empty));
+    }
+
+    [Fact]
+    public void ValidateUnits_recusa_id_de_outro_script()
+    {
+        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
+
+        var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade("outro:000000")]));
+
+        Assert.Contains("outro:000000", ex.Message);
+    }
+
+    [Fact]
     public void ValidateUnits_recusa_prefixo_parecido_sem_dois_pontos()
     {
         var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
@@ -25,6 +49,33 @@ public class ScriptContractsTests
         var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade(script.UnitId(1)), Unidade(script.UnitId(1))]));
 
         Assert.Contains("fake001:000001", ex.Message);
+    }
+
+    [Fact]
+    public void Rebuild_com_caractere_nao_representavel_lanca_citando_o_id_sem_resultado_parcial()
+    {
+        var formato = new FakeScriptFormat();
+        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
+        var ctx = new FakeContext();
+        var unidades = formato.Extract(arquivo, ctx).Units
+            .Select(u => u.Id.EndsWith("000001", StringComparison.Ordinal)
+                ? u with { Translation = "ação", Status = TranslationStatus.Translated }
+                : u)
+            .ToList();
+
+        var ex = Assert.Throws<EncoderFallbackException>(() => formato.Rebuild(arquivo, unidades, new AsciiEncoder(), ctx));
+
+        Assert.Contains("fake001:000001", ex.Message);
+    }
+
+    [Fact]
+    public void Rebuild_recusa_unidade_de_outro_script()
+    {
+        var formato = new FakeScriptFormat();
+        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um"));
+
+        Assert.Throws<ArgumentException>(() =>
+            formato.Rebuild(arquivo, [Unidade("outro:000000")], new FakeEncoder(), new FakeContext()));
     }
 
     [Fact]

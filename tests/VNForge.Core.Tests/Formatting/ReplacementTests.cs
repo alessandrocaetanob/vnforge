@@ -20,6 +20,14 @@ public class ReplacementTests
     }
 
     [Fact]
+    public void Substituicao_que_cria_marcador_e_recusada_pelo_pipeline()
+    {
+        var pipeline = FormattingPipeline.Create(ProfileWith(new ReplacementRules([new Replacement("<br>", @"\n")], [])));
+
+        Assert.Throws<FormattingException>(() => pipeline.Format("a<br>b"));
+    }
+
+    [Fact]
     public void Regex_invalida_em_programa_vira_FormattingException_com_o_caminho()
     {
         var profile = ProfileWith(new ReplacementRules([new Replacement("ok", "x"), new Replacement("(aberto", "y", Regex: true)], []));
@@ -57,7 +65,6 @@ public class ReplacementTests
     }
 
     [Theory]
-    [InlineData("""{ "replacements": { "before": [ { "pattern": "", "with": "x" } ] } }""", "$.replacements.before[0].pattern")]
     [InlineData("""{ "replacements": { "after": [ { "pattern": "a" } ] } }""", "$.replacements.after[0].with")]
     [InlineData("""{ "replacements": { "after": [ { "pattern": "a", "with": 3 } ] } }""", "$.replacements.after[0].with")]
     [InlineData("""{ "replacements": { "after": "a" } }""", "$.replacements.after")]

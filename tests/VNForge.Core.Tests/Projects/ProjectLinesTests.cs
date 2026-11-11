@@ -150,4 +150,15 @@ public class ProjectLinesTests
 
         Assert.DoesNotContain(gravada.Issues, i => i.RuleId == UnencodableCharacterRule.RuleId);
     }
+
+    [Fact]
+    public void WithUnit_sem_contexto_nao_mexe_nas_regras_de_codificacao()
+    {
+        var unidade = Linha("s", 1, null, TranslationStatus.Translated);
+        var entrada = Entrada(unidade, Problema("s", 1, QaSeverity.Error, UnencodableCharacterRule.RuleId));
+
+        var gravada = entrada.WithUnit(unidade with { Translation = "outra" });
+
+        Assert.Equal([UnencodableCharacterRule.RuleId], gravada.Issues.Select(i => i.RuleId));
+    }
 }

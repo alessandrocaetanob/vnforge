@@ -235,6 +235,23 @@ public class ProjectSearchTests
     }
 
     [Fact]
+    public void Aplicar_preserva_os_campos_da_linha_alem_da_traducao()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        var linha = Linha("a", 1, "Misaki") with { Speaker = "美咲" };
+        linha = linha with { Notes = "nota", Flags = ["espaco-duplo"] };
+        projeto.SaveText("a", [linha]);
+
+        ProjectSearch.Apply(projeto, Previa(projeto, new SearchOptions("Misaki"), "Aoi"));
+
+        var gravada = projeto.LoadText("a")[0];
+        Assert.Equal("nota", gravada.Notes);
+        Assert.Equal(["espaco-duplo"], gravada.Flags);
+        Assert.Equal(("美咲", "原文1", TextUnitKind.Dialogue), (gravada.Speaker, gravada.Source, gravada.Kind));
+    }
+
+    [Fact]
     public void Aplicar_nao_grava_linha_editada_depois_da_previa()
     {
         using var pasta = new TempFolder();
@@ -250,5 +267,20 @@ public class ProjectSearchTests
         var lidas = projeto.LoadText("a");
         Assert.Equal("Editada à mão.", lidas[0].Translation);
         Assert.Equal("Aoi saiu.", lidas[1].Translation);
+    }
+
+    [Fact]
+    public void Aplicar_que_falha_no_segundo_script_deixa_o_primeiro_gravado_e_lanca()
+    {
+        using var pasta = new TempFolder();
+        var projeto = NovoProjeto(pasta.Path);
+        projeto.SaveText("a", [Linha("a", 1, "Misaki")]);
+        projeto.SaveText("b", [Linha("b", 1, "Misaki")]);
+        var previa = Previa(projeto, new SearchOptions("Misaki"), "Aoi");
+        File.Delete(projeto.TextPath("b"));
+
+        Assert.Throws<TextFileException>(() => ProjectSearch.Apply(projeto, previa));
+
+        Assert.Equal("Aoi", projeto.LoadText("a")[0].Translation);
     }
 }

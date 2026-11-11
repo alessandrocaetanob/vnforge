@@ -78,12 +78,27 @@ public class StyleConfigTests
     }
 
     [Theory]
+    [InlineData("\"honorifics\": \"tanto-faz\"", "$.style.honorifics")]
+    [InlineData("\"address\": 3", "$.style.address")]
+    [InlineData("\"narrator\": { \"person\": \"segunda\" }", "$.style.narrator.person")]
+    [InlineData("\"narrator\": { \"gender\": \"x\" }", "$.style.narrator.gender")]
     [InlineData("\"onomatopoeia\": \"sim\"", "$.style.onomatopoeia")]
+    [InlineData("\"cor\": \"azul\"", "$.style.cor")]
     public void Estilo_invalido_aponta_o_campo(string style, string field)
     {
         var ex = Assert.Throws<ProjectConfigException>(() => Parse($", \"style\": {{ {style} }}"));
 
         Assert.Equal(field, ex.Field);
+    }
+
+    [Fact]
+    public void Serialize_recusa_valor_de_enum_fora_da_lista()
+    {
+        var config = Parse() with { Style = new StyleConfig { Honorifics = (HonorificsPolicy)9 } };
+
+        var ex = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
+
+        Assert.Equal("$.style.honorifics", ex.Field);
     }
 
     [Fact]

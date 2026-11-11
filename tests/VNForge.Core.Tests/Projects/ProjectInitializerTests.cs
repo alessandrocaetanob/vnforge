@@ -159,6 +159,15 @@ public sealed class ProjectInitializerTests : IDisposable
     }
 
     [Fact]
+    public void Estrategia_de_acentuacao_invalida_da_erro_sem_criar_o_projeto()
+    {
+        Assert.Throws<ProjectConfigException>(
+            () => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()], new ProjectInitOptions(EncodingStrategy: "inexistente")));
+
+        Assert.False(File.Exists(Path.Combine(ProjectDir(), ProjectFolder.ConfigFileName)));
+    }
+
+    [Fact]
     public void Inspect_de_pasta_inexistente_ou_sem_engine_da_erro_em_portugues()
     {
         var missing = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Inspect(Path.Combine(_temp.Path, "nada"), [Matching()]));

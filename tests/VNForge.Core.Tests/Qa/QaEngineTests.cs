@@ -63,7 +63,11 @@ public sealed class QaEngineTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("Maiuscula")]
     [InlineData("com espaco")]
+    [InlineData("-comeca-com-hifen")]
+    [InlineData("termina-com-hifen-")]
     public void Id_de_regra_invalido_e_recusado(string id) =>
         Assert.Throws<ArgumentException>(() => new QaEngine([new FlagEmpty(id)]));
 

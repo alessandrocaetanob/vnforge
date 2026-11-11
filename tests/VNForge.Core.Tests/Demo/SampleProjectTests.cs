@@ -104,4 +104,16 @@ public class SampleProjectTests
         Assert.False(SampleProject.IsSample(root));
         Assert.False(ProjectSummaryReader.Read(root).IsSample);
     }
+
+    [Fact]
+    public void A_Conferencia_aponta_o_espaco_duplo_da_fala_da_IA()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProject.Create(temp.Path));
+
+        var report = QaEngine.Default.Run(QaContext.FromProject(folder));
+
+        var issue = Assert.Single(report.Issues, i => i.RuleId == "espaco-duplo");
+        Assert.Equal("yst00001:0003", issue.UnitId);
+    }
 }

@@ -47,21 +47,6 @@ public class ProjectLinesRecheckTests
     private static bool Tem(LineEntry linha, string regra) => linha.Issues.Any(i => i.RuleId == regra);
 
     [Fact]
-    public void Gravar_com_o_termo_do_glossario_tira_o_aviso_de_glossario()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, new TextUnit($"{Script}:000001", TextUnitKind.Dialogue, null, "魔法学院へ行く", "Ir à escola de magia", TranslationStatus.Machine));
-        projeto.SaveGlossary([new GlossaryTerm("魔法学院", "Academia de Magia")]);
-        var linhas = ProjectLines.Read(projeto);
-        var entrada = linhas.LinesOf(Script).Single();
-        Assert.True(Tem(entrada, "glossario-diferente"));
-
-        var gravada = linhas.WithUnit(entrada, entrada.Unit with { Translation = "Ir à Academia de Magia" });
-
-        Assert.False(Tem(gravada, "glossario-diferente"));
-    }
-
-    [Fact]
     public void Trocar_o_nome_do_personagem_acende_o_aviso_nas_linhas_que_usam_o_nome_antigo()
     {
         using var pasta = new TempFolder();

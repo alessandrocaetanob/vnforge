@@ -42,18 +42,4 @@ public sealed class AddressTermRuleTests
 
         Assert.Empty(new AddressTermRule().Check(context));
     }
-
-    [Fact]
-    public void A_regra_e_aviso_de_estilo_na_categoria_Estilo_e_nao_trava_o_build()
-    {
-        Assert.NotNull(QaEngine.Default.Find(AddressTermRule.RuleId));
-        Assert.Equal(QaCategories.Style, QaCategories.Of(AddressTermRule.RuleId));
-
-        var advice = new QaIssue(AddressTermRule.RuleId, QaSeverity.Warning, "a:1", "a", "x");
-        var spaces = new QaIssue("espaco-duplo", QaSeverity.Warning, "a:2", "a", "z");
-
-        Assert.False(new QaReport([advice], [], []).Blocks(allowWarnings: false));
-        Assert.Equal(1, new QaReport([advice, spaces], [], []).StyleAdviceCount);
-        Assert.Equal([spaces], new QaReport([advice, spaces], [], []).BlockingIssues);
-    }
 }

@@ -246,9 +246,7 @@ public sealed class LibraryCatalogTests
     }
 
     [Theory]
-    [InlineData("[]")]
     [InlineData("{\"version\": 1, \"units\": {\"a\": 1}}")]
-    [InlineData("{\"version\": 1, \"version\": 2, \"units\": []}")]
     public void Projeto_com_texto_truncado_ou_malformado_nao_derruba_o_catalogo(string textJson)
     {
         var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));

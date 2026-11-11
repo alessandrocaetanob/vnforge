@@ -8,6 +8,35 @@ public class FormattingPipelineTests
     private const string AllMarkers = @"\cOlá\u, {VAR:nome}!\nUma barra \\ e uma chave \{ literais.\pOutra caixa {RUBY:a|b} fim";
 
     [Fact]
+    public void Etapa_que_mexe_num_marcador_e_recusada_citando_a_etapa()
+    {
+        var pipeline = new FormattingPipeline([new DelegateStage("destruidora", FormattingPhase.Typography, (t, _) => t.Replace(@"\c", string.Empty, StringComparison.Ordinal))]);
+
+        var ex = Assert.Throws<FormattingException>(() => pipeline.Format(AllMarkers));
+
+        Assert.Contains("destruidora", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(@"\c", @"\u")]
+    [InlineData("{VAR:nome}", "{VAR:outro}")]
+    [InlineData(@"\\", @"\{")]
+    public void Etapa_que_troca_um_marcador_por_outro_e_recusada(string from, string to)
+    {
+        var pipeline = new FormattingPipeline([new DelegateStage("troca", FormattingPhase.Typography, (t, _) => t.Replace(from, to, StringComparison.Ordinal))]);
+
+        Assert.Throws<FormattingException>(() => pipeline.Format(AllMarkers));
+    }
+
+    [Fact]
+    public void Etapa_que_reordena_marcadores_e_recusada()
+    {
+        var pipeline = new FormattingPipeline([new DelegateStage("reordena", FormattingPhase.Typography, (t, _) => @"\u\c")]);
+
+        Assert.Throws<FormattingException>(() => pipeline.Format(@"\c\u"));
+    }
+
+    [Fact]
     public void Etapa_que_deixa_uma_barra_solta_e_recusada()
     {
         var pipeline = new FormattingPipeline([new DelegateStage("barra", FormattingPhase.Typography, (t, _) => t + "\\")]);

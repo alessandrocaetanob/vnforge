@@ -51,17 +51,6 @@ public sealed class DictionaryTests : IDisposable
     private static string Post(IReadOnlyList<DictionaryRule> rules, string translation, DictionaryLine? line) =>
         FormattingPipeline.Create(FormattingProfile.Default with { Dictionary = new DictionaryRules([], rules) }).Format(translation, line).Text;
 
-    // ---- condições (pós-dicionário) ----
-
-    [Fact]
-    public void Regra_sem_condicao_troca_em_toda_linha_mesmo_sem_linha_conhecida()
-    {
-        var rules = new[] { Rule("Sakura-san", "Sakura") };
-
-        Assert.Equal("Oi, Sakura!", Post(rules, "Oi, Sakura-san!", null));
-        Assert.Equal("Oi, Sakura!", Post(rules, "Oi, Sakura-san!", DictionaryLine.Bare("原文")));
-    }
-
     [Theory]
     [InlineData("cap1")]
     public void Condicao_de_cena_bate_pela_chave_pelo_nome_pelo_grupo_ou_pela_pasta(string scene)
@@ -74,18 +63,12 @@ public sealed class DictionaryTests : IDisposable
     }
 
     [Fact]
-    public void Pre_com_condicao_de_cena_e_de_trecho_do_original()
+    public void Condicao_de_trecho_do_original_olha_o_original_e_nao_a_traducao()
     {
-        var pre = new PreDictionary(
-            [
-                Rule("ありがとー", "ありがとう", Scn("cap1")),
-                Rule("やばい", "大変だ", Src("!")),
-            ]);
+        var rules = new[] { Rule("senhora Misaki", "professora Misaki", Src("先生")) };
 
-        Assert.Equal("ありがとう", pre.Apply(Unit("cap1:000001", null, "ありがとー")).Source);
-        Assert.Equal("ありがとー", pre.Apply(Unit("cap2:000001", null, "ありがとー")).Source);
-        Assert.Equal("大変だ!", pre.Apply(Unit("cap1:000002", null, "やばい!")).Source);
-        Assert.Equal("やばい", pre.Apply(Unit("cap1:000003", null, "やばい")).Source);
+        Assert.Equal("professora Misaki", Post(rules, "senhora Misaki", DictionaryLine.Bare("先生、おはよう")));
+        Assert.Equal("senhora Misaki", Post(rules, "senhora Misaki", DictionaryLine.Bare("おはよう")));
     }
 
     [Fact]
@@ -165,15 +148,38 @@ public sealed class DictionaryTests : IDisposable
         $"{r.Pattern}>{r.With}|{r.Regex}|{r.Enabled}|{string.Join(',', r.Conditions.Select(c => $"{c.Kind}={c.Value}"))}";
 
     [Theory]
+    [InlineData("""{ "dictionary": { "post": [ { "pattern": "", "with": "x" } ] } }""", "$.dictionary.post[0].pattern")]
     [InlineData("""{ "dictionary": { "pre": [ { "pattern": "(", "with": "x", "regex": true } ] } }""", "$.dictionary.pre[0].pattern")]
     [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "when": [ { "kind": "mood", "value": "x" } ] } ] } }""", "$.dictionary.pre[0].when[0].kind")]
     [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "when": [ { "kind": "speaker", "value": " " } ] } ] } }""", "$.dictionary.pre[0].when")]
+    [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "quando": [] } ] } }""", "$.dictionary.pre[0].quando")]
     [InlineData("""{ "dictionary": { "antes": [] } }""", "$.dictionary.antes")]
     public void Formatting_json_com_dicionario_invalido_cita_o_campo(string json, string field)
     {
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse(json));
 
         Assert.Equal(field, ex.Field);
+    }
+
+    // ---- build, previa e QA ----
+
+    [Fact]
+    public void Previa_da_linha_aplica_o_pos_dicionario_com_falante_e_cena_do_projeto()
+    {
+        _project.SaveCharacters([new CharacterEntry("蓮", "Ren", CharacterGender.Male)]);
+        _project.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("a001", null, "Capítulo 1")]));
+        _project.SaveFormatting(FormattingProfile.Default with
+        {
+            Dictionary = new DictionaryRules([], [Rule("você", "tu", Spk("Ren"), Scn("Capítulo 1"))]),
+        });
+        _project.SaveText("a001",
+        [
+            Unit("a001:000001", "蓮", "原文", "você vem?"),
+            Unit("a001:000002", "葵", "原文", "você vem?"),
+        ]);
+
+        Assert.Equal("tu vem?", LinePreviewer.Create(_project, "a001:000001").Text);
+        Assert.Equal("você vem?", LinePreviewer.Create(_project, "a001:000002").Text);
     }
 
     // ---- alcance da regra ----

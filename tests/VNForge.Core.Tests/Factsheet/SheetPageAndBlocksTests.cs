@@ -123,10 +123,13 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         Assert.Equal(expected, SheetLabels.LengthDetail(minutes, category, votes));
 
     [Theory]
+    [InlineData("2019-05-31", "ja", "2019, em japonês")]
     [InlineData("2019", "en", "2019, em inglês")]
     [InlineData("TBA", "ja", "A anunciar, em japonês")]
     [InlineData(null, "ko", "em coreano")]
+    [InlineData("2020-01", null, "2020")]
     [InlineData("2020-01", "xx", "2020")]
+    [InlineData(null, null, null)]
     [InlineData("quando der", null, null)]
     public void O_lancamento_traz_o_ano_e_a_lingua_original(string? released, string? language, string? expected) =>
         Assert.Equal(expected, SheetLabels.Released(released, language));
@@ -321,5 +324,14 @@ public sealed class SheetPageAndBlocksTests : IDisposable
 
         Assert.Equal(new LibraryPrivacy(), page.Privacy);
         Assert.Empty(page.UserTags);
+    }
+
+    [Fact]
+    public async Task A_ficha_ilegivel_recusa_em_vez_de_abrir_vazia()
+    {
+        await Translated();
+        await File.WriteAllTextAsync(Store.GamePath(Game1), "{ não é json", Ct);
+
+        Assert.Throws<LibraryException>(() => SheetPage.Load(_folder.Path, Game1));
     }
 }

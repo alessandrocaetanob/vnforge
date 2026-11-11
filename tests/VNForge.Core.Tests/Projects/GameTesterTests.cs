@@ -158,6 +158,19 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Aviso_da_Conferencia_so_passa_com_a_opcao()
+    {
+        Translate("a001", 0, "Olá  mundo");
+
+        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
+        Assert.Empty(BackupFolders());
+
+        Run(new GameTestOptions(AllowWarnings: true), QaEngine.Default);
+
+        Assert.Single(BackupFolders());
+    }
+
+    [Fact]
     public void Teste_de_acentos_com_falante_japones_passa_na_cp1252_com_o_nome_de_teste()
     {
         _project.SaveText("a001", [.. _project.LoadText("a001").Select((u, i) => i == 0 ? u with { Speaker = "犬井" } : u)]);
@@ -166,6 +179,16 @@ public sealed class GameTesterTests : IDisposable
 
         Assert.Equal(GameTestKind.AccentTest, result.Kind);
         Assert.Equal(GameTester.AccentSpeaker, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
+    }
+
+    [Fact]
+    public void Cena_inexistente_recusa_antes_de_gravar()
+    {
+        var erro = Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
+
+        Assert.Contains("naoexiste", erro.Message);
+        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
+        Assert.Empty(BackupFolders());
     }
 
     [Fact]
@@ -201,6 +224,18 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Falha_logo_depois_da_Conferencia_e_antes_do_primeiro_script_e_do_passo_Build()
+    {
+        Translate("a001", 0, "Hello");
+        using var cts = new CancellationTokenSource();
+        var qa = new QaEngine([new CancelsWhenChecked(cts)]);
+
+        var failure = Assert.ThrowsAny<OperationCanceledException>(() => Tester(qa).Run(_project, cancellationToken: cts.Token));
+
+        Assert.Equal(GameTestStep.Build, GameTestFailure.StepOf(failure));
+    }
+
+    [Fact]
     public void StepOf_acha_o_passo_na_excecao_embrulhada()
     {
         Translate("a001", 0, "Hello");
@@ -209,6 +244,19 @@ public sealed class GameTesterTests : IDisposable
 
         Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new AggregateException(failure)));
         Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new IOException("fora", new InvalidOperationException("meio", failure))));
+    }
+
+    private sealed class CancelsWhenChecked(CancellationTokenSource cts) : IQaRule
+    {
+        public string Id => "cancela";
+
+        public string Description => "Cancela o teste quando roda.";
+
+        public IEnumerable<QaIssue> Check(QaContext context)
+        {
+            cts.Cancel();
+            return [];
+        }
     }
 
     [Fact]
@@ -363,6 +411,21 @@ public sealed class GameTesterTests : IDisposable
         Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
         Assert.All(GameInjector.ListBackups(_project), backup => Assert.True(backup.Restored));
         Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
+    }
+
+    [Fact]
+    public void Injecao_recusada_antes_de_gravar_mantem_o_estado_que_ja_valia()
+    {
+        Translate("a001", 0, "Hello");
+        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
+        var saved = new GameInGame(GameTestKind.AccentTest, _clock.GetUtcNow(), "2026-10-22_2316", null, null);
+        GameStateFile.Save(_project, GameStateFile.Empty with { InGame = saved });
+        var plan = GameInjector.Plan(_project);
+        File.WriteAllText(GamePackage, "o jogo foi atualizado no meio");
+
+        Assert.Throws<InjectionException>(() => GameStateFile.Inject(_project, new GameInjector(_clock), plan, GameTestKind.Translation, null, _clock));
+
+        Assert.Equal(saved, GameStateFile.Load(_project).InGame);
     }
 
     [Fact]

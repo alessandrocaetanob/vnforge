@@ -58,6 +58,7 @@ public class ScriptGroupEditorTests
 
     [Theory]
     [InlineData("")]
+    [InlineData("   ")]
     public void Agrupar_sem_nome_recusa(string nome)
     {
         using var temp = new TempFolder();

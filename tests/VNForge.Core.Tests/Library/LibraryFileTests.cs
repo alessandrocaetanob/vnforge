@@ -106,6 +106,18 @@ public sealed class LibraryFileTests : IDisposable
         Assert.Empty(library.Games);
     }
 
+    [Fact]
+    public void Arquivo_ilegivel_recusa_e_nao_e_sobrescrito()
+    {
+        var file = new LibraryFile(_dir.Path);
+        File.WriteAllText(file.Path, "{ isto não é json");
+
+        var e = Assert.Throws<LibraryException>(file.Load);
+
+        Assert.Contains(file.Path, e.Message);
+        Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
+    }
+
     [Theory]
     [InlineData("{\"version\":2,\"games\":[]}", "versão 2")]
     [InlineData("{\"version\":1,\"games\":[{\"id\":\"\",\"folder\":\"C:\\\\a\",\"engine\":{\"id\":\"x\",\"name\":\"X\",\"source\":\"engine\"},\"title\":\"t\",\"addedAt\":\"2026-11-09T12:00:00+00:00\"}]}", "não tem id")]
@@ -176,6 +188,17 @@ public sealed class LibraryFileTests : IDisposable
 
         Assert.Equal(12, file.Load().Games.Count);
         Assert.Equal([file.Path], Directory.GetFiles(_dir.Path).Where(f => !f.EndsWith(".lock", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Update_com_arquivo_ilegivel_recusa_e_nao_o_sobrescreve()
+    {
+        var file = new LibraryFile(_dir.Path);
+        File.WriteAllText(file.Path, "{ isto não é json");
+
+        Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show)));
+
+        Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
     }
 
     [Fact]

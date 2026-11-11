@@ -41,6 +41,16 @@ public sealed class PageSplitterTests
     }
 
     [Fact]
+    public void Barra_invertida_escapada_antes_de_n_nao_e_quebra_de_linha()
+    {
+        var split = Split($@"\\n {Words(16)}");
+
+        Assert.Equal(2, split.Pages);
+        Assert.StartsWith(@"\\n aaaaaaaaa", split.Text);
+        Assert.All(Preview(split.Text).Boxes, box => Assert.True(box.Count <= 3));
+    }
+
+    [Fact]
     public void Sem_quebra_automatica_divide_pelas_quebras_do_autor()
     {
         var profile = Box with { Wrap = Box.Wrap with { Enabled = false } };

@@ -30,6 +30,17 @@ public class TextFileSerializerTests
     private static string Json(IReadOnlyList<TextUnit> units) => string.Join("|", units.Select(TextUnitJson.Serialize));
 
     [Fact]
+    public void Serialize_duas_vezes_gera_texto_identico_com_fim_de_linha_fixo()
+    {
+        var a = TextFileSerializer.Serialize(Exemplo());
+        var b = TextFileSerializer.Serialize(Exemplo());
+
+        Assert.Equal(a, b);
+        Assert.DoesNotContain('\r', a);
+        Assert.EndsWith("}\n", a);
+    }
+
+    [Fact]
     public void Ida_e_volta_de_unidades_nao_perde_nada()
     {
         var original = Exemplo();
@@ -55,6 +66,8 @@ public class TextFileSerializerTests
     [InlineData("{ \"units\": [] }", "version")]
     [InlineData("{ \"version\": 1 }", "units")]
     [InlineData("{ \"version\": 1, \"units\": [], \"extra\": 1 }", "extra")]
+    [InlineData("[]", "objeto")]
+    [InlineData("null", "objeto")]
     public void Parse_de_envelope_invalido_falha_em_portugues_citando_o_arquivo(string json, string trecho)
     {
         var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, TextAJson));
@@ -72,6 +85,37 @@ public class TextFileSerializerTests
         var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse($"{{ \"version\": {version}, \"units\": [] }}", TextAJson));
 
         Assert.Contains("version", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_de_unidade_invalida_cita_o_campo_e_a_posicao()
+    {
+        const string Json = "{\n  \"version\": 1,\n  \"units\": [\n    {\"id\":\"a:000001\",\"kind\":\"grito\",\"source\":\"x\",\"status\":\"untranslated\"}\n  ]\n}\n";
+
+        var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(Json, TextAJson));
+
+        Assert.Contains(TextAJson, ex.Message);
+        Assert.Contains("$.units[0].kind", ex.Message);
+        Assert.Contains("linha 4", ex.Message);
+        Assert.Contains("valor inválido", ex.Message);
+        Assert.DoesNotContain("could not", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_recusa_campo_repetido_em_vez_de_descartar_unidades()
+    {
+        var raiz = "{\n  \"version\": 1,\n  \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"} ],\n  \"units\": []\n}\n";
+        var unidade = "{\n  \"version\": 1,\n  \"units\": [\n    {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"source\":\"y\",\"status\":\"untranslated\"}\n  ]\n}\n";
+
+        var msgRaiz = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(raiz, AJson)).Message;
+        var msgUnidade = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(unidade, AJson)).Message;
+
+        Assert.Contains("campo repetido 'units'", msgRaiz);
+        Assert.Contains("linha 4", msgRaiz);
+        Assert.Contains("campo repetido 'source'", msgUnidade);
+        Assert.Contains("$.units[0]", msgUnidade);
+        Assert.Contains("linha 4", msgUnidade);
+        Assert.DoesNotContain("Duplicate", msgRaiz + msgUnidade);
     }
 
     [Theory]

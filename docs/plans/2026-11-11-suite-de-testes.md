@@ -80,7 +80,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
-- T3 (#657): Core de 3.444 para 1.368 testes (alvo 500, 868 acima), 3,4 s sem cobertura, linhas 90,63% (17.025 de 18.785) e ramos 84,43% (11.080 de 13.123), contra a base de 90,62% e 84,42%. Cada teste foi medido sozinho e ficou o menor conjunto que mantém as linhas e os ramos, mais os de ida e volta, byte a byte, backup e restauração, concorrência do `ProjectFolder`, vetores de valor esperado das codificações e guardas de arquitetura. O alvo de 500 só fecha perdendo cobertura: fora os que protegem dado do usuário, cada um dos testes que restam cobre sozinho alguma linha ou ramo.
+- T3 (#657): o alvo de 500 testes não fechou. O Core foi de 3.444 para 1.562 testes, 1.062 acima do alvo, com a cobertura igual à base: linhas 90,63% (17.025 de 18.785) e ramos 84,42% (11.079 de 13.123), contra 90,62% e 84,42%. Pela regra do plano, a cobertura vence: cada teste foi medido sozinho e ficou o menor conjunto que mantém linhas e ramos, mais os que protegem dado do usuário (ida e volta e byte a byte, concorrência do `ProjectFolder`, backup e restauração, recusa de dado inválido gravado em arquivo do projeto) e os de valor esperado explícito das codificações (Shift-JIS é a página 932). Cortar até 500 tira cobertura de ramo ou esses testes.
 
 ## Fora da corrida
 

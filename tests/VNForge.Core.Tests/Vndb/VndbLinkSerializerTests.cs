@@ -19,6 +19,9 @@ public sealed class VndbLinkSerializerTests
     private static MatchingEngine Engine() => new();
 
     [Theory]
+    [InlineData("{ nao e json")]
+    [InlineData("{\"version\":1}")]
+    [InlineData("{\"version\":1,\"link\":{\"campoNovo\":1}}")]
     [InlineData("{\"version\":2,\"link\":{\"visualNovelId\":\"v1\",\"title\":\"x\",\"characters\":[]}}")]
     public void Parse_recusa_em_portugues_arquivo_fora_do_formato(string json)
     {

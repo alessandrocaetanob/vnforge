@@ -132,6 +132,24 @@ public sealed class GameTesterPatchTests : IDisposable
     }
 
     [Fact]
+    public void Exe_que_o_patch_recusa_para_o_teste_antes_de_gravar_qualquer_arquivo_no_jogo()
+    {
+        File.WriteAllText(ExePath, "MZ outro programa");
+        var package = File.ReadAllBytes(PackagePath);
+
+        var erro = Assert.Throws<GamePatchRefusedException>(() => Run());
+
+        Assert.Equal("MZ outro programa", File.ReadAllText(ExePath));
+        Assert.Equal(package, File.ReadAllBytes(PackagePath));
+        Assert.Empty(BackupFolders());
+        Assert.Null(_starter.Executable);
+        Assert.False(File.Exists(GameStateFile.PathFor(_project)));
+        Assert.False(Directory.Exists(PatchStaging));
+        Assert.Contains(FakeExePatch.RefusalReason, erro.Message);
+        Assert.IsType<InjectionException>(erro.InnerException);
+    }
+
+    [Fact]
     public void Recusa_do_patch_vale_tambem_sem_abrir_o_jogo_e_no_teste_de_acentos()
     {
         File.WriteAllText(ExePath, "MZ outro programa");
@@ -154,6 +172,22 @@ public sealed class GameTesterPatchTests : IDisposable
         Assert.Equal(0, _patchRequests);
         var backup = Assert.Single(GameInjector.ListBackups(_project));
         Assert.DoesNotContain(GameExe, backup.Manifest!.Files.Select(f => f.Path));
+    }
+
+    [Fact]
+    public void Voltar_ao_jogo_original_devolve_o_exe_junto_com_o_pacote()
+    {
+        var exe = File.ReadAllBytes(ExePath);
+        var package = File.ReadAllBytes(PackagePath);
+        Run();
+        Assert.NotEqual(exe, File.ReadAllBytes(ExePath));
+
+        var restored = Tester().ReturnToOriginal(_project);
+
+        Assert.Equal(exe, File.ReadAllBytes(ExePath));
+        Assert.Equal(package, File.ReadAllBytes(PackagePath));
+        Assert.Contains(GameExe, restored.Restored);
+        Assert.Null(GameStateFile.Load(_project).InGame);
     }
 
     [Fact]

@@ -133,24 +133,4 @@ public sealed class StyleRulesTests
         Assert.True(Report(honorific, error).Blocks(allowWarnings: true));
         Assert.Equal(2, Report(honorific, gender).OtherIssues.Count);
     }
-
-    [Fact]
-    public void A_mensagem_de_bloqueio_conta_so_os_avisos_que_travam()
-    {
-        var spaces = new QaIssue("espaco-duplo", QaSeverity.Warning, "a:1", "a", "dois espaços");
-        var style = Enumerable.Range(0, 30)
-            .Select(n => new QaIssue(n % 2 == 0 ? HonorificsRule.RuleId : GenderRule.RuleId, QaSeverity.Warning, $"a:{n + 2}", "a", "estilo"))
-            .ToList();
-        var report = new QaReport([spaces, .. style], [], []);
-
-        var message = new QaBlockedException(report, allowWarnings: false).Message;
-
-        Assert.Equal("0 erros, 1 aviso", QaBlockedException.DescribeBlocking(report));
-        Assert.Contains("(0 erros, 1 aviso)", message);
-        Assert.Contains("[espaco-duplo]", message);
-        Assert.DoesNotContain(HonorificsRule.RuleId, message);
-        Assert.DoesNotContain(GenderRule.RuleId, message);
-        Assert.Equal([spaces], report.BlockingIssues);
-        Assert.Equal(30, report.StyleAdviceCount);
-    }
 }

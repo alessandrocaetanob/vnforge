@@ -59,6 +59,14 @@ public sealed class VndbProjectLinkerTests
         Assert.Equal(VndbEvidence.TitleOnly, Assert.Single(candidates).Evidence);
     }
 
+    [Fact]
+    public async Task Build_de_jogo_que_o_vndb_nao_tem_recusa_em_portugues()
+    {
+        var ex = await Assert.ThrowsAsync<VndbLinkException>(() => VndbProjectLinker.BuildAsync(Catalog(), "v1", TestContext.Current.CancellationToken));
+
+        Assert.Contains("v1", ex.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("a", "a", CharacterGender.Other)]
     [InlineData(null, null, CharacterGender.Unknown)]
@@ -124,6 +132,20 @@ public sealed class VndbProjectLinkerTests
         Assert.Contains(result.Warnings, w => w.StartsWith("Os personagens do VNDB não entraram em characters.json:", StringComparison.Ordinal) && w.Contains("vndb.json", StringComparison.Ordinal));
         Assert.Equal(1, result.TotalLines);
         Assert.False(File.Exists(project.CharactersPath));
+    }
+
+    [Fact]
+    public async Task ApplyCharacters_com_characters_json_ilegivel_recusa_e_deixa_o_arquivo_intacto()
+    {
+        using var folder = new TempFolder();
+        var project = NewProject(folder.Path);
+        project.SaveText("yst00001", [Name(0, "相沢健太")]);
+        project.SaveVndbLink(await VndbProjectLinker.BuildAsync(Catalog(), VndbSamples.VisualNovelId, TestContext.Current.CancellationToken));
+        File.WriteAllText(project.CharactersPath, "{ nao e json");
+
+        Assert.Throws<GlossaryFileException>(() => VndbProjectLinker.ApplyCharacters(project));
+
+        Assert.Equal("{ nao e json", File.ReadAllText(project.CharactersPath));
     }
 
     private static QaContext Qa(ProjectFolder project, IReadOnlyList<CharacterEntry> characters) =>

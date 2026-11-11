@@ -45,6 +45,17 @@ public sealed class SheetReviewAndViewTests : IDisposable
     }
 
     [Fact]
+    public async Task Aprovar_o_que_so_foi_traduzido_pela_IA_recusa_e_nao_grava_nada()
+    {
+        await Translated();
+
+        var ex = Assert.Throws<LibraryException>(() => SheetEditor.Approve(Store, Game1, [SheetField.Synopsis]));
+
+        Assert.Contains("Revise", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(TranslationStatus.Machine, Store.LoadGame(Game1)!.Synopsis!.Status);
+    }
+
+    [Fact]
     public async Task Texto_de_outro_jogo_ou_que_nao_existe_na_ficha_recusa()
     {
         await Translated();
@@ -93,6 +104,7 @@ public sealed class SheetReviewAndViewTests : IDisposable
 
     [Theory]
     [InlineData("")]
+    [InlineData("v17")]
     [InlineData("tag:c1")]
     [InlineData("personagem")]
     public void Nome_que_nao_e_de_um_texto_da_ficha_recusa_em_portugues(string text) =>

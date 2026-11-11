@@ -115,6 +115,23 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Extrair_de_novo_sem_mudanca_deixa_o_state_json_identico()
+    {
+        WriteGame(A001Fake, DialogueHello);
+        var project = NewProject();
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+        var before = File.ReadAllBytes(project.StatePath);
+        foreach (var file in Directory.EnumerateFiles(project.TextDirectory))
+        {
+            File.Delete(file);
+        }
+
+        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, File.ReadAllBytes(project.StatePath));
+    }
+
+    [Fact]
     public void Extracao_que_falha_nao_grava_estado()
     {
         WriteGame(A001Fake, DialogueHello);
@@ -124,21 +141,6 @@ public sealed class ProjectExtractorTests : IDisposable
         Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.False(File.Exists(project.StatePath));
-    }
-
-    [Fact]
-    public void Reextracao_mantem_o_nome_que_o_usuario_deu_ao_script()
-    {
-        WriteGame(A001Fake, DialogueHello);
-        var project = NewProject();
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-        project.RenameScript("a001", "Capítulo 1");
-
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        var names = project.LoadScriptNames();
-        Assert.Equal("Capítulo 1", names.DisplayName("a001"));
-        Assert.Equal("Prologo", Assert.Single(names.Entries).Detected);
     }
 
     [Fact]
@@ -209,6 +211,28 @@ public sealed class ProjectExtractorTests : IDisposable
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("A pasta do jogo não existe", ex.Message);
+    }
+
+    [Fact]
+    public void Projeto_dentro_da_pasta_do_jogo_e_recusado_sem_gravar_nada()
+    {
+        var inside = Path.Combine(_game, "projeto");
+        var project = ProjectFolder.Create(
+            inside,
+            new ProjectConfig(
+                "Teste",
+                new GameConfig(_game.Replace(Path.DirectorySeparatorChar, '/'), GameExe),
+                new EngineConfig("fake"),
+                new LanguagesConfig("ja", "pt-BR"),
+                new EncodingConfig("cp1252"),
+                AiConfig.Default));
+        WriteGame(A001Fake, DialogueHello);
+        var before = HashTree(_game);
+
+        var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("fica dentro da pasta do jogo", ex.Message);
+        Assert.Equal(before, HashTree(_game));
     }
 
     [Fact]

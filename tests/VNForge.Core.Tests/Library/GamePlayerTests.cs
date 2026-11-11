@@ -62,6 +62,17 @@ public sealed class GamePlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Arquivo_de_tempo_ilegivel_recusa_antes_de_abrir_o_jogo()
+    {
+        await File.WriteAllTextAsync(new PlayLogFile(_dir.Path).Path, "{ não é json", Ct);
+        var launcher = new FakeLauncher(_clock, (Minute, GameProcessState.Exited));
+
+        await Assert.ThrowsAsync<LibraryException>(() => Player(launcher).PlayAsync("g1", Launch, Ct));
+
+        Assert.Null(launcher.Launched);
+    }
+
+    [Fact]
     public async Task Salto_de_horas_do_PC_que_dormiu_conta_no_maximo_um_passo()
     {
         var launcher = new FakeLauncher(_clock, (TimeSpan.FromSeconds(5), GameProcessState.Running), (TimeSpan.FromHours(8), GameProcessState.Running), (TimeSpan.FromSeconds(5), GameProcessState.Exited));

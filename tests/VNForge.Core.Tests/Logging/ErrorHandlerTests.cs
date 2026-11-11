@@ -7,6 +7,7 @@ public sealed class ErrorHandlerTests : IDisposable
     private const string ErrorLiteral = "error";
     private const string TestMessage = "Teste";
     private const string BrokenState = "estado quebrado";
+    private const string AYpf = "a.ypf";
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-tests-" + Guid.NewGuid().ToString("N"));
 
@@ -40,40 +41,31 @@ public sealed class ErrorHandlerTests : IDisposable
     private static CancellationToken Cancelled() => new(canceled: true);
 
     [Fact]
-    public async Task ExecuteAsync_trata_excecao_do_Core_do_mesmo_jeito()
+    public void Versao_desconhecida_tem_mensagem_em_portugues()
     {
-        var error = new StringWriter();
-        using var factory = VNForgeLogging.CreateFactory(_root);
+        var ex = new UnknownVersionException("ysbin.ypf", "999");
 
-        var code = await ErrorHandler.ExecuteAsync(
-            async _ =>
-            {
-                await Task.Yield();
-                throw new UnknownVersionException("x.ybn", "7");
-            },
-            factory.CreateLogger(TestMessage),
-            error,
-            VNForgeLogging.GetLogDirectory(_root),
-            cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(ErrorHandler.ErrorExitCode, code);
-        Assert.Equal("Erro: Versão desconhecida (7) no arquivo 'x.ybn'." + Environment.NewLine, error.ToString());
+        Assert.Equal("Versão desconhecida (999) no arquivo 'ysbin.ypf'.", ex.Message);
+        Assert.IsType<VNForgeException>(ex, exactMatch: false);
     }
 
     [Fact]
-    public void Log_que_nao_grava_nao_promete_o_arquivo_e_mostra_o_erro_inesperado_no_console()
+    public void Excecao_inesperada_mostra_so_o_aviso_e_manda_o_stack_completo_para_o_log()
     {
-        Directory.CreateDirectory(_root);
-        File.WriteAllText(Path.Combine(_root, ".cache"), "arquivo no lugar da pasta");
         var error = new StringWriter();
 
         var code = Run(() => throw new InvalidOperationException(BrokenState), error);
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
         var text = error.ToString();
-        Assert.DoesNotContain("O log completo está em", text);
-        Assert.Contains("InvalidOperationException: estado quebrado", text);
-        Assert.Contains(nameof(Log_que_nao_grava_nao_promete_o_arquivo_e_mostra_o_erro_inesperado_no_console), text);
+        Assert.Contains("Erro inesperado", text);
+        Assert.Contains(VNForgeLogging.GetLogDirectory(_root), text);
+        Assert.DoesNotContain(BrokenState, text);
+        Assert.DoesNotContain(" at ", text);
+
+        var log = ReadLog();
+        Assert.Contains("System.InvalidOperationException: estado quebrado", log);
+        Assert.Contains("ErrorHandlerTests", log);
     }
 
     [Fact]
@@ -95,17 +87,26 @@ public sealed class ErrorHandlerTests : IDisposable
     }
 
     [Fact]
-    public void Cancelamento_vira_mensagem_curta_com_codigo_3_e_nao_e_erro_no_log()
+    public async Task ExecuteAsync_repassa_o_token_e_trata_o_cancelamento()
     {
         var error = new StringWriter();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var factory = VNForgeLogging.CreateFactory(_root);
 
-        var code = RunWith(() => throw new OperationCanceledException(), error, Cancelled());
+        var code = await ErrorHandler.ExecuteAsync(
+            async token =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                return 0;
+            },
+            factory.CreateLogger(TestMessage),
+            error,
+            VNForgeLogging.GetLogDirectory(_root),
+            cancellationToken: cts.Token);
 
         Assert.Equal(ErrorHandler.CancelledExitCode, code);
-        Assert.Equal(3, ErrorHandler.CancelledExitCode);
         Assert.Equal("Operação cancelada." + Environment.NewLine, error.ToString());
-        var log = ReadLog();
-        Assert.DoesNotContain("[Error]", log);
     }
 
     [Fact]
@@ -131,13 +132,19 @@ public sealed class ErrorHandlerTests : IDisposable
     }
 
     [Fact]
-    public void Json_de_cancelamento_sem_o_token_cancelado_e_erro_inesperado()
+    public void Json_de_excecao_do_Core_tem_formato_comum_e_nao_escreve_no_error()
     {
-        var (code, json, _) = RunJson(() => throw new OperationCanceledException());
+        var (code, json, error) = RunJson(() => throw new InvalidFileException(AYpf, "truncado"));
 
         Assert.Equal(ErrorHandler.ErrorExitCode, code);
+        Assert.Equal(string.Empty, error);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        Assert.Equal("unexpected", doc.RootElement.GetProperty(ErrorLiteral).GetProperty("kind").GetString());
+        var root = doc.RootElement;
+        Assert.False(root.GetProperty("ok").GetBoolean());
+        Assert.Equal(1, root.GetProperty("exitCode").GetInt32());
+        Assert.Equal("expected", root.GetProperty(ErrorLiteral).GetProperty("kind").GetString());
+        Assert.Equal("O arquivo 'a.ypf' é inválido: truncado", root.GetProperty(ErrorLiteral).GetProperty("message").GetString());
+        Assert.DoesNotContain(" at ", json);
     }
 
     private sealed class ThrowingLogger : Microsoft.Extensions.Logging.ILogger
