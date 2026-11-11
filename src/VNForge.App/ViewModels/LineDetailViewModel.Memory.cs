@@ -26,7 +26,7 @@ public sealed partial class LineDetailViewModel
     public ObservableCollection<MemorySuggestionViewModel> MemorySuggestions { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard), nameof(IsCompactInspector), nameof(UsesSceneToggle))]
+    [NotifyPropertyChangedFor(nameof(IsSceneCollapsed), nameof(TranslationMinHeight), nameof(ShowMemoryCard), nameof(IsCompactInspector), nameof(UsesSceneToggle), nameof(ShowExplainBlock))]
     public partial bool HasMemory { get; private set; }
 
     /// <summary>

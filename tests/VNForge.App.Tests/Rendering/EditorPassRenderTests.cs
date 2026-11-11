@@ -217,6 +217,12 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.DoesNotContain("subtle", explain.Classes);
                 Assert.NotEqual(0, ((ISolidColorBrush)explain.BorderBrush!).Color.A);
                 Assert.All(inspector.GetVisualDescendants().OfType<OverlineText>().Where(o => o.IsEffectivelyVisible && o.Text is "Original" or "Tradução"), o => Assert.Equal(FontWeight.Normal, o.FontWeight));
+
+                // Uma fala de uma linha só (「うん、まあね」) não encolhe a caixa: o piso é de duas linhas.
+                await vm.Editor.GoToLineAsync("yst00001", "yst00001:000003");
+                ScreenRenderer.Settle(window);
+                Assert.Single(inspector.FindControl<TextBlock>("SourceText")!.TextLayout.TextLines);
+                Assert.Equal(84, inspector.FindControl<Control>("OriginalBox")!.Bounds.Height, 0.5);
             }
 
             // O Roteiro e o Buscar do cabeçalho são subtle: sem contorno e em semibold.

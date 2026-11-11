@@ -125,6 +125,9 @@
             <!-- Quadro da passada (#580): caixa de 84 px com duas linhas, o japonês em 20 px (InspectorSource segue o tamanho do texto dos Ajustes). -->
             <Border x:Name="OriginalBox" Classes="original" Padding="10">
               <Panel>
+                <!-- Piso de duas linhas do mesmo corpo do original (84 px a 100%): uma fala curta não encolhe a caixa nem o espaço dos cartões abaixo, e o piso acompanha o tamanho do texto dos Ajustes. -->
+                <TextBlock x:Name="SourceFloor" Classes="jp-body" FontSize="{DynamicResource Vnf.FontSize.InspectorSource}" LineHeight="{DynamicResource Vnf.LineHeight.InspectorSource}"
+                           Text="&#10;" Opacity="0" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw"/>
                 <!-- Dicionário offline (#538): o realce da palavra sob o mouse fica atrás do texto, e a entrada abre num Popup embaixo do original, sem mexer no layout do inspetor. -->
                 <c:WordHighlight x:Name="SourceHighlight" Target="{Binding #SourceText}" Start="{Binding WordStart}" Length="{Binding WordLength}"/>
                 <TextBlock x:Name="SourceText" Classes="jp-body" FontSize="{DynamicResource Vnf.FontSize.InspectorSource}" LineHeight="{DynamicResource Vnf.LineHeight.InspectorSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
@@ -140,16 +143,7 @@
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
           <!-- No inspetor compacto o botão mora na linha do Original; sem explicação aberta o bloco fica fora da pilha, para não somar dois vãos de 10 px entre o original e o cartão seguinte. -->
-          <StackPanel x:Name="ExplainFragment" Spacing="6">
-            <StackPanel.IsVisible>
-              <MultiBinding Converter="{x:Static BoolConverters.Or}">
-                <Binding Path="!IsCompactInspector"/>
-                <Binding Path="IsExplaining"/>
-                <Binding Path="ShowExplainCard"/>
-                <Binding Path="HasExplainError"/>
-                <Binding Path="HasExplainNotice"/>
-              </MultiBinding>
-            </StackPanel.IsVisible>
+          <StackPanel x:Name="ExplainFragment" Spacing="6" IsVisible="{Binding ShowExplainBlock}">
             <!-- Quadro do #546: botão sm com contorno em text-secondary e o preço ao lado, fora do botão, em 12/18. -->
             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsCompactInspector}">
               <Button Classes="sm" HorizontalAlignment="Left" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"

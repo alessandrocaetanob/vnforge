@@ -23,20 +23,21 @@ public sealed partial class LineDetailViewModel
     public string ExplainPriceText => Explanations?.PriceText ?? string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowExplainCard))]
+    [NotifyPropertyChangedFor(nameof(ShowExplainCard), nameof(ShowExplainBlock))]
     public partial bool IsExplainOpen { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowExplainBlock))]
     public partial bool IsExplaining { get; private set; }
 
     /// <summary>As partes do original com o significado de cada uma; vazio antes do primeiro pedido.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowExplainCard))]
+    [NotifyPropertyChangedFor(nameof(ShowExplainCard), nameof(ShowExplainBlock))]
     public partial IReadOnlyList<ExplainPart> ExplainParts { get; private set; } = [];
 
     /// <summary>Por que não foi possível explicar, em português; nulo quando deu certo.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasExplainError))]
+    [NotifyPropertyChangedFor(nameof(HasExplainError), nameof(ShowExplainBlock))]
     public partial string? ExplainError { get; private set; }
 
     /// <summary>O cartão aparece aberto e com a explicação pronta.</summary>
@@ -44,8 +45,14 @@ public sealed partial class LineDetailViewModel
 
     /// <summary>Um aviso que não é falha (a fala só tem marcadores, sem japonês para explicar); fechar o cartão o limpa.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasExplainNotice))]
+    [NotifyPropertyChangedFor(nameof(HasExplainNotice), nameof(ShowExplainBlock))]
     public partial string? ExplainNotice { get; private set; }
+
+    /// <summary>
+    /// O bloco "Entender o japonês" do inspetor tem algo a mostrar: o botão com o preço (inspetor largo) ou, no compacto, onde o botão mora na linha do Original, o pedido em curso,
+    /// o cartão, o erro ou o aviso. Aberto sem partes, sem pedido, erro nem aviso, não há filho visível, e o bloco fica fora da pilha para não somar um vão de 10 px.
+    /// </summary>
+    public bool ShowExplainBlock => !IsCompactInspector || IsExplaining || ShowExplainCard || HasExplainError || HasExplainNotice;
 
     public bool HasExplainNotice => !string.IsNullOrEmpty(ExplainNotice);
 
