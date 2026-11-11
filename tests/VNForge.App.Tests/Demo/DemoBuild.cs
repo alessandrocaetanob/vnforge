@@ -87,6 +87,9 @@ internal sealed class DemoBuildEngine : IEngine, IGameUnpacker, IGameRepacker
 
     public string Id => "yuris";
 
+    /// <summary>Quando definida, <see cref="Repack"/> falha com ela: o build quebra depois de começar.</summary>
+    public Exception? RepackFailure { get; set; }
+
     public EngineDetection Detect(string gameDir) => EngineDetection.NotDetected;
 
     public IReadOnlyList<IArchiveFormat> Archives => [];
@@ -112,6 +115,11 @@ internal sealed class DemoBuildEngine : IEngine, IGameUnpacker, IGameRepacker
 
     public GameRepackResult Repack(string gameDir, string unpackedDirectory, IReadOnlyList<RebuiltScript> rebuilt, string outputDirectory, Func<string, string>? originalOf = null, CancellationToken cancellationToken = default)
     {
+        if (RepackFailure is not null)
+        {
+            throw RepackFailure;
+        }
+
         File.WriteAllBytes(Path.Combine(outputDirectory, DemoBuild.Archive), DemoBuild.Payload(DemoBuild.RebuiltBytes, 4));
         return new GameRepackResult([new RepackedArchive(DemoBuild.Archive, rebuilt.Count)]);
     }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Controls;
@@ -19,6 +20,7 @@ public sealed class BuildTestViewModelTests : IDisposable
     private readonly string root;
     private readonly DemoQaRule qaRule = new();
     private readonly Starter starter = new();
+    private readonly DemoBuildEngine engine = new();
     private readonly GateQaRule gate = new();
     private readonly BackgroundTaskService tasks = new();
     private FakeTimeProvider clock = new(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero));
@@ -32,9 +34,9 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private string GameFile => Path.Combine(root, "..", "jogo", DemoBuild.Archive);
 
-    private async Task<BuildViewModel> OpenAsync()
+    private async Task<BuildViewModel> OpenAsync(IInjectionFileSystem? injectionFiles = null, BackgroundTaskService? service = null)
     {
-        var vm = new BuildViewModel(tasks, [new DemoBuildEngine()], starter, new QaEngine([qaRule, gate]), clock)
+        var vm = new BuildViewModel(service ?? tasks, [engine], starter, new QaEngine([qaRule, gate]), clock, injectionFiles)
         {
             Project = DemoProject.Summary(root),
         };
@@ -177,6 +179,70 @@ public sealed class BuildTestViewModelTests : IDisposable
         await vm.TestCommand.ExecuteAsync(null);
 
         Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
+    }
+
+    /// <summary>
+    /// A falha vem de uma exceção sem ramo próprio na tela, num trabalho rápido: o aviso do passo chega pelo Dispatcher depois do fim do trabalho, então o passo
+    /// que falhou tem que vir da exceção, não do último aviso recebido. O Dispatcher aqui só roda o que o teste solta, depois do fim do teste.
+    /// </summary>
+    [Theory]
+    [InlineData(GameTestStep.Check)]
+    [InlineData(GameTestStep.Build)]
+    [InlineData(GameTestStep.Backup)]
+    [InlineData(GameTestStep.Inject)]
+    [InlineData(GameTestStep.Open)]
+    public async Task Falha_sem_ramo_proprio_marca_o_passo_em_que_aconteceu_e_nao_o_anterior(GameTestStep failing)
+    {
+        var failure = new InvalidOperationException("quebrou");
+        var late = new ConcurrentQueue<Action>();
+        var vm = await OpenAsync(
+            failing is GameTestStep.Backup or GameTestStep.Inject ? new FailsOnCopy(failing == GameTestStep.Backup ? 1 : 2, failure) : null,
+            new BackgroundTaskService(late.Enqueue));
+        switch (failing)
+        {
+            case GameTestStep.Check:
+                gate.Arm(failure);
+                break;
+            case GameTestStep.Build:
+                engine.RepackFailure = failure;
+                break;
+            case GameTestStep.Open:
+                starter.Failure = new GameOpenException("não abriu", failure);
+                break;
+        }
+
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.NotEmpty(late);
+
+        var index = (int)failing;
+        Assert.Equal(
+            [.. Enum.GetValues<GameTestStep>().Select(s => s < failing ? TestStepState.Done : s == failing ? TestStepState.Failed : TestStepState.Pending)],
+            States(vm));
+        Assert.Equal(FailureTexts[index], vm.LastTestSteps[index].TimeText);
+        Assert.Equal("O último teste falhou.", vm.TestStepsCaption);
+        Assert.NotNull(vm.ErrorMessage);
+    }
+
+    private static readonly string[] FailureTexts = ["Não deu para conferir", "Não deu para preparar", "Não deu para guardar", "Não deu para copiar", "O jogo não abriu"];
+
+    [Fact]
+    public async Task Cancelar_com_os_avisos_dos_passos_atrasados_marca_o_passo_em_que_o_cancelamento_foi_percebido()
+    {
+        var late = new ConcurrentQueue<Action>();
+        var service = new BackgroundTaskService(late.Enqueue);
+        var vm = await OpenAsync(service: service);
+        gate.Arm();
+        var running = vm.TestCommand.ExecuteAsync(null);
+        Assert.True(await Task.Run(() => gate.Entered.Wait(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken), "O teste não chegou à Conferência.");
+
+        service.Tasks.Last().CancelCommand.Execute(null);
+        gate.Release.Set();
+        await running;
+
+        Assert.Equal(
+            [TestStepState.Done, TestStepState.Failed, TestStepState.Pending, TestStepState.Pending, TestStepState.Pending],
+            States(vm));
+        Assert.Equal("Cancelado", vm.LastTestSteps[1].TimeText);
     }
 
     [Fact]
@@ -497,6 +563,24 @@ public sealed class BuildTestViewModelTests : IDisposable
         Assert.Equal($"O jogo está com a tradução de {DateText(clock.GetUtcNow())}", vm.GameBannerTitle);
     }
 
+    /// <summary>Falha na cópia de número <c>failingCopy</c>: a 1 é a do original para o backup, a 2 é a gravação no jogo.</summary>
+    private sealed class FailsOnCopy(int failingCopy, Exception failure) : IInjectionFileSystem
+    {
+        private int copies;
+
+        public void CopyFile(string source, string destination)
+        {
+            if (++copies == failingCopy)
+            {
+                throw failure;
+            }
+
+            File.Copy(source, destination, overwrite: true);
+        }
+
+        public void DeleteFile(string path) => File.Delete(path);
+    }
+
     private sealed class FailsFirstCopy : IInjectionFileSystem
     {
         private int copies;
@@ -542,6 +626,7 @@ public sealed class BuildTestViewModelTests : IDisposable
     private sealed class GateQaRule : IQaRule
     {
         private int armed;
+        private Exception? failure;
 
         public ManualResetEventSlim Entered { get; } = new();
 
@@ -553,10 +638,22 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         public void Arm() => Volatile.Write(ref armed, 1);
 
+        /// <summary>Faz a próxima Conferência do teste falhar com <paramref name="exception"/>, sem segurar.</summary>
+        public void Arm(Exception exception)
+        {
+            failure = exception;
+            Arm();
+        }
+
         public IEnumerable<QaIssue> Check(QaContext context)
         {
             if (Interlocked.Exchange(ref armed, 0) == 1)
             {
+                if (failure is not null)
+                {
+                    throw failure;
+                }
+
                 Entered.Set();
                 Release.Wait(TimeSpan.FromSeconds(30));
             }

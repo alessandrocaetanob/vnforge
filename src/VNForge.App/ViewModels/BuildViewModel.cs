@@ -82,6 +82,7 @@ public sealed partial class BuildViewModel : ObservableObject
     private readonly IGameProcessStarter starter;
     private readonly QaEngine? qa;
     private readonly TimeProvider clock;
+    private readonly IInjectionFileSystem? injectionFiles;
     private InjectionPlan? injectionPlan;
     private RestorePlan? restorePlan;
     private InjectionPlan? confirmedInject;
@@ -97,13 +98,14 @@ public sealed partial class BuildViewModel : ObservableObject
     private BuildNotice? notice;
     private string? restoredFrom;
 
-    public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null, TimeProvider? clock = null)
+    public BuildViewModel(BackgroundTaskService tasks, IReadOnlyList<IEngine>? engines = null, IGameProcessStarter? starter = null, QaEngine? qa = null, TimeProvider? clock = null, IInjectionFileSystem? injectionFiles = null)
     {
         this.tasks = tasks;
         this.engines = engines ?? [new YuRisEngine()];
         this.starter = starter ?? new ShellGameProcessStarter();
         this.qa = qa;
         this.clock = clock ?? TimeProvider.System;
+        this.injectionFiles = injectionFiles;
         Log.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasLog));
         Facts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFacts));
         Backups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBackups));

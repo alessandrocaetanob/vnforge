@@ -108,6 +108,7 @@ public sealed partial class BuildViewModel
     private bool testRunning;
     private int testEpoch;
     private GameTestStep currentStep;
+    private GameTestStep? cancelledStep;
     private TestStop? stopped;
 
     public bool HasLastTest => LastTestTitle.Length > 0;
@@ -173,6 +174,7 @@ public sealed partial class BuildViewModel
         var mine = epoch;
         IsBusy = true;
         stopped = null;
+        cancelledStep = null;
         testRunning = true;
         testEpoch = mine;
         ShowRunningStep(GameTestStep.Check);
@@ -180,14 +182,26 @@ public sealed partial class BuildViewModel
         try
         {
             var project = ProjectFolder.Open(summary.Root);
-            var tester = new GameTester(engines, starter, qa, clock);
+            var tester = new GameTester(engines, starter, qa, clock, injectionFiles);
             AppendLog(options.AccentTest
                 ? "Teste de acentos: só a frase fixa vai para o jogo."
                 : "Teste no jogo: conferindo, guardando a cópia de segurança e copiando para o jogo.");
             var run = await RunAsync(
                 options.AccentTest ? "Testar os acentos no jogo" : "Testar no jogo",
                 GameTestStep.Check.Label(),
-                (reporter, ct) => tester.Run(project, options, new StepProgress(reporter), new TaskProgress(reporter), ct),
+                (reporter, ct) =>
+                {
+                    try
+                    {
+                        return tester.Run(project, options, new StepProgress(reporter), new TaskProgress(reporter), ct);
+                    }
+                    catch (OperationCanceledException e)
+                    {
+                        // RunAsync não guarda o cancelamento, e o passo em que ele foi percebido só está na exceção.
+                        cancelledStep = GameTestFailure.StepOf(e);
+                        throw;
+                    }
+                },
                 onMessage: message =>
                 {
                     if (StepOf(message) is { } step)
@@ -619,7 +633,7 @@ public sealed partial class BuildViewModel
         var what = options.AccentTest ? "O teste dos acentos" : "O último teste";
         if (failure is null)
         {
-            return new TestStop(currentStep, "Cancelado", $"{what} foi cancelado.", PreviousDone: true);
+            return new TestStop(cancelledStep ?? currentStep, "Cancelado", $"{what} foi cancelado.", PreviousDone: true);
         }
 
         if (failure is QaBlockedException)
@@ -628,13 +642,13 @@ public sealed partial class BuildViewModel
         }
 
         var caption = $"{what} falhou.";
+        var step = GameTestFailure.StepOf(failure) ?? (failure is GameOpenException ? GameTestStep.Open : currentStep);
         return failure switch
         {
             GameExecutableNotFoundException => new TestStop(GameTestStep.Open, "Jogo não encontrado", caption, PreviousDone: false),
             GamePatchRefusedException => new TestStop(GameTestStep.Inject, "Ajuste recusado", caption, PreviousDone: false),
-            // Os passos chegam da tarefa pelo Dispatcher, depois do fim do trabalho: se o jogo recusa abrir logo após a injeção, currentStep ainda pode ser Inject.
-            GameOpenException => new TestStop(GameTestStep.Open, FailureText(GameTestStep.Open), caption, PreviousDone: true),
-            _ => new TestStop(currentStep, FailureText(currentStep), caption, PreviousDone: true),
+            // Os passos chegam da tarefa pelo Dispatcher, depois do fim do trabalho: currentStep pode estar um passo atrás. O passo que falhou vem na exceção.
+            _ => new TestStop(step, FailureText(step), caption, PreviousDone: true),
         };
     }
 

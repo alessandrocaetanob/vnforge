@@ -323,6 +323,54 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
+    public void Falha_leva_o_passo_em_que_aconteceu_e_a_do_jogo_que_nao_abre_leva_o_ultimo_passo()
+    {
+        Translate("a001", 0, "Hello");
+        _starter.Failure = new VNForgeException("sem permissão");
+
+        var failure = Assert.Throws<GameOpenException>(() => Run());
+
+        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(failure));
+        Assert.Null(GameTestFailure.StepOf(new VNForgeException("de fora do teste")));
+    }
+
+    [Fact]
+    public void Falha_logo_depois_da_Conferencia_e_antes_do_primeiro_script_e_do_passo_Build()
+    {
+        Translate("a001", 0, "Hello");
+        using var cts = new CancellationTokenSource();
+        var qa = new QaEngine([new CancelsWhenChecked(cts)]);
+
+        var failure = Assert.ThrowsAny<OperationCanceledException>(() => Tester(qa).Run(_project, cancellationToken: cts.Token));
+
+        Assert.Equal(GameTestStep.Build, GameTestFailure.StepOf(failure));
+    }
+
+    [Fact]
+    public void StepOf_acha_o_passo_na_excecao_embrulhada()
+    {
+        Translate("a001", 0, "Hello");
+        _starter.Failure = new VNForgeException("sem permissão");
+        var failure = Assert.Throws<GameOpenException>(() => Run());
+
+        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new AggregateException(failure)));
+        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new IOException("fora", new InvalidOperationException("meio", failure))));
+    }
+
+    private sealed class CancelsWhenChecked(CancellationTokenSource cts) : IQaRule
+    {
+        public string Id => "cancela";
+
+        public string Description => "Cancela o teste quando roda.";
+
+        public IEnumerable<QaIssue> Check(QaContext context)
+        {
+            cts.Cancel();
+            return [];
+        }
+    }
+
+    [Fact]
     public void Jogo_que_nao_abre_troca_o_ultimo_teste_e_o_retrato_pelos_do_texto_novo()
     {
         Translate("a001", 0, "Hello");
