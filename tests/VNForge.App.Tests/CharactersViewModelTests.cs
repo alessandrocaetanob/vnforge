@@ -307,7 +307,7 @@ public sealed class CharactersViewModelTests : IDisposable
     public async Task Caminho_de_projeto_invalido_vira_aviso_uma_vez_so_e_nao_deixa_a_pagina_muda()
     {
         await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
-        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = "projeto ruim" }));
+        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = "projeto\0ruim" }));
         var notices = new List<(string Text, ToastKind Kind)>();
         var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Notify = (text, kind) => notices.Add((text, kind)) };
 
@@ -324,5 +324,52 @@ public sealed class CharactersViewModelTests : IDisposable
         await vm.ExtrasLoading;
 
         Assert.Single(notices);
+    }
+
+    [Fact]
+    public async Task O_retrato_adulto_tem_uma_chave_so_na_lista_e_na_pagina_e_so_o_jogo_dela_o_revela()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, matched: true, showSpoilers: true, Ct, adultPortrait: true);
+        var reveals = new AdultReveal();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Reveals = reveals };
+        await vm.LoadAsync();
+        vm.RoleFacets.Single(f => f.Key == "side").IsSelected = true;
+        var hana = vm.Items.Single(i => i.Name == "Hana Tsukino");
+
+        // Com o filtro "Secundária" a lista mostra o papel do jogo Star, mas o retrato continua com a chave do papel mais importante.
+        Assert.Equal(CharactersSamples.Moon, hana.Portrait.RevealKey);
+        Assert.True(hana.Portrait.IsBlurred);
+        vm.OpenCharacterCommand.Execute(hana);
+        Assert.Equal(CharactersSamples.Moon, vm.Page!.Portrait.RevealKey);
+
+        reveals.Reveal(CharactersSamples.Star);
+
+        Assert.False(vm.Page!.Portrait.Revealed);
+        Assert.True(vm.Page.Portrait.IsBlurred);
+        Assert.True(vm.Page.Games.Single(g => g.Title == "Star Garden").Revealed);
+        Assert.Contains(vm.Page.Tags, c => c.IsHidden);
+        Assert.DoesNotContain(vm.TraitFacets, f => f.Label == "Nude");
+
+        vm.RevealPortraitCommand.Execute(vm.Page.Portrait.RevealKey);
+
+        Assert.True(reveals.IsRevealed(CharactersSamples.Moon));
+        Assert.True(vm.Page!.Portrait.Revealed);
+        Assert.False(vm.Page.Portrait.IsBlurred);
+        Assert.DoesNotContain(vm.Page.Tags, c => c.IsHidden);
+        Assert.DoesNotContain(vm.Page.Groups, g => g.Chips.Any(c => c.IsHidden));
+        Assert.Contains(vm.Page.Groups, g => g.Chips.Any(c => c.Text == "Nude"));
+        Assert.Contains(vm.TraitFacets, f => f.Label == "Nude");
+
+        // Borrar o jogo de novo esconde o traço outra vez, e o filtro por ele cai junto em vez de deixar a lista filtrada por um traço invisível.
+        vm.TraitFacets.Single(f => f.Label == "Nude").IsSelected = true;
+        Assert.Equal(["Hana Tsukino"], vm.Items.Select(i => i.Name));
+        reveals.Conceal(CharactersSamples.Moon);
+
+        Assert.Empty(vm.ActiveTraits);
+        Assert.DoesNotContain(vm.TraitFacets, f => f.Label == "Nude");
+        Assert.Contains(vm.Items, i => i.Name == "Hana Tsukino");
+        vm.RevealPortraitCommand.Execute(string.Empty);
+        vm.RevealPortraitCommand.Execute(null);
+        Assert.False(reveals.IsRevealed(string.Empty));
     }
 }

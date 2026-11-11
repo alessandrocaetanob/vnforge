@@ -54,6 +54,28 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     public TimeProvider Clock { get; set; } = TimeProvider.System;
 
+    /// <summary>Os jogos que a pessoa revelou nesta sessão no modo Desfocar; o shell liga o registro da Biblioteca, o mesmo da grade e da Ficha.</summary>
+    public AdultReveal Reveals
+    {
+        get => reveals;
+        set
+        {
+            reveals.Changed -= OnRevealsChanged;
+            reveals = value;
+            reveals.Changed += OnRevealsChanged;
+        }
+    }
+
+    private AdultReveal reveals = new();
+
+    private void OnRevealsChanged(object? sender, EventArgs e)
+    {
+        if (snapshot is not null)
+        {
+            Rebuild();
+        }
+    }
+
     /// <summary>Quem mostra o aviso de uma ação (o aviso do app): o texto e a gravidade.</summary>
     public Action<string, ToastKind>? Notify { get; set; }
 
@@ -285,12 +307,15 @@ public sealed partial class CharactersViewModel : ObservableObject
     {
         var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.Adult);
         var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
-        var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+        var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, isRevealed: Reveals.IsRevealed);
+        // Um traço que a privacidade voltou a esconder (o adulto depois de borrar o jogo de novo) sai do filtro: ele some das facetas, e a lista ficaria filtrada por algo invisível.
+        var seen = all.Characters.SelectMany(c => c.Traits).Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
+        selectedTraits.RemoveWhere(id => !seen.Contains(id));
         LibraryCharacterList basis, shown;
         try
         {
-            basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text));
-            shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]));
+            basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text), Reveals.IsRevealed);
+            shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]), Reveals.IsRevealed);
         }
         catch (LibraryException)
         {
@@ -300,7 +325,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
         var cards = shown.Characters.Where(c => selectedRoles.Count == 0 || c.AppearsIn.Any(a => selectedRoles.Contains(a.RoleCode))).ToList();
         cards = Sort(cards);
-        Items = [.. cards.Select(ItemOf)];
+        Items = [.. cards.Select(c => ItemOf(c, privacy.Adult))];
         BuildFacets(basis.Characters);
         var games = all.Characters.SelectMany(c => c.AppearsIn).Select(a => a.GameId).Distinct(StringComparer.Ordinal).Count();
         StatusText = $"{GameSheetViewModel.Count(all.Characters.Count, "personagem", "personagens")} de {GameSheetViewModel.Count(games, "jogo", "jogos")}";
@@ -328,8 +353,19 @@ public sealed partial class CharactersViewModel : ObservableObject
     private LibraryCharacterAppearance ShownAppearance(LibraryCharacterCard card) =>
         card.AppearsIn.FirstOrDefault(a => selectedRoles.Contains(a.RoleCode)) ?? card.AppearsIn[0];
 
-    private CharacterListItem ItemOf(LibraryCharacterCard card) =>
-        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"));
+    private CharacterListItem ItemOf(LibraryCharacterCard card, AdultMode mode) =>
+        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"), PortraitOf(card, mode));
+
+    /// <summary>
+    /// O retrato tem uma chave só: o jogo do papel mais importante do personagem, igual na lista (com ou sem filtro de papel) e na página. O olho revela esse jogo e o retrato está
+    /// revelado se e só se ele está; revelar outro jogo do personagem não o mostra. O olho só aparece no retrato adulto que o Desfocar borra.
+    /// </summary>
+    private CharacterPortraitReveal PortraitOf(LibraryCharacterCard card, AdultMode mode)
+    {
+        var key = card.AppearsIn[0].VisualNovelId;
+        var revealed = Reveals.IsRevealed(key);
+        return new CharacterPortraitReveal(key, revealed, card is { ImageHidden: true, Image: not null } && mode == AdultMode.Blur && !revealed);
+    }
 
     private void BuildFacets(IReadOnlyList<LibraryCharacterCard> basis)
     {
@@ -385,7 +421,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     private CharacterPage? BuildPage(Snapshot data, LibraryPrivacy privacy, string id)
     {
-        var lookup = LibraryCharacters.Find(data.Library, data.Characters, data.Terms, data.Editions, privacy, id);
+        var lookup = LibraryCharacters.Find(data.Library, data.Characters, data.Terms, data.Editions, privacy, id, Reveals.IsRevealed);
         if (lookup.Card is not { } card)
         {
             openId = null;
@@ -413,8 +449,9 @@ public sealed partial class CharactersViewModel : ObservableObject
         var description = card.Description;
         var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
         var known = extras is { } read && string.Equals(read.Id, id, StringComparison.OrdinalIgnoreCase) ? read : null;
-        var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a, known?.Counts.GetValueOrDefault(a.GameId))).ToList();
-        var hiddenTraits = raw.Traits.Where(t => SheetViewer.IsTraitHidden(t, privacy)).ToList();
+        var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a, known?.Counts.GetValueOrDefault(a.GameId), Reveals.IsRevealed(a.VisualNovelId))).ToList();
+        var seen = privacy.Adult == AdultMode.Blur && Reveals.IsRevealed(card.AppearsIn[0].VisualNovelId) ? privacy with { Adult = AdultMode.Show } : privacy;
+        var hiddenTraits = raw.Traits.Where(t => SheetViewer.IsTraitHidden(t, seen)).ToList();
         return new CharacterPage(
             card.Id,
             card.Name,
@@ -428,6 +465,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             games,
             $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
             notes.Count > 0 ? string.Join(' ', notes) : null,
+            PortraitOf(card, privacy.Adult),
             known?.Translation);
     }
 
@@ -509,7 +547,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         return null;
     }
 
-    private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance, StatusCounts? translation)
+    private static CharacterGameRow GameRow(Snapshot data, LibraryPrivacy privacy, LibraryCharacterCard card, LibraryCharacterAppearance appearance, StatusCounts? translation, bool revealed)
     {
         var game = data.Library.Games.First(g => g.Id == appearance.GameId);
         var described = LibraryCards.Describe(game, privacy, translation);
@@ -521,7 +559,8 @@ public sealed partial class CharactersViewModel : ObservableObject
             described.Subtitle,
             (described.ProgressPercent ?? 0) / 100.0,
             RolePill(appearance.RoleCode, card.Gender),
-            $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}");
+            $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}",
+            revealed);
     }
 
     private static List<SheetChip> Tags(LibraryCharacterCard card, IReadOnlyList<VndbTrait> hidden)
@@ -641,6 +680,16 @@ public sealed partial class CharactersViewModel : ObservableObject
             {
                 ExtrasLoading = LoadExtrasAsync(item.Id);
             }
+        }
+    }
+
+    /// <summary>O olho do retrato borrado: libera o jogo (capa e retratos dele) em toda a Biblioteca até a pessoa sair dela.</summary>
+    [RelayCommand]
+    private void RevealPortrait(string? visualNovelId)
+    {
+        if (!string.IsNullOrEmpty(visualNovelId))
+        {
+            Reveals.Reveal(visualNovelId);
         }
     }
 
