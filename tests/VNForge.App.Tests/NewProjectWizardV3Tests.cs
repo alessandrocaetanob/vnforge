@@ -78,9 +78,9 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     {
         var vm = Create();
 
-        Assert.Equal(["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
+        Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"],
+            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -265,7 +265,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Null(vm.ErrorMessage);
-        Assert.Equal("Rápida", vm.Steps[4].Subtitle);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
         var saved = file.Load();
         Assert.Equal(5.43m, saved.BrlPerUsd);
         Assert.Equal(new DateOnly(2026, 10, 25), saved.RateInformedOn);
@@ -464,6 +464,26 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         Assert.Null(vm.ErrorMessage);
     }
 
+    [Theory]
+    [InlineData("v90001", "VNDB v90001")]
+    [InlineData("90001", "VNDB v90001")]
+    [InlineData(null, "")]
+    public async Task O_jogo_da_biblioteca_mostra_o_codigo_do_vndb_e_escolher_outra_pasta_o_apaga(string? vndbId, string label)
+    {
+        var picker = new FakeFolderPicker(game);
+        var vm = new NewProjectWizardViewModel(picker, [new FakeEngine()], clock: new FixedClock(Today));
+        vm.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", vndbId, null));
+
+        Assert.True(vm.HasLibraryGame);
+        Assert.Equal(label, vm.LibraryVndbLabel);
+        Assert.Equal(vndbId is not null, vm.HasLibraryVndb);
+
+        await vm.BrowseGameCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasLibraryGame);
+        Assert.Equal(string.Empty, vm.LibraryVndbLabel);
+    }
+
     [Fact]
     public async Task O_resumo_nao_cita_o_nome_do_modelo_escolhido_a_mao()
     {
@@ -472,7 +492,8 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         await vm.NextCommand.ExecuteAsync(null);
 
-        Assert.Equal("Modelo escolhido à mão", vm.Steps[4].Subtitle);
+        Assert.DoesNotContain("fable", vm.Steps[4].Subtitle, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
     }
 
     [Fact]

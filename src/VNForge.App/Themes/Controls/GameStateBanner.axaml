@@ -14,8 +14,8 @@
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
             <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="body-strong" Text="{TemplateBinding Title}" TextWrapping="Wrap"/>
-              <TextBlock Classes="body-sm secondary" Text="{TemplateBinding Message}" TextWrapping="Wrap"
+              <SelectableTextBlock Name="PART_Title" Classes="body-strong" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Title}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"/>
+              <SelectableTextBlock Name="PART_Message" Classes="body-sm secondary" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Message}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"
                          IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
             <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
@@ -28,6 +28,50 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Variante "stage" de "Testar no jogo" (quadro e4c): o cartão de 20px de margem com título de 17 e a divisória dos passos de ponta a ponta. -->
+  <Style Selector="c|GameStateBanner.stage">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}"
+                BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+          <StackPanel>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="20,17">
+              <Ellipse Name="PART_Dot" Width="10" Height="10" VerticalAlignment="Center" Fill="{DynamicResource Vnf.TextTertiary}"/>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <SelectableTextBlock Name="PART_Title" Classes="title-md" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Title}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"/>
+                <SelectableTextBlock Name="PART_Message" Classes="body-sm secondary" c:CopyMenu.Enabled="True" c:LineLinks.Source="{TemplateBinding Message}" c:LineLinks.Command="{TemplateBinding MessageLinkCommand}" TextWrapping="Wrap"
+                           IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+              </StackPanel>
+              <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+            </Grid>
+            <Border Classes="divider-top" Padding="20,13,20,12" IsVisible="{TemplateBinding Footer, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <ContentPresenter Content="{TemplateBinding Footer}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- O título e a frase são SelectableTextBlock (texto selecionável, menu Copiar, links de linha) e os estilos de Typography.axaml só casam com TextBlock: sem estes, o título sai no tamanho e no peso padrão e a frase em branco semibold. -->
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.title-md">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontDisplay}"/>
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.TitleMd}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.TitleMd}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.body-strong">
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Body}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.Body}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.body-sm">
+    <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.BodySm}"/>
+    <Setter Property="LineHeight" Value="{DynamicResource Vnf.LineHeight.BodySm}"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+  </Style>
+  <Style Selector="c|GameStateBanner /template/ SelectableTextBlock.secondary">
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
   </Style>
   <Style Selector="c|GameStateBanner:translated /template/ Ellipse#PART_Dot">
     <Setter Property="Fill" Value="{DynamicResource Vnf.SegApproved}"/>

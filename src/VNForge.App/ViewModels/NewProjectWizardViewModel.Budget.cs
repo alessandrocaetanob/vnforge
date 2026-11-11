@@ -53,11 +53,6 @@ public sealed partial class NewProjectWizardViewModel
     /// <summary>A cotação, o limite e a qualidade foram gravados no <c>app.json</c>; quem guarda uma cópia dos ajustes do usuário deve relê-los.</summary>
     public event EventHandler? BudgetSaved;
 
-    private string SelectedQualityTitle =>
-        QualityProfiles.ForModel(Models.Selected.Id) is { } profile
-            ? Qualities.Single(q => q.Profile == profile).Title
-            : "Modelo escolhido à mão";
-
     partial void OnRateTextChanged(string value) => RefreshRate();
 
     partial void OnLimitTextChanged(string value)

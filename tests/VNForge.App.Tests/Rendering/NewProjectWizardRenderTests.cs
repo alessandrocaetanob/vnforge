@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
@@ -17,9 +18,10 @@ using Xunit.Sdk;
 namespace VNForge.App.Tests.Rendering;
 
 /// <summary>
-/// Os quatro passos do assistente de novo projeto da interface v3 (#312), a 1440×1000 nos dois temas, para pôr ao lado do artboard no PR.
-/// Além do PNG, confere a tinta dentro de retângulos conhecidos (a caixa de cada cartão de acentos) e os textos visíveis de cada passo.
-/// Os PNGs saem em <c>VNFORGE_RENDER_DIR</c> como <c>novo-projeto-v3-N-passo-tema.png</c>.
+/// Os passos do assistente de novo projeto no design system v3 (quadro da #547), a 1440×1000 nos dois temas, para pôr ao lado do artboard no PR.
+/// Além do PNG, confere a moldura do quadro (coluna de 960, passos com círculo de 24, título de 34), as medidas dos cartões, a tinta dentro de retângulos
+/// conhecidos (a caixa de cada cartão de acentos) e os textos visíveis de cada passo.
+/// Os PNGs saem em <c>VNFORGE_RENDER_DIR</c> como <c>novo-projeto-v6-N-passo-tema.png</c>.
 /// </summary>
 public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
@@ -57,31 +59,59 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     Assert.Same(wizard, vm.CurrentPage);
 
                     await wizard.SetGameFolderAsync(game);
-                    Render(window, "novo-projeto-v3-1-jogo", theme);
+                    ScreenRenderer.Settle(window);
                     CheckGamePlain(window, temp.Path);
+
+                    wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null, "雨音の箱庭"));
+                    Render(window, "novo-projeto-v6-1-jogo", theme);
+                    var gameTexts = VisibleTexts(window);
+                    var title = window.GetVisualDescendants().OfType<TextBlock>().Single(b => b.IsEffectivelyVisible && b.Inlines is { Count: 2 });
+                    var runs = title.Inlines!.OfType<Avalonia.Controls.Documents.Run>().ToArray();
+                    Assert.Equal(("Amaoto no Hakoniwa", " 雨音の箱庭"), (runs[0].Text, runs[1].Text));
+                    Assert.Equal((14d, FontWeight.Normal), (runs[1].FontSize, runs[1].FontWeight));
+                    Assert.Equal((17d, FontWeight.Bold), (title.FontSize, title.FontWeight));
+                    Assert.Contains("Feito com o motor YU-RIS · VNDB v90001", gameTexts);
+                    var recognized = window.GetVisualDescendants().OfType<Border>().Single(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Motor do jogo");
+                    Assert.InRange(recognized.Bounds.Height, 246, 248);
+                    var cover = window.GetVisualDescendants().OfType<Border>().Single(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Capa do jogo");
+                    Assert.InRange(cover.Bounds.Width, 43.5, 44.5);
+                    Assert.InRange(cover.Bounds.Height, 58, 59.4);
+                    var origin = cover.TranslatePoint(default, recognized)!.Value;
+                    Assert.InRange(origin.X, 20, 23);
+                    Assert.InRange(origin.Y, 16, 19);
+                    Assert.Contains("Jogo reconhecido", gameTexts);
+                    var coverMiddle = origin.Y + cover.Bounds.Height / 2;
+                    var seal = window.GetVisualDescendants().OfType<TextBlock>().Single(b => b.IsEffectivelyVisible && b.Text == "Suportado");
+                    var sealBox = seal.GetVisualAncestors().OfType<Border>().First();
+                    Assert.InRange(sealBox.TranslatePoint(default, recognized)!.Value.Y + sealBox.Bounds.Height / 2, coverMiddle - 1.5, coverMiddle + 1.5);
+                    CheckFrame(window, 1);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.SearchTitle = "Amaoto";
                     await wizard.SearchVndbCommand.ExecuteAsync(null);
-                    Render(window, "novo-projeto-v3-2-vndb-escolha", theme);
+                    Render(window, "novo-projeto-v6-2-vndb-escolha", theme);
                     CheckVndbChoice(window, temp.Path);
+                    CheckFrame(window, 2);
 
                     await wizard.NextCommand.ExecuteAsync(null);
-                    Render(window, "novo-projeto-v3-2-vndb-ficha", theme);
+                    Render(window, "novo-projeto-v6-2-vndb-ficha", theme);
                     CheckVndbPreview(window, temp.Path);
+                    CheckFrame(window, 2);
 
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.ProjectName = "Minha VN";
                     await wizard.NextCommand.ExecuteAsync(null);
-                    Render(window, "novo-projeto-v3-3-acentos", theme);
+                    Render(window, "novo-projeto-v6-3-acentos", theme);
                     CheckAccents(window, temp.Path);
+                    CheckFrame(window, 4);
 
                     await wizard.NextCommand.ExecuteAsync(null);
                     wizard.RateText = "5,40";
                     wizard.LimitText = "300";
-                    Render(window, "novo-projeto-v3-4-ia-e-gasto", theme);
+                    Render(window, "novo-projeto-v6-4-ia-e-gasto", theme);
                     CheckAi(window, wizard, temp.Path);
+                    CheckFrame(window, 5);
                 }
                 finally
                 {
@@ -230,8 +260,49 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         var texts = VisibleTexts(window);
         Assert.Contains("Feito com o motor Yu-RIS", texts);
         Assert.Contains("312 arquivos de roteiro", texts);
+        Assert.Contains("Jogo reconhecido", texts);
+        Assert.Contains("Escolher outra pasta", texts);
         AssertPlain(texts, tempRoot);
+
+        Assert.Equal(FontWeight.SemiBold, TextOf(window, "Pasta do jogo").FontWeight);
+        Assert.Equal(FontWeight.Medium, TextOf(window, "312 arquivos de roteiro").FontWeight);
+        var pill = TextOf(window, "Suportado");
+        Assert.Equal((11d, FontWeight.SemiBold), (pill.FontSize, pill.FontWeight));
+
+        var cards = window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).ToArray();
+        Assert.Equal(2, cards.Length);
+        Assert.All(cards, card => Assert.Equal(16, card.CornerRadius.TopLeft));
+        Assert.All(cards, card => Assert.InRange(card.Bounds.Width, 959, 961));
+
+        var back = window.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible && b.Content is "Voltar");
+        var next = window.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible && b.Content is "Avançar");
+        Assert.Equal(32, back.Bounds.Height);
+        Assert.InRange(next.Bounds.Width, 88, 91);
+        Assert.Equal(FontWeight.SemiBold, next.FontWeight);
     }
+
+    /// <summary>A moldura que todos os passos repetem: a coluna de 960, o título de 34, o Cancelar e o passo a passo com os círculos numerados do quadro.</summary>
+    private static void CheckFrame(Window window, int step)
+    {
+        var title = TextOf(window, "Novo projeto");
+        Assert.Equal(34, title.FontSize);
+        Assert.Equal($"Passo {step} de 5", Assert.Single(VisibleTexts(window), t => t.StartsWith("Passo ", StringComparison.Ordinal)));
+        Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Content is "Cancelar");
+
+        var stepper = window.GetVisualDescendants().OfType<PipelineStepper>().Single(s => s.IsEffectivelyVisible);
+        Assert.InRange(stepper.Bounds.Width, 959, 961);
+        Assert.InRange(stepper.Bounds.Height, 62, 64);
+        Assert.InRange(stepper.TranslatePoint(default, window)!.Value.X, 279, 281);
+
+        var circles = stepper.GetVisualDescendants().OfType<Border>().Where(b => b.Name == "PART_Circle").ToArray();
+        Assert.Equal(5, circles.Length);
+        Assert.All(circles, c => Assert.Equal((24d, 24d), (c.Bounds.Width, c.Bounds.Height)));
+        var numbers = stepper.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Name == "PART_Number" && t.IsEffectivelyVisible).Select(t => t.Text);
+        Assert.Equal(Enumerable.Range(step, 6 - step).Select(n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)), numbers);
+    }
+
+    private static TextBlock TextOf(Control root, string text) =>
+        root.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == text);
 
     private static void CheckAccents(Window window, string tempRoot)
     {
@@ -248,8 +319,12 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
 
         var boxes = window.GetVisualDescendants().OfType<GameTextbox>().ToArray();
         Assert.Equal(3, boxes.Length);
+        Assert.All(cards, card => Assert.InRange(card.Bounds.Height, 263, 265));
+        Assert.All(cards, card => Assert.InRange(card.Bounds.Width, 311, 313));
         foreach (var box in boxes)
         {
+            Assert.InRange(box.Bounds.Width, 277, 279);
+            Assert.InRange(box.Bounds.Height, 89, 91);
             var ink = Token(box, "Vnf.TextboxInk");
             var probe = PixelProbe.Capture(window, box);
             var lines = box.RowBounds().Where(r => r.Row.Kind == GameTextboxRowKind.Text).ToArray();
@@ -271,6 +346,13 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
         Assert.All(cards, card => Assert.StartsWith("R$", card.PriceText));
         Assert.All(cards, card => Assert.False(card.ExampleRate));
         Assert.Equal(wizard.Qualities.Select(q => q.Price), cards.Select(c => c.Price));
+        Assert.All(cards, card => Assert.InRange(card.Bounds.Height, 125, 127));
+        Assert.All(cards, card => Assert.InRange(card.Bounds.Width, 311, 313));
+
+        var budget = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible);
+        Assert.InRange(budget.Bounds.Height, 125, 127);
+        var banner = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("banner") && b.IsEffectivelyVisible);
+        Assert.Equal((16, 66), (banner.CornerRadius.TopLeft, Math.Round(banner.Bounds.Height)));
 
         var fields = window.GetVisualDescendants().OfType<TextBox>().ToDictionary(t => Avalonia.Automation.AutomationProperties.GetName(t) ?? string.Empty, t => t.Text);
         Assert.Equal("5,40", fields["Cotação do dólar em reais"]);

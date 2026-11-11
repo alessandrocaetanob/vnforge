@@ -111,7 +111,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, ImagesViewModel? images = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, BuildViewModel? build = null, ImagesViewModel? images = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
@@ -183,7 +183,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         batchRequests = NewBatchRequestService();
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
-        Build = new BuildViewModel(TaskService);
+        Build = build ?? new BuildViewModel(TaskService);
         Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {
@@ -906,7 +906,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Troca a página pelo assistente de novo projeto; ao terminar ou cancelar volta ao Início, e um projeto criado é aberto.</summary>
-    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null, string? vndbId = null)
+    private void ShowWizard(Func<NewProjectWizardViewModel>? create, string? gameFolder = null, LibraryGameContext? libraryGame = null)
     {
         if (create is null)
         {
@@ -915,9 +915,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var wizard = create();
         wizard.PropertyChanged += OnWizardVndbChanged;
+        wizard.SetLibraryGame(libraryGame);
         if (gameFolder is not null)
         {
-            WizardPreparing = wizard.SetGameFolderAsync(gameFolder, vndbId);
+            WizardPreparing = wizard.SetGameFolderAsync(gameFolder, libraryGame?.VndbId);
         }
 
         wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();

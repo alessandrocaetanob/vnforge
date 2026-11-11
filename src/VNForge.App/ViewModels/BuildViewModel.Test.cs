@@ -550,7 +550,7 @@ public sealed partial class BuildViewModel
             var blocked = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro trava", "erros travam")}";
             SetSteps(
                 StepRows(step => step == GameTestStep.Check ? (TestStepState.Blocked, blocked) : (TestStepState.Pending, string.Empty)),
-                "Corrija os erros na Conferência para testar de novo.");
+                "Corrija os erros em Conferir para testar de novo.");
         }
         else if (last is null)
         {
@@ -632,6 +632,8 @@ public sealed partial class BuildViewModel
         {
             GameExecutableNotFoundException => new TestStop(GameTestStep.Open, "Jogo não encontrado", caption, PreviousDone: false),
             GamePatchRefusedException => new TestStop(GameTestStep.Inject, "Ajuste recusado", caption, PreviousDone: false),
+            // Os passos chegam da tarefa pelo Dispatcher, depois do fim do trabalho: se o jogo recusa abrir logo após a injeção, currentStep ainda pode ser Inject.
+            GameOpenException => new TestStop(GameTestStep.Open, FailureText(GameTestStep.Open), caption, PreviousDone: true),
             _ => new TestStop(currentStep, FailureText(currentStep), caption, PreviousDone: true),
         };
     }

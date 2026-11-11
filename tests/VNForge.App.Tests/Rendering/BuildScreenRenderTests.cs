@@ -14,7 +14,7 @@ namespace VNForge.App.Tests.Rendering;
 
 /// <summary>
 /// Renderiza a página Build e injeção com o estado do artboard 6 (build de 22/10 válido para injetar, 2 erros novos de QA, dois backups) em
-/// <c>build-pagina-escuro.png</c> e <c>build-pagina-claro.png</c>. O build é de verdade, com uma engine falsa sobre o projeto de demonstração; a
+/// <c>testar-no-jogo-v6-detalhes-escuro.png</c> e <c>testar-no-jogo-v6-detalhes-claro.png</c>. O build é de verdade, com uma engine falsa sobre o projeto de demonstração; a
 /// moldura da janela (barra de título, trilho, barra de status) é da #241 e fica de fora.
 /// </summary>
 public sealed class BuildScreenRenderTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
@@ -56,7 +56,7 @@ public sealed class BuildScreenRenderTests(HeadlessFixture fixture) : IClassFixt
                 await vm.ReloadAsync();
                 Assert.True(vm.HasQaErrors);
 
-                var path = RenderOutput.PathFor(ScreenRenderer.FileName("testar-no-jogo-detalhes", theme));
+                var path = RenderOutput.PathFor(ScreenRenderer.FileName("testar-no-jogo-v6-detalhes", theme));
                 ScreenRenderer.Render(new BuildView { DataContext = vm, TechnicalExpanded = true }, theme, path, inspect: window => Inspect(window, vm));
                 Assert.True(new FileInfo(path).Length > 10_000);
                 return 0;

@@ -12,6 +12,16 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.App.ViewModels;
 
+/// <summary>O jogo da Biblioteca de onde o assistente partiu: título, código no VNDB e capa (nula sem casamento ou com o véu de conteúdo adulto).</summary>
+public sealed record LibraryGameContext(string Title, string? VndbId, VndbImageRef? Cover, string? OriginalTitle = null)
+{
+    /// <summary>O nome e, quando o VNDB tem, o original ao lado: "Amaoto no Hakoniwa 雨音の箱庭".</summary>
+    public string DisplayTitle => string.IsNullOrEmpty(OriginalTitle) ? Title : $"{Title} {OriginalTitle}";
+
+    /// <summary>O original com o espaço que o separa do nome, para ir em um trecho de 14px normal ao lado do nome em título; vazio sem original.</summary>
+    public string OriginalSuffix => string.IsNullOrEmpty(OriginalTitle) ? string.Empty : $" {OriginalTitle}";
+}
+
 /// <summary>Os passos do assistente de novo projeto, na ordem do doc 04.</summary>
 public enum WizardStep
 {
@@ -174,6 +184,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     /// <summary>"Feito com o motor YU-RIS": o título do cartão do primeiro passo; vazio até haver uma pasta reconhecida.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LibraryEngineLine))]
     public partial string EngineHeadline { get; private set; } = string.Empty;
 
     /// <summary>O nome do motor que a detecção achou ("YU-RIS"), sem versão; vazio até haver uma pasta reconhecida. Vai no subtítulo do primeiro passo e na linha de cada resultado do VNDB.</summary>
@@ -206,7 +217,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public partial WizardStep Step { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasGame), nameof(GameFolderLabel))]
+    [NotifyPropertyChangedFor(nameof(HasGame), nameof(GameFolderLabel), nameof(BrowseGameLabel))]
     [NotifyCanExecuteChangedFor(nameof(NextCommand))]
     public partial string? GameFolder { get; private set; }
 
@@ -244,6 +255,25 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     public string GameFolderLabel => GameFolder ?? "Nenhuma pasta escolhida";
 
+    public string BrowseGameLabel => GameFolder is null ? "Escolher pasta" : "Escolher outra pasta";
+
+    /// <summary>O jogo da Biblioteca que abriu o assistente (capa, título e "VNDB v&lt;id&gt;"); nulo quando a pasta veio do botão de escolher. Escolher outra pasta o apaga.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLibraryGame), nameof(LibraryVndbLabel), nameof(HasLibraryVndb), nameof(LibraryEngineLine))]
+    public partial LibraryGameContext? LibraryGame { get; private set; }
+
+    public bool HasLibraryGame => LibraryGame is not null;
+
+    public bool HasLibraryVndb => LibraryGame?.VndbId is not null;
+
+    /// <summary>"VNDB v90001": o código do VNDB sem o "v" que ele já traz, para o "v" não sair duas vezes.</summary>
+    public string LibraryVndbLabel => LibraryGame?.VndbId is { } id ? $"VNDB {(id.StartsWith('v') ? id : "v" + id)}" : string.Empty;
+
+    /// <summary>A linha sob o título no cabeçalho de "Jogo reconhecido" quando o jogo vem da Biblioteca: "Feito com o motor YU-RIS · VNDB v90001".</summary>
+    public string LibraryEngineLine => EngineName.Length == 0 ? string.Empty : $"Feito com o motor {EngineName.ToUpperInvariant()}" + (HasLibraryVndb ? $" · {LibraryVndbLabel}" : string.Empty);
+
+    public void SetLibraryGame(LibraryGameContext? game) => LibraryGame = game;
+
     public string ProjectDirectoryLabel => ProjectDirectory ?? "Nenhuma pasta escolhida";
 
     /// <summary>A migalha do cabeçalho: "Passo 2 de 4"; "Pronto" depois de criar o projeto.</summary>
@@ -275,7 +305,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     public string StepTitle => Step switch
     {
-        WizardStep.Game => "Pasta do jogo",
+        WizardStep.Game => "Jogo",
         WizardStep.Vndb => "Ficha do VNDB",
         WizardStep.Names => "Idiomas e nome",
         WizardStep.Accents => "Acentos",
@@ -367,6 +397,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         var path = await picker.PickFolderAsync("Pasta do jogo a traduzir");
         if (path is not null)
         {
+            LibraryGame = null;
             await SetGameFolderAsync(path);
         }
     }
@@ -549,31 +580,21 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         SearchVndbCommand.NotifyCanExecuteChanged();
     }
 
-    private static readonly string[] StepTitles = ["Pasta do jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
+    private static readonly string[] StepTitles = ["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome, pasta e idiomas", "Como ficam os acentos", "Qualidade e limite"];
+        ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
     private void RefreshSteps()
     {
-        string?[] results =
-        [
-            HasDetection ? EngineName : null,
-            confirmedLink is { } linked ? linked.Title : "Sem VNDB",
-            $"{SourceLanguages.Selected.Title} → {TargetLanguages.Selected.Title}",
-            EncodingStrategies.Selected.Title,
-            SelectedQualityTitle,
-        ];
-
         var steps = new PipelineStep[StepTitles.Length];
         for (var i = 0; i < steps.Length; i++)
         {
             var done = Step == WizardStep.Done || i < (int)Step;
             var active = !done && i == (int)Step;
             var state = done ? PipelineStepState.Done : active ? PipelineStepState.Active : PipelineStepState.Pending;
-            // O passo concluído diz o que ficou decidido; o atual já mostra o resultado da pasta assim que há detecção (passo 1).
-            var subtitle = (done || (active && i == 0)) && results[i] is { } result ? result : StepPrompts[i];
-            steps[i] = new PipelineStep(i + 1, StepTitles[i], subtitle, state, done && Step != WizardStep.Done ? GoToStepCommand : null, (WizardStep)i);
+            // A legenda é fixa, como no quadro: o que ficou decidido aparece na tela de cada passo, não no passo a passo.
+            steps[i] = new PipelineStep(i + 1, StepTitles[i], StepPrompts[i], state, done && Step != WizardStep.Done ? GoToStepCommand : null, (WizardStep)i);
         }
 
         Steps = steps;

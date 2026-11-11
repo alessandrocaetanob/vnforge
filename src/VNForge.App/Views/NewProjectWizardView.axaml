@@ -10,7 +10,7 @@
     <DataTemplate x:Key="ChoiceCard" x:DataType="vm:ChoiceOption">
       <RadioButton Classes="option" IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}">
         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="2">
-          <TextBlock Classes="body-strong" Text="{Binding Title}"/>
+          <TextBlock Classes="body-strong" Foreground="{DynamicResource Vnf.TextPrimary}" Text="{Binding Title}"/>
           <TextBlock Grid.Column="1" Classes="mono-xs secondary" Text="{Binding Value}" VerticalAlignment="Center"
                      IsVisible="{Binding Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
           <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="body-sm secondary" TextWrapping="Wrap" Text="{Binding Description}"
@@ -21,11 +21,26 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <Style Selector="StackPanel.wizard-nav Button">
-      <Setter Property="Padding" Value="17.3,0"/>
+    <!-- Campo do orçamento (v3-input do quadro): 32 de altura, fundo inset, contorno de controle e raio 8; o R$ fica 12 px da borda e 8 px do valor. -->
+    <Style Selector="TextBox.field">
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="Padding" Value="0,0,12,0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
-    <Style Selector="StackPanel.wizard-nav Button.accent">
-      <Setter Property="Padding" Value="16,0,17,0"/>
+    <Style Selector="TextBox.field /template/ Border#PART_BorderElement, TextBox.field:pointerover /template/ Border#PART_BorderElement, TextBox.field:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.panel.card">
+      <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    </Style>
+    <Style Selector="TextBlock.pill">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="LineHeight" Value="18"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style Selector="StackPanel.vndb-exits Button.subtle">
       <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
@@ -34,14 +49,17 @@
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1100" Margin="24,27,24,32" Spacing="20">
+    <StackPanel MaxWidth="960" Margin="24,20,24,32" Spacing="16">
 
-      <!-- O título do assistente é maior que o do PageHeader (quadro da #536); a migalha e o título seguem o mesmo desenho. -->
-      <StackPanel>
-        <TextBlock Classes="caption secondary" Text="{Binding Breadcrumb}" TextTrimming="CharacterEllipsis"
-                   IsVisible="{Binding Breadcrumb, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-        <TextBlock Classes="title-lg" FontSize="29.5" LineHeight="40" Text="Novo projeto" TextTrimming="CharacterEllipsis"/>
-      </StackPanel>
+      <!-- Quadro da #547: a migalha e o título de 34/40 (o title-xl tem 50 de entrelinha por causa do Zen Kaku, daí a margem negativa) e o Cancelar à direita, centrado nos dois. -->
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <StackPanel>
+          <TextBlock Classes="caption secondary" Text="{Binding Breadcrumb}" TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding Breadcrumb, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          <TextBlock Classes="title-xl" Margin="0,-5" Text="Novo projeto" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <Button Grid.Column="1" Classes="subtle" VerticalAlignment="Center" Command="{Binding CancelCommand}" Content="Cancelar" IsVisible="{Binding IsWizardStep}"/>
+      </Grid>
 
       <c:PipelineStepper Classes="wizard" ItemsSource="{Binding Steps}" IsVisible="{Binding IsWizardStep}" AutomationProperties.Name="Passos do assistente"/>
 
@@ -52,69 +70,94 @@
         </Grid>
       </Border>
 
-      <!-- 1. Pasta do jogo; a engine detectada aparece como resultado -->
+      <!-- 1. Jogo: a pasta e, abaixo, o que a detecção achou -->
       <StackPanel Spacing="16" IsVisible="{Binding IsGameStep}">
-        <Border Classes="panel" Padding="16,14">
+        <Border Classes="panel card" Padding="20,14">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-            <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+            <PathIcon Width="22" Height="22" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
-              <TextBlock Text="Pasta do jogo"/>
+              <TextBlock Classes="body-strong" Text="Pasta do jogo"/>
               <TextBlock Classes="mono secondary" TextTrimming="CharacterEllipsis" Text="{Binding GameFolderLabel}"/>
             </StackPanel>
             <Button Grid.Column="2" Command="{Binding BrowseGameCommand}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
-                <TextBlock Text="Escolher pasta"/>
+                <TextBlock Text="{Binding BrowseGameLabel}"/>
               </StackPanel>
             </Button>
           </Grid>
         </Border>
 
-        <Border Classes="panel" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Motor do jogo">
+        <Border Classes="panel card" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Motor do jogo">
           <StackPanel>
-            <Border Classes="divider-bottom" Padding="16,0" MinHeight="56">
-              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <PathIcon Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Data="{StaticResource Icon.Check}"/>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
-                  <c:OverlineText Classes="overline" Text="Jogo reconhecido"/>
-                  <TextBlock Classes="title-md" Text="{Binding EngineHeadline}"/>
-                </StackPanel>
-                <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,2" CornerRadius="{DynamicResource Vnf.RadiusSm}"
-                        Background="{DynamicResource Vnf.StatusApprovedBg}">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
-                </Border>
-              </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="20,16" IsVisible="{Binding !HasLibraryGame}">
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="Jogo reconhecido"/>
+                <TextBlock Classes="title-md" LineHeight="24" Text="{Binding EngineHeadline}"/>
+              </StackPanel>
+              <Border Grid.Column="1" VerticalAlignment="Top" Margin="0,18,0,0" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                      Background="{DynamicResource Vnf.StatusApprovedBg}">
+                <TextBlock Classes="pill" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
+              </Border>
+            </Grid>
+            <!-- Jogo vindo da Biblioteca (quadro): a capa de 44x58,7 a 21px da esquerda e 17px do topo, o nome com o original e, sob ele, o motor e o código no VNDB. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" Margin="21,17,20,15" IsVisible="{Binding HasLibraryGame}">
+              <Border Width="44" Height="58.7" VerticalAlignment="Top" CornerRadius="8" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                      AutomationProperties.Name="Capa do jogo">
+                <c:Cover Width="44" Image="{Binding LibraryGame.Cover}" Seed="{Binding LibraryGame.Title}"/>
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+                <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="Jogo reconhecido"/>
+                <TextBlock Classes="title-md" LineHeight="24" TextTrimming="CharacterEllipsis"><Run Text="{Binding LibraryGame.Title}"/><Run FontSize="14" FontWeight="Normal" Text="{Binding LibraryGame.OriginalSuffix}"/></TextBlock>
+                <TextBlock Classes="caption secondary" Text="{Binding LibraryEngineLine}"/>
+              </StackPanel>
+              <Border Grid.Column="2" VerticalAlignment="Center" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                      Background="{DynamicResource Vnf.StatusApprovedBg}">
+                <TextBlock Classes="pill" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
+              </Border>
+            </Grid>
+            <Border Classes="divider-top" Padding="20,12">
+              <StackPanel Spacing="6">
+                <ItemsControl ItemsSource="{Binding FoundFacts}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="6"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DetectionFact">
+                      <Grid ColumnDefinitions="200,*" ColumnSpacing="16">
+                        <TextBlock Classes="body-sm secondary" LineHeight="20" Text="{Binding Label}"/>
+                        <TextBlock Grid.Column="1" FontWeight="Medium" LineHeight="20" TextWrapping="Wrap" Text="{Binding Value}"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="200,*" ColumnSpacing="16">
+                  <TextBlock Classes="body-sm secondary" LineHeight="20" Text="Arquivo que abre o jogo" VerticalAlignment="Center"/>
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding Executables}" SelectedItem="{Binding SelectedExe}" MinWidth="280"
+                            IsVisible="{Binding HasExecutables}" AutomationProperties.Name="Arquivo que abre o jogo"/>
+                  <TextBlock Grid.Column="1" FontWeight="Medium" LineHeight="20" Text="{Binding SelectedExe}" VerticalAlignment="Center" IsVisible="{Binding !HasExecutables}"/>
+                </Grid>
+              </StackPanel>
             </Border>
-            <StackPanel Margin="16" Spacing="8">
-              <ItemsControl ItemsSource="{Binding FoundFacts}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DetectionFact">
-                    <Grid ColumnDefinitions="180,*" ColumnSpacing="16" Margin="0,0,0,8">
-                      <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
-                      <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding Value}"/>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
-                <TextBlock Classes="body-sm secondary" Text="Arquivo que abre o jogo" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding Executables}" SelectedItem="{Binding SelectedExe}" MinWidth="280"
-                          IsVisible="{Binding HasExecutables}" AutomationProperties.Name="Arquivo que abre o jogo"/>
-                <TextBlock Grid.Column="1" Text="{Binding SelectedExe}" VerticalAlignment="Center" IsVisible="{Binding !HasExecutables}"/>
-              </Grid>
-            </StackPanel>
-            <Border Classes="divider-top" Padding="16,0,16,8">
+            <Border Padding="20,0,20,16">
               <c:TechnicalDetails>
                 <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
-                    <TextBlock Classes="body-sm secondary" Text="Motor e formato"/>
+                  <Grid ColumnDefinitions="200,*" ColumnSpacing="16">
+                    <TextBlock Classes="body-sm secondary" LineHeight="20" Text="Motor e formato"/>
                     <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding EngineTitle}"/>
                   </Grid>
                   <ItemsControl ItemsSource="{Binding DetectionFacts}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="8"/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:DetectionFact">
-                        <Grid ColumnDefinitions="180,*" ColumnSpacing="16" Margin="0,0,0,8">
-                          <TextBlock Classes="body-sm secondary" Text="{Binding Label}"/>
+                        <Grid ColumnDefinitions="200,*" ColumnSpacing="16">
+                          <TextBlock Classes="body-sm secondary" LineHeight="20" Text="{Binding Label}"/>
                           <TextBlock Grid.Column="1" Classes="mono" TextWrapping="Wrap" Text="{Binding Value}"/>
                         </Grid>
                       </DataTemplate>
@@ -133,13 +176,13 @@
           </Grid>
         </Border>
 
-        <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+        <TextBlock Classes="secondary" FontSize="13" LineHeight="16" TextWrapping="Wrap"
                    Text="O VNForge só lê esta pasta. Antes de mexer no jogo, ele sempre faz uma cópia de segurança."/>
       </StackPanel>
 
       <!-- 2. Ficha do VNDB: confirma o jogo e mostra o que chega ao projeto -->
       <StackPanel Spacing="16" IsVisible="{Binding IsVndbStep}">
-        <Border Classes="panel" Padding="16" IsVisible="{Binding !IsVndbPreview}">
+        <Border Classes="panel card" Padding="16" IsVisible="{Binding !IsVndbPreview}">
           <StackPanel Spacing="16">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
               <Border Width="40" Height="40" CornerRadius="{DynamicResource Vnf.RadiusMd}" Background="{DynamicResource Vnf.AccentSoft}" VerticalAlignment="Top">
@@ -205,7 +248,7 @@
         </Border>
 
         <Grid ColumnDefinitions="*,340" ColumnSpacing="16" IsVisible="{Binding IsVndbPreview}">
-          <Border Classes="panel" ClipToBounds="True" AutomationProperties.Name="Personagens que chegam">
+          <Border Classes="panel card" ClipToBounds="True" AutomationProperties.Name="Personagens que chegam">
             <StackPanel>
               <Border Padding="16">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -256,7 +299,7 @@
             </StackPanel>
           </Border>
           <StackPanel Grid.Column="1" Spacing="16">
-            <Border Classes="panel" Padding="16" AutomationProperties.Name="Sinopse para a bíblia">
+            <Border Classes="panel card" Padding="16" AutomationProperties.Name="Sinopse para a bíblia">
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Sinopse para a bíblia"/>
                 <TextBlock Margin="0,4,0,0" FontSize="14.4" LineHeight="20" MaxLines="3" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Text="{Binding Preview.Synopsis}"/>
@@ -275,7 +318,7 @@
                 </Border>
               </StackPanel>
             </Border>
-            <Border Classes="panel" Padding="16" AutomationProperties.Name="Aviso que some">
+            <Border Classes="panel card" Padding="16" AutomationProperties.Name="Aviso que some">
               <StackPanel Spacing="8">
                 <TextBlock Classes="title-md" FontSize="16" LineHeight="22" Text="Aviso que some"/>
                 <TextBlock Margin="0,4,0,0" Classes="body-sm secondary" FontSize="12" LineHeight="20" TextWrapping="Wrap" Text="{Binding Preview.GenderNote}"/>
@@ -327,19 +370,21 @@
       </StackPanel>
 
       <!-- 3. Acentuação -->
-      <StackPanel Spacing="8" IsVisible="{Binding IsAccentsStep}">
-        <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+      <StackPanel Spacing="16" IsVisible="{Binding IsAccentsStep}">
+        <TextBlock Classes="secondary" FontSize="13" LineHeight="20" TextWrapping="Wrap" MaxWidth="630" HorizontalAlignment="Left"
                    Text="O jogo foi feito para o japonês e não desenha as letras acentuadas do português por conta própria. Cada cartão mostra a frase de teste na caixa de texto do jogo do jeito que vai sair. Dá para trocar depois nos Ajustes."/>
-        <c:OverlineText Classes="overline" Margin="0,8,0,0" Text="Como ficam os acentos"/>
+        <c:OverlineText Classes="overline" Text="Como ficam os acentos"/>
         <c:AccentCards Options="{Binding EncodingStrategies.Options}" GroupName="WizardAccents" AutomationProperties.Name="Como ficam os acentos"/>
       </StackPanel>
 
       <!-- 4. IA -->
       <StackPanel Spacing="16" IsVisible="{Binding IsAiStep}">
-        <StackPanel Spacing="8">
-          <c:OverlineText Classes="overline" Text="Qualidade da tradução"/>
-          <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left" Text="{Binding EstimateNote}"/>
-          <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-8,0" AutomationProperties.Name="Qualidade da tradução">
+        <StackPanel Spacing="16">
+          <StackPanel Spacing="8">
+            <c:OverlineText Classes="overline" Text="Qualidade da tradução"/>
+            <TextBlock Classes="secondary" FontSize="13" LineHeight="20" TextWrapping="Wrap" MaxWidth="630" HorizontalAlignment="Left" Text="{Binding EstimateNote}"/>
+          </StackPanel>
+          <ItemsControl ItemsSource="{Binding Qualities}" Margin="0,0,-12,0" AutomationProperties.Name="Qualidade da tradução">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <UniformGrid Rows="1"/>
@@ -347,7 +392,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:QualityOption">
-                <c:QualityCard GroupName="WizardQuality" Margin="0,0,8,0" Title="{Binding Title}" Description="{Binding Description}"
+                <c:QualityCard Classes="inline" GroupName="WizardQuality" Margin="0,0,12,0" Title="{Binding Title}" Description="{Binding Description}"
                                Price="{Binding Price}" Duration="{Binding Duration}" ShowPrice="{Binding HasEstimate}" ExampleRate="{Binding ExampleRate}"
                                IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Binding Title}"/>
               </DataTemplate>
@@ -356,15 +401,15 @@
         </StackPanel>
 
         <!-- Orçamento: a cotação é informada pela pessoa (o app não consulta a internet) e o limite para a IA de gastar. -->
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="16">
           <c:OverlineText Classes="overline" Text="Orçamento"/>
-          <Border Classes="panel" Padding="16,14">
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+          <Border Classes="panel card" Padding="20,16">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="20">
               <StackPanel Spacing="4">
-                <TextBlock Classes="body-sm" Text="Cotação do dólar"/>
-                <TextBox Text="{Binding RateText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
+                <TextBlock Classes="body-strong" Text="Cotação do dólar"/>
+                <TextBox Classes="field" Text="{Binding RateText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="5,40" AutomationProperties.Name="Cotação do dólar em reais">
                   <TextBox.InnerLeftContent>
-                    <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Classes="secondary" Text="R$" Margin="12,0,8,0" VerticalAlignment="Center"/>
                   </TextBox.InnerLeftContent>
                 </TextBox>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding RateNote}"
@@ -373,10 +418,10 @@
                            IsVisible="{Binding RateError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               </StackPanel>
               <StackPanel Grid.Column="1" Spacing="4">
-                <TextBlock Classes="body-sm" Text="Limite de gasto"/>
-                <TextBox Text="{Binding LimitText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
+                <TextBlock Classes="body-strong" Text="Limite de gasto"/>
+                <TextBox Classes="field" Text="{Binding LimitText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Sem limite" AutomationProperties.Name="Limite de gasto em reais">
                   <TextBox.InnerLeftContent>
-                    <TextBlock Classes="secondary" Text="R$" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Classes="secondary" Text="R$" Margin="12,0,8,0" VerticalAlignment="Center"/>
                   </TextBox.InnerLeftContent>
                 </TextBox>
                 <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A IA para quando o gasto do projeto chega aqui. Vale para todos os seus projetos."
@@ -388,12 +433,12 @@
           </Border>
         </StackPanel>
 
-        <Border Classes="infobar">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+        <Border Classes="infobar banner" BorderThickness="1" BorderBrush="Transparent">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Margin="0,8,0,0" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Info}"/>
             <StackPanel Grid.Column="1">
               <TextBlock Classes="body-strong" Text="Onde fica a chave"/>
-              <TextBlock Classes="body-sm" TextWrapping="Wrap" Text="{x:Static vm:NewProjectWizardViewModel.KeyNote}"/>
+              <TextBlock FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{x:Static vm:NewProjectWizardViewModel.KeyNote}"/>
             </StackPanel>
           </Grid>
         </Border>
@@ -420,7 +465,7 @@
             </StackPanel>
           </Grid>
         </Border>
-        <Border Classes="panel" Padding="16">
+        <Border Classes="panel card" Padding="16">
           <StackPanel Spacing="12">
             <TextBlock Classes="title-md" Text="Extrair o texto do jogo agora?"/>
             <TextBlock Classes="body-sm secondary" TextWrapping="Wrap"
@@ -440,9 +485,9 @@
         </Border>
       </StackPanel>
 
-      <StackPanel Classes="wizard-nav" Orientation="Horizontal" Spacing="7" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
         <Button Command="{Binding BackCommand}" Content="Voltar"/>
-        <Button Classes="accent" FontWeight="Bold" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
+        <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

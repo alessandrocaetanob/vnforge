@@ -85,10 +85,14 @@ public sealed class GameTextbox : Control
     public static readonly StyledProperty<bool> FlatProperty =
         AvaloniaProperty.Register<GameTextbox, bool>(nameof(Flat));
 
+    /// <summary>No visual liso (<see cref="Flat"/>), mantém as linhas vagas do perfil, só que sem as guias pontilhadas: o bloco dos cartões de acentos tem sempre as três linhas do quadro da #547.</summary>
+    public static readonly StyledProperty<bool> ShowVacantProperty =
+        AvaloniaProperty.Register<GameTextbox, bool>(nameof(ShowVacant));
+
     static GameTextbox()
     {
-        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty, FlatProperty);
-        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty, FlatProperty);
+        AffectsMeasure<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, FitToWidthProperty, FlatProperty, ShowVacantProperty);
+        AffectsRender<GameTextbox>(LayoutProperty, FontFamilyProperty, SizeProperty, NextOffsetProperty, FitToWidthProperty, FlatProperty, ShowVacantProperty);
     }
 
     private double fitScale = 1;
@@ -133,6 +137,14 @@ public sealed class GameTextbox : Control
         set => SetValue(FlatProperty, value);
     }
 
+    public bool ShowVacant
+    {
+        get => GetValue(ShowVacantProperty);
+        set => SetValue(ShowVacantProperty, value);
+    }
+
+    private bool IncludeVacant => !Flat || ShowVacant;
+
     /// <summary>A escala do desenho na última medida: 1 quando a caixa cabe na largura recebida (ou <see cref="FitToWidth"/> está desligado) e menos que 1 quando foi encolhida.</summary>
     public double FitScale => fitScale;
 
@@ -143,7 +155,7 @@ public sealed class GameTextbox : Control
             : availableWidth / contentWidth;
 
     /// <summary>A grade de linhas que o controle desenha para o <see cref="Layout"/> atual; vazia sem ele.</summary>
-    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout, !Flat) : [];
+    public IReadOnlyList<GameTextboxRow> Rows => Layout is { } layout ? Describe(layout, IncludeVacant) : [];
 
     /// <summary>
     /// Monta a grade: cada página tem as linhas do perfil (ou as que a tradução usa, se forem mais). A linha com texto dentro do limite é <c>Text</c>,
@@ -203,7 +215,7 @@ public sealed class GameTextbox : Control
         var rowHeight = Math.Max(m.RowHeight, textHeight);
         var y = (layout.Speaker is null ? 0 : m.PlateOverhang) + m.PadTop;
         var bounds = new List<GameTextboxRowBounds>();
-        foreach (var row in Describe(layout, !Flat))
+        foreach (var row in Describe(layout, IncludeVacant))
         {
             var gap = row.FirstOverflow ? m.OverflowGap : 0;
             var height = row.Kind == GameTextboxRowKind.PageBreak ? PageTail + PageSeparatorHeight : rowHeight;
@@ -225,7 +237,7 @@ public sealed class GameTextbox : Control
         var m = Metrics.For(Size, Flat);
         var (columnWidth, textHeight) = Cell(m);
         var rowHeight = Math.Max(m.RowHeight, textHeight);
-        var height = HeightOf(layout, m, rowHeight, !Flat);
+        var height = HeightOf(layout, m, rowHeight, IncludeVacant);
         var width = ContentWidth(layout, m, columnWidth);
         fitScale = FitToWidth ? ScaleToFit(width, availableSize.Width) : 1;
         // O bloco liso estica até a largura recebida; o desenho (em coordenadas sem escala) cobre essa largura dividida pela escala.
@@ -267,7 +279,7 @@ public sealed class GameTextbox : Control
             Flat);
 
         var top = layout.Speaker is null ? 0 : m.PlateOverhang;
-        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight, !Flat) - top);
+        var frame = new Rect(0, top, paint.Width, HeightOf(layout, m, rowHeight, IncludeVacant) - top);
         if (Flat)
         {
             context.DrawRectangle(Brush("Vnf.TextboxBg", Brushes.Black), null, new RoundedRect(frame, 8));
@@ -284,7 +296,7 @@ public sealed class GameTextbox : Control
         }
 
         var y = top + m.PadTop;
-        foreach (var row in Describe(layout, !Flat))
+        foreach (var row in Describe(layout, IncludeVacant))
         {
             y = DrawRow(context, layout, row, y, paint);
         }

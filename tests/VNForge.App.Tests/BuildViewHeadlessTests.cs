@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using VNForge.App.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
@@ -193,7 +194,12 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 var window = Abrir(vm);
                 var selecionaveis = window.GetVisualDescendants().OfType<SelectableTextBlock>().ToList();
 
-                Assert.Contains(selecionaveis, t => t.Text == vm.ErrorMessage);
+                var faixa = window.GetVisualDescendants().OfType<GameStateBanner>().Single(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Mensagem de erro");
+                Assert.Equal(vm.ErrorTitle, faixa.Title);
+                Assert.Contains(selecionaveis, t => LineLinks.GetSource(t) == vm.ErrorTitle);
+                Assert.Contains(selecionaveis, t => LineLinks.GetSource(t) == vm.ErrorDetail);
+                Assert.Same(vm.OpenLineCommand, faixa.MessageLinkCommand);
+                Assert.Equal(vm.ErrorDetail, faixa.Message);
                 Assert.All(
                     selecionaveis,
                     t => Assert.Contains(((MenuFlyout)t.ContextFlyout!).Items.OfType<MenuItem>(), i => i.Header as string == "Copiar"));

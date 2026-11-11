@@ -2,16 +2,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- TechnicalDetails (v3.css ".tech"): contorno de 1px em stroke-subtle, raio 8, cabeçalho de 40px em 13/600 e, aberto, uma divisória embaixo dele. Fechado por padrão. -->
+  <!-- TechnicalDetails (v3.css ".tech"): contorno de 1px em stroke-subtle, raio 8, cabeçalho de 40px em 14/600 (quadro da #547) e, aberto, uma divisória embaixo dele. Fechado por padrão. -->
   <Style Selector="c|TechnicalDetails">
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="PART_Root" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="14,0">
+        <Border Name="PART_Root" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusMd}" Padding="16,0">
           <StackPanel>
             <ToggleButton Name="PART_Header" Classes="disclosure" Height="40" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}">
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <PathIcon Name="PART_Chevron" Width="12" Height="12" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{DynamicResource Icon.ChevronRight}"/>
-                <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" FontSize="13" FontWeight="SemiBold"
+                <PathIcon Name="PART_Chevron" Width="14" Height="14" Foreground="{DynamicResource Vnf.TextPrimary}" Data="{DynamicResource Icon.ChevronRight}"/>
+                <ContentPresenter Name="PART_HeaderText" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Vnf.TextPrimary}"
                                   VerticalAlignment="Center"/>
               </StackPanel>
             </ToggleButton>
@@ -22,6 +22,15 @@
         </Border>
       </ControlTemplate>
     </Setter>
+  </Style>
+  <!-- Variante "stage" (quadro e4c, "Testar no jogo"): cartão de raio 16 com 20px de margem e cabeçalho de 44px; a fonte e o chevron de 14 já são os do padrão. -->
+  <Style Selector="c|TechnicalDetails.stage /template/ Border#PART_Root">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="Padding" Value="20,0"/>
+  </Style>
+  <Style Selector="c|TechnicalDetails.stage /template/ ToggleButton#PART_Header">
+    <Setter Property="Height" Value="44"/>
   </Style>
   <Style Selector="c|TechnicalDetails:expanded /template/ PathIcon#PART_Chevron">
     <Setter Property="Data" Value="{DynamicResource Icon.ChevronDown}"/>

@@ -438,6 +438,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }
 
+    /// <summary>Etiqueta do projeto ao lado do título: "Projeto: nome". Nula sem projeto aberto.</summary>
+    [ObservableProperty]
+    public partial string? ProjectBadge { get; private set; }
+
     /// <summary>Linhas ainda sem tradução, base da estimativa dos cartões.</summary>
     [ObservableProperty]
     public partial int PendingLines { get; private set; }
@@ -681,6 +685,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         config = null;
         ErrorMessage = null;
         ProjectName = project?.Name;
+        ProjectBadge = project is null ? null : $"Projeto: {project.Name}";
         CanReadGameTitle = false;
         GameTitleReadMessage = null;
         if (project is not null)
