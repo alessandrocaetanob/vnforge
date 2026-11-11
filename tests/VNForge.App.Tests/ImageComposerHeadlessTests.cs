@@ -57,6 +57,14 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
             TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task SomethingThatIsNotAnImageIsRefused()
+    {
+        await fixture.Session.Dispatch(
+            () => Assert.Throws<InvalidDataException>(() => new AvaloniaImageComposer().Decode([1, 2, 3, 4])),
+            TestContext.Current.CancellationToken);
+    }
+
     private static byte[] HeaderOnly(int width, int height)
     {
         var bytes = new List<byte> { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13 };

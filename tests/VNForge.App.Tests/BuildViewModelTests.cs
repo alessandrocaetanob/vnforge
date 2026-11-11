@@ -455,6 +455,19 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task O_build_entra_no_grupo_Teste_no_jogo_e_nao_usa_a_IA()
+    {
+        var tasks = new BackgroundTaskService();
+        var vm = BuildableVm(new QaEngine([]), tasks: tasks);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        var build = Assert.Single(tasks.Tasks);
+        Assert.Equal("Teste no jogo", build.Group?.Title);
+        Assert.False(build.UsesAi);
+    }
+
+    [Fact]
     public async Task A_lista_de_backups_mostra_pasta_tamanho_e_descricao_do_mais_novo_ao_mais_antigo()
     {
         PutBuild();

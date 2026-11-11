@@ -82,6 +82,21 @@ public class CommandPaletteTests
     }
 
     [Fact]
+    public async Task Comando_traduzir_pendentes_abre_o_Editor_com_o_filtro_Pendentes()
+    {
+        using var temp = new TempFolder();
+        var vm = await Opened(temp, null, TranslationStatus.Approved, TranslationStatus.Untranslated, TranslationStatus.Untranslated);
+        vm.Palette.Open();
+        vm.Palette.Query = "traduzir";
+
+        vm.Palette.ExecuteSelected();
+
+        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
+        Assert.Equal(2, vm.Editor.Lines.Count);
+        Assert.True(vm.Editor.Filters.Single(f => f.Filter == LineStatusFilter.Pending).IsSelected);
+    }
+
+    [Fact]
     public async Task Comando_novo_build_abre_a_pagina_Build()
     {
         using var temp = new TempFolder();

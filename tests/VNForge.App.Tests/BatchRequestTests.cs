@@ -68,6 +68,23 @@ public sealed class BatchRequestTests : IDisposable
     private string Translation(int index) => ProjectFolder.Open(root).LoadText("yst00001")[index].Translation!;
 
     [Fact]
+    public async Task O_pedido_acha_as_falas_do_personagem_e_mostra_o_custo_sem_chamar_a_IA()
+    {
+        var (vm, provider, _) = Build();
+
+        await vm.BeginRequestAsync(Request);
+
+        Assert.True(vm.HasRequestPlan);
+        Assert.Equal(["yst00001:000000", "yst00001:000003"], vm.RequestPlan!.Candidates.Select(c => c.Unit.Id));
+        Assert.Contains("A IA vai ler 2 falas. Filtro: personagem Kenta; palavra “você”.", vm.Summary);
+        Assert.Contains("Custo estimado: até", vm.Summary);
+        Assert.Contains("Nada é gravado", vm.Summary);
+        Assert.Empty(provider.Received);
+        Assert.Empty(vm.Results);
+        Assert.True(vm.RunRequestCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Confirmar_chama_a_IA_e_mostra_a_previa_com_antes_e_depois_sem_gravar()
     {
         var (vm, provider, _) = Build();

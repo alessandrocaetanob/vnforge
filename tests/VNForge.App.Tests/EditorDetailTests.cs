@@ -112,6 +112,19 @@ public class EditorDetailTests : IDisposable
     }
 
     [Fact]
+    public async Task Navegar_pelo_painel_com_gravacao_que_falha_nao_sai_da_linha()
+    {
+        var vm = await Abrir();
+        vm.Detail!.Translation = "Não vai gravar";
+        File.Delete(ProjectFolder.Open(raiz).TextPath("yst00001"));
+
+        vm.SelectNextCommand.Execute(null);
+
+        Assert.Equal("yst00001:000000", vm.SelectedLine?.Id);
+        Assert.NotNull(vm.Detail?.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Depois_que_o_arquivo_volta_a_selecao_pode_seguir()
     {
         var vm = await Abrir();

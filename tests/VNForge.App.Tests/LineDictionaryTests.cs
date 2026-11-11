@@ -277,6 +277,20 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
+    public async Task O_dicionario_instalado_responde_sem_nenhuma_chamada_de_rede()
+    {
+        var servidor = new SyntheticDictionary.Server();
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(servidor));
+        using var vm = Abrir(dicionario);
+
+        vm.HoverSource(Em(Frase, "遅刻"));
+        vm.HoverSource(Em(Frase, "二人"));
+
+        Assert.Equal(0, servidor.Requests);
+        Assert.Equal("二人", vm.WordText);
+    }
+
+    [Fact]
     public async Task Arquivo_do_dicionario_estragado_vira_o_cartao_de_erro_com_o_caminho()
     {
         Directory.CreateDirectory(Dicionario);

@@ -84,6 +84,18 @@ public sealed class MainWindowEditorPassTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_a_opcao_nao_ha_segunda_tarefa_nem_arquivo_de_sugestoes()
+    {
+        var (vm, root) = await OpenAsync((_, _) => Firm());
+        vm.Translate.EditorPass = false;
+
+        await Translate(vm);
+
+        Assert.Single(vm.TaskService.Tasks);
+        Assert.False(File.Exists(EditorSuggestionsFile.PathFor(ProjectFolder.Open(root))));
+    }
+
+    [Fact]
     public async Task Falha_da_passada_avisa_em_portugues_e_a_traducao_continua_gravada()
     {
         var (vm, root) = await OpenAsync((_, _) => new FakeEditorPassProvider(_ => throw new InvalidOperationException("Falha simulada.")));

@@ -137,6 +137,20 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
+    public async Task Escolher_o_Fable_mantem_a_qualidade_que_estava_salva()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { Quality = TranslationQuality.Balanced });
+        var vm = await AtAiStepAsync(file: file);
+        vm.Models.Select("claude-fable-5-1");
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.Equal(TranslationQuality.Balanced, file.Load().Quality);
+    }
+
+    [Fact]
     public async Task Se_o_app_json_nao_grava_o_projeto_fica_criado_e_a_tela_avisa()
     {
         var blocker = Path.Combine(temp.Path, "arquivo-no-lugar-da-pasta");

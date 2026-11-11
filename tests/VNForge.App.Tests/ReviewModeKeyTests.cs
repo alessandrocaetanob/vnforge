@@ -118,6 +118,29 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             });
     }
 
+    [Fact]
+    public async Task Janela_que_perde_a_ativacao_com_a_tecla_segurada_libera_a_tecla()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Rodar(
+            root,
+            (window, _) =>
+            {
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+                var deactivated = (MulticastDelegate)typeof(WindowBase).GetField("Deactivated", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+                deactivated.DynamicInvoke(window, EventArgs.Empty);
+
+                Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
+            },
+            (_, review) =>
+            {
+                Assert.Equal(2, review.Position);
+                Assert.Equal(2, review.ApprovedCount);
+            });
+    }
+
     private static int Inscritos(object alvo, string evento, Type dono, Type ouvinte) =>
         ((MulticastDelegate?)dono.GetField(evento, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(alvo))?
         .GetInvocationList().Count(d => d.Target?.GetType() == ouvinte) ?? 0;

@@ -89,4 +89,51 @@ public class ConferenceViewHeadlessTests(HeadlessFixture fixture) : IClassFixtur
         Assert.Equal("duas palavras", folder.LoadText("yst00001")[0].Translation);
         Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
     }
+
+    [Fact]
+    public async Task Enter_com_o_foco_num_botao_usa_o_botao_e_nao_corrige()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = ProjectFolder.Open(root);
+        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, "原文", "duas  palavras", TranslationStatus.Translated)]);
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(root) };
+        await vm.RefreshAsync();
+        LineRequest? requested = null;
+        vm.LineRequested += (_, request) => requested = request;
+
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                var window = new Window { Width = 1200, Height = 800, Content = new ConferenceView { DataContext = vm } };
+                window.Show();
+                try
+                {
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+
+                    var open = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.OpenLineCommand && b.IsEffectivelyVisible);
+                    open.Focus();
+                    window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                    window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                    for (var i = 0; i < 10; i++)
+                    {
+                        await Task.Delay(20);
+                        Dispatcher.UIThread.RunJobs();
+                    }
+
+                    window.Close();
+                    return 0;
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(requested);
+        Assert.Null(vm.NoticeMessage);
+        Assert.Equal("duas  palavras", folder.LoadText("yst00001")[0].Translation);
+    }
 }

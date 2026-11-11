@@ -109,6 +109,33 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_ficha_pronta_mostra_sinopse_dados_tags_e_personagens_como_no_quadro()
+    {
+        var vm = await ReadyAsync();
+
+        Assert.True(vm.IsReady);
+        Assert.False(vm.ShowEmpty);
+        Assert.Contains("Numa cidade onde chove", vm.SynopsisText, StringComparison.Ordinal);
+        Assert.Equal(new SheetPill("Revisada", SheetTone.Reviewed), vm.SynopsisPill);
+        Assert.Equal("Média · 18 h (47 votos)", vm.DurationText);
+        Assert.Equal("2019, em japonês", vm.ReleasedText);
+        Assert.Equal("7,9 de 10", vm.RatingText);
+        Assert.Equal(GameSheetSamples.Id, vm.VndbIdText);
+        Assert.Equal(["Drama escolar", "Mistério", "Slice of life", "Chuva", "Clube de leitura", "Caixa de música", "2 tags com spoiler"], vm.Tags.Select(t => t.Text));
+        Assert.True(vm.Tags[^1].IsHidden);
+        Assert.Equal(new SheetPill("Traduzidas pela IA, valem para todos os jogos", SheetTone.Ai), vm.TagsPill);
+        Assert.Equal("· 7 no VNDB", vm.CharactersCount);
+        Assert.Equal(6, vm.CharacterTiles.Count);
+        Assert.True(vm.CanShowAll);
+        var kenta = vm.CharacterTiles[0];
+        Assert.Equal(("Kenta Aizawa", "相沢 健太", "Protagonista", "Aprovado", "Cabelo curto, Esportista"), (kenta.Name, kenta.Original, kenta.Role!.Text, kenta.Status!.Text, kenta.Line));
+        Assert.Equal(SheetTone.Approved, kenta.Role.Tone);
+        Assert.Equal(["Protagonista", "Principal", "Principal", "Secundário", "Secundária", "Secundária"], vm.CharacterTiles.Select(t => t.Role!.Text));
+        Assert.Equal(["Aprovado", "Revisado", "Traduzido", "Traduzido pela IA", "Traduzido pela IA", "Traduzido pela IA"], vm.CharacterTiles.Select(t => t.Status!.Text));
+        Assert.Equal(SheetTone.Pending, vm.CharacterTiles[1].Role!.Tone);
+    }
+
+    [Fact]
     public async Task Ver_todos_mostra_o_setimo_cartao_que_esta_escondido_por_spoiler()
     {
         var vm = await ReadyAsync();

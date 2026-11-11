@@ -196,4 +196,21 @@ public class SearchReplaceViewModelTests
 
         Assert.Equal("nova 0", ProjectFolder.Open(root).LoadText("yst00001")[0].Translation);
     }
+
+    [Fact]
+    public async Task Clicar_num_resultado_da_busca_dispara_o_evento_com_a_linha()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        var abertos = new List<SearchResultRow>();
+        vm.ResultOpened += (_, linha) => abertos.Add(linha);
+        vm.Pattern = "tradução";
+        await vm.FindCommand.ExecuteAsync(null);
+
+        vm.SelectedResult = vm.Results[0];
+
+        var aberto = Assert.Single(abertos);
+        Assert.Equal("yst00001", aberto.ScriptKey);
+        Assert.Equal("yst00001:000000", aberto.UnitId);
+    }
 }

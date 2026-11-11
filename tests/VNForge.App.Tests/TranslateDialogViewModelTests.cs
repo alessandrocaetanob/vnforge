@@ -149,6 +149,27 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Os_textos_da_janela_nao_falam_de_token_ypf_nem_nome_de_modelo()
+    {
+        var folder = Project();
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(10m, 0.01m)));
+
+        var texts = new List<string> { vm.ContextText, vm.OverLimitText, vm.MissingGenderText, vm.KeyMissingText, vm.StartLabel, vm.RequestText, vm.SpentText, vm.RateNote };
+        texts.AddRange(vm.Scopes.SelectMany(s => new[] { s.Title, s.Summary }));
+        texts.AddRange(vm.Qualities.SelectMany(q => new[] { q.Title, q.Description, q.Duration }));
+
+        foreach (var text in texts)
+        {
+            Assert.DoesNotContain("token", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("ypf", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("claude", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("opus", text, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public async Task Reabrir_com_a_leitura_falhando_nao_deixa_cartao_apagado_nem_resumo_velho()
     {
         var folder = Project();

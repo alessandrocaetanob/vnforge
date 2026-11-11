@@ -51,6 +51,21 @@ public sealed class EditorRecheckTests : IDisposable
     private static bool Tem(LineViewModel linha, string regra) => linha.Entry.Issues.Any(i => i.RuleId == regra);
 
     [Fact]
+    public async Task O_sublinhado_do_painel_aberto_acompanha_o_glossario_depois_da_reconferencia()
+    {
+        _ = VNForge.Core.Spelling.SpellChecker.Portuguese;
+        var vm = await Abrir();
+        vm.Detail!.FieldText = "Zorgblat chegou cedo.";
+        Assert.Equal(["Zorgblat"], vm.Detail.Misspellings.Select(s => s.Text));
+
+        projeto.SaveCharacters([new CharacterEntry("亀島", "Zorgblat", CharacterGender.Male)]);
+        Distinguir(projeto.CharactersPath);
+        await vm.RecheckAsync();
+
+        Assert.Empty(vm.Detail.Misspellings);
+    }
+
+    [Fact]
     public async Task Ignorar_a_palavra_no_painel_tira_o_aviso_de_ortografia_das_outras_falas_depois_da_reconferencia()
     {
         _ = VNForge.Core.Spelling.SpellChecker.Portuguese;

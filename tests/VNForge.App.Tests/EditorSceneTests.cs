@@ -320,6 +320,25 @@ public sealed class EditorSceneTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_traducao_diferente_nas_outras_linhas_grava_sem_perguntar()
+    {
+        var projeto = ProjectFolder.Open(raiz);
+        projeto.SaveText("yst00001",
+        [
+            Fala(1, 0, "美咲", "「やあ」\\p", null, TranslationStatus.Untranslated),
+            Fala(1, 1, "美咲", "「やあ」\\p", null, TranslationStatus.Untranslated),
+        ]);
+        var vm = await Abrir();
+        vm.Detail!.FieldText = "Oi.";
+
+        await vm.Detail!.UseForAllCommand.ExecuteAsync(null);
+
+        Assert.False(vm.Detail.IsUseForAllConfirmOpen);
+        Assert.Equal("Oi.\\p", Gravada("yst00001", 1).Translation);
+        Assert.Equal("Aplicada a 1 linha.", vm.Detail.SameSourceResult);
+    }
+
+    [Fact]
     public async Task Se_um_script_nao_grava_a_grade_mostra_o_que_ja_foi_gravado_e_a_mensagem_e_sem_caminho()
     {
         var falhar = true;

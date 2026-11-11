@@ -300,6 +300,24 @@ public class AddressTermsViewModelTests
     }
 
     [Fact]
+    public async Task Dois_personagens_que_trocam_de_nome_trocam_os_pares()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "tmp";
+        vm.Characters.Single(c => c.Source == "健太").Source = "美咲";
+        vm.Characters.Single(c => c.Source == "tmp").Source = "健太";
+        vm.Flush();
+
+        Assert.Equal(
+        [
+            new AddressTerm("美咲", "健太", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("健太", "美咲", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
     public async Task Remover_um_personagem_e_renomear_outro_para_o_nome_dele_descarta_o_par_que_viraria_consigo_mesmo()
     {
         using var temp = new TempFolder();

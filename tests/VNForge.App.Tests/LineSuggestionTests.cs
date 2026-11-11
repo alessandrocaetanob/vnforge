@@ -74,6 +74,21 @@ public sealed class LineSuggestionTests : IDisposable
         Assert.False(vm.HasSuggestion);
     }
 
+    [Fact]
+    public async Task O_sugestor_manda_so_a_linha_atual_ao_provedor()
+    {
+        var provedor = new FakeTranslationProvider();
+        var sugestor = new LineSuggester(() => provedor);
+        var unidade = new TextUnit("yst00001:000007", TextUnitKind.Dialogue, "美咲", @"こんにちは\p", "Oi.", TranslationStatus.Translated);
+
+        var sugestao = await sugestor.SuggestAsync(unidade, CancellationToken.None);
+
+        var lote = Assert.Single(provedor.ReceivedBatches);
+        Assert.Equal("yst00001:000007", Assert.Single(lote.Lines).Id);
+        Assert.Equal(@"[PT] こんにちは\p", sugestao.Text);
+        Assert.False(sugestao.FromFakeProvider);
+    }
+
     private sealed class NavegadorNulo : ILineNavigator
     {
         public void SelectNext()

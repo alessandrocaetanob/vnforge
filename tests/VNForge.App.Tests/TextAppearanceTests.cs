@@ -100,6 +100,20 @@ public class TextAppearanceSettingsTests
         Assert.Equal(110, loaded.TextScalePercent);
         Assert.Equal(JapaneseFontChoice.YuGothic, Settings(file).JapaneseFont);
     }
+
+    [Fact]
+    public void Mudar_a_concorrencia_ou_o_tema_nao_perde_o_tamanho_do_texto()
+    {
+        using var temp = new TempFolder();
+        var file = new AppSettingsFile(temp.SubFolder("config"));
+        var settings = Settings(file);
+        settings.DecreaseTextSizeCommand.Execute(null);
+
+        settings.Concurrency = 5;
+        settings.SelectedTheme = settings.Themes.Single(t => t.Value == ThemeChoice.Dark);
+
+        Assert.Equal(90, file.Load().TextScalePercent);
+    }
 }
 
 /// <summary>O Ctrl + e o Ctrl - mudam o texto do Editor; as outras páginas, o trilho e a barra de status seguem em 100%.</summary>

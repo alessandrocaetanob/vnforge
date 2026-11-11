@@ -93,6 +93,16 @@ public class TaskEntriesTests
     }
 
     [Fact]
+    public async Task Depois_de_duas_horas_parado_o_proximo_passo_abre_outro_teste()
+    {
+        await Done("Build de Jogo", Test);
+        clock.Advance(BackgroundTaskService.GroupIdleLimit + TimeSpan.FromMinutes(1));
+        await Done("Injetar no jogo", Test);
+
+        Assert.Equal(2, bar.Entries.Count);
+    }
+
+    [Fact]
     public async Task Antes_das_duas_horas_o_proximo_passo_continua_o_mesmo_teste()
     {
         await Done("Build de Jogo", Test);

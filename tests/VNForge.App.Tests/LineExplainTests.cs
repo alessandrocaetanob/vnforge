@@ -97,6 +97,17 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_chave_a_mensagem_manda_para_Ajustes()
+    {
+        var servico = new ServicoFalso(erro: new LineExplanationException("Para entender o japonês, informe a chave da IA em Ajustes."));
+        using var vm = Abrir(servico);
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.Equal("Para entender o japonês, informe a chave da IA em Ajustes.", vm.ExplainError);
+    }
+
+    [Fact]
     public async Task Falha_de_rede_aparece_sem_detalhes_tecnicos()
     {
         using var vm = Abrir(new ServicoFalso(erro: new HttpRequestException("boom")));
