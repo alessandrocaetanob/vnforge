@@ -269,7 +269,7 @@ internal static class LibraryListCommands
             }
 
             var report = await synchronizer.ApplyAsync(plan, token, (planned, state) => Keep(file, planned, state), null, cancellationToken).ConfigureAwait(false);
-            sent = report.Items.FirstOrDefault();
+            sent = report.Items.Count > 0 ? report.Items[0] : null;
             sendNote = report.AbortReason ?? sent?.Error;
             game = file.Load().Find(game.Id);
         }

@@ -47,7 +47,7 @@ public sealed class ClaudeEditorPassProvider(IClaudeMessageClient client, Claude
             Parse,
             Refused: null);
         var found = await _caller.RunOnceAsync(line, spec, ct).ConfigureAwait(false);
-        return found.FirstOrDefault();
+        return found.Count > 0 ? found[0] : null;
     }
 
     private static string BuildSystem(TranslationBatch batch)

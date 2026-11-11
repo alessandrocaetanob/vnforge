@@ -124,6 +124,7 @@ public sealed class UserTagsFile(string directory)
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
+            // O temporário que sobra é só lixo na pasta: a falha de limpeza não pode mascarar a que já está subindo.
         }
     }
 

@@ -12,7 +12,7 @@ namespace VNForge.Core.Text;
 /// <remarks>
 /// Como a página não grava <c>「 」</c>, a fala com falante usa os delimitadores de <see cref="ISpeakerDelimiterEncoder"/> (#434, #453). Sem sinal
 /// (<see cref="SpeakerDelimiterStyle.None"/>, o padrão) a abertura é o espaço não separável <c>0xA0</c>, que a fonte desenha em branco: fica fora da faixa de lead bytes e não é
-/// o <c>0x20</c>, que aparece em todo texto e faria o jogo tomar a primeira palavra da narração por nome. Como o jogo o toma por marcador, ele não pode aparecer na
+/// o <c>0x20</c>, que aparece em qualquer texto e faria o jogo tomar a primeira palavra da narração por nome. Como o jogo o toma por marcador, ele não pode aparecer na
 /// tradução, e este codificador o recusa nesse estilo; o corretor da regra de caractere não codificável o troca por espaço comum.
 /// </remarks>
 public sealed class Cp1252TextEncoder(SpeakerDelimiterStyle speakerDelimiter = SpeakerDelimiterStyle.None) : CodePageTextEncoder(GameEncodings.Windows1252), IExplainingTextEncoder, ISpeakerDelimiterEncoder

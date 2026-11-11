@@ -178,7 +178,7 @@ public static class ScriptNamesSerializer
             throw new GlossaryFileException(filePath, $"{where}.key: a chave do script é obrigatória e não pode ser vazia.");
         }
 
-        if (key != key.Trim().ToLowerInvariant())
+        if (!string.Equals(key, key.Trim().ToLowerInvariant(), StringComparison.Ordinal))
         {
             throw new GlossaryFileException(filePath, $"{where}.key: a chave '{key}' deve estar em minúsculas e sem espaços nas pontas.");
         }

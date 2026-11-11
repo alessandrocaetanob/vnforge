@@ -264,7 +264,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     /// <summary>
     /// Troca o estado da lista do jogo na <paramref name="current"/> (a biblioteca recém-lida, dentro do <see cref="LibraryFile.Update{T}(Func{GameLibrary, T})"/>) mexendo só no <c>List</c>
-    /// e deixando todo o resto do jogo como está agora. Se o jogo sumiu, teve o casamento trocado ou a lista editada desde o plano, não grava e devolve falso.
+    /// e deixando o resto do jogo como está agora. Se o jogo sumiu, teve o casamento trocado ou a lista editada desde o plano, não grava e devolve falso.
     /// </summary>
     public static bool Keep(GameLibrary current, LibraryGame planned, LibraryListState state)
     {

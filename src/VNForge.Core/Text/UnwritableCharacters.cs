@@ -11,7 +11,7 @@ namespace VNForge.Core.Text;
 /// <remarks>
 /// Só troca quando o substituto é gravável pelo encoder, e caractere fora da tabela fica como está: o erro continua visível para a pessoa decidir.
 /// A pontuação japonesa que a tabela de <see cref="JapanesePunctuation"/> cobre e esta não (<c>。 、 【 】</c>) segue a tabela dela. Idempotente,
-/// porque todo substituto é ASCII.
+/// porque cada substituto é ASCII.
 /// </remarks>
 public static class UnwritableCharacters
 {

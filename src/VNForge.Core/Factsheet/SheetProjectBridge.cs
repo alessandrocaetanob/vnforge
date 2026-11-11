@@ -13,7 +13,7 @@ public sealed record SheetBridgeResult(VndbApplyResult Characters, bool Synopsis
 /// <summary>
 /// Leva a ficha para o projeto quando o jogo vira projeto de tradução: a descrição em português dos personagens vai para o <c>characters.json</c> do Glossário (casando
 /// pelos nomes do jogo, como <see cref="VndbProjectLinker.ApplyCharacters(ProjectFolder)"/>) e a sinopse vai para a bíblia (<c>bible.json</c>). Como esses textos entram em
-/// todo pedido de tradução, <b>nunca levam spoiler</b>: os trechos <c>[spoiler]</c> saem, e o personagem que o VNDB marca como spoiler naquele jogo entra só com o
+/// cada pedido de tradução, <b>nunca levam spoiler</b>: os trechos <c>[spoiler]</c> saem, e o personagem que o VNDB marca como spoiler naquele jogo entra só com o
 /// nome e o gênero, sem descrição. Só vale o texto que já passou da etapa <c>minimum</c> (revisado, por padrão), para uma tradução da IA ainda não conferida não virar
 /// contexto de todas as falas.
 /// O que a pessoa já escreveu fica: a bíblia só ganha a sinopse se está sem uma, e o personagem só ganha a descrição se não tem, ou se a que tem é o original do VNDB

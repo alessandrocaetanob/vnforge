@@ -45,7 +45,7 @@ public static class EvalText
 
     public static string CountLines(int lines) => lines == 1 ? "1 linha" : $"{lines.ToString("N0", Pt)} linhas";
 
-    /// <summary>O custo do jogo todo de uma configuração em reais, pelo preço normal e pelo do lote (metade).</summary>
+    /// <summary>O custo do jogo inteiro de uma configuração em reais, pelo preço normal e pelo do lote (metade).</summary>
     public static (decimal Normal, decimal Batch) GameCost(EvalConfigReport report, int remainingLines, ExchangeRate rate) =>
         (rate.ToBrl(report.ProjectedDollars(remainingLines)), rate.ToBrl(report.ProjectedBatchDollars(remainingLines)));
 }

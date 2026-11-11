@@ -39,7 +39,7 @@ public static class GoldSet
         return gold;
     }
 
-    /// <summary>Quantas linhas ainda não têm tradução: é para elas que o custo e o tempo do jogo todo valem.</summary>
+    /// <summary>Quantas linhas ainda não têm tradução: é para elas que o custo e o tempo do jogo inteiro valem.</summary>
     public static int RemainingLines(IEnumerable<KeyValuePair<string, IReadOnlyList<TextUnit>>> texts)
     {
         ArgumentNullException.ThrowIfNull(texts);

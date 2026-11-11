@@ -10,7 +10,7 @@ namespace VNForge.Core.Factsheet;
 public sealed record SheetMarkResult(int Changed, int Unchanged, int SkippedOutdated = 0);
 
 /// <summary>
-/// Revisar, aprovar e corrigir à mão os textos da ficha de um jogo, como se faz com as falas. Todo método grava sob a trava de <see cref="SheetStore"/>, relendo o que muda.
+/// Revisar, aprovar e corrigir à mão os textos da ficha de um jogo, como se faz com as falas. Cada método grava sob a trava de <see cref="SheetStore"/>, relendo o que muda.
 /// Um nome de tag ou de traço vale para todos os jogos, então revisá-lo aqui o revisa em toda parte.
 /// </summary>
 public static class SheetEditor

@@ -25,7 +25,7 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     /// <summary>Faz toda consulta ao lote falhar com esta exceção, como uma rede fora do ar.</summary>
     public Exception? GetFails { get; set; }
 
-    /// <summary>Faz todo cancelamento falhar com esta exceção.</summary>
+    /// <summary>Faz cada cancelamento falhar com esta exceção.</summary>
     public Exception? CancelFails { get; set; }
 
     /// <summary>Roda depois de cada consulta que deu certo; o teste o usa para saber que o app já perguntou.</summary>

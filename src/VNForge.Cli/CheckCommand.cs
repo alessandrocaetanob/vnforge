@@ -154,7 +154,7 @@ internal static class CheckCommand
                 {
                     if (written.Add(setting.Conflict.Field))
                     {
-                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Describe())}  {RuleTag(issue.RuleId)}");
+                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Summary())}  {RuleTag(issue.RuleId)}");
                     }
 
                     continue;
@@ -294,7 +294,7 @@ internal static class CheckCommand
         public bool Owns(QaIssue issue) =>
             issue.RuleId == FormattingConflictRule.RuleId && issue.Message.StartsWith(Prefix(Conflict), StringComparison.Ordinal);
 
-        public string Describe()
+        public string Summary()
         {
             var count = Errors == Lines
                 ? CliFormat.Count(Lines, "linha com erro", "linhas com erro")

@@ -51,7 +51,7 @@ public sealed class ScriptNames
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in list)
         {
-            if (string.IsNullOrWhiteSpace(entry.Key) || entry.Key != entry.Key.Trim().ToLowerInvariant())
+            if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, entry.Key.Trim().ToLowerInvariant(), StringComparison.Ordinal))
             {
                 throw new ArgumentException($"A chave de script '{entry.Key}' é inválida: use minúsculas e sem espaços nas pontas.", nameof(entries));
             }
