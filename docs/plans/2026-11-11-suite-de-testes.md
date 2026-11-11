@@ -43,7 +43,7 @@ Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/mara
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: no máximo 500 testes, com as idas e voltas e a concorrência do `ProjectFileIo` mantidas, e o tempo e a contagem no relatório.
   - Depende de: T1
-- [ ] **T4 · Engines.YuRis**
+- [x] **T4 · Engines.YuRis**
   - Issue: #658 (`infra`)
   - Prova: `dotnet test tests/VNForge.Engines.YuRis.Tests`
   - Pronto: no máximo 250 testes, cada formato (YPF, YBN e o que mais houver) com ida e volta byte a byte e um teste por campo reescrito.
@@ -86,3 +86,4 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 - A #112 (o jogo inteiro no VNForge) e as issues de validação no jogo: dependem do Alessandro com o jogo.
 - A parte 2 da #330 (S3776 e as issues dos arquivos que estavam em PR): vem depois da T8, porque o corte muda boa parte dos arquivos de teste que ela tocaria.
 - Teste de interface com pixel ou medida: decidido em 11/11 que não volta.
+- T4 (#658): Engines.YuRis de 1.011 para 249 testes (29 deles herdados do kit de conformidade), 3,2 s para 2,1 s, linhas 95,90% (2.481 de 2.587) e ramos 93,36% (1.462 de 1.566), iguais à base. Os testes do gerador sintético de YPF saíram (a classe virou `SyntheticYpfSamples`, só os exemplos), cada formato com escrita manteve a ida e volta e um teste por campo, e os vetores de ouro dos leitores ficaram.
