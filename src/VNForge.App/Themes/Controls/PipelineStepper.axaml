@@ -146,6 +146,14 @@
 
   <!-- Variante do assistente de novo projeto (quadro da #547): círculos de 24px com o número (atual em accent, os outros em stroke-control) e, nos concluídos,
        o ✓ em approved sobre o fundo approved; passo com 16/12px de respiro, sublinhado de 3px na etapa atual e cantos de 16px no conjunto. -->
+  <!-- Cada passo tem a largura do que escreve (68px de círculo e respiro mais o maior entre título e legenda) e a sobra é repartida: a legenda mais longa ("Qualidade e limite de gasto", 152px) não cabe em uma quinta parte. -->
+  <Style Selector="c|PipelineStepper.wizard">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <c:ContentSizedRow/>
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
   <Style Selector="c|PipelineStepper.wizard c|PipelineStepItem">
     <Setter Property="Padding" Value="16,12,16,15"/>
   </Style>

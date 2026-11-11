@@ -63,7 +63,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.True(vm.HasDetection);
         Assert.Equal("Yu-RIS · YPF v500", vm.EngineTitle);
-        Assert.Equal("Yu-RIS", vm.Steps[0].Subtitle);
+        Assert.Equal("Escolha a pasta instalada", vm.Steps[0].Subtitle);
         Assert.Equal(
             [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
             vm.DetectionFacts.Select(f => (f.Label, f.Value)));
@@ -82,30 +82,30 @@ public sealed class NewProjectWizardStepsTests : IDisposable
     }
 
     [Fact]
-    public async Task Avancar_conclui_o_passo_e_resume_a_escolha_nele()
+    public async Task Avancar_conclui_o_passo_e_mantem_a_legenda_do_quadro()
     {
         var vm = await AtStepAsync(WizardStep.Accents);
 
         Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
-        Assert.Equal("Japonês → PT-BR", vm.Steps[2].Subtitle);
-        Assert.Equal("Sem VNDB", vm.Steps[1].Subtitle);
-        Assert.Equal("Yu-RIS", vm.Steps[0].Subtitle);
+        Assert.Equal(
+            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
+            vm.Steps.Select(s => s.Subtitle));
     }
 
     [Fact]
-    public async Task Trocar_o_idioma_ou_a_acentuacao_muda_o_resumo()
+    public async Task Trocar_o_idioma_ou_a_acentuacao_nao_muda_a_legenda()
     {
         var vm = await AtStepAsync(WizardStep.Ai);
         vm.TargetLanguages.Select("es");
         vm.SourceLanguages.Select("en");
         vm.EncodingStrategies.Select("cp1252");
 
-        Assert.Equal("Inglês → ES", vm.Steps[2].Subtitle);
-        Assert.Equal("Com acentos, ajuste no jogo", vm.Steps[3].Subtitle);
+        Assert.Equal("Nome e idiomas", vm.Steps[2].Subtitle);
+        Assert.Equal("Como ficam os acentos", vm.Steps[3].Subtitle);
     }
 
     [Fact]
-    public async Task O_resumo_da_ia_diz_a_qualidade_escolhida()
+    public async Task A_legenda_da_ia_continua_a_mesma_depois_de_concluir()
     {
         var vm = await AtStepAsync(WizardStep.Ai);
         vm.Models.Select("claude-sonnet-5-5");
@@ -115,7 +115,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.All(vm.Steps, s => Assert.Equal(PipelineStepState.Done, s.State));
-        Assert.Equal("Equilibrada", vm.Steps[4].Subtitle);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
     }
 
     [Fact]
@@ -145,7 +145,8 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         vm.GoToStepCommand.Execute(WizardStep.Names);
         await vm.NextCommand.ExecuteAsync(null);
 
-        Assert.Equal("Japonês → EN", vm.Steps[2].Subtitle);
+        Assert.Equal(PipelineStepState.Done, vm.Steps[2].State);
+        Assert.Equal("EN", vm.TargetLanguages.Selected.Id.ToUpperInvariant());
     }
 
     [Fact]

@@ -74,16 +74,8 @@
       <StackPanel Spacing="16" IsVisible="{Binding IsGameStep}">
         <Border Classes="panel card" Padding="20,14">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-            <PathIcon Width="22" Height="22" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}" IsVisible="{Binding !HasLibraryGame}"/>
-            <Border Width="42" Height="56" VerticalAlignment="Center" CornerRadius="8" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}"
-                    IsVisible="{Binding HasLibraryGame}" AutomationProperties.Name="Capa do jogo">
-              <c:Cover Width="42" Image="{Binding LibraryGame.Cover}" Seed="{Binding LibraryGame.Title}"/>
-            </Border>
+            <PathIcon Width="22" Height="22" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
-              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasLibraryGame}">
-                <TextBlock Classes="title-md" FontSize="15" LineHeight="20" TextTrimming="CharacterEllipsis" Text="{Binding LibraryGame.Title}"/>
-                <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding LibraryVndbLabel}" IsVisible="{Binding HasLibraryVndb}"/>
-              </StackPanel>
               <TextBlock Classes="body-strong" Text="Pasta do jogo"/>
               <TextBlock Classes="mono secondary" TextTrimming="CharacterEllipsis" Text="{Binding GameFolderLabel}"/>
             </StackPanel>
@@ -98,12 +90,27 @@
 
         <Border Classes="panel card" ClipToBounds="True" IsVisible="{Binding HasDetection}" AutomationProperties.Name="Motor do jogo">
           <StackPanel>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="20,16">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="20,16" IsVisible="{Binding !HasLibraryGame}">
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Classes="caption secondary" FontWeight="SemiBold" Text="Jogo reconhecido"/>
                 <TextBlock Classes="title-md" LineHeight="24" Text="{Binding EngineHeadline}"/>
               </StackPanel>
               <Border Grid.Column="1" VerticalAlignment="Top" Margin="0,18,0,0" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
+                      Background="{DynamicResource Vnf.StatusApprovedBg}">
+                <TextBlock Classes="pill" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
+              </Border>
+            </Grid>
+            <!-- Jogo vindo da Biblioteca (quadro): a capa de 44x58,7 a 21px da esquerda e 17px do topo, o nome com o original e, sob ele, o motor e o código no VNDB. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" Margin="21,17,20,15" IsVisible="{Binding HasLibraryGame}">
+              <Border Width="44" Height="58.7" VerticalAlignment="Top" CornerRadius="8" ClipToBounds="True" BoxShadow="{DynamicResource Vnf.ShadowCover}"
+                      AutomationProperties.Name="Capa do jogo">
+                <c:Cover Width="44" Image="{Binding LibraryGame.Cover}" Seed="{Binding LibraryGame.Title}"/>
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" MinWidth="0">
+                <TextBlock Classes="title-md" LineHeight="24" TextTrimming="CharacterEllipsis" Text="{Binding LibraryGame.DisplayTitle}"/>
+                <TextBlock Classes="caption secondary" Text="{Binding LibraryEngineLine}"/>
+              </StackPanel>
+              <Border Grid.Column="2" VerticalAlignment="Top" Margin="0,2,0,0" Padding="8,1" CornerRadius="{DynamicResource Vnf.RadiusPill}"
                       Background="{DynamicResource Vnf.StatusApprovedBg}">
                 <TextBlock Classes="pill" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Suportado"/>
               </Border>

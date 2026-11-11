@@ -265,7 +265,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Null(vm.ErrorMessage);
-        Assert.Equal("Rápida", vm.Steps[4].Subtitle);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
         var saved = file.Load();
         Assert.Equal(5.43m, saved.BrlPerUsd);
         Assert.Equal(new DateOnly(2026, 10, 25), saved.RateInformedOn);
@@ -492,7 +492,8 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         await vm.NextCommand.ExecuteAsync(null);
 
-        Assert.Equal("Modelo escolhido à mão", vm.Steps[4].Subtitle);
+        Assert.DoesNotContain("fable", vm.Steps[4].Subtitle, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
     }
 
     [Fact]

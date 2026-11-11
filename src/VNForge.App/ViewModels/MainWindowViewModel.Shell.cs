@@ -202,7 +202,7 @@ public sealed partial class MainWindowViewModel
     private LibraryGameContext LibraryContext(LibraryGame game)
     {
         var card = Library.Cards.FirstOrDefault(c => c.Id == game.Id);
-        return new LibraryGameContext(card?.Title ?? game.Title, game.VndbId, card is { HasImage: true } ? card.Image : null);
+        return new LibraryGameContext(card?.Title ?? game.Title, game.VndbId, card is { HasImage: true } ? card.Image : null, card?.OriginalTitle);
     }
 
     /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>

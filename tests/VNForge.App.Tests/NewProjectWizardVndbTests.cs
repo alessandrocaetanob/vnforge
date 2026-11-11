@@ -175,7 +175,7 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         await vm.NextCommand.ExecuteAsync(null);
 
         Assert.Equal(WizardStep.Names, vm.Step);
-        Assert.Equal("Amaoto no Hakoniwa", vm.Steps[1].Subtitle);
+        Assert.Equal("Jogo e personagens", vm.Steps[1].Subtitle);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class NewProjectWizardVndbTests : IDisposable
 
         Assert.Equal(WizardStep.Names, vm.Step);
         Assert.Null(vm.BuildOptions().Vndb);
-        Assert.Equal("Sem VNDB", vm.Steps[1].Subtitle);
+        Assert.Equal("Jogo e personagens", vm.Steps[1].Subtitle);
 
         vm.BackCommand.Execute(null);
 

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
@@ -57,13 +58,23 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     start.NewProjectCommand.Execute(null);
                     Assert.Same(wizard, vm.CurrentPage);
 
-                    wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null));
                     await wizard.SetGameFolderAsync(game);
-                    Render(window, "novo-projeto-v6-1-jogo", theme);
+                    ScreenRenderer.Settle(window);
                     CheckGamePlain(window, temp.Path);
+
+                    wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null, "雨音の箱庭"));
+                    Render(window, "novo-projeto-v6-1-jogo", theme);
                     var gameTexts = VisibleTexts(window);
-                    Assert.Contains("Amaoto no Hakoniwa", gameTexts);
-                    Assert.Contains("VNDB v90001", gameTexts);
+                    Assert.Contains("Amaoto no Hakoniwa 雨音の箱庭", gameTexts);
+                    Assert.Contains("Feito com o motor YU-RIS · VNDB v90001", gameTexts);
+                    var recognized = window.GetVisualDescendants().OfType<Border>().Single(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Motor do jogo");
+                    Assert.InRange(recognized.Bounds.Height, 246, 248);
+                    var cover = window.GetVisualDescendants().OfType<Border>().Single(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Capa do jogo");
+                    Assert.InRange(cover.Bounds.Width, 43.5, 44.5);
+                    Assert.InRange(cover.Bounds.Height, 58, 59.4);
+                    var origin = cover.TranslatePoint(default, recognized)!.Value;
+                    Assert.InRange(origin.X, 20, 23);
+                    Assert.InRange(origin.Y, 16, 19);
                     CheckFrame(window, 1);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
