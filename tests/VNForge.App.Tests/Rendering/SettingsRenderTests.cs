@@ -298,7 +298,7 @@ public sealed class SettingsRenderTests(HeadlessFixture fixture, DemoFolderFixtu
         Assert.Equal(new CornerRadius(999), chip.CornerRadius);
 
         var tabs = window.GetVisualDescendants().OfType<TabItem>().Where(i => i.IsEffectivelyVisible).OrderBy(i => i.TranslatePoint(default, window)!.Value.X).ToList();
-        Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentos", "Dicionários", "Aparência"], tabs.Select(i => i.Header as string));
+        Assert.Equal(["IA e gasto", "Estilo", "Formatação", "Acentos", "Dicionários", "Aparência", "Privacidade"], tabs.Select(i => i.Header as string));
         Assert.All(tabs, i => Assert.Equal(41, i.Bounds.Height));
         for (var n = 1; n < tabs.Count; n++)
         {

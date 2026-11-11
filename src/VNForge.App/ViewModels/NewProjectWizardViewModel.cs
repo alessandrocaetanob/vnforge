@@ -324,9 +324,10 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public event EventHandler? Cancelled;
 
     /// <summary>Roda a detecção na pasta do jogo e mostra o que achou. Falha mostra <see cref="ErrorMessage"/> e não avança.</summary>
-    public async Task SetGameFolderAsync(string path)
+    public async Task SetGameFolderAsync(string path, string? vndbId = null)
     {
         ErrorMessage = null;
+        knownVndbId = vndbId;
         ResetVndb();
         IsBusy = true;
         try

@@ -56,6 +56,7 @@ public sealed partial class MainWindow : Window
         var shortEditor = page is ViewModels.EditorViewModel && !EditorBreakpoints.UsesFullHeader(ClientSize.Height);
         GameHeader.IsCompact = HeaderCompactOverride ?? (shortEditor || page is ViewModels.ConferenceViewModel or ViewModels.BuildViewModel or ViewModels.GlossaryViewModel);
         GameHeader.IsEditor = page is ViewModels.EditorViewModel;
+        GameHeader.IsImages = page is ViewModels.ImagesViewModel;
     }
 
     private bool? headerCompactOverride;

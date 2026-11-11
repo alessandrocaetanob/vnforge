@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:VNForge.App.ViewModels"
              xmlns:c="using:VNForge.App.Controls"
+             xmlns:v="using:VNForge.App.Views"
              x:Class="VNForge.App.Views.GameCapturesView"
              x:DataType="vm:GameCapturesViewModel">
 
@@ -67,8 +68,9 @@
     <c:EmptyState Name="NoGame" IsVisible="{Binding HasNoGame}" Message="Este projeto não está na Biblioteca. Adicione a pasta do jogo à Biblioteca para guardar capturas e notas por aqui."/>
 
     <ScrollViewer IsVisible="{Binding HasGame}" HorizontalScrollBarVisibility="Disabled">
-      <Grid Margin="32,20,32,24" ColumnDefinitions="*,420" ColumnSpacing="24">
-        <StackPanel VerticalAlignment="Top">
+      <Grid Margin="32,20,32,24" ColumnDefinitions="*,352" ColumnSpacing="24">
+        <StackPanel VerticalAlignment="Top" Spacing="16">
+          <v:GamePlayView DataContext="{Binding Session}"/>
           <Border Classes="shots-card">
             <StackPanel Spacing="16">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
@@ -135,6 +137,7 @@
         </StackPanel>
 
         <StackPanel Grid.Column="1" Spacing="16" VerticalAlignment="Top">
+          <v:GamePlayStatsView DataContext="{Binding Session}"/>
           <Border Classes="shots-card">
             <StackPanel Spacing="12">
               <Grid ColumnDefinitions="*,Auto">

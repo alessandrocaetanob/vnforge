@@ -108,7 +108,7 @@ public sealed class GameCapturesRenderTests(HeadlessFixture fixture, DemoFolderF
                     Assert.All(thumbnails, t => Assert.NotNull(t.Source));
                     ScreenRenderer.Settle(window);
                     Assert.False(page.FindControl<Control>("BlackBanner")!.IsEffectivelyVisible);
-                    Assert.Equal(420, page.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("notes-field")).Bounds.Width + 2 * 24 + 2, 1);
+                    Assert.Equal(352, page.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("notes-field")).Bounds.Width + 2 * 24 + 2, 1);
 
                     ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("jogar-capturas", theme)));
                 }

@@ -25,6 +25,33 @@ public sealed class NewProjectWizardVndbTests : IDisposable
 
     public void Dispose() => temp.Dispose();
 
+    /// <summary>Um VNDB que não responde: os personagens ficam esperando até o pedido ser cancelado.</summary>
+    private sealed class HangingCatalog : IVndbCatalog
+    {
+        public TaskCompletionSource Asked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool Searched { get; private set; }
+
+        public Task<IReadOnlyList<VndbVisualNovel>> SearchVisualNovelsAsync(string title, int limit = 10, CancellationToken ct = default)
+        {
+            Searched = true;
+            return Task.FromResult<IReadOnlyList<VndbVisualNovel>>([]);
+        }
+
+        public Task<VndbVisualNovel?> GetVisualNovelAsync(string id, CancellationToken ct = default) => Task.FromResult<VndbVisualNovel?>(Vn(id, "Amaoto no Hakoniwa", Title));
+
+        public async Task<VndbResults<VndbCharacter>> GetCharactersAsync(string visualNovelId, CancellationToken ct = default)
+        {
+            Asked.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return new VndbResults<VndbCharacter>([], false);
+        }
+
+        public Task<VndbResults<VndbCharacter>> SearchCharactersByTitleAsync(string title, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task<VndbResults<VndbRelease>> GetReleasesAsync(string visualNovelId, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
     private static VndbVisualNovel Vn(string id, string title, string original) =>
         new(id, title, original, [], [], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 10, "Numa [b]cidade[/b] onde chove.", []);
 
@@ -62,6 +89,47 @@ public sealed class NewProjectWizardVndbTests : IDisposable
         Assert.Equal(["Combina com a pasta e o exe", "Combina com a pasta e o exe"], vm.Candidates.Select(c => c.EvidenceLabel));
         Assert.True(vm.Candidates[0].IsSelected);
         Assert.Equal("2019 · Média · 18 h · Yu-RIS", vm.Candidates[0].Details);
+    }
+
+    [Fact]
+    public async Task Jogo_da_Biblioteca_com_casamento_confirmado_traz_a_ficha_direto_sem_buscar_e_Voltar_oferece_a_busca()
+    {
+        var catalog = Catalog(Vn("v1", "Amaoto no Hakoniwa", Title), Vn("v2", "Outro", "別の"));
+        var vm = Create(catalog);
+        await vm.SetGameFolderAsync(game, "v1");
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Vndb, vm.Step);
+        Assert.Equal(VndbStage.Preview, vm.Stage);
+        Assert.Equal("v1", vm.ConfirmedVndb?.VisualNovelId);
+        Assert.Equal("Amaoto no Hakoniwa, v1", vm.Preview!.Label);
+        Assert.DoesNotContain(catalog.Calls, c => c.Contains("Search", StringComparison.Ordinal));
+
+        vm.BackCommand.Execute(null);
+
+        Assert.Equal(VndbStage.Empty, vm.Stage);
+        Assert.Null(vm.ConfirmedVndb);
+        Assert.Equal(WizardStep.Vndb, vm.Step);
+    }
+
+    [Fact]
+    public async Task Cancelar_o_pedido_da_ficha_conhecida_nao_cai_na_busca_por_titulo()
+    {
+        var catalog = new HangingCatalog();
+        var vm = Create(catalog);
+        await vm.SetGameFolderAsync(game, "v1");
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+
+        var next = vm.NextCommand.ExecuteAsync(null);
+        await catalog.Asked.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Equal(VndbStage.Confirming, vm.Stage);
+        vm.SkipVndbCommand.Execute(null);
+        await next;
+
+        Assert.Equal(VndbStage.Skipped, vm.Stage);
+        Assert.False(catalog.Searched);
     }
 
     [Fact]

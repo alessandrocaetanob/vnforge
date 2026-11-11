@@ -99,8 +99,8 @@ internal static partial class LibraryCommand
 
     private static readonly Option<string?> AdultOption = new("--adult")
     {
-        Description = "Mostrar capa e tags de conteúdo adulto por padrão: sim ou nao.",
-        HelpName = "sim|nao",
+        Description = "O que fazer com jogo de conteúdo adulto: mostrar, desfocar ou esconder. A CLI não borra: no desfocar ela esconde a capa e as tags.",
+        HelpName = "mostrar|desfocar|esconder",
     };
 
     private static readonly Option<string[]> TagOption = new("--tag")
@@ -614,11 +614,12 @@ internal static partial class LibraryCommand
         var privacy = library.Privacy with
         {
             ShowSpoilers = library.Privacy.ShowSpoilers || parseResult.GetValue(ShowSpoilersOption),
-            ShowAdult = library.Privacy.ShowAdult || parseResult.GetValue(ShowAdultOption),
+            Adult = parseResult.GetValue(ShowAdultOption) ? AdultMode.Show : library.Privacy.Adult,
         };
 
         var tagsFile = TagsFileOf(cli);
         var tags = tagsFile.Load();
+        var listed = privacy.Listed(library.Games);
         if (reference is not null)
         {
             if (HasTagFilterOptions(parseResult))
@@ -627,6 +628,11 @@ internal static partial class LibraryCommand
             }
 
             var game = library.Find(reference);
+            if (privacy.Hides(game))
+            {
+                throw new LibraryException($"O jogo '{game.Title}' é de conteúdo adulto e a biblioteca o esconde (vnf library privacy --adult). Use --show-adult para vê-lo só nesta chamada.");
+            }
+
             if (json)
             {
                 output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
@@ -640,7 +646,7 @@ internal static partial class LibraryCommand
         }
 
         var filter = TagFilterOf(parseResult, tags);
-        var ordered = parseResult.GetValue(RecentOption) ? played.ByLastPlayed(library.Games) : library.Sorted();
+        var ordered = parseResult.GetValue(RecentOption) ? played.ByLastPlayed(listed) : library.Sorted().Where(g => !privacy.Hides(g)).ToList();
         var games = filter.Apply(Filter(ordered, parseResult.GetValue(EngineOption), parseResult.GetValue(StateOption)), tags, privacy);
         var saveFilter = parseResult.GetValue(SaveFilterOption);
         if (saveFilter)
@@ -648,13 +654,13 @@ internal static partial class LibraryCommand
             tagsFile.Update(t => t.SavedFilter = filter);
         }
 
-        var shownFilter = filter.Masked(library.Games, tags, privacy, out _);
+        var shownFilter = filter.Masked(listed, tags, privacy, out _);
         if (json)
         {
             output.WriteLine(JsonEnvelope.Result(new
             {
                 privacy,
-                total = library.Games.Count,
+                total = listed.Count,
                 shown = games.Count,
                 filter = FilterData(shownFilter),
                 filterSaved = saveFilter,
@@ -663,7 +669,7 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        if (library.Games.Count == 0)
+        if (listed.Count == 0)
         {
             output.WriteLine("A biblioteca está vazia. Rode vnf library scan <pasta> para reconhecer os seus jogos.");
             return ErrorHandler.OkExitCode;
@@ -709,9 +715,13 @@ internal static partial class LibraryCommand
             output.WriteLine("Filtro por tag salvo apagado.");
         }
 
-        output.WriteLine(games.Count == library.Games.Count
+        output.WriteLine(games.Count == listed.Count
             ? $"{CliFormat.Count(games.Count, "jogo", "jogos")} na biblioteca."
-            : $"{CliFormat.Count(games.Count, "jogo", "jogos")} de {CliFormat.Number(library.Games.Count)} na biblioteca.");
+            : $"{CliFormat.Count(games.Count, "jogo", "jogos")} de {CliFormat.Number(listed.Count)} na biblioteca.");
+        if (listed.Count < library.Games.Count)
+        {
+            output.WriteLine($"{CliFormat.Count(library.Games.Count - listed.Count, "jogo adulto escondido", "jogos adultos escondidos")}; use --show-adult para vê-los só nesta chamada.");
+        }
         return ErrorHandler.OkExitCode;
     }
 
@@ -895,16 +905,16 @@ internal static partial class LibraryCommand
     private static int Privacy(VnfCli cli, ParseResult parseResult)
     {
         var newSpoilers = ParseYesNo(parseResult.GetValue(SpoilersOption), "--spoilers");
-        var newAdult = ParseYesNo(parseResult.GetValue(AdultOption), "--adult");
+        var newAdult = ParseAdult(parseResult.GetValue(AdultOption));
         var (library, changed) = FileOf(cli).Update(current =>
         {
-            var next = new LibraryPrivacy(newSpoilers ?? current.Privacy.ShowSpoilers, newAdult ?? current.Privacy.ShowAdult);
+            var next = new LibraryPrivacy(newSpoilers ?? current.Privacy.ShowSpoilers, newAdult ?? current.Privacy.Adult);
             var differs = next != current.Privacy;
             current.Privacy = next;
             return (current, differs);
         });
         var spoilers = library.Privacy.ShowSpoilers;
-        var adult = library.Privacy.ShowAdult;
+        var adult = library.Privacy.Adult;
 
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
@@ -913,7 +923,7 @@ internal static partial class LibraryCommand
         }
         else
         {
-            output.WriteLine($"Spoilers: {(spoilers ? "visíveis" : "escondidos")}. Conteúdo adulto: {(adult ? "visível" : "escondido")}.{(changed ? " Gravado." : string.Empty)}");
+            output.WriteLine($"Spoilers: {(spoilers ? "visíveis" : "escondidos")}. Conteúdo adulto: {AdultText(adult)}.{(changed ? " Gravado." : string.Empty)}");
         }
 
         return ErrorHandler.OkExitCode;
@@ -1103,6 +1113,30 @@ internal static partial class LibraryCommand
         var ids = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
         return tags.GamesWith(name).Count(ids.Contains);
     }
+
+    /// <summary>mostrar, desfocar ou esconder; sim e nao (o que a opção aceitava antes) valem como mostrar e desfocar.</summary>
+    private static AdultMode? ParseAdult(string? text)
+    {
+        if (text is null)
+        {
+            return null;
+        }
+
+        return text.Trim().ToLowerInvariant() switch
+        {
+            "mostrar" or "sim" or "s" or "on" or "true" or "1" => AdultMode.Show,
+            "desfocar" or "nao" or "não" or "n" or "off" or "false" or "0" => AdultMode.Blur,
+            "esconder" => AdultMode.Hide,
+            _ => throw new UsageException($"--adult aceita mostrar, desfocar ou esconder, não '{text}'."),
+        };
+    }
+
+    private static string AdultText(AdultMode mode) => mode switch
+    {
+        AdultMode.Show => "mostrar (capa, tags e imagens visíveis)",
+        AdultMode.Hide => "esconder (o jogo adulto sai das listas)",
+        _ => "desfocar (a tela borra; a CLI esconde a capa e as tags)",
+    };
 
     private static bool? ParseYesNo(string? text, string option)
     {

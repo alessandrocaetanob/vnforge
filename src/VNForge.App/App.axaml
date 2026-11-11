@@ -59,9 +59,6 @@
     <DataTemplate DataType="vm:GameSheetViewModel">
       <views:GameSheetView/>
     </DataTemplate>
-    <DataTemplate DataType="vm:GameTabPlaceholderViewModel">
-      <views:GameTabPlaceholderView/>
-    </DataTemplate>
     <DataTemplate DataType="vm:GameCapturesViewModel">
       <views:GameCapturesView/>
     </DataTemplate>

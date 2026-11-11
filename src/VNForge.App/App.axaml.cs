@@ -61,6 +61,11 @@ public sealed class App : Application
             // O token do VNDB vai para o cofre do Windows, como a chave da Anthropic; a lista mora no mesmo library.json.
             var vndbList = new VndbListService(new VNForge.Vndb.DpapiVndbTokenStore(configDirectory), vndb, new LibraryFile(configDirectory), settings: new VndbSyncSettingsFile(configDirectory));
             library.ListService = vndbList;
+            if (VndbImages.Source is { } imageSource)
+            {
+                library.FollowPrivacy(imageSource);
+            }
+
             settings.Vndb = new VndbConnectionViewModel(vndbList);
             var main = new MainWindowViewModel(start, ApiKeyStatus.Resolve(configDirectory), tasks, settings,
                 () => new NewProjectWizardViewModel(picker, [new YuRisEngine()], tasks, appSettings, vndb: vndb) { PersonalGlossary = new PersonalGlossary(configDirectory) },
@@ -92,6 +97,7 @@ public sealed class App : Application
                 },
                 Images =
                 {
+                    HasApiKey = () => ApiKeyStatus.Resolve(configDirectory).Key is not null,
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(
                         ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                         new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low, MaxTokens = 2000 }),
@@ -153,7 +159,8 @@ public sealed class App : Application
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
             playLog: playLog,
             switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
-            engines: engines);
+            engines: engines,
+            portugueseChecker: () => new PortugueseTranslationChecker(vndb));
         library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
         return library;
     }

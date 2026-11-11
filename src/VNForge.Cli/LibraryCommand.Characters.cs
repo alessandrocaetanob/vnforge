@@ -100,7 +100,7 @@ internal static partial class LibraryCommand
         var library = FileOf(cli).Load();
         var privacy = new LibraryPrivacy(
             library.Privacy.ShowSpoilers || parseResult.GetValue(CharactersSpoilersOption),
-            library.Privacy.ShowAdult || parseResult.GetValue(CharactersAdultOption));
+            parseResult.GetValue(CharactersAdultOption) ? AdultMode.Show : library.Privacy.Adult);
         return (library, privacy, SheetStoreOf(cli), new GameEditionsFile(cli.UserConfigDirectory).Load());
     }
 
@@ -114,7 +114,7 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { characters = list.Characters, hidden = list.Hidden }));
+            output.WriteLine(JsonEnvelope.Result(new { characters = list.Characters.Select(WithoutHiddenImage).ToList(), hidden = list.Hidden }));
             return ErrorHandler.OkExitCode;
         }
 
@@ -155,13 +155,16 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { character = card }));
+            output.WriteLine(JsonEnvelope.Result(new { character = WithoutHiddenImage(card) }));
             return ErrorHandler.OkExitCode;
         }
 
         WriteCharacter(output, card, privacy);
         return ErrorHandler.OkExitCode;
     }
+
+    /// <summary>No Desfocar o Core guarda o endereço do retrato adulto para a tela borrá-lo; a CLI não borra, então a imagem escondida sai sem endereço.</summary>
+    private static LibraryCharacterCard WithoutHiddenImage(LibraryCharacterCard card) => card.ImageHidden ? card with { Image = null } : card;
 
     private static void WriteCharacter(TextWriter output, LibraryCharacterCard card, LibraryPrivacy privacy)
     {

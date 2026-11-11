@@ -41,7 +41,11 @@ public sealed partial class GameSheetViewModel : ObservableObject
     private bool levelPending = true;
     private int generation;
 
-    public GameSheetViewModel() => Review = new SheetReviewViewModel(this);
+    public GameSheetViewModel()
+    {
+        Review = new SheetReviewViewModel(this);
+        reveals.Changed += OnRevealsChanged;
+    }
 
     /// <summary>A pasta de configuração do usuário, onde ficam <c>sheets/</c> e o <c>library.json</c>. Sem ela a ficha não abre.</summary>
     public string? ConfigDirectory { get; set; }
@@ -147,7 +151,46 @@ public sealed partial class GameSheetViewModel : ObservableObject
     /// <summary>O que o botão da revisão diz sobre o nível: "Mostrando nível 2", ou "Spoiler escondido".</summary>
     public string SpoilerLevelText => SpoilerLevel == 0 ? "Spoiler escondido" : $"Mostrando nível {SpoilerLevel.ToString(CultureInfo.InvariantCulture)}";
 
-    internal SheetVisibility Visibility => new(SpoilerLevel, data?.Privacy.ShowAdult ?? false);
+    /// <summary>Os jogos que a pessoa revelou na Biblioteca nesta sessão; o shell liga o registro da Biblioteca.</summary>
+    public AdultReveal Reveals
+    {
+        get => reveals;
+        set
+        {
+            reveals.Changed -= OnRevealsChanged;
+            reveals = value;
+            reveals.Changed += OnRevealsChanged;
+        }
+    }
+
+    private AdultReveal reveals = new();
+
+    private void OnRevealsChanged(object? sender, EventArgs e)
+    {
+        if (data is not null)
+        {
+            Rebuild();
+        }
+    }
+
+    /// <summary>O modo adulto desta ficha: o da Biblioteca, ou Mostrar quando a pessoa revelou este jogo no modo Desfocar.</summary>
+    private AdultMode EffectiveAdult =>
+        data?.Privacy.Adult is { } mode ? mode == AdultMode.Blur && Reveals.IsRevealed(data.Game.VisualNovelId) ? AdultMode.Show : mode : AdultMode.Blur;
+
+    /// <summary>O jogo está revelado nesta sessão: o retrato e a capa aparecem sem borrão.</summary>
+    internal bool IsAdultRevealed => data is not null && data.Privacy.Adult == AdultMode.Blur && Reveals.IsRevealed(data.Game.VisualNovelId);
+
+    internal SheetVisibility Visibility => new(SpoilerLevel, EffectiveAdult);
+
+    /// <summary>"Mostrar" no chip das tags adultas ou no olho do retrato: libera o jogo inteiro (capa, tags, traços e retratos) até a pessoa sair da Biblioteca.</summary>
+    [RelayCommand]
+    private void RevealAdult()
+    {
+        if (data is not null)
+        {
+            Reveals.Reveal(data.Game.VisualNovelId);
+        }
+    }
 
     partial void OnSpoilerLevelChanged(int value)
     {
@@ -355,8 +398,8 @@ public sealed partial class GameSheetViewModel : ObservableObject
             var visibility = Visibility;
             card = SheetViewer.Card(data.Game, data.Characters, data.Terms, visibility);
             blocks = SheetBlocks.Build(data.Game, data.Characters, data.Terms, visibility);
-            tiles = BuildTiles(card);
-            Tags = BuildTags(card, data.UserTags);
+            tiles = BuildTiles(card, IsAdultRevealed);
+            Tags = BuildTags(card, data.UserTags, data.Privacy.Adult == AdultMode.Blur);
             TagsPill = card.TagsStatus is { } status ? new SheetPill(TagsPillText(status), SheetPill.ToneOf(status)) : null;
             BlockCounts = SheetStatusCounts.OfStatuses(blocks.Select(b => b.Status));
             CountPills = BuildCountPills(BlockCounts);
@@ -375,7 +418,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
         _ => "Aprovadas, valem para todos os jogos",
     };
 
-    private static List<SheetChip> BuildTags(GameSheetCard card, IReadOnlyList<string> userTags)
+    private static List<SheetChip> BuildTags(GameSheetCard card, IReadOnlyList<string> userTags, bool canReveal)
     {
         var chips = card.Tags.Select(t => new SheetChip(t.Name)).ToList();
         chips.AddRange(userTags.Select(t => new SheetChip(t, IsMine: true)));
@@ -386,18 +429,18 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
         if (card.HiddenAdultTags > 0)
         {
-            chips.Add(new SheetChip(Count(card.HiddenAdultTags, "tag de conteúdo adulto", "tags de conteúdo adulto"), IsHidden: true));
+            chips.Add(new SheetChip(Count(card.HiddenAdultTags, "tag de conteúdo adulto", "tags de conteúdo adulto"), IsHidden: true, CanReveal: canReveal));
         }
 
         return chips;
     }
 
-    private static List<CharacterTile> BuildTiles(GameSheetCard card)
+    private static List<CharacterTile> BuildTiles(GameSheetCard card, bool revealed)
     {
         var tiles = new List<CharacterTile>();
         foreach (var character in card.Characters)
         {
-            var kind = character.ImageHidden ? TileKind.ImageHidden : character.Image is null ? TileKind.NoImage : TileKind.Portrait;
+            var kind = character.ImageHidden ? (character.Image is null ? TileKind.ImageHidden : TileKind.ImageBlurred) : character.Image is null ? TileKind.NoImage : TileKind.Portrait;
             var line = character.Traits.Count > 0 ? string.Join(", ", character.Traits.Select(t => t.Name)) : character.Description?.Text ?? string.Empty;
             tiles.Add(new CharacterTile(
                 character.Id,
@@ -409,7 +452,8 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 character.Status is { } status ? SheetPill.Of(status) : null,
                 line,
                 kind == TileKind.NoImage ? "Sem imagem no VNDB" : kind == TileKind.ImageHidden ? "Imagem de conteúdo adulto escondida" : string.Empty,
-                0));
+                0,
+                revealed));
         }
 
         tiles.AddRange(card.HiddenCharacterCards.Select(h => new CharacterTile(h.Id, TileKind.Hidden, "Nome escondido", null, null, null, null, string.Empty, $"Spoiler de nível {h.Spoiler.ToString(CultureInfo.InvariantCulture)}", h.Spoiler)));

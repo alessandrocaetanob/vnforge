@@ -40,6 +40,34 @@ function ConvertTo-BoxShadow([string]$css) {
     '{0} {1} {2} 0 #{3:X2}{4:X2}{5:X2}{6:X2}' -f $Matches[1], $Matches[2], $Matches[3], $alpha, [int]$Matches[4], [int]$Matches[5], [int]$Matches[6]
 }
 
+# Chaves do FluentTheme que o tema sobrescreve (ToggleSwitch e TextBox). Cada grupo vira um comentário e as linhas na ordem da lista;
+# o valor "Transparent" vira pincel vazio e os demais apontam para um token Vnf.* do mesmo tema.
+function Get-FluentOverrides {
+    $toggle = @()
+    foreach ($row in @(
+            @('FillOff', 'Transparent'), @('FillOffPointerOver', 'Transparent'), @('FillOffPressed', 'Transparent'),
+            @('StrokeOff', 'Vnf.StrokeControl'), @('StrokeOffPointerOver', 'Vnf.StrokeControl'), @('StrokeOffPressed', 'Vnf.StrokeControl'),
+            @('FillOn', 'Vnf.Accent'), @('FillOnPointerOver', 'Vnf.AccentHover'), @('FillOnPressed', 'Vnf.AccentHover'),
+            @('StrokeOn', 'Vnf.Accent'), @('StrokeOnPointerOver', 'Vnf.AccentHover'), @('StrokeOnPressed', 'Vnf.AccentHover'),
+            @('KnobFillOff', 'Vnf.TextSecondary'), @('KnobFillOffPointerOver', 'Vnf.TextSecondary'), @('KnobFillOffPressed', 'Vnf.TextSecondary'),
+            @('KnobFillOn', 'Vnf.OnAccent'), @('KnobFillOnPointerOver', 'Vnf.OnAccent'), @('KnobFillOnPressed', 'Vnf.OnAccent'))) {
+        $toggle += , @("ToggleSwitch$($row[0])", $row[1])
+    }
+    $text = @()
+    foreach ($state in '', 'PointerOver', 'Focused', 'Disabled') {
+        $ink = if ($state -eq 'Disabled') { 'Vnf.TextTertiary' } else { 'Vnf.TextPrimary' }
+        $text += , @("TextControlBackground$state", 'Vnf.BgInset')
+        $text += , @("TextControlForeground$state", $ink)
+        $text += , @("TextControlPlaceholderForeground$state", 'Vnf.TextTertiary')
+    }
+    $text += , @('TextControlBorderBrush', 'Vnf.StrokeControl')
+    $text += , @('TextControlBorderBrushPointerOver', 'Vnf.StrokeControl')
+    $text += , @('TextControlBorderBrushDisabled', 'Vnf.StrokeSubtle')
+    @(
+        @{ Comment = @('<!-- Interruptor do quadro (".tog"): contorno em stroke-control e fundo vazio desligado, accent ligado; a bolinha é text-secondary desligada e on-accent ligada.', '     São as chaves do FluentTheme, então valem para todo ToggleSwitch. -->'); Entries = $toggle },
+        @{ Comment = @('<!-- Caixa de texto do quadro (".v3-input"): fundo bg-inset, texto text-primary, contorno stroke-control, dica text-tertiary; o foco mantém o contorno de accent do Fluent e o desativado troca o contorno por stroke-subtle e o texto e a dica por text-tertiary, como o Button.', '     São as chaves do FluentTheme, então valem para todo TextBox. -->'); Entries = $text })
+}
+
 $sb = [System.Text.StringBuilder]::new()
 function Add([string]$line) { [void]$sb.AppendLine($line) }
 
@@ -54,6 +82,13 @@ foreach ($theme in @(@{ Key = 'Dark'; Id = 'dark' }, @{ Key = 'Light'; Id = 'lig
         $color = (Resolve-Color $token $theme.Id).ToUpperInvariant()
         Add "      <Color x:Key=`"${name}Color`">$color</Color>"
         Add "      <SolidColorBrush x:Key=`"$name`" Color=`"$color`"/>"
+    }
+    foreach ($group in Get-FluentOverrides) {
+        foreach ($line in $group.Comment) { Add "      $line" }
+        foreach ($entry in $group.Entries) {
+            if ($entry[1] -eq 'Transparent') { Add "      <SolidColorBrush x:Key=`"$($entry[0])`" Color=`"Transparent`"/>" }
+            else { Add "      <StaticResource x:Key=`"$($entry[0])`" ResourceKey=`"$($entry[1])`"/>" }
+        }
     }
     foreach ($shadow in $json.shadow.tokens) {
         $name = 'Vnf.' + (ConvertTo-Pascal $shadow.name)
