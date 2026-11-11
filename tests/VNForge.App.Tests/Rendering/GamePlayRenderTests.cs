@@ -150,7 +150,9 @@ public sealed class GamePlayRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.Contains(texts, t => t.StartsWith("Aberto às ", StringComparison.Ordinal) && t.EndsWith(" pelo Locale Emulator · o app conta pelo processo Game.exe", StringComparison.Ordinal));
                     Assert.Contains(texts, t => t.StartsWith("00:42:", StringComparison.Ordinal));
                     Assert.DoesNotContain("Pronto para jogar", texts);
-                    Assert.Contains(texts, t => t.StartsWith("Hoje, ", StringComparison.Ordinal));
+                    // A partida abriu há 42 min: passada a meia-noite (hora local) ela é de "Ontem".
+                    var liveDay = (DateTimeOffset.UtcNow - new TimeSpan(0, 42, 18)).ToLocalTime().Date == DateTime.Now.Date ? "Hoje, " : "Ontem, ";
+                    Assert.Contains(texts, t => t.StartsWith(liveDay, StringComparison.Ordinal));
                     Assert.Equal(4, page.GetVisualDescendants().OfType<ItemsControl>().Single(i => i.Name == "Rows").ItemCount);
                     var card = page.GetVisualDescendants().OfType<GamePlayView>().Single();
                     Assert.False(card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PlayButton").IsEffectivelyVisible);
