@@ -579,7 +579,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static readonly string[] StepTitles = ["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"];
 
     private static readonly string[] StepPrompts =
-        ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"];
+        ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
     private void RefreshSteps()
     {

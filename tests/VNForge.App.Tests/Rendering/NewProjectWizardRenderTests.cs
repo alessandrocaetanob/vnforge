@@ -75,6 +75,11 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     var origin = cover.TranslatePoint(default, recognized)!.Value;
                     Assert.InRange(origin.X, 20, 23);
                     Assert.InRange(origin.Y, 16, 19);
+                    Assert.Contains("Jogo reconhecido", gameTexts);
+                    var coverMiddle = origin.Y + cover.Bounds.Height / 2;
+                    var seal = window.GetVisualDescendants().OfType<TextBlock>().Single(b => b.IsEffectivelyVisible && b.Text == "Suportado");
+                    var sealBox = seal.GetVisualAncestors().OfType<Border>().First();
+                    Assert.InRange(sealBox.TranslatePoint(default, recognized)!.Value.Y + sealBox.Bounds.Height / 2, coverMiddle - 1.5, coverMiddle + 1.5);
                     CheckFrame(window, 1);
 
                     wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));

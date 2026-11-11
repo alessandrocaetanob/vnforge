@@ -33,12 +33,16 @@ public sealed class ContentSizedRow : Panel
         var natural = Children.Sum(c => c.DesiredSize.Width);
         var extra = (finalSize.Width - natural) / Children.Count;
         var scale = natural > finalSize.Width && natural > 0 ? finalSize.Width / natural : 1;
+        // As bordas de 1px entre os passos só aparecem nítidas em pixel inteiro: as fronteiras são arredondadas, e a última fecha na largura recebida.
         double x = 0;
-        foreach (var child in Children)
+        double edge = 0;
+        for (var i = 0; i < Children.Count; i++)
         {
-            var width = scale < 1 ? child.DesiredSize.Width * scale : child.DesiredSize.Width + extra;
-            child.Arrange(new Rect(x, 0, width, finalSize.Height));
-            x += width;
+            var child = Children[i];
+            edge += scale < 1 ? child.DesiredSize.Width * scale : child.DesiredSize.Width + extra;
+            var right = i == Children.Count - 1 ? finalSize.Width : Math.Round(edge);
+            child.Arrange(new Rect(x, 0, right - x, finalSize.Height));
+            x = right;
         }
 
         return finalSize;

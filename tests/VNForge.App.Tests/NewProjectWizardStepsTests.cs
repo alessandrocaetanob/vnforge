@@ -49,7 +49,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         var vm = Create();
 
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
+            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -63,7 +63,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.True(vm.HasDetection);
         Assert.Equal("Yu-RIS · YPF v500", vm.EngineTitle);
-        Assert.Equal("Escolha a pasta instalada", vm.Steps[0].Subtitle);
+        Assert.Equal("Reconhecido pela Biblioteca", vm.Steps[0].Subtitle);
         Assert.Equal(
             [("Arquivo de scripts", "ysbin.ypf · 2 scripts"), ("Chave XOR dos scripts", "0xD36FAC96"), ("Página de código", "932 (Shift-JIS)")],
             vm.DetectionFacts.Select(f => (f.Label, f.Value)));
@@ -78,7 +78,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.False(vm.HasDetection);
         Assert.Empty(vm.DetectionFacts);
-        Assert.Equal("Escolha a pasta instalada", vm.Steps[0].Subtitle);
+        Assert.Equal("Reconhecido pela Biblioteca", vm.Steps[0].Subtitle);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
 
         Assert.Equal([PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Done, PipelineStepState.Active, PipelineStepState.Pending], vm.Steps.Select(s => s.State));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
+            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
@@ -100,7 +100,7 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         vm.SourceLanguages.Select("en");
         vm.EncodingStrategies.Select("cp1252");
 
-        Assert.Equal("Nome e idiomas", vm.Steps[2].Subtitle);
+        Assert.Equal("Japonês → PT-BR", vm.Steps[2].Subtitle);
         Assert.Equal("Como ficam os acentos", vm.Steps[3].Subtitle);
     }
 

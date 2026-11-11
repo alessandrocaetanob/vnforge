@@ -80,7 +80,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
 
         Assert.Equal(["Jogo", "Ficha do VNDB", "Idiomas e nome", "Acentos", "IA e gasto"], vm.Steps.Select(s => s.Title));
         Assert.Equal(
-            ["Escolha a pasta instalada", "Jogo e personagens", "Nome e idiomas", "Como ficam os acentos", "Qualidade e limite de gasto"],
+            ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"],
             vm.Steps.Select(s => s.Subtitle));
     }
 
