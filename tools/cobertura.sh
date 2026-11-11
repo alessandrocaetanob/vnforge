@@ -18,8 +18,11 @@
 #                               um processo único (VNFORGE_FATIAS=1).
 #   VNFORGE_FATIA               índice (de 0) de uma fatia só, para dividir a medição em chamadas curtas: roda essa fatia e
 #                               soma as que as chamadas anteriores deixaram em VNFORGE_COBERTURA_DIR, avisando se faltam.
-#                               Com "juntar" não roda nada e só soma. Sem a variável, todas as fatias rodam e as
-#                               medições antigas são apagadas.
+#                               Com "juntar" não roda nada e só soma as fatias já medidas, sem recalcular a divisão; aborta
+#                               se faltar fatia ou se as medições forem de outra partição. A partição (número de fatias e
+#                               hash das listas de classes) fica em <projeto>.particao: uma fatia medida com partição
+#                               diferente apaga as medições velhas. Sem a variável, todas as fatias rodam e as medições
+#                               antigas são apagadas.
 #   VNFORGE_COBERTURA_DIR      onde ficam os arquivos de cobertura; padrão .tmp/cobertura
 #
 # Como mede: dotnet-coverage (18.11.2, a versão do CI) roda o projeto de testes e grava um Cobertura por fatia. Só o dll
@@ -84,9 +87,14 @@ raw="$(grep -o "sonar\.coverage\.exclusions=[^']*" .circleci/config.yml | head -
 exclusions=""
 IFS=',' read -ra patterns <<< "$raw"
 for pattern in "${patterns[@]}"; do
+  [[ -n "$pattern" ]] || continue
   case "$pattern" in
-    */\*\*) exclusions+="${pattern%\*\*}|" ;;
-    *\**) abort "padrão de exclusão que não sei aplicar: $pattern" ;;
+    */\*\*)
+      base="${pattern%\*\*}"
+      [[ "$base" != *[\*\?]* ]] || abort "padrão de exclusão que não sei aplicar (só 'pasta/**' sem curinga antes): $pattern"
+      exclusions+="$base|"
+      ;;
+    *[\*\?]*) abort "padrão de exclusão que não sei aplicar (só 'pasta/**' ou o caminho exato): $pattern" ;;
     *) exclusions+="$pattern|" ;;
   esac
 done
@@ -131,16 +139,41 @@ slice_classes() {
     }' "$timings" "$list"
 }
 
-if [[ "$slices" -gt 1 ]]; then slice_classes; fi
+# A partição é o número de fatias mais um hash das listas de classes de cada fatia. Fica gravada ao lado das medições:
+# fatias de partições diferentes não se somam (cobririam classes repartidas de outro jeito).
+partition_id() {
+  if [[ "$slices" -eq 1 ]]; then
+    echo "1 -"
+    return
+  fi
+  local i
+  for ((i = 0; i < slices; i++)); do
+    cat "$out/$tests_name.slice-$i.classes" 2> /dev/null || true
+    echo "--"
+  done | cksum | cut -d' ' -f1 | sed "s/^/$slices /"
+}
 
 failed=0
 only="${VNFORGE_FATIA:-}"
+partition_file="$out/$tests_name.particao"
 if [[ "$only" = juntar ]]; then
+  # Só soma: não recalcula as fatias, usa as listas e as medições que já estão em disco.
   only=-1
-elif [[ -n "$only" ]]; then
-  [[ "$only" =~ ^[0-9]+$ && "$only" -lt "$slices" ]] || abort "VNFORGE_FATIA precisa ser 'juntar' ou um índice de 0 a $((slices - 1)) (veio '$only')."
+  [[ -f "$partition_file" ]] || abort "sem medições anteriores em $out: rode as fatias antes de 'juntar'."
+  [[ "$(cat "$partition_file")" == "$(partition_id)" ]] || abort "as medições em $out são de outra partição (VNFORGE_FATIAS ou lista de classes mudou); rode as fatias de novo."
+  for ((i = 0; i < slices; i++)); do
+    [[ -f "$out/$tests_name.$i.cobertura.xml" ]] || abort "falta a fatia $i para 'juntar'."
+  done
 else
-  rm -f "$out/$tests_name".*.cobertura.xml
+  if [[ "$slices" -gt 1 ]]; then slice_classes; fi
+  if [[ -n "$only" ]]; then
+    [[ "$only" =~ ^[0-9]+$ && "$only" -lt "$slices" ]] || abort "VNFORGE_FATIA precisa ser 'juntar' ou um índice de 0 a $((slices - 1)) (veio '$only')."
+  fi
+  # Partição nova (ou rodada inteira): as medições velhas saem, para nunca se somarem às novas.
+  if [[ -z "$only" || ! -f "$partition_file" || "$(cat "$partition_file")" != "$(partition_id)" ]]; then
+    rm -f "$out/$tests_name".*.cobertura.xml
+    partition_id > "$partition_file"
+  fi
 fi
 for ((i = 0; i < slices; i++)); do
   [[ -z "$only" || "$i" -eq "$only" ]] || continue
