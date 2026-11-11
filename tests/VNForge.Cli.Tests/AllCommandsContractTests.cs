@@ -7,6 +7,8 @@ namespace VNForge.Cli.Tests;
 /// <summary>Percorre a árvore real de comandos: ajuda em português e <c>--json</c> no formato comum (E9.2).</summary>
 public sealed partial class AllCommandsContractTests
 {
+    private const string NetworkCommand = "jmdict install";
+
     private static readonly string[] ErrorKinds = ["expected", "unexpected", "cancelled"];
 
     private static readonly string[] EnglishMarkers =
@@ -82,21 +84,24 @@ public sealed partial class AllCommandsContractTests
     [Fact]
     public async Task Json_de_todo_comando_devolve_um_envelope_em_uma_linha()
     {
-        var problems = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var problems = new List<string>();
         // `vnf` sem comando mostra a ajuda; --version --json é coberto em RootCommandTests.
-        // `jmdict install` baixa o dicionário da rede (12 s e sem servidor falso); o envelope dele vem de JmdictCommandTests.
-        // Cada comando tem a sua pasta de trabalho, então os outros rodam juntos.
-        await Parallel.ForEachAsync(CommandPaths().Where(p => p.Length > 0 && p != "jmdict install"), TestContext.Current.CancellationToken, async (path, token) =>
+        // `jmdict install` baixa o dicionário da rede (12 s e sem servidor falso); o envelope dele vem de
+        // JmdictCommandTests.Json_da_instalacao_e_da_consulta_traz_as_entradas_a_palavra_a_conjugacao_e_os_sentidos.
+        // Os comandos rodam em sequência: alguns leem variável de ambiente, cofre ou rede, e não há como isolar todos.
+        var paths = CommandPaths();
+        Assert.Contains(NetworkCommand, paths);
+        foreach (var path in paths.Where(p => p.Length > 0 && p != NetworkCommand))
         {
             // Sem projeto e sem argumentos: cada comando precisa falhar de forma controlada e no formato comum.
             using var harness = new CliHarness();
-            var result = await harness.RunAsync([.. path.Split(' ', StringSplitOptions.RemoveEmptyEntries), "--json", "--yes"], token);
+            var result = await harness.RunAsync([.. path.Split(' ', StringSplitOptions.RemoveEmptyEntries), "--json", "--yes"], TestContext.Current.CancellationToken);
 
             var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (result.Error.Length > 0 || lines.Length != 1)
             {
                 problems.Add($"'{path}': esperava uma linha de JSON e nada no erro; veio {lines.Length} linha(s) e erro '{result.Error}'.");
-                return;
+                continue;
             }
 
             using var doc = JsonDocument.Parse(lines[0]);
@@ -113,7 +118,7 @@ public sealed partial class AllCommandsContractTests
                     problems.Add($"'{path}': envelope de sucesso traz 'error'.");
                 }
 
-                return;
+                continue;
             }
 
             var error = root.GetProperty("error");
@@ -131,9 +136,9 @@ public sealed partial class AllCommandsContractTests
             {
                 problems.Add($"'{path}': o envelope traz stack trace.");
             }
-        });
+        }
 
-        AssertNoProblems([.. problems.Order(StringComparer.Ordinal)]);
+        AssertNoProblems(problems);
     }
 
     private static Command Find(CliHarness harness, string path)

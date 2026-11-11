@@ -70,6 +70,13 @@ public sealed class RootCommandTests : IDisposable
     }
 
     [Fact]
+    public void Versao_nao_carrega_o_hash_do_commit()
+    {
+        Assert.DoesNotContain('+', VnfCli.Version);
+        Assert.Matches(@"^\d+\.\d+\.\d+", VnfCli.Version);
+    }
+
+    [Fact]
     public async Task Opcoes_globais_valem_em_qualquer_posicao_e_chegam_ao_comando()
     {
         Directory.CreateDirectory(Path.Combine(_cli.WorkingDirectory, "meu-projeto"));
@@ -88,4 +95,18 @@ public sealed class RootCommandTests : IDisposable
         Assert.Equal(new GlobalSettings("meu-projeto", Json: true, Verbose: true, Quiet: false, Yes: true, NoColor: false), seen);
     }
 
+    [Fact]
+    public async Task Opcoes_globais_ficam_desligadas_por_padrao()
+    {
+        GlobalSettings? seen = null;
+        _cli.AddCommand(Teste, parseResult =>
+        {
+            seen = _cli.Cli.Options.Read(parseResult);
+            return 0;
+        });
+
+        await _cli.RunAsync([Teste], TestContext.Current.CancellationToken);
+
+        Assert.Equal(new GlobalSettings(null, Json: false, Verbose: false, Quiet: false, Yes: false, NoColor: false), seen);
+    }
 }

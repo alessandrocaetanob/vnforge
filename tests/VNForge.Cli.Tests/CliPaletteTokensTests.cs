@@ -29,9 +29,22 @@ public class CliPaletteTokensTests
         var problems = new List<string>();
         foreach (var (color, token) in Mapping)
         {
-            var entry = tokens.Single(t => t.GetProperty("name").GetString() == token);
-            var expected = entry.GetProperty("value").GetProperty("dark").GetString()!;
-            var actual = CliPalette.Hex((Spectre.Console.Color)typeof(CliPalette).GetField(color)!.GetValue(null)!);
+            var entries = tokens.Where(t => t.GetProperty("name").GetString() == token).ToList();
+            if (entries.Count != 1)
+            {
+                problems.Add($"{color}: o token '{token}' aparece {entries.Count} vez(es) no tokens.json; esperava 1.");
+                continue;
+            }
+
+            var field = typeof(CliPalette).GetField(color);
+            if (field is null)
+            {
+                problems.Add($"{color}: o campo não existe mais em CliPalette (token '{token}').");
+                continue;
+            }
+
+            var expected = entries[0].GetProperty("value").GetProperty("dark").GetString()!;
+            var actual = CliPalette.Hex((Spectre.Console.Color)field.GetValue(null)!);
             if (expected.Contains('{', StringComparison.Ordinal) || !string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
             {
                 problems.Add($"{color}: o token '{token}' vale '{expected}' e a paleta tem '{actual}'.");
