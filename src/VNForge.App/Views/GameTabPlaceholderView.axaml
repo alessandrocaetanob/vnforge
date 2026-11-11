@@ -1,8 +1,0 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:VNForge.App.ViewModels"
-             xmlns:c="using:VNForge.App.Controls"
-             x:Class="VNForge.App.Views.GameTabPlaceholderView"
-             x:DataType="vm:GameTabPlaceholderViewModel">
-  <c:EmptyState Message="{Binding Message}" ActionText="{Binding ActionText}" ActionCommand="{Binding ActionCommand}"/>
-</UserControl>

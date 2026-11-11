@@ -10,6 +10,9 @@ public enum GameProcessState
 
     /// <summary>O processo aberto e todos os filhos saíram.</summary>
     Exited,
+
+    /// <summary>O lançador está aberto e o jogo ainda não: o tempo não conta até o processo do jogo aparecer.</summary>
+    Waiting,
 }
 
 /// <summary>O jogo aberto: o processo e os que ele abre. Quem fecha é o <see cref="IDisposable.Dispose"/>, que não encerra o jogo.</summary>
@@ -69,7 +72,7 @@ public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProv
         using var process = launcher.Start(launch);
         var startedAt = _time.GetUtcNow();
         var origin = _time.GetTimestamp();
-        var open = new PlaySession(PlaySession.NewId(), startedAt, startedAt, TimeSpan.Zero, Open: true);
+        var open = new PlaySession(PlaySession.NewId(), startedAt, startedAt, TimeSpan.Zero, Open: true, ViaLocaleEmulator: launch.ViaLocaleEmulator);
         try
         {
             log.Update(played =>
@@ -123,7 +126,7 @@ public sealed class GamePlayer(IGameLauncher launcher, PlayLogFile log, TimeProv
             {
                 suspended += step;
             }
-            else
+            else if (state != GameProcessState.Waiting)
             {
                 counted += step + SettleSuspended(ref suspended);
             }

@@ -58,7 +58,7 @@
                         <TextBlock Classes="lib-dim" FontWeight="Normal" VerticalAlignment="Center" Text="{Binding PositionText}"/>
                         <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
                           <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Width="{DynamicResource Vnf.CoverThumbWidth}" Height="59" Background="{DynamicResource Vnf.BgInset}">
-                            <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
+                            <c:Cover Width="{DynamicResource Vnf.CoverThumbWidth}" Image="{Binding Card.Image}" Revealed="{Binding Card.Revealed}" Seed="{Binding Card.Title}" IsVisible="{Binding Card.HasImage}"/>
                           </Border>
                           <TextBlock Grid.Column="1" Classes="lib-ct" VerticalAlignment="Center" Text="{Binding Card.Title}" ToolTip.Tip="{Binding Card.Title}"/>
                         </Grid>

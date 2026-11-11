@@ -42,7 +42,7 @@ public sealed class LibraryFileTests : IDisposable
             SearchedAt = Added,
             Candidates = [new LibraryCandidate("v9", "Outro", null, null, 0.5, ["exe"])],
         };
-        return new GameLibrary([confirmed, pending], new LibraryPrivacy(ShowSpoilers: true, ShowAdult: false));
+        return new GameLibrary([confirmed, pending], new LibraryPrivacy(ShowSpoilers: true, Adult: AdultMode.Blur));
     }
 
     [Fact]
@@ -86,13 +86,52 @@ public sealed class LibraryFileTests : IDisposable
     }
 
     [Fact]
-    public void Privacidade_esconde_spoiler_e_adulto_por_padrao()
+    public void Privacidade_esconde_spoiler_e_desfoca_adulto_por_padrao()
     {
         var privacy = LibraryFile.Parse("{\"version\":1,\"games\":[]}").Privacy;
 
         Assert.False(privacy.ShowSpoilers);
-        Assert.False(privacy.ShowAdult);
-        Assert.False(new GameLibrary().Privacy.ShowAdult);
+        Assert.Equal(AdultMode.Blur, privacy.Adult);
+        Assert.Equal(AdultMode.Blur, new GameLibrary().Privacy.Adult);
+    }
+
+    [Theory]
+    [InlineData("\"showAdult\":true", AdultMode.Show)]
+    [InlineData("\"showAdult\":false", AdultMode.Blur)]
+    [InlineData("\"adult\":\"hide\"", AdultMode.Hide)]
+    [InlineData("\"showAdult\":true,\"adult\":\"hide\"", AdultMode.Hide)]
+    public void O_arquivo_antigo_com_showAdult_e_o_novo_com_adult_dao_o_modo(string fields, AdultMode expected)
+    {
+        var privacy = LibraryFile.Parse("{\"version\":1,\"privacy\":{\"showSpoilers\":true," + fields + "},\"games\":[]}").Privacy;
+
+        Assert.True(privacy.ShowSpoilers);
+        Assert.Equal(expected, privacy.Adult);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"texto\"")]
+    [InlineData("{\"adult\":\"borrar\"}")]
+    [InlineData("{\"adult\":3}")]
+    [InlineData("{\"adult\":{\"x\":[1]},\"showSpoilers\":true}")]
+    [InlineData("{\"showAdult\":\"sim\"}")]
+    [InlineData("{\"showAdult\":null,\"showSpoilers\":\"sim\"}")]
+    public void Uma_privacidade_estranha_vale_o_padrao_e_nao_derruba_o_arquivo(string privacyJson)
+    {
+        var library = LibraryFile.Parse("{\"version\":1,\"privacy\":" + privacyJson + ",\"games\":[]}");
+
+        Assert.Equal(AdultMode.Blur, library.Privacy.Adult);
+        Assert.Empty(library.Games);
+    }
+
+    [Fact]
+    public void O_modo_adulto_e_gravado_como_adult_e_sem_showAdult()
+    {
+        var text = LibraryFile.Serialize(new GameLibrary(privacy: new LibraryPrivacy(Adult: AdultMode.Hide)));
+
+        Assert.Contains("\"adult\": \"hide\"", text);
+        Assert.DoesNotContain("showAdult", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AdultMode.Hide, LibraryFile.Parse(text).Privacy.Adult);
     }
 
     [Fact]
@@ -211,7 +250,7 @@ public sealed class LibraryFileTests : IDisposable
         file.Save(Sample());
         var stale = file.Load();
 
-        new LibraryFile(_dir.Path).Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true));
+        new LibraryFile(_dir.Path).Update(l => l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show));
         file.Update(l => l.Replace(l.Games[1] with { Title = "Mudou" }));
 
         var result = file.Load();
@@ -238,7 +277,7 @@ public sealed class LibraryFileTests : IDisposable
         var file = new LibraryFile(_dir.Path);
         File.WriteAllText(file.Path, "{ isto não é json");
 
-        Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true)));
+        Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show)));
 
         Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
     }
@@ -251,7 +290,7 @@ public sealed class LibraryFileTests : IDisposable
         Directory.CreateDirectory(file.Path);
 
         var save = Assert.Throws<LibraryException>(() => file.Save(Sample()));
-        var update = Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(ShowAdult: true)));
+        var update = Assert.Throws<LibraryException>(() => file.Update(l => l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show)));
 
         Assert.Contains("library.json", save.Message, StringComparison.Ordinal);
         Assert.NotNull(update.InnerException);

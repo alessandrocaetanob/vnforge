@@ -69,7 +69,7 @@ internal static partial class LibraryCommand
         var privacy = library.Privacy with
         {
             ShowSpoilers = library.Privacy.ShowSpoilers || parseResult.GetValue(CatalogSpoilersOption),
-            ShowAdult = library.Privacy.ShowAdult || parseResult.GetValue(CatalogAdultOption),
+            Adult = parseResult.GetValue(CatalogAdultOption) ? AdultMode.Show : library.Privacy.Adult,
         };
         var options = new LibraryCatalogOptions(privacy, parseResult.GetValue(CatalogNotesOption));
 

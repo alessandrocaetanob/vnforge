@@ -276,6 +276,75 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public void SwitchingTheFilterOfThousandsOfImagesNotifiesOnceAndKeepsTheOrder()
+    {
+        const int count = 5000;
+        folder.SaveImageInventory([.. Enumerable.Range(0, count).Select(i => new ImageTextEntry(Pack, $"bg/{i:D5}.png", "00", 640, 360, i % 4 == 0 ? string.Empty : "文"))]);
+        var vm = Open();
+        Assert.Equal(count, vm.Visible.Count);
+        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        vm.Visible.CollectionChanged += (_, e) => changes.Add(e.Action);
+
+        vm.SetFilterCommand.Execute(ImageFilter.WithoutText);
+
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Reset], changes);
+        Assert.Equal(Enumerable.Range(0, count).Where(i => i % 4 == 0).Select(i => $"bg/{i:D5}.png"), vm.Visible.Select(i => i.Path));
+
+        changes.Clear();
+        vm.SetFilterCommand.Execute(ImageFilter.All);
+
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Reset], changes);
+        Assert.Equal(vm.Items.Select(i => i.Path), vm.Visible.Select(i => i.Path));
+    }
+
+    [Fact]
+    public async Task MarkingOneImageUnderAFilterChangesTheListInPlaceWithoutAReset()
+    {
+        var vm = Open();
+        vm.SetFilterCommand.Execute(ImageFilter.Untranslated);
+        await Select(vm, Gate);
+        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        vm.Visible.CollectionChanged += (_, e) => changes.Add(e.Action);
+        vm.Text = "Portão";
+
+        await vm.MarkCommand.ExecuteAsync(null);
+
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Remove], changes);
+        Assert.Same(vm.Items.Single(i => i.Path == Gate), vm.SelectedItem);
+    }
+    [Fact]
+    public async Task WithoutAChosenAreaTheCornerIsNotAResizeHandle()
+    {
+        var vm = Open();
+        await Select(vm, "bg/rua.png");
+        Assert.Equal((0, 0), (vm.RegionWidth, vm.RegionHeight));
+
+        Assert.False(vm.TryResizeAnchor(0, 0, out _));
+        Assert.False(vm.TryResizeAnchor(5, 5, out _));
+    }
+
+    [Fact]
+    public async Task TheReaderIsCreatedOnceForTheKeyCheckAndTheReading()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var reader = new FakeImageTextReader();
+        var created = 0;
+        var vm = Open();
+        vm.HasApiKey = () => true;
+        vm.ReaderFactory = _ =>
+        {
+            created++;
+            return reader;
+        };
+
+        await vm.ScanCommand.ExecuteAsync(null);
+        vm.ConfirmScanCommand.Execute(null);
+        await vm.Scanning;
+
+        Assert.Equal(1, created);
+    }
+
+    [Fact]
     public async Task TheRewriteDialogListsWhatTheBuildWillWrite()
     {
         var vm = Open();
@@ -496,12 +565,33 @@ public sealed class ImagesViewModelTests : IDisposable
         File.Delete(folder.ImageInventoryPath);
         var vm = Open();
         vm.ReaderFactory = _ => throw new InvalidOperationException("Falta a chave da IA.");
+        vm.HasApiKey = () => false;
 
         await vm.ScanCommand.ExecuteAsync(null);
 
         Assert.False(vm.IsScanConfirming);
         Assert.Contains("chave de API", vm.ErrorMessage);
         Assert.DoesNotContain("vnf", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task AKeyRemovedBetweenTheEstimateAndTheConfirmationStillShowsTheKeyMessage()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var hasKey = true;
+        var vm = Open();
+        vm.HasApiKey = () => hasKey;
+        vm.ReaderFactory = _ => hasKey ? new FakeImageTextReader() : throw new InvalidOperationException("Falta a chave da IA.");
+        await vm.ScanCommand.ExecuteAsync(null);
+        Assert.True(vm.IsScanConfirming);
+        hasKey = false;
+
+        vm.ConfirmScanCommand.Execute(null);
+        await vm.Scanning;
+
+        Assert.Contains("chave de API", vm.ErrorMessage);
+        Assert.DoesNotContain("parou", vm.ErrorMessage);
+        Assert.False(vm.IsScanning);
     }
 
     [Fact]

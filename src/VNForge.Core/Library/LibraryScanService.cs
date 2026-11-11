@@ -34,12 +34,15 @@ public sealed class LibraryScanService(LibraryFile file, LibraryScanner scanner,
         var scan = await Task.Run(() => scanner.Scan(root.Path, options, scanProgress, cancellationToken), CancellationToken.None).ConfigureAwait(false);
 
         onScanned?.Invoke(scan);
-        var (merge, linked) = file.Update(library =>
-        {
-            library.SetRoot(root with { ScannedAt = _time.GetUtcNow() });
-            var merged = library.Merge(scan.Games, root.Path);
-            return (merged, LibraryProjectLinker.LinkAll(library, recent));
-        });
+        // Sem o token de propósito: pausar a varredura guarda o que já foi achado, então esta gravação tem que acontecer mesmo com o token cancelado.
+        var (merge, linked) = file.Update(
+            library =>
+            {
+                library.SetRoot(root with { ScannedAt = _time.GetUtcNow() });
+                var merged = library.Merge(scan.Games, root.Path);
+                return (merged, LibraryProjectLinker.LinkAll(library, recent));
+            },
+            CancellationToken.None);
 
         LibraryMatchRun? match = null;
         if (root.MatchVndb && matcherFactory is not null && !scan.Cancelled)

@@ -10,6 +10,8 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class PaletteRiskCountTests
 {
+    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
+
     private static string CreateProject(TempFolder temp, bool corrupt = false)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
@@ -37,8 +39,9 @@ public sealed class PaletteRiskCountTests
         main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Editor);
         await main.Editor.Loading;
 
-        // O projeto abriu, e o texto estraga antes de uma releitura: ela falha e o Editor fica sem dados.
-        File.WriteAllText(Path.Combine(root, "text", "yst00001.json"), "isto não é json");
+        // O projeto abriu, e o texto estraga antes de uma releitura: ela falha e o Editor fica sem dados. O Painel e a Conferência
+        // ainda podem estar lendo o mesmo arquivo em segundo plano, por isso a gravação espera a leitura terminar.
+        TestFiles.WriteAllTextWhileReadersFinish(Path.Combine(root, "text", "yst00001.json"), "isto não é json");
         main.Editor.Reload();
         await main.Editor.Loading;
         Assert.NotNull(main.Editor.ErrorMessage);
@@ -55,19 +58,44 @@ public sealed class PaletteRiskCountTests
     public async Task Com_o_texto_ainda_carregando_a_paleta_abre_sem_estourar_a_pilha()
     {
         using var temp = new TempFolder();
-        var main = NewMain(temp, CreateProject(temp, corrupt: false));
-        await main.Start.OpenFolderCommand.ExecuteAsync(null);
-        await main.ProjectOpening;
-
-        main.Palette.Open();
-        main.Palette.Query = "risco";
-        if (main.RiskCounting is { } counting)
+        var root = CreateProject(temp, corrupt: false);
+        // O texto fica "ainda carregando" por uma porta, e não pela sorte de a paleta abrir antes de a leitura terminar: o teste não tem a thread da tela,
+        // então sem a porta o Apply do Editor (que troca Scripts e o cache de falantes) corria em outra thread enquanto a paleta os lia.
+        using var gate = new ManualResetEventSlim();
+        var main = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(DateTimeOffset.UnixEpoch)))
         {
-            await counting;
-        }
+            Editor = new EditorViewModel(_ =>
+            {
+                // Com prazo: se o loader rodasse na thread do teste, a porta nunca abriria e a suíte travaria.
+                if (!gate.Wait(Deadline))
+                {
+                    throw new TimeoutException("A porta do loader não abriu: o loader rodou na thread do teste.");
+                }
 
-        Assert.Contains(main.Palette.Results, r => r.Title == "Revisar por risco");
-        await main.Editor.Loading;
+                return ProjectLines.Read(ProjectFolder.Open(root));
+            }),
+        };
+
+        try
+        {
+            await main.Start.OpenFolderCommand.ExecuteAsync(null).WaitAsync(Deadline, TestContext.Current.CancellationToken);
+            await main.ProjectOpening.WaitAsync(Deadline, TestContext.Current.CancellationToken);
+            Assert.True(main.Editor.IsLoading);
+
+            main.Palette.Open();
+            main.Palette.Query = "risco";
+            if (main.RiskCounting is { } counting)
+            {
+                await counting.WaitAsync(Deadline, TestContext.Current.CancellationToken);
+            }
+
+            Assert.Contains(main.Palette.Results, r => r.Title == "Revisar por risco");
+        }
+        finally
+        {
+            gate.Set();
+            await main.Editor.Loading.WaitAsync(Deadline, TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]

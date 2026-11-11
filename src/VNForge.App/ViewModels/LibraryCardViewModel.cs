@@ -5,7 +5,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Um jogo da grade ou da lista. Tudo o que a tela escreve vem pronto do <see cref="LibraryCard"/> do Core; aqui só moram a seleção e a escolha de ícone.</summary>
-public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card, LibraryTranslationState? version = null, IReadOnlyList<LibraryDrawerChip>? tags = null) : ObservableObject
+public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard card, LibraryTranslationState? version = null, IReadOnlyList<LibraryDrawerChip>? tags = null, bool revealed = false) : ObservableObject
 {
     public LibraryGame Game { get; } = game;
 
@@ -29,11 +29,21 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
 
     public bool HasImage => Card.Cover == LibraryCoverKind.Image;
 
-    public bool IsAdultVeil => Card.Cover == LibraryCoverKind.AdultVeil;
+    /// <summary>O jogo é de conteúdo adulto: a capa leva o selo 18+ em todo modo.</summary>
+    public bool IsAdult => Card.Adult;
+
+    /// <summary>A capa está borrada: o modo é Desfocar e a pessoa ainda não pediu para ver este jogo. A capa leva o botão "Mostrar".</summary>
+    public bool IsBlurred => Card.CoverBlurred && !Revealed;
+
+    /// <summary>A pessoa já pediu para ver este jogo nesta sessão e o modo continua sendo Desfocar: a capa leva o olho que borra de novo.</summary>
+    public bool CanConceal => Revealed && Card.Adult;
+
+    /// <summary>A pessoa pediu para ver este jogo sem o borrão (só nesta sessão).</summary>
+    public bool Revealed { get; } = revealed;
 
     public bool HasNoArt => Card.Cover == LibraryCoverKind.NoArt;
 
-    public bool HasState => Card.Match != LibraryMatchState.None;
+    public bool HasState => !IsBlurred && !CanConceal;
 
     public bool StateIsWarning => Card.Match == LibraryMatchState.NeedsConfirmation;
 

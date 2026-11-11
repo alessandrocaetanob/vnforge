@@ -98,7 +98,7 @@ public sealed class SheetCatalogSourceTests : IDisposable
         var game = Game();
 
         var hidden = LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated, null, new SheetCatalogSource(Store), _ => null).Html;
-        var adult = LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated, new LibraryCatalogOptions(new LibraryPrivacy(false, true)), new SheetCatalogSource(Store), _ => null).Html;
+        var adult = LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated, new LibraryCatalogOptions(new LibraryPrivacy(false, AdultMode.Show)), new SheetCatalogSource(Store), _ => null).Html;
         var without = LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated, null, null, _ => null).Html;
 
         Assert.Contains("PT: A rainy town.", hidden, StringComparison.Ordinal);
