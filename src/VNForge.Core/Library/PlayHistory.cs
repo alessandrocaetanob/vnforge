@@ -13,14 +13,13 @@ public static class PlayHistory
 {
     public const int Weeks = 12;
 
-    /// <summary>As sessões da mais recente para a mais antiga. A sessão aberta (em andamento) fica de fora: ela aparece em "Jogando agora".</summary>
+    /// <summary>As sessões da mais recente para a mais antiga. A sessão aberta (em andamento) entra com o tempo gravado até agora, como o quadro mostra ao lado de "Jogando agora".</summary>
     public static IReadOnlyList<PlaySessionRow> Rows(IEnumerable<PlaySession> sessions, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(sessions);
         return
         [
             .. sessions
-                .Where(s => !s.Open)
                 .OrderByDescending(s => s.StartedAt)
                 .Select(s => new PlaySessionRow(When(s.StartedAt, now), PlayTime.Format(s.Duration), s.ViaLocaleEmulator ? "Locale Emulator" : "Direto")),
         ];

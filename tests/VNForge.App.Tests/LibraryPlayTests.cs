@@ -254,6 +254,7 @@ public sealed class LibraryPlayTests : IDisposable
         GamePlayViewModel? play = null;
         LibraryViewModel? library = null;
         var shown = new List<string>();
+        var liveRows = new List<PlaySessionRow>();
         var launcher = new FakeGameLauncher(_clock) { Script = [(TimeSpan.FromMinutes(25), GameProcessState.Running), (TimeSpan.FromMinutes(5), GameProcessState.Exited)] };
         launcher.OnPoll = () =>
         {
@@ -263,6 +264,7 @@ public sealed class LibraryPlayTests : IDisposable
                 play = new GamePlayViewModel(library!, _clock);
                 play.Open(project);
                 shown.Add(play.ElapsedText);
+                liveRows.AddRange(play.Rows);
             }
         };
         library = Create(launcher);
@@ -271,6 +273,11 @@ public sealed class LibraryPlayTests : IDisposable
         await library.PlayCommand.ExecuteAsync(library.Cards.Single());
 
         Assert.Equal(["00:25:00"], shown);
+
+        // A partida em curso entra na lista, com o tempo de agora, como no quadro.
+        var live = Assert.Single(liveRows);
+        Assert.StartsWith("Hoje, ", live.When);
+        Assert.Equal(("25 min", "Direto"), (live.Duration, live.Via));
         var semJogo = new GamePlayViewModel(library, _clock);
         semJogo.Open(_root.SubFolder("outro-projeto"));
         Assert.False(semJogo.HasGame);

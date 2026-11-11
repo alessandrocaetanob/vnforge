@@ -26,6 +26,8 @@ public sealed partial class GamePlayViewModel : ObservableObject
     private LibraryGame? game;
     private DateTimeOffset? startedAt;
     private bool startedViaLocale;
+    private IReadOnlyList<PlaySession> sessions = [];
+    private int liveMinutes = -1;
 
     public GamePlayViewModel(LibraryViewModel library, TimeProvider? clock = null)
     {
@@ -146,7 +148,14 @@ public sealed partial class GamePlayViewModel : ObservableObject
     }
 
     /// <summary>Atualiza o tempo desta partida; a tela chama a cada segundo enquanto <see cref="IsPlaying"/>.</summary>
-    public void Tick() => OnPropertyChanged(nameof(ElapsedText));
+    public void Tick()
+    {
+        OnPropertyChanged(nameof(ElapsedText));
+        if (IsPlaying && startedAt is { } start && (int)(clock.GetUtcNow() - start).TotalMinutes != liveMinutes)
+        {
+            RefreshRows();
+        }
+    }
 
     private async Task PlayAsync()
     {
@@ -166,7 +175,8 @@ public sealed partial class GamePlayViewModel : ObservableObject
         var sessions = game is null ? [] : library.Played.SessionsOf(game.Id);
         var now = clock.GetUtcNow();
         var stats = game is null ? PlayStats.None : library.Played.StatsOf(game.Id);
-        Rows = [.. (ShowsWeeks ? PlayHistory.WeekRows(sessions, now) : PlayHistory.Rows(sessions, now)).Take(VisibleRows)];
+        this.sessions = sessions;
+        BuildRows();
         TotalText = stats.Sessions == 0 ? "0 min" : PlayTime.Format(stats.Total);
         AverageText = Describe(stats);
         Bars = BarsOf(PlayHistory.PerWeek(sessions, now));
@@ -175,6 +185,30 @@ public sealed partial class GamePlayViewModel : ObservableObject
     }
 
     private void Raise() => OnPropertyChanged(string.Empty);
+
+    private void RefreshRows()
+    {
+        BuildRows();
+        OnPropertyChanged(nameof(Rows));
+        OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(ShowsEmptyRows));
+    }
+
+    // A lista traz a partida em curso, com o tempo de agora, junto das sessões do playtime.json (que só entra lá quando a Biblioteca relê).
+    private void BuildRows()
+    {
+        var now = clock.GetUtcNow();
+        var listed = sessions;
+        liveMinutes = -1;
+        if (IsPlaying && startedAt is { } start)
+        {
+            var elapsed = now - start;
+            liveMinutes = (int)elapsed.TotalMinutes;
+            listed = [.. sessions.Where(s => !s.Open), new PlaySession(PlaySession.NewId(), start, now, elapsed, Open: true, ViaLocaleEmulator: startedViaLocale)];
+        }
+
+        Rows = [.. (ShowsWeeks ? PlayHistory.WeekRows(listed, now) : PlayHistory.Rows(listed, now)).Take(VisibleRows)];
+    }
 
     partial void OnViewIndexChanged(int value) => Refresh();
 

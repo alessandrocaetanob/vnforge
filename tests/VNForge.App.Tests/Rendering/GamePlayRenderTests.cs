@@ -150,6 +150,8 @@ public sealed class GamePlayRenderTests(HeadlessFixture fixture, DemoFolderFixtu
                     Assert.Contains(texts, t => t.StartsWith("Aberto às ", StringComparison.Ordinal) && t.EndsWith(" pelo Locale Emulator · o app conta pelo processo Game.exe", StringComparison.Ordinal));
                     Assert.Contains(texts, t => t.StartsWith("00:42:", StringComparison.Ordinal));
                     Assert.DoesNotContain("Pronto para jogar", texts);
+                    Assert.Contains(texts, t => t.StartsWith("Hoje, ", StringComparison.Ordinal));
+                    Assert.Equal(4, page.GetVisualDescendants().OfType<ItemsControl>().Single(i => i.Name == "Rows").ItemCount);
                     var card = page.GetVisualDescendants().OfType<GamePlayView>().Single();
                     Assert.False(card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PlayButton").IsEffectivelyVisible);
 

@@ -14,7 +14,7 @@ public sealed class PlayHistoryTests
         new(Guid.NewGuid().ToString("N"), started, started.AddMinutes(minutes), TimeSpan.FromMinutes(minutes), Open: open, ViaLocaleEmulator: viaLocaleEmulator);
 
     [Fact]
-    public void Lista_as_sessoes_da_mais_recente_para_a_mais_antiga_sem_a_que_esta_aberta()
+    public void Lista_as_sessoes_da_mais_recente_para_a_mais_antiga_com_a_que_esta_aberta()
     {
         var rows = PlayHistory.Rows(
             [
@@ -27,6 +27,7 @@ public sealed class PlayHistoryTests
 
         Assert.Equal(
             [
+                new PlaySessionRow("Hoje, 21:50", "5 min", "Direto"),
                 new PlaySessionRow("Hoje, 21:14", "1 h 52 min", "Locale Emulator"),
                 new PlaySessionRow("Ontem, 20:02", "2 h 10 min", "Direto"),
                 new PlaySessionRow("06/11, 22:40", "48 min", "Direto"),
