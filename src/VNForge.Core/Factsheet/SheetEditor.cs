@@ -10,7 +10,7 @@ namespace VNForge.Core.Factsheet;
 public sealed record SheetMarkResult(int Changed, int Unchanged, int SkippedOutdated = 0);
 
 /// <summary>
-/// Revisar, aprovar e corrigir à mão os textos da ficha de um jogo, como se faz com as falas. Todo método grava sob a trava de <see cref="SheetStore"/>, relendo o que muda.
+/// Revisar, aprovar e corrigir à mão os textos da ficha de um jogo, como se faz com as falas. Cada método grava sob a trava de <see cref="SheetStore"/>, relendo o que muda.
 /// Um nome de tag ou de traço vale para todos os jogos, então revisá-lo aqui o revisa em toda parte.
 /// </summary>
 public static class SheetEditor
@@ -30,11 +30,11 @@ public static class SheetEditor
         }
 
         result.AddRange(characters.Where(c => c.Description is not null).Select(c => (SheetField.OfCharacter(c.Id), c.Description!)));
-        foreach (var tag in game.Tags)
+        foreach (var tagId in game.Tags.Select(tag => tag.Id))
         {
-            if (terms.Find(SheetTermKind.Tag, tag.Id) is { } term)
+            if (terms.Find(SheetTermKind.Tag, tagId) is { } term)
             {
-                result.Add((SheetField.OfTag(tag.Id), term.Text));
+                result.Add((SheetField.OfTag(tagId), term.Text));
             }
         }
 

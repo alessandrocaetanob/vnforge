@@ -17,12 +17,9 @@ public static class TitleSimilarity
     {
         ArgumentNullException.ThrowIfNull(text);
         var builder = new StringBuilder(text.Length);
-        foreach (var c in text.Normalize(NormalizationForm.FormKC))
+        foreach (var c in text.Normalize(NormalizationForm.FormKC).Where(char.IsLetterOrDigit))
         {
-            if (char.IsLetterOrDigit(c))
-            {
-                builder.Append(char.ToLowerInvariant(c));
-            }
+            builder.Append(char.ToLowerInvariant(c));
         }
 
         return builder.ToString();

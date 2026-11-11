@@ -11,7 +11,7 @@ public sealed class ImageListerTests : IDisposable
 
     public void Dispose() => Directory.Delete(_game, recursive: true);
 
-    private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, byte[]>> Archives(params (string File, (string Path, byte[] Data)[] Entries)[] files) =>
+    private static Dictionary<string, IReadOnlyDictionary<string, byte[]>> Archives(params (string File, (string Path, byte[] Data)[] Entries)[] files) =>
         files.ToDictionary(f => f.File, f => (IReadOnlyDictionary<string, byte[]>)f.Entries.ToDictionary(e => e.Path, e => e.Data));
 
     private ImageListing List(FakeArchiveFormat format, ImageScanOptions? options = null) =>

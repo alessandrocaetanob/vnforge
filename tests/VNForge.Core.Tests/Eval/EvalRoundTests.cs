@@ -68,8 +68,8 @@ public sealed class EvalRoundTests
 
         Assert.Equal(1, round.NextPair!.Index);
         round = round.WithAnswer(1, BlindChoice.First).WithAnswer(1, BlindChoice.Second);
-        Assert.Single(round.Answers);
-        Assert.Equal(BlindChoice.Second, round.Answers[0].Choice);
+        var answer = Assert.Single(round.Answers);
+        Assert.Equal(BlindChoice.Second, answer.Choice);
         Assert.Equal((1, 1), round.BlindScore("C"));
         Assert.Equal(2, round.NextPair!.Index);
         Assert.Null(round.WithAnswer(2, BlindChoice.Skipped).NextPair);

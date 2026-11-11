@@ -264,7 +264,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     /// <summary>
     /// Troca o estado da lista do jogo na <paramref name="current"/> (a biblioteca recém-lida, dentro do <see cref="LibraryFile.Update{T}(Func{GameLibrary, T})"/>) mexendo só no <c>List</c>
-    /// e deixando todo o resto do jogo como está agora. Se o jogo sumiu, teve o casamento trocado ou a lista editada desde o plano, não grava e devolve falso.
+    /// e deixando o resto do jogo como está agora. Se o jogo sumiu, teve o casamento trocado ou a lista editada desde o plano, não grava e devolve falso.
     /// </summary>
     public static bool Keep(GameLibrary current, LibraryGame planned, LibraryListState state)
     {
@@ -297,7 +297,15 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     private static string ShowDate(object? value) => value is DateOnly date ? date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) : "nenhuma";
 
-    private static string ShowNotes(object? value) => value is string { Length: > 0 } text ? (text.Length <= 40 ? text : text[..40] + "...") : "nenhuma";
+    private static string ShowNotes(object? value)
+    {
+        if (value is not string { Length: > 0 } text)
+        {
+            return "nenhuma";
+        }
+
+        return text.Length <= 40 ? text : text[..40] + "...";
+    }
 
     private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncOptions options, DateTimeOffset now)
     {
@@ -336,7 +344,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             var l = scalar.Get(local);
             var r = scalar.Get(remote);
             LibrarySyncWinner? chosen = options.Resolutions.TryGetValue((game.Id, scalar.Name), out var decided) ? decided : null;
-            switch (DecideScalar(scalar, l, r, scalar.Get(baseFields), hasBase, direction, localNewer, conflicts, chosen))
+            switch (DecideScalar(scalar, new ScalarValues(l, r, scalar.Get(baseFields), hasBase), direction, localNewer, conflicts, chosen))
             {
                 case Move.Pull:
                     newLocal = scalar.Set(newLocal, r);
@@ -388,8 +396,11 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         return new LibrarySyncStep(item, newState, changed, update);
     }
 
-    private static Move DecideScalar(Scalar scalar, object? l, object? r, object? b, bool hasBase, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts, LibrarySyncWinner? chosen)
+    private sealed record ScalarValues(object? Local, object? Remote, object? Base, bool HasBase);
+
+    private static Move DecideScalar(Scalar scalar, ScalarValues values, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts, LibrarySyncWinner? chosen)
     {
+        var (l, r, b, hasBase) = values;
         if (Equals(l, r))
         {
             return Move.Keep;
@@ -534,9 +545,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             Vote = Diff(before.Vote, after.Vote),
             Started = Diff(before.Started, after.Started),
             Finished = Diff(before.Finished, after.Finished),
-            Notes = string.Equals(before.Notes, after.Notes, StringComparison.Ordinal)
-                ? default
-                : after.Notes is null ? VndbChange<string>.Clear : VndbChange<string>.Set(after.Notes),
+            Notes = DiffNotes(before.Notes, after.Notes),
             LabelsSet = setIds,
             LabelsUnset = unsetIds,
         };
@@ -545,9 +554,26 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             : update;
     }
 
+    private static VndbChange<string> DiffNotes(string? before, string? after)
+    {
+        if (string.Equals(before, after, StringComparison.Ordinal))
+        {
+            return default;
+        }
+
+        return after is null ? VndbChange<string>.Clear : VndbChange<string>.Set(after);
+    }
+
     private static VndbChange<T> Diff<T>(T? before, T? after)
-        where T : struct =>
-        Equals(before, after) ? default : after is { } value ? VndbChange<T>.Set(value) : VndbChange<T>.Clear;
+        where T : struct
+    {
+        if (Equals(before, after))
+        {
+            return default;
+        }
+
+        return after is { } value ? VndbChange<T>.Set(value) : VndbChange<T>.Clear;
+    }
 
     private sealed record Scalar(string Name, Func<LibraryListFields, object?> Get, Func<LibraryListFields, object?, LibraryListFields> Set, Func<object?, string> Show, LibrarySyncFields Group);
 }

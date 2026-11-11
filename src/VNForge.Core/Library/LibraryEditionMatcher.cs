@@ -52,6 +52,11 @@ public static class LibraryEditionMatcher
             titles.AddRange(new[] { language.Title, language.Latin }.OfType<string>());
         }
 
-        return terms.Max(term => titles.Max(title => TitleSimilarity.Between(term.Text, title)));
+        return terms.Max(term => BestMatch(term.Text, titles));
+    }
+
+    private static double BestMatch(string term, List<string> titles)
+    {
+        return titles.Max(title => TitleSimilarity.Between(term, title));
     }
 }

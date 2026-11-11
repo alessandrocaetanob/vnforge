@@ -15,6 +15,8 @@ public sealed class BibleRunnerTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
+    private static readonly (string Chapter, string[] Keys)[] ExpectedSceneCalls = [("Manhã", ["yst1", "yst2"]), ("Manhã", ["yst3"]), ("Festival", ["yst4"])];
+
     private static BibleRunOptions NoWait() => new() { Delay = (_, _) => Task.CompletedTask, ScenesPerCall = 2, Model = ClaudeModels.Opus };
 
     private static IReadOnlyList<BibleChapterInput> TwoChapters() =>
@@ -36,7 +38,7 @@ public sealed class BibleRunnerTests : IDisposable
         Assert.Equal(2, result.ChaptersRead);
         Assert.Empty(result.Failures);
         Assert.Equal(
-            [("Manhã", new[] { "yst1", "yst2" }), ("Manhã", new[] { "yst3" }), ("Festival", new[] { "yst4" })],
+            ExpectedSceneCalls,
             provider.SceneCalls.Select(c => (c.Chapter.Name, c.Keys.ToArray())));
         var bible = project.LoadBible();
         Assert.Equal(["yst1", "yst2", "yst3", "yst4"], bible.Scenes.Select(s => s.Key));

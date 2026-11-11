@@ -153,7 +153,7 @@ public sealed class LibraryScanner(EngineRecognizer recognizer, IGameWindowTitle
     }
 
     /// <summary>As subpastas, em ordem alfabética invertida: a pilha as tira em ordem alfabética.</summary>
-    private static IEnumerable<string> Children(string folder)
+    private static List<string> Children(string folder)
     {
         try
         {

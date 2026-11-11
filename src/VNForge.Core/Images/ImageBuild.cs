@@ -71,7 +71,7 @@ public static class ImageBuild
         foreach (var group in marked.GroupBy(e => e.Archive, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var count = WriteArchive(project, gameDirectory, formats, outputDirectory, originalOf, group.Key, [.. group], warnings);
+            var count = WriteArchive(project, new ArchiveFolders(gameDirectory, outputDirectory, originalOf), formats, group.Key, [.. group], warnings);
             if (count > 0)
             {
                 archives.Add(new RepackedArchive(group.Key, count));
@@ -81,10 +81,12 @@ public static class ImageBuild
         return new ImageBuildResult(archives, warnings);
     }
 
+    private sealed record ArchiveFolders(string GameDirectory, string OutputDirectory, Func<string, string>? OriginalOf);
+
     private static int WriteArchive(
-        ProjectFolder project, string gameDirectory, IReadOnlyList<IArchiveFormat> formats, string outputDirectory,
-        Func<string, string>? originalOf, string archiveName, List<ImageEdit> edits, List<string> warnings)
+        ProjectFolder project, ArchiveFolders folders, IReadOnlyList<IArchiveFormat> formats, string archiveName, List<ImageEdit> edits, List<string> warnings)
     {
+        var (gameDirectory, outputDirectory, originalOf) = folders;
         string gameFile;
         try
         {

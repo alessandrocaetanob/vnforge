@@ -80,7 +80,7 @@ public static class InstallerApp
     /// <summary>O texto de quem abre um instalador que não tem patch dentro.</summary>
     public const string EmptyInstallerText = "Este instalador está vazio: não achei o patch dentro dele. Baixe o instalador de novo.";
 
-    private static int Install(IInstallerEngine engine, string folder, TextWriter output)
+    private static int Install(PatchEngine engine, string folder, TextWriter output)
     {
         var manifest = engine.Manifest;
         output.WriteLine("[1/4] Conferir a versão do jogo");
@@ -107,7 +107,7 @@ public static class InstallerApp
         return Ok;
     }
 
-    private static int Uninstall(IInstallerEngine engine, string folder, TextWriter output)
+    private static int Uninstall(PatchEngine engine, string folder, TextWriter output)
     {
         if (PatchInstaller.InstalledVersion(folder) is null)
         {

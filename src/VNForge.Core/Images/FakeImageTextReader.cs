@@ -51,9 +51,11 @@ public sealed class FakeImageTextReader(Func<ImageToRead, string>? text = null) 
         try
         {
             int seen;
-            while (running > (seen = Volatile.Read(ref _maxInFlight)) && Interlocked.CompareExchange(ref _maxInFlight, running, seen) != seen)
+            do
             {
+                seen = Volatile.Read(ref _maxInFlight);
             }
+            while (running > seen && Interlocked.CompareExchange(ref _maxInFlight, running, seen) != seen);
 
             if (Delay > TimeSpan.Zero)
             {

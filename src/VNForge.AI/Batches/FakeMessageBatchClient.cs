@@ -25,7 +25,7 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     /// <summary>Faz toda consulta ao lote falhar com esta exceção, como uma rede fora do ar.</summary>
     public Exception? GetFails { get; set; }
 
-    /// <summary>Faz todo cancelamento falhar com esta exceção.</summary>
+    /// <summary>Faz cada cancelamento falhar com esta exceção.</summary>
     public Exception? CancelFails { get; set; }
 
     /// <summary>Roda depois de cada consulta que deu certo; o teste o usa para saber que o app já perguntou.</summary>
@@ -128,7 +128,7 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     {
         public string Id { get; } = id;
 
-        public IReadOnlyList<MessageBatchItem> Items { get; } = items;
+        public List<MessageBatchItem> Items { get; } = items;
 
         public bool Ended { get; set; }
 
@@ -147,9 +147,12 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
         public MessageBatchEntry Entry(MessageBatchItem item, FakeMessageBatchClient owner)
         {
             var outcome = CancelRequested ? MessageBatchOutcome.Canceled : owner.OutcomeOf(item);
-            return outcome == MessageBatchOutcome.Succeeded
-                ? new MessageBatchEntry(item.CustomId, outcome, owner.Reply(item))
-                : new MessageBatchEntry(item.CustomId, outcome, Error: outcome == MessageBatchOutcome.Errored ? "overloaded_error" : null);
+            if (outcome == MessageBatchOutcome.Succeeded)
+            {
+                return new MessageBatchEntry(item.CustomId, outcome, owner.Reply(item));
+            }
+
+            return new MessageBatchEntry(item.CustomId, outcome, Error: outcome == MessageBatchOutcome.Errored ? "overloaded_error" : null);
         }
     }
 }

@@ -94,19 +94,19 @@ public class SpeakerMarkersTests
     [Fact]
     public void Cp1252_AAberturaSemSinalEUmByteForaDaFaixaDeLeadBytesEDiferenteDoEspacoComum()
     {
-        var open = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).SpeakerOpen;
-        var bytes = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).EncodeSpeakerDelimiter(open);
+        var open = Assert.IsType<ISpeakerDelimiterEncoder>(Cp1252, exactMatch: false).SpeakerOpen;
+        var bytes = Assert.IsType<ISpeakerDelimiterEncoder>(Cp1252, exactMatch: false).EncodeSpeakerDelimiter(open);
 
         Assert.Equal("\u00A0", open);
         Assert.Equal([0xA0], bytes);
-        Assert.Empty(Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252).SpeakerClose);
+        Assert.Empty(Assert.IsType<ISpeakerDelimiterEncoder>(Cp1252, exactMatch: false).SpeakerClose);
         Assert.All(bytes, b => Assert.False(b is (>= 0x81 and <= 0x9F) or (>= 0xE0 and <= 0xFC) or 0x20));
     }
 
     [Fact]
     public void Cp1252_OsSubstitutosDoEstiloGuillemetsSaoGravaveisEFicamForaDaFaixaDeLeadBytes()
     {
-        var encoder = Assert.IsAssignableFrom<ISpeakerDelimiterEncoder>(Cp1252Guillemets);
+        var encoder = Assert.IsType<ISpeakerDelimiterEncoder>(Cp1252Guillemets, exactMatch: false);
         var bytes = GameEncodings.Windows1252.GetBytes(encoder.SpeakerOpen + encoder.SpeakerClose);
 
         Assert.Equal(["«", "»"], new[] { encoder.SpeakerOpen, encoder.SpeakerClose });
@@ -119,7 +119,7 @@ public class SpeakerMarkersTests
     {
         Assert.Equal([1], Cp1252.FindUnencodable("a\u00A0b"));
         Assert.Equal("a b", UnwritableCharacters.Fix("a\u00A0b", Cp1252));
-        Assert.Contains("0xA0", Assert.IsAssignableFrom<IExplainingTextEncoder>(Cp1252).ExplainRefusal(0xA0));
+        Assert.Contains("0xA0", Assert.IsType<IExplainingTextEncoder>(Cp1252, exactMatch: false).ExplainRefusal(0xA0));
     }
 
     [Fact]

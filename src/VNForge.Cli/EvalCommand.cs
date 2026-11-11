@@ -149,13 +149,15 @@ internal static class EvalCommand
                 stop == BudgetStop.LimitReached ? "Aumente o limite nos Ajustes do app para rodar o banco de provas." : null);
         }
 
-        var request = BuildRequest(cli, project, configs, sample, seed, pairs, judgeModel, budget, json ? null : new Progress<EvalProgress>(p => error.WriteLine(ProgressText(p))));
+        var request = BuildRequest(cli, project, configs, new RoundShape(sample, seed, pairs, judgeModel), budget, json ? null : new Progress<EvalProgress>(p => error.WriteLine(ProgressText(p))));
         var round = await EvalRunner.RunAsync(request, token).ConfigureAwait(false);
         return WriteReport(output, json, round, budget.Rate);
     }
 
+    private sealed record RoundShape(int Sample, int Seed, int Pairs, string? JudgeModel);
+
     private static EvalRunRequest BuildRequest(
-        VnfCli cli, ProjectFolder project, IReadOnlyList<EvalConfig> configs, int sample, int seed, int pairs, string? judgeModel, BudgetSettings budget, IProgress<EvalProgress>? progress)
+        VnfCli cli, ProjectFolder project, IReadOnlyList<EvalConfig> configs, RoundShape shape, BudgetSettings budget, IProgress<EvalProgress>? progress)
     {
         string? key = null;
         string Key() => key ??= RequireApiKey(cli);
@@ -169,17 +171,17 @@ internal static class EvalCommand
             return new EvalProvider(translator, () => (translator as ClaudeTranslationProvider)?.Usage);
         }
 
-        IJudgeProvider? judge = judgeModel is null
-            ? null
-            : cli.JudgeProviderFactory is { } judgeFactory
-                ? judgeFactory(judgeModel, ClaudeEffort.Low)
-                : ClaudeProviderFactory.CreateJudge(Key(), new ClaudeOptions { Model = judgeModel, Effort = ClaudeEffort.Low });
+        IJudgeProvider Judge(string model) => cli.JudgeProviderFactory is { } judgeFactory
+            ? judgeFactory(model, ClaudeEffort.Low)
+            : ClaudeProviderFactory.CreateJudge(Key(), new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
 
-        return new EvalRunRequest(project, configs, sample, seed, Provider)
+        IJudgeProvider? judge = shape.JudgeModel is null ? null : Judge(shape.JudgeModel);
+
+        return new EvalRunRequest(project, configs, shape.Sample, shape.Seed, Provider)
         {
             Judge = judge,
-            JudgeModel = judgeModel,
-            PairCount = pairs,
+            JudgeModel = shape.JudgeModel,
+            PairCount = shape.Pairs,
             Limits = budget.Limits,
             Rate = budget.Rate,
             Progress = progress,

@@ -135,7 +135,7 @@ public sealed record BlindAnswer(int Index, BlindChoice Choice);
 /// com as respostas e a configuração que a pessoa escolheu para o M4.
 /// </summary>
 /// <param name="GoldLines">Quantas linhas aprovadas o projeto tinha quando a rodada rodou.</param>
-/// <param name="RemainingLines">Quantas linhas ainda esperam tradução; o custo e o tempo do jogo todo valem para elas.</param>
+/// <param name="RemainingLines">Quantas linhas ainda esperam tradução; o custo e o tempo do jogo inteiro valem para elas.</param>
 /// <param name="JudgeModel">O modelo do juiz de IA; nulo quando o juiz não rodou.</param>
 /// <param name="ChosenConfigId">A letra da configuração escolhida para o M4; nula enquanto ninguém escolheu.</param>
 /// <param name="PartialNote">Preenchida quando o limite de gasto parou a rodada: diz o que ficou de fora. Só as configurações que terminaram estão nos relatórios.</param>

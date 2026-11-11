@@ -33,9 +33,10 @@ public static class BlindPairs
         var pairs = new List<BlindPair>();
         var used = new HashSet<string>(StringComparer.Ordinal);
         var empty = 0;
-        for (var k = 0; pairs.Count < count && empty < combos.Count; k++)
+        var k = 0;
+        while (pairs.Count < count && empty < combos.Count)
         {
-            var c = k % combos.Count;
+            var c = k++ % combos.Count;
             string? line = null;
             while (cursor[c] < candidates[c].Count && line is null)
             {

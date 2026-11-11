@@ -5,7 +5,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Core.Library;
 
 /// <summary>
-/// Os rótulos da lista do VNDB. O que a kana (api.vndb.org/kana, seção "GET /ulist_labels") diz: os ids abaixo de 10 são os pré-definidos e iguais para todo mundo; os rótulos 0 ("No label") e
+/// Os rótulos da lista do VNDB. O que a kana (api.vndb.org/kana, seção "GET /ulist_labels") diz: os ids abaixo de 10 são os pré-definidos e iguais para qualquer pessoa; os rótulos 0 ("No label") e
 /// 7 ("Voted") são virtuais e não podem ser gravados (seção "PATCH /ulist/"). O que a kana não diz: quais são os nomes dos ids de 1 a 6 e o teto de ids da conta. Os nomes abaixo
 /// (Playing, Finished, Stalled, Dropped, Wishlist, Blacklist) são os do site do VNDB, não conferidos na kana: servem de nome provisório e de atalho na linha de comando, e o nome que o VNDB
 /// devolve em cada entrada tem prioridade. O teto de 1600 é um limite do app (a kana avisa que não verifica os ids), não da API.
@@ -28,7 +28,7 @@ public static class LibraryListLabels
     /// <summary>O primeiro id de rótulo da conta: abaixo dele ficam os pré-definidos.</summary>
     public const int FirstAccountId = 10;
 
-    private sealed record Factory(int Id, string Vndb, string Portuguese, string[] Names);
+    private sealed record Factory(int Id, string Vndb, string Portuguese, string[] Aliases);
 
     private static readonly Factory[] Predefined =
     [
@@ -61,7 +61,7 @@ public static class LibraryListLabels
             return false;
         }
 
-        if (Array.Find(Predefined, p => p.Names.Contains(value)) is { } found)
+        if (Array.Find(Predefined, p => p.Aliases.Contains(value)) is { } found)
         {
             id = found.Id;
             return true;
@@ -70,7 +70,7 @@ public static class LibraryListLabels
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out id) && id is >= FirstAccountId and <= MaxId;
     }
 
-    public static string Names => string.Join(", ", Predefined.Select(p => p.Names[0]));
+    public static string Names => string.Join(", ", Predefined.Select(p => p.Aliases[0]));
 }
 
 /// <summary>Os limites de voto e a conversão entre a nota que a pessoa digita (1 a 10, uma casa) e o voto do VNDB (10 a 100).</summary>

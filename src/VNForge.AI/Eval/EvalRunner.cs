@@ -330,12 +330,20 @@ public static class EvalRunner
         return (scores, RunCostTracker.DollarsFor(request.JudgeModel!, Delta(before, judge.Usage)) ?? 0m, error, limitReached);
     }
 
-    private static ClaudeUsage? Delta(ClaudeUsage? before, ClaudeUsage? after) => (before, after) switch
+    private static ClaudeUsage? Delta(ClaudeUsage? before, ClaudeUsage? after)
     {
-        (_, null) => null,
-        (null, var b) => b,
-        var (a, b) => new ClaudeUsage(b.InputTokens - a.InputTokens, b.OutputTokens - a.OutputTokens, b.CacheReadInputTokens - a.CacheReadInputTokens, b.CacheCreationInputTokens - a.CacheCreationInputTokens),
-    };
+        if (after is not { } b)
+        {
+            return null;
+        }
+
+        if (before is not { } a)
+        {
+            return b;
+        }
+
+        return new ClaudeUsage(b.InputTokens - a.InputTokens, b.OutputTokens - a.OutputTokens, b.CacheReadInputTokens - a.CacheReadInputTokens, b.CacheCreationInputTokens - a.CacheCreationInputTokens);
+    }
 
     /// <summary>O gasto da rodada em reais: o que o projeto já tinha gasto ao começar mais o das configurações e do juiz que já acabaram.</summary>
     private sealed class Spend(decimal baseline)

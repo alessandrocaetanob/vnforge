@@ -146,7 +146,7 @@ public class Cp1252TextEncoderTests
     [Fact]
     public void SemSinal_AAberturaEOEspacoNaoSeparavelDeUmByteEAFalaNaoTemFechamento()
     {
-        ISpeakerDelimiterEncoder encoder = _encoder;
+        var encoder = Assert.IsType<ISpeakerDelimiterEncoder>(_encoder, exactMatch: false);
 
         Assert.Equal(SpeakerDelimiterStyle.None, encoder.SpeakerDelimiter);
         Assert.Equal("\u00A0", encoder.SpeakerOpen);
@@ -157,7 +157,7 @@ public class Cp1252TextEncoderTests
     [Fact]
     public void ComGuillemets_AAberturaEOFechamentoSaoOParDeUmByteDoEstiloAntigo()
     {
-        ISpeakerDelimiterEncoder encoder = new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets);
+        var encoder = Assert.IsType<ISpeakerDelimiterEncoder>(new Cp1252TextEncoder(SpeakerDelimiterStyle.Guillemets), exactMatch: false);
 
         Assert.Equal(("«", "»"), (encoder.SpeakerOpen, encoder.SpeakerClose));
         Assert.Equal([0xAB], encoder.EncodeSpeakerDelimiter("«"));

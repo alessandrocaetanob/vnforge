@@ -84,7 +84,7 @@ public static class ProjectSummaryReader
         var worked = status.Files.Where(f => f.Counts.Done > 0).ToList();
         if (worked.Count == 0)
         {
-            return status.Files.FirstOrDefault()?.Key;
+            return status.Files.Count > 0 ? status.Files[0].Key : null;
         }
 
         // GetLastWriteTimeUtc não lança: um arquivo que sumiu vale como o mais antigo.

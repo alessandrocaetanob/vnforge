@@ -310,11 +310,11 @@ public sealed class VnfCli
     private static UsageException UsageError(ParseResult parseResult, ILogger logger)
     {
         var messages = new List<string>();
-        foreach (var error in parseResult.Errors)
+        foreach (var original in parseResult.Errors.Select(error => error.Message))
         {
-            if (!ParseErrorMessages.TryTranslate(error.Message, out var translated))
+            if (!ParseErrorMessages.TryTranslate(original, out var translated))
             {
-                logger.LogWarning("Mensagem de uso sem tradução: {Original}", error.Message);
+                logger.LogWarning("Mensagem de uso sem tradução: {Original}", original);
             }
 
             messages.Add(translated);

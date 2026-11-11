@@ -48,10 +48,10 @@ declare -A dlls=()
 for dir in tests/*.Tests; do
   name="$(basename "$dir")"
   dll="$dir/bin/$configuration/net10.0/$name.dll"
-  [ -f "$dll" ] || abort "$dll não existe: compile a solução em $configuration antes."
+  [[ -f "$dll" ]] || abort "$dll não existe: compile a solução em $configuration antes."
   dlls[$name]="$dll"
 done
-[ -n "${dlls[$app]:-}" ] || abort "tests/$app não foi encontrado."
+[[ -n "${dlls[$app]:-}" ]] || abort "tests/$app não foi encontrado."
 
 # Divide as classes do App. O -list classes imprime um banner e uma linha em branco antes das classes; só isso é
 # descartado. Qualquer outra linha tem que parecer um nome de classe, senão a conferência de completude abaixo
@@ -59,9 +59,9 @@ done
 classes="$logs/$app.classes"
 dotnet "${dlls[$app]}" -list classes > "$logs/$app.list" || abort "o -list classes do $app falhou."
 tr -d '\r' < "$logs/$app.list" | sed -e '/^xUnit\.net /d' -e '/^[[:space:]]*$/d' | LC_ALL=C sort > "$classes"
-[ -s "$classes" ] || abort "o -list classes não devolveu nenhuma classe do $app."
+[[ -s "$classes" ]] || abort "o -list classes não devolveu nenhuma classe do $app."
 unexpected="$(grep -Ev '^[^[:space:]]+$' "$classes" || true)"
-[ -z "$unexpected" ] || abort $'linha do -list classes que não é nome de classe:\n'"$unexpected"
+[[ -z "$unexpected" ]] || abort $'linha do -list classes que não é nome de classe:\n'"$unexpected"
 class_total="$(wc -l < "$classes")"
 
 # Soma, por classe, o atributo time dos <testcase> de um ou mais JUnit do xUnit v3. Saída: "classe segundos".
@@ -84,7 +84,7 @@ junit_class_times() {
 # principal a cada caso e leva 81% do tempo: um piso igual para todas deixaria uma fatia só com elas.
 plan_split() {
   local known="$timings_file" weights="$logs/$app.weights"
-  [ -f "$known" ] || known=/dev/null
+  [[ -f "$known" ]] || known=/dev/null
   LC_ALL=C awk -v rdef=40 -v odef=4 '
     function median(v, n,   i, j, x) {
       for (i = 2; i <= n; i++) { x = v[i]; for (j = i - 1; j >= 1 && v[j] > x; j--) v[j + 1] = v[j]; v[j + 1] = x }
@@ -137,15 +137,15 @@ assign_shards
 # Todas as classes, cada uma em exatamente uma fatia. Uma rodada parcial calada é o pior resultado possível aqui.
 # Daqui em diante uma divergência é bug do script.
 duplicated="$(uniq -d "$logs/$app.assigned")"
-[ -z "$duplicated" ] || abort $'classe em mais de uma fatia:\n'"$duplicated"
+[[ -z "$duplicated" ]] || abort $'classe em mais de uma fatia:\n'"$duplicated"
 missing="$(LC_ALL=C comm -23 "$classes" <(uniq "$logs/$app.assigned"))"
-if [ -n "$missing" ]; then
+if [[ -n "$missing" ]]; then
   abort $'a lista de classes do App ficou incompleta ('"$(wc -l <<< "$missing")"$' de '"$class_total"$' classes sem fatia):\n'"$missing"
 fi
 extra="$(LC_ALL=C comm -13 "$classes" <(uniq "$logs/$app.assigned"))"
-[ -z "$extra" ] || abort $'a divisão devolveu classe que o -list classes não tem:\n'"$extra"
+[[ -z "$extra" ]] || abort $'a divisão devolveu classe que o -list classes não tem:\n'"$extra"
 
-if [ -f "$timings_file" ]; then
+if [[ -f "$timings_file" ]]; then
   echo "Divisão do App por tempo: $((class_total - estimated)) de $class_total classes com tempo em $timings_file, $estimated estimadas."
 else
   echo "AVISO: $timings_file não existe; as $class_total classes do App foram estimadas, com Rendering espalhada pelas fatias." >&2
@@ -177,7 +177,7 @@ run_process() {
 # A pasta temporária é do script e some ao sair (o runner é reaproveitado e os PNGs enchiam o disco); a que o
 # chamador define em VNFORGE_RENDER_DIR fica, é onde ele vai buscar os PNGs.
 render_base="${VNFORGE_RENDER_DIR:-}"
-if [ -z "$render_base" ]; then
+if [[ -z "$render_base" ]]; then
   render_base="$(mktemp -d)"
   trap 'rm -rf "$render_base"' EXIT
 fi
@@ -205,10 +205,10 @@ trap cancel INT TERM
 # As fatias do App saem primeiro: são o caminho crítico do passo.
 for ((i = 0; i < shards; i++)); do
   # Fatia vazia não roda: sem -class o xUnit executaria a suíte inteira.
-  [ -s "$logs/$app-$i.classes" ] || continue
+  [[ -s "$logs/$app-$i.classes" ]] || continue
   class_args=()
   while IFS= read -r class; do
-    [ -n "$class" ] && class_args+=(-class "$class")
+    [[ -n "$class" ]] && class_args+=(-class "$class")
   done < "$logs/$app-$i.classes"
   launch "$app-$i" dotnet "${dlls[$app]}" -noLogo "${class_args[@]}" -result-junit "$results/$app-$i.xml" -result-trx "$trx/$app-$i.trx"
 done
@@ -223,20 +223,20 @@ known_order=(Cli Core Installer Patching AI Engines.YuRis Vndb Platform.Windows)
 small=()
 declare -A is_small=()
 for name in "${!dlls[@]}"; do
-  [ "$name" = "$app" ] && continue
+  [[ "$name" = "$app" ]] && continue
   is_small[$name]=1
 done
 while IFS= read -r name; do small+=("$name"); done < <(
   printf '%s\n' "${!is_small[@]}" | LC_ALL=C sort | while IFS= read -r name; do
-    [ -n "$name" ] || continue
+    [[ -n "$name" ]] || continue
     found=0
     for k in "${known_order[@]}"; do
-      if [ "$name" = "VNForge.$k.Tests" ]; then found=1; fi
+      if [[ "$name" = "VNForge.$k.Tests" ]]; then found=1; fi
     done
-    if [ "$found" -eq 0 ]; then echo "$name"; fi
+    if [[ "$found" -eq 0 ]]; then echo "$name"; fi
   done
   for k in "${known_order[@]}"; do
-    if [ -n "${is_small[VNForge.$k.Tests]:-}" ]; then echo "VNForge.$k.Tests"; fi
+    if [[ -n "${is_small[VNForge.$k.Tests]:-}" ]]; then echo "VNForge.$k.Tests"; fi
   done
 )
 next_small=0
@@ -248,9 +248,9 @@ while :; do
   running=()
   running_small=0
   for name in "${names[@]}"; do
-    if [ ! -f "$logs/$name.status" ]; then
+    if [[ ! -f "$logs/$name.status" ]]; then
       running+=("$name")
-      if [ -n "${is_small[$name]:-}" ]; then running_small=$((running_small + 1)); fi
+      if [[ -n "${is_small[$name]:-}" ]]; then running_small=$((running_small + 1)); fi
     fi
   done
   while ((next_small < ${#small[@]} && running_small < small_parallel)); do
@@ -260,7 +260,7 @@ while :; do
     running_small=$((running_small + 1))
     next_small=$((next_small + 1))
   done
-  [ "${#running[@]}" -gt 0 ] || break
+  [[ "${#running[@]}" -gt 0 ]] || break
   if ((SECONDS - tick >= 120)); then
     echo "[$((SECONDS / 60)) min] rodando: ${running[*]}"
     tick=$SECONDS
@@ -269,7 +269,10 @@ while :; do
 done
 wait
 
-count() { { grep -o "$1" "$2" || true; } | wc -l | tr -d ' '; }
+count() {
+  local pattern=$1 file=$2
+  { grep -o "$pattern" "$file" || true; } | wc -l | tr -d ' '
+}
 
 failed=0
 total_tests=0
@@ -277,7 +280,7 @@ for name in "${names[@]}"; do
   read -r rc seconds < "$logs/$name.status"
   xml="$results/$name.xml"
   tests=0 failures=0 skipped=0
-  if [ -f "$xml" ]; then
+  if [[ -f "$xml" ]]; then
     tests="$(count '<testcase ' "$xml")"
     failures=$(($(count '<failure[ >]' "$xml") + $(count '<error[ >]' "$xml")))
     skipped="$(count '<skipped' "$xml")"
@@ -287,9 +290,9 @@ for name in "${names[@]}"; do
   echo "===== $name: saída $rc, ${seconds}s, $tests testes, $failures falhas, $skipped ignorados ====="
   cat "$logs/$name.log"
   # Código 0 sem JUnit é processo que não rodou teste nenhum (ou saiu antes de gravar): também reprova.
-  if [ "$rc" -ne 0 ] || [ ! -f "$xml" ]; then
+  if [[ "$rc" -ne 0 ]] || [[ ! -f "$xml" ]]; then
     failed=1
-    echo ">>> $name reprovou (saída $rc, JUnit $([ -f "$xml" ] && echo gravado || echo ausente))."
+    echo ">>> $name reprovou (saída $rc, JUnit $([[ -f "$xml" ]] && echo gravado || echo ausente))."
   fi
 done
 
@@ -297,9 +300,9 @@ done
 # main para .circleci/tempos-app.txt. Só vale de rodada verde, com todas as classes do App rodadas.
 app_xmls=()
 for ((i = 0; i < shards; i++)); do
-  if [ -f "$results/$app-$i.xml" ]; then app_xmls+=("$results/$app-$i.xml"); fi
+  if [[ -f "$results/$app-$i.xml" ]]; then app_xmls+=("$results/$app-$i.xml"); fi
 done
-if [ "${#app_xmls[@]}" -gt 0 ]; then
+if [[ "${#app_xmls[@]}" -gt 0 ]]; then
   {
     echo "# Tempo por classe do $app: soma do time de cada teste do JUnit, em segundos (classe segundos)."
     echo "# Gerado por .circleci/run-tests.sh; para atualizar, copie o tempos-app.txt dos artefatos de uma rodada verde da main."
@@ -318,12 +321,12 @@ done
 # ficar parecida entre as fatias: se uma se afasta das outras (por exemplo, fatia só de Rendering contra fatia sem
 # Rendering), a soma deixou de servir de peso e o peso passa a ser o tempo de parede por classe. O aviso sai quando a
 # soma medida de uma fatia difere da planejada em mais de 25%, sinal de que o arquivo de tempos envelheceu.
-if [ "${#app_xmls[@]}" -gt 0 ]; then
+if [[ "${#app_xmls[@]}" -gt 0 ]]; then
   walls=""
   slice_files=()
   for ((i = 0; i < shards; i++)); do
     slice_files+=("$logs/$app-$i.classes")
-    if [ -f "$results/$app-$i.xml" ]; then
+    if [[ -f "$results/$app-$i.xml" ]]; then
       read -r _ seconds < "$logs/$app-$i.status"
       walls+=" $i:$seconds"
     fi

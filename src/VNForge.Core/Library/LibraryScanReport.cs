@@ -44,11 +44,13 @@ public static class LibraryScanReport
     public static LibraryScanRow Row(LibraryGame game, bool searching = false)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var vndb = game.IsConfirmed ? LibraryScanVndb.Matched
-            : game.Candidates.Count > 0 ? LibraryScanVndb.Confirm
-            : game.SearchedAt is not null ? LibraryScanVndb.NoMatch
-            : searching ? LibraryScanVndb.Searching
-            : LibraryScanVndb.Waiting;
+        var vndb = game switch
+        {
+            { IsConfirmed: true } => LibraryScanVndb.Matched,
+            { Candidates.Count: > 0 } => LibraryScanVndb.Confirm,
+            { SearchedAt: not null } => LibraryScanVndb.NoMatch,
+            _ => searching ? LibraryScanVndb.Searching : LibraryScanVndb.Waiting,
+        };
         var support = game.Engine.Source switch
         {
             LibraryEngineSource.Engine => LibraryScanSupport.Translates,
