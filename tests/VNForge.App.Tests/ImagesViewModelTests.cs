@@ -276,6 +276,56 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public void FilteringAThousandsOfImagesKeepsTheOrderAndDoesNotGrowQuadratically()
+    {
+        const int count = 100_000;
+        folder.SaveImageInventory([.. Enumerable.Range(0, count).Select(i => new ImageTextEntry(Pack, $"bg/{i:D5}.png", "00", 640, 360, i % 4 == 0 ? string.Empty : "文"))]);
+        var vm = Open();
+        Assert.Equal(count, vm.Visible.Count);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        vm.SetFilterCommand.Execute(ImageFilter.WithoutText);
+        var withoutText = vm.Visible.Select(i => i.Path).ToList();
+        vm.SetFilterCommand.Execute(ImageFilter.All);
+        clock.Stop();
+
+        Assert.Equal(Enumerable.Range(0, count).Where(i => i % 4 == 0).Select(i => $"bg/{i:D5}.png"), withoutText);
+        Assert.Equal(vm.Items.Select(i => i.Path), vm.Visible.Select(i => i.Path));
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"A sincronia levou {clock.Elapsed}.");
+    }
+
+    [Fact]
+    public async Task WithoutAChosenAreaTheCornerIsNotAResizeHandle()
+    {
+        var vm = Open();
+        await Select(vm, "bg/rua.png");
+        Assert.Equal((0, 0), (vm.RegionWidth, vm.RegionHeight));
+
+        Assert.False(vm.TryResizeAnchor(0, 0, out _));
+        Assert.False(vm.TryResizeAnchor(5, 5, out _));
+    }
+
+    [Fact]
+    public async Task TheReaderIsCreatedOnceForTheKeyCheckAndTheReading()
+    {
+        File.Delete(folder.ImageInventoryPath);
+        var reader = new FakeImageTextReader();
+        var created = 0;
+        var vm = Open();
+        vm.ReaderFactory = _ =>
+        {
+            created++;
+            return reader;
+        };
+
+        await vm.ScanCommand.ExecuteAsync(null);
+        vm.ConfirmScanCommand.Execute(null);
+        await vm.Scanning;
+
+        Assert.Equal(1, created);
+    }
+
+    [Fact]
     public async Task TheRewriteDialogListsWhatTheBuildWillWrite()
     {
         var vm = Open();

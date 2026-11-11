@@ -190,6 +190,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? previewCts;
     private bool syncingOutline;
     private ImageScanPlan? scanPlan;
+    private (string Model, IImageTextReader Reader)? scanReader;
     private CancellationTokenSource? scanCts;
 
     public ImagesViewModel(IReadOnlyList<IEngine>? engines = null, IImageComposer? composer = null, TimeSpan? previewDelay = null)
@@ -618,6 +619,13 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     /// <summary>Se o ponteiro está numa alça da área, devolve o canto oposto, que fica parado enquanto a alça é arrastada.</summary>
     public bool TryResizeAnchor(double x, double y, out (double X, double Y) anchor)
     {
+        // Sem área escolhida a região é 0,0,0,0 e as quatro alças cairiam no canto da imagem.
+        if (RegionWidth == 0 && RegionHeight == 0)
+        {
+            anchor = default;
+            return false;
+        }
+
         var (left, top, right, bottom) = (RegionX, RegionY, RegionX + RegionWidth, RegionY + RegionHeight);
         var reach = HandleSize;
         (double X, double Y, double AnchorX, double AnchorY)[] corners = [(left, top, right, bottom), (right, top, left, bottom), (left, bottom, right, top), (right, bottom, left, top)];
@@ -692,7 +700,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!CanCreateReader())
+        if (!TryCreateReader())
         {
             ErrorMessage = "Falta a chave de API. Configure-a nos Ajustes para a IA ler as imagens do jogo.";
             return;
@@ -782,6 +790,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         if (!IsScanning)
         {
             scanPlan = null;
+            scanReader = null;
         }
     }
 
@@ -810,7 +819,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             else
             {
                 var progress = new Progress<ImageScanProgress>(p => ScanProgressText = $"Lendo as imagens · {ProjectLabels.Number(p.Done)} de {ProjectLabels.Number(p.Total)}");
-                result = await new ImageTextScanner(factory(ScanModel), engines.SelectMany(e => e.Archives).ToList())
+                var reader = scanReader is { } kept && kept.Model == ScanModel ? kept.Reader : factory(ScanModel);
+                result = await new ImageTextScanner(reader, engines.SelectMany(e => e.Archives).ToList())
                     .ScanAsync(gameDirectory, plan, new ImageScanRun(), progress, cts.Token);
             }
 
@@ -839,6 +849,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         {
             scanCts = null;
             scanPlan = null;
+            scanReader = null;
             IsScanning = false;
             ScanProgressText = string.Empty;
         }
@@ -863,12 +874,19 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         return result.Cancelled ? "Leitura cancelada. O que já foi lido ficou no inventário." : null;
     }
 
-    // Sem leitor ou sem chave (a fábrica lança ao montar o cliente) não adianta listar nem estimar.
-    private bool CanCreateReader()
+    // Sem leitor ou sem chave (a fábrica lança ao montar o cliente) não adianta listar nem estimar. O leitor feito aqui fica guardado para a leitura usar o mesmo.
+    private bool TryCreateReader()
     {
+        scanReader = null;
         try
         {
-            return ReaderFactory is not null && ReaderFactory(ScanModel) is not null;
+            if (ReaderFactory?.Invoke(ScanModel) is not { } reader)
+            {
+                return false;
+            }
+
+            scanReader = (ScanModel, reader);
+            return true;
         }
         catch (InvalidOperationException)
         {
@@ -1332,9 +1350,16 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         }).ToList();
 
         // Muda a lista no lugar: esvaziar e encher de novo faria a lista da tela soltar a imagem aberta e o editor sumiria ao marcar.
+        // Conjuntos por referência: Contains e IndexOf dentro do laço faziam a conta crescer com o quadrado do número de imagens.
+        var shownSet = new HashSet<ImageItemViewModel>(shown, ReferenceEqualityComparer.Instance);
+        var present = new HashSet<ImageItemViewModel>(ReferenceEqualityComparer.Instance);
         for (var i = Visible.Count - 1; i >= 0; i--)
         {
-            if (!shown.Contains(Visible[i]))
+            if (shownSet.Contains(Visible[i]))
+            {
+                present.Add(Visible[i]);
+            }
+            else
             {
                 Visible.RemoveAt(i);
             }
@@ -1347,14 +1372,14 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
                 continue;
             }
 
-            var at = Visible.IndexOf(shown[i]);
-            if (at >= 0)
+            if (present.Contains(shown[i]))
             {
-                Visible.Move(at, i);
+                Visible.Move(Visible.IndexOf(shown[i]), i);
             }
             else
             {
                 Visible.Insert(i, shown[i]);
+                present.Add(shown[i]);
             }
         }
     }
