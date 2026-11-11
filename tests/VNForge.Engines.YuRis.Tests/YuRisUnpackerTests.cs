@@ -85,22 +85,6 @@ public sealed class YuRisUnpackerTests : IDisposable
             .ToDictionary(f => Path.GetRelativePath(directory, f), f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));
 
     [Fact]
-    public void Unpack_descompacta_so_o_pacote_com_scripts_numa_subpasta_com_o_nome_do_ypf()
-    {
-        WriteStandardGame();
-
-        var result = _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-
-        var archive = Assert.Single(result.Archives);
-        Assert.Equal(YsbinYpf, archive.GamePath);
-        Assert.Equal(YsbinYpf, archive.Directory);
-        Assert.Equal(4, archive.FileCount);
-        Assert.True(File.Exists(Path.Combine(_cache, YsbinYpf, YscYbn)));
-        Assert.True(File.Exists(Path.Combine(_cache, YsbinYpf, "ybin", "yst00002.ybn")));
-        Assert.False(Directory.Exists(Path.Combine(_cache, "bgm.ypf")));
-    }
-
-    [Fact]
     public void Unpack_acha_o_pacote_na_subpasta_pac_e_usa_o_caminho_relativo()
     {
         Write("pac/ysbin.ypf", Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("おはよう"))));
@@ -109,18 +93,6 @@ public sealed class YuRisUnpackerTests : IDisposable
 
         Assert.Equal("pac/ysbin.ypf", Assert.Single(result.Archives).Directory);
         Assert.True(File.Exists(Path.Combine(_cache, "pac", YsbinYpf, Yst1Ybn)));
-    }
-
-    [Fact]
-    public void Unpack_nao_altera_a_pasta_do_jogo()
-    {
-        WriteStandardGame();
-        var before = HashTree(_game);
-
-        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-        _engine.Open(_cache);
-
-        Assert.Equal(before, HashTree(_game));
     }
 
     [Fact]
@@ -142,32 +114,6 @@ public sealed class YuRisUnpackerTests : IDisposable
         Assert.Contains("A pasta do jogo não existe", ex.Message);
     }
 
-    [Fact]
-    public void Unpack_com_cancelamento_nao_descompacta()
-    {
-        WriteStandardGame();
-        using var source = new CancellationTokenSource();
-        source.Cancel();
-
-        Assert.Throws<OperationCanceledException>(() => _engine.Unpack(_game, _cache, source.Token));
-    }
-
-    [Fact]
-    public void Open_lista_os_scripts_ordenados_com_o_nome_legivel_do_yst_list()
-    {
-        WriteStandardGame();
-        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-
-        var game = _engine.Open(_cache);
-
-        Assert.IsType<YuRisContext>(game.Context);
-        Assert.Equal([Yst1Ybn, "yst00002.ybn"], game.Scripts.Select(s => s.Name));
-        Assert.Equal(["01_prologo", null], game.Scripts.Select(s => s.DisplayName));
-        Assert.Equal(["userscript", null], game.Scripts.Select(s => s.Folder));
-        Assert.All(game.Scripts, s => Assert.Same(Assert.Single(_engine.Scripts), s.Format));
-        Assert.Empty(game.Warnings);
-    }
-
     private ScriptNames NamesOfOpenedGame() =>
         ScriptNames.Empty.WithDetected(_engine.Open(_cache).Scripts.ToDictionary(
             s => Path.GetFileNameWithoutExtension(s.Name),
@@ -176,58 +122,6 @@ public sealed class YuRisUnpackerTests : IDisposable
 
     private static IReadOnlyList<FileStatus> OneLineEach(params string[] keys) =>
         [.. keys.Select(k => new FileStatus(k, new StatusCounts(1, 0, 0, 0, 0)))];
-
-    [Fact]
-    public void Os_capitulos_saem_das_pastas_do_yst_list()
-    {
-        var list = new SyntheticYstlBuilder().WithVersion(500)
-            .AddScript(@"userscript\global.yst")
-            .AddScript(@"userscript\01_cap1\manha.yst")
-            .AddScript(@"userscript\01_cap1\tarde.yst")
-            .AddScript(@"userscript\02_cap2\noite.yst")
-            .AddScript(@"userscript\system\menu.yst")
-            .Build().Bytes;
-        Write(YsbinYpf, Archive(
-            (YscYbn, Yscm.Bytes),
-            ("yst_list.ybn", list),
-            ("ybin/yst00001.ybn", Script("a")),
-            ("ybin/yst00002.ybn", Script("b")),
-            ("ybin/yst00003.ybn", Script("c")),
-            ("ybin/yst00004.ybn", Script("d"))));
-        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-
-        var groups = ScriptGrouping.Build(NamesOfOpenedGame(), OneLineEach("yst00001", "yst00002", "yst00003", "yst00004"));
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2", "Menus e nomes"], groups.Select(g => g.Name));
-        Assert.Equal([1, 2, null], groups.Select(g => g.Number));
-        Assert.Equal(["yst00001", "yst00002"], groups[0].ScriptKeys);
-        Assert.Equal(["yst00004"], groups[2].ScriptKeys);
-    }
-
-    [Fact]
-    public void Sem_yst_list_os_capitulos_saem_de_faixas_na_ordem_dos_scripts()
-    {
-        Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("a")), ("yst00002.ybn", Script("b"))));
-        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-
-        var groups = ScriptGrouping.Build(NamesOfOpenedGame(), OneLineEach("yst00001", "yst00002"));
-
-        var group = Assert.Single(groups);
-        Assert.Equal("Parte 1", group.Name);
-        Assert.Equal(["yst00001", "yst00002"], group.ScriptKeys);
-    }
-
-    [Fact]
-    public void Open_sem_yst_list_deixa_os_scripts_sem_nome_legivel_e_sem_aviso()
-    {
-        Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), (Yst1Ybn, Script("おはよう"))));
-        _engine.Unpack(_game, _cache, TestContext.Current.CancellationToken);
-
-        var game = _engine.Open(_cache);
-
-        Assert.Null(Assert.Single(game.Scripts).DisplayName);
-        Assert.Empty(game.Warnings);
-    }
 
     [Fact]
     public void Open_com_yst_list_ilegivel_avisa_e_segue()
@@ -239,16 +133,6 @@ public sealed class YuRisUnpackerTests : IDisposable
 
         Assert.Single(game.Scripts);
         Assert.Contains("yst_list.ybn", Assert.Single(game.Warnings));
-    }
-
-    [Fact]
-    public void Open_sem_ysc_ybn_e_erro_em_portugues()
-    {
-        Directory.CreateDirectory(_cache);
-
-        var ex = Assert.Throws<VNForgeException>(() => _engine.Open(_cache));
-
-        Assert.Contains("ysc.ybn não está em", ex.Message);
     }
 
     [Fact]

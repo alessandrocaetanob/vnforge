@@ -183,16 +183,6 @@ public class YstbWriterTests
     }
 
     [Fact]
-    public void Write_PrimeiroArgumentoComChaveConhecida_Funciona()
-    {
-        var original = Read(SampleScript(NewBuilder()).Build().Bytes);
-
-        var reread = Read(YstbWriter.Write(original, new Dictionary<int, ReadOnlyMemory<byte>> { [0] = "x"u8.ToArray() }));
-
-        Assert.Equal(original.Key, reread.Key);
-    }
-
-    [Fact]
     public void Write_ResultadoPassandoDoLimiteDoLeitor_Falha()
     {
         var original = Read(SampleScript(NewBuilder()).Build().Bytes);

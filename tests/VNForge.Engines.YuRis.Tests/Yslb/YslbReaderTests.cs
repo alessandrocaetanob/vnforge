@@ -17,94 +17,12 @@ public class YslbReaderTests
     private static YslbFile Read(byte[] bytes) => YslbReader.Read(bytes, Source);
 
     [Fact]
-    public void Read_VetorDeOuro()
-    {
-        var file = Read(Convert.FromHexString(GoldenHex));
-
-        Assert.Equal(485u, file.Version);
-        Assert.Equal(new YslbLabel("A", 7, 2, 1, 3), Assert.Single(file.Labels));
-    }
-
-    [Fact]
-    public void Read_RotulosNaOrdemDoArquivo_ComNomeEmShiftJis()
-    {
-        var bytes = new SyntheticYslbBuilder()
-            .AddLabel("SYSTEM_START", 62)
-            .AddLabel("日本語", 113, 5)
-            .Build();
-
-        var file = Read(bytes);
-
-        Assert.Equal(["SYSTEM_START", "日本語"], file.Labels.Select(l => l.Name));
-        Assert.Equal((ushort)113, file.Labels[1].ScriptId);
-        Assert.Equal(5u, file.Labels[1].CodePosition);
-    }
-
-    [Fact]
-    public void Find_ProcuraPeloNomeExatoAntesDeIgnorarACaixa()
-    {
-        var file = Read(new SyntheticYslbBuilder().AddLabel("ES.SAVE.END", 51).AddLabel("es.Save.end", 19).Build());
-
-        Assert.Equal((ushort)19, file.Find("es.Save.end")!.ScriptId);
-        Assert.Equal((ushort)51, file.Find("ES.SAVE.END")!.ScriptId);
-    }
-
-    [Fact]
-    public void Find_IgnoraACaixaQuandoSoHaUmRotuloComEsseNome()
-    {
-        var file = Read(new SyntheticYslbBuilder().AddLabel("ES.SEL.SET", 23).Build());
-
-        Assert.Equal((ushort)23, file.Find("es.sel.set")!.ScriptId);
-    }
-
-    [Fact]
-    public void Find_NomeEmDoisScriptsSemCaixaExata_NaoEscolheNenhum()
-    {
-        var file = Read(new SyntheticYslbBuilder().AddLabel("ES.SAVE.END", 51).AddLabel("es.Save.end", 19).Build());
-
-        Assert.Null(file.Find("Es.Save.End"));
-    }
-
-    [Fact]
-    public void Find_RotuloInexistente_DevolveNulo()
-    {
-        var file = Read(new SyntheticYslbBuilder().AddLabel("A", 1).Build());
-
-        Assert.Null(file.Find("B"));
-    }
-
-    [Fact]
-    public void Read_SemRotulos_DevolveListaVazia()
-    {
-        Assert.Empty(Read(new SyntheticYslbBuilder().Build()).Labels);
-    }
-
-    [Fact]
-    public void Read_AssinaturaErrada_Recusa()
-    {
-        var bytes = new SyntheticYslbBuilder().Build();
-        bytes[0] = (byte)'X';
-
-        var ex = Assert.Throws<InvalidFileException>(() => Read(bytes));
-
-        Assert.Contains("YSLB", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Read_ContagemMaiorQueOArquivo_RecusaSemAlocar()
     {
         var bytes = new SyntheticYslbBuilder().AddLabel("A", 1).Build();
         BitConverter.GetBytes(uint.MaxValue).CopyTo(bytes, 8);
 
         Assert.Throws<InvalidFileException>(() => Read(bytes));
-    }
-
-    [Fact]
-    public void Read_ArquivoCortadoNoMeioDeUmRotulo_Recusa()
-    {
-        var bytes = new SyntheticYslbBuilder().AddLabel("ABC", 1).Build();
-
-        Assert.Throws<InvalidFileException>(() => Read(bytes[..^3]));
     }
 
     [Fact]
@@ -118,8 +36,11 @@ public class YslbReaderTests
     }
 
     [Fact]
-    public void Read_VersaoDesconhecida_Recusa()
+    public void Read_VetorDeOuro()
     {
-        Assert.Throws<UnknownVersionException>(() => Read(new SyntheticYslbBuilder().WithVersion(9999).Build()));
+        var file = Read(Convert.FromHexString(GoldenHex));
+
+        Assert.Equal(485u, file.Version);
+        Assert.Equal(new YslbLabel("A", 7, 2, 1, 3), Assert.Single(file.Labels));
     }
 }

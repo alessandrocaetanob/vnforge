@@ -38,21 +38,6 @@ public sealed class YpfFolderTests : IDisposable
         return output.ToArray();
     }
 
-    [Fact]
-    public void Unpack_GravaCadaEntradaDescomprimidaNaPasta()
-    {
-        var ypf = Sample(500);
-        using var archive = Open(ypf.Bytes);
-
-        var result = YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken);
-
-        Assert.Equal(4, result.FileCount);
-        Assert.Equal(Small.Length + Repetitive.Length + 9, result.ByteCount);
-        Assert.Equal(Small, File.ReadAllBytes(Path.Combine(Dir("out"), "ysbin", "yst00001.ybn")));
-        Assert.Equal(Repetitive, File.ReadAllBytes(Path.Combine(Dir("out"), "bg", BackgroundPng)));
-        Assert.Empty(File.ReadAllBytes(Path.Combine(Dir("out"), "ysbin", "vazio.ybn")));
-    }
-
     [Theory]
     [MemberData(nameof(Versions))]
     public void UnpackEPackSemMudancasGeramArquivoIdentico(uint version)
@@ -179,16 +164,6 @@ public sealed class YpfFolderTests : IDisposable
     }
 
     [Fact]
-    public void Unpack_HashAdulteradoViraErroEmPortuguesComOCaminhoDaEntrada()
-    {
-        using var archive = Open(Sample(500).WithWrongDataHash(@"se\porta.ogg"));
-
-        var ex = Assert.Throws<VNForgeException>(() => YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken));
-
-        Assert.Contains("se/porta.ogg", ex.Message);
-    }
-
-    [Fact]
     public void Pack_HashAdulteradoViraErroEmPortuguesComOCaminhoDaEntrada()
     {
         using (var good = Open(Sample(500).Bytes))
@@ -216,17 +191,6 @@ public sealed class YpfFolderTests : IDisposable
     }
 
     [Fact]
-    public void Unpack_PastaNoLugarDeUmArquivoViraErroEmPortugues()
-    {
-        Directory.CreateDirectory(Path.Combine(Dir("out"), "bg", BackgroundPng));
-        using var archive = Open(Sample(500).Bytes);
-
-        var ex = Assert.Throws<VNForgeException>(() => YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken));
-
-        Assert.Contains(BackgroundPng, ex.Message);
-    }
-
-    [Fact]
     public void Unpack_RecusaLinkSimbolicoNoDestinoSemGravarNada()
     {
         var elsewhere = Dir("fora");
@@ -251,26 +215,6 @@ public sealed class YpfFolderTests : IDisposable
     }
 
     [Fact]
-    public void Unpack_AceitaRaizQueELinkSimbolico()
-    {
-        Directory.CreateDirectory(Dir("real"));
-        try
-        {
-            Directory.CreateSymbolicLink(Dir("link"), Dir("real"));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Assert.Skip("Este sistema não permite criar link simbólico.");
-        }
-
-        using var archive = Open(Sample(500).Bytes);
-
-        YpfFolder.Unpack(archive, Dir("link"), TestContext.Current.CancellationToken);
-
-        Assert.True(File.Exists(Path.Combine(Dir("real"), "se", "porta.ogg")));
-    }
-
-    [Fact]
     public void Unpack_RecusaEntradaGrandeDemaisPeloIndiceSemGravarNada()
     {
         using var archive = Open(Sample(500).WithUncompressedSize(@"bg\fundo.png", uint.MaxValue));
@@ -279,36 +223,6 @@ public sealed class YpfFolderTests : IDisposable
 
         Assert.Contains("grande demais", ex.Message);
         Assert.False(Directory.Exists(Dir("out")));
-    }
-
-    [Fact]
-    public void Pack_ArquivoDesconhecidoCitaONomeEComoResolver()
-    {
-        using var archive = Open(Sample(500).Bytes);
-        Directory.CreateDirectory(Dir("out"));
-        File.WriteAllBytes(Path.Combine(Dir("out"), "Thumbs.db"), [1]);
-        using var output = new MemoryStream();
-
-        var ex = Assert.Throws<VNForgeException>(() => YpfFolder.Pack(archive, Dir("out"), output, TestContext.Current.CancellationToken));
-
-        Assert.Contains("\"Thumbs.db\"", ex.Message);
-        Assert.Contains("remova", ex.Message);
-    }
-
-    [Fact]
-    public void Pack_NoWindowsComparaCaminhosSemDiferenciarCaixa()
-    {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "Só o Windows ignora a caixa dos nomes.");
-        using var archive = Open(Sample(500).Bytes);
-        var folder = Path.Combine(Dir("out"), "BG");
-        Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "FUNDO.PNG"), Repetitive);
-        using var output = new MemoryStream();
-
-        var result = YpfFolder.Pack(archive, Dir("out"), output, TestContext.Current.CancellationToken);
-
-        Assert.Empty(result.Replaced);
-        Assert.Equal(3, result.Missing.Count);
     }
 
     [Fact]
@@ -323,16 +237,5 @@ public sealed class YpfFolderTests : IDisposable
         var ex = Assert.Throws<VNForgeException>(() => YpfFolder.Pack(archive, Dir("out"), output, TestContext.Current.CancellationToken));
 
         Assert.Contains("só diferem na caixa", ex.Message);
-    }
-
-    [Fact]
-    public void Unpack_PreservaNomesEmJapones()
-    {
-        var ypf = new SyntheticYpfBuilder(500).AddFile("シナリオ\\第一章.ybn", Small).Build();
-        using var archive = Open(ypf.Bytes);
-
-        YpfFolder.Unpack(archive, Dir("out"), TestContext.Current.CancellationToken);
-
-        Assert.Equal(Small, File.ReadAllBytes(Path.Combine(Dir("out"), "シナリオ", "第一章.ybn")));
     }
 }

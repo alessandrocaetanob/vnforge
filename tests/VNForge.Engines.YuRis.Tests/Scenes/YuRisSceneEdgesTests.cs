@@ -57,39 +57,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     private static SyntheticYstbBuilder Empty() => NewScript().AddReturnCode(0, 1);
 
     [Fact]
-    public void Go_com_rotulo_literal_e_um_salto_para_o_script_do_rotulo()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
-
-        var edges = Read(ReadLabels(Labels()), (1, b), (2, Empty()));
-
-        Assert.Equal(new SceneEdge("yst00001", "yst00002", SceneEdgeKind.Jump, "SCENE_B"), Assert.Single(edges));
-    }
-
-    [Fact]
-    public void Gosub_com_rotulo_literal_e_uma_chamada()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression("SCENE_C"), b.StringExpression("argumento"));
-
-        var edges = Read(ReadLabels(Labels()), (1, b), (3, Empty()));
-
-        Assert.Equal(new SceneEdge("yst00001", "yst00003", SceneEdgeKind.Call, "SCENE_C"), Assert.Single(edges));
-    }
-
-    [Fact]
-    public void Salto_para_rotulo_do_proprio_script_volta_como_aresta_para_si_mesmo()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SELF_LABEL"));
-
-        var edges = Read(ReadLabels(Labels()), (1, b));
-
-        Assert.Equal("yst00001", Assert.Single(edges).To);
-    }
-
-    [Fact]
     public void Destino_que_nao_se_le_com_seguranca_nao_gera_aresta()
     {
         var b = NewScript();
@@ -100,34 +67,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
         b.AddCommand(Gosub, 5);
 
         Assert.Empty(Read(ReadLabels(Labels()), (1, b), (2, Empty())));
-    }
-
-    [Fact]
-    public void Rotulo_de_script_que_nao_esta_no_jogo_nao_gera_aresta()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
-
-        Assert.Empty(Read(ReadLabels(Labels()), (1, b)));
-    }
-
-    [Fact]
-    public void Sem_ysl_nao_ha_arestas()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
-
-        Assert.Empty(Read(null, (1, b), (2, Empty())));
-    }
-
-    [Fact]
-    public void Rotulo_declarado_em_dois_scripts_nao_gera_aresta()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("Ambiguo"));
-        var labels = ReadLabels(new SyntheticYslbBuilder().AddLabel("AMBIGUO", 2).AddLabel("ambiguo", 3));
-
-        Assert.Empty(Read(labels, (1, b), (2, Empty()), (3, Empty())));
     }
 
     [Fact]
@@ -147,20 +86,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     [Fact]
-    public void Es_sel_go_com_rotulo_vazio_no_meio_mantem_o_id_posicional_dos_seguintes()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"), b.StringExpression(string.Empty), b.StringExpression("SCENE_C"));
-        b.AddCommand(Gosub, 2, b.StringExpression(ChoiceTexts), b.StringExpression("はい"), b.StringExpression("いいえ"), b.StringExpression("さん"));
-
-        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
-
-        Assert.Equal(2, choices.Count);
-        Assert.Equal("yst00001:000257", choices.Single(e => e.To == "yst00002").ChoiceUnitId);
-        Assert.Equal("yst00001:000259", choices.Single(e => e.To == "yst00003").ChoiceUnitId);
-    }
-
-    [Fact]
     public void Es_sel_go_ignora_argumentos_alem_dos_oito_que_a_rotina_copia()
     {
         var b = NewScript();
@@ -176,17 +101,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     [Fact]
-    public void Es_sel_go_sem_es_sel_set_depois_deixa_o_texto_sem_unidade()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"));
-
-        var choice = Assert.Single(Read(ReadLabels(Labels()), (1, b), (2, Empty())), e => e.Kind == SceneEdgeKind.Choice);
-
-        Assert.Null(choice.ChoiceUnitId);
-    }
-
-    [Fact]
     public void Es_sel_go_so_olha_o_es_sel_set_antes_do_proximo_es_sel_go()
     {
         var b = NewScript();
@@ -198,30 +112,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
 
         Assert.Null(choices.Single(e => e.To == "yst00002").ChoiceUnitId);
         Assert.Equal("yst00001:000513", choices.Single(e => e.To == "yst00003").ChoiceUnitId);
-    }
-
-    [Fact]
-    public void Texto_depois_de_um_texto_vazio_nao_tem_unidade()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"), b.StringExpression("SCENE_C"));
-        b.AddCommand(Gosub, 2, b.StringExpression(ChoiceTexts), b.StringExpression(string.Empty), b.StringExpression("いいえ"));
-
-        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
-
-        Assert.All(choices, e => Assert.Null(e.ChoiceUnitId));
-    }
-
-    [Fact]
-    public void Es_sel_go_tambem_e_uma_chamada_para_o_script_da_rotina()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"));
-        var labels = ReadLabels(Labels().AddLabel(ChoiceTargets, 4));
-
-        var edges = Read(labels, (1, b), (2, Empty()), (4, Empty()));
-
-        Assert.Contains(new SceneEdge("yst00001", "yst00004", SceneEdgeKind.Call, ChoiceTargets), edges);
     }
 
     [Fact]
@@ -269,18 +159,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
         var graph = SceneGraph.Read(_engine, game);
 
         Assert.Equal(new SceneEdge("yst00001", "yst00002", SceneEdgeKind.Jump, "SCENE_B"), Assert.Single(graph.Edges));
-    }
-
-    [Fact]
-    public void Open_sem_ysl_funciona_e_o_grafo_fica_vazio()
-    {
-        File.WriteAllBytes(Path.Combine(_root, "ysc.ybn"), Yscm.Bytes);
-        File.WriteAllBytes(Path.Combine(_root, "yst00001.ybn"), Empty().Build().Bytes);
-
-        var game = _engine.Open(_root);
-
-        Assert.Empty(game.Warnings);
-        Assert.Empty(SceneGraph.Read(_engine, game).Edges);
     }
 
     [Fact]

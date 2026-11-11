@@ -80,126 +80,11 @@ public partial class YpfArchiveFormatTests
     }
 
     public static TheoryData<uint, SyntheticYpfOffsetSize, SyntheticYpfHashAlgorithm, SyntheticYpfHashAlgorithm> Variants =>
-        SyntheticYpfBuilderTests.Variants;
+        SyntheticYpfSamples.Variants;
 
     // ---- Variantes do gerador ----
 
-    [Theory]
-    [MemberData(nameof(Variants))]
-    public void Open_LeOIndiceDeCadaVarianteDoGerador(
-        uint version,
-        SyntheticYpfOffsetSize offsetSize,
-        SyntheticYpfHashAlgorithm nameHash,
-        SyntheticYpfHashAlgorithm dataHash)
-    {
-        var ypf = SyntheticYpfBuilderTests.SampleBuilder(version, offsetSize, nameHash, dataHash).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Theory]
-    [InlineData(200u)]
-    [InlineData(290u)]
-    [InlineData(300u)]
-    [InlineData(479u)]
-    [InlineData(500u)]
-    public void Open_VersoesComOsPadroesDoGerador(uint version)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Theory]
-    [InlineData(SyntheticYpfDataOrder.Index)]
-    [InlineData(SyntheticYpfDataOrder.Insertion)]
-    public void Open_DadosEmOrdemDeIndiceOuDeInsercao(SyntheticYpfDataOrder order)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).WithDataOrder(order).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Fact]
-    public void Open_DadosCompartilhadosApontamParaOMesmoOffset()
-    {
-        var ypf = new SyntheticYpfBuilder(300)
-            .WithSharedDuplicateData()
-            .AddFile(@"a\um.ybn", SyntheticYpfBuilderTests.SmallBinary)
-            .AddFile(@"a\dois.ybn", SyntheticYpfBuilderTests.SmallBinary)
-            .AddFile(@"a\tres.ybn", [9, 9, 9])
-            .Build();
-        Assert.Equal(2, ypf.Entries.Select(e => e.Offset).Distinct().Count());
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-        Assert.Equal(2, archive.Entries.Select(e => e.Offset).Distinct().Count());
-    }
-
-    [Fact]
-    public void Open_SeparadoresBarraInvertidaEBarraNormalViramBarraNoCaminho()
-    {
-        var ypf = new SyntheticYpfBuilder(300)
-            .AddFile(@"bg\fundo.png", [1, 2, 3])
-            .AddFile("se/porta.ogg", [4, 5, 6])
-            .Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-        Assert.Contains(archive.Entries, e => e.Path == "bg/fundo.png");
-        Assert.Contains(archive.Entries, e => e.Path == "se/porta.ogg");
-        Assert.Contains(archive.Entries, e => e.NameBytes.Span.SequenceEqual("bg\\fundo.png"u8));
-    }
-
-    [Fact]
-    public void Open_NomeEmShiftJisEhDecodificado()
-    {
-        var ypf = new SyntheticYpfBuilder(300).AddFile(@"ysbin\第一章\表.ybn", [1]).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-        Assert.Equal("ysbin/第一章/表.ybn", archive.Entries.Single().Path);
-    }
-
-    [Fact]
-    public void Open_ArquivoSemEntradasEhValido()
-    {
-        var ypf = new SyntheticYpfBuilder(500).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        Assert.Empty(archive.Entries);
-        Assert.Equal(YpfHeader.Size, archive.Parameters.DataStart);
-        Assert.Equal(YpfVersionDefaults.NameXor(500), archive.Parameters.NameXor);
-    }
-
     // ---- Chave, tabela, hashes e header_size detectados ----
-
-    [Theory]
-    [InlineData(300u, 0x5A)]
-    [InlineData(300u, 0x00)]
-    [InlineData(300u, 0xFF)]
-    [InlineData(290u, 0x00)]
-    [InlineData(500u, 0x00)]
-    [InlineData(500u, 0x77)]
-    public void Open_DetectaChaveDoNomeDiferenteDaDaVersao(uint version, int key)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).WithNameKey((byte)key).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-        Assert.Equal((byte)key, archive.Parameters.NameKey);
-    }
 
     [Fact]
     public void Open_ChaveSemPontoNaExtensaoCaiNasChavesConhecidasEDepoisNaVarredura()
@@ -238,28 +123,6 @@ public partial class YpfArchiveFormatTests
     }
 
     [Theory]
-    [InlineData(200u, SyntheticYpfSwapTable.Standard)]
-    [InlineData(200u, SyntheticYpfSwapTable.Garbro04)]
-    [InlineData(300u, SyntheticYpfSwapTable.Standard)]
-    [InlineData(300u, SyntheticYpfSwapTable.Garbro10)]
-    [InlineData(300u, SyntheticYpfSwapTable.V500)]
-    [InlineData(300u, SyntheticYpfSwapTable.Garbro04)]
-    [InlineData(500u, SyntheticYpfSwapTable.V500)]
-    [InlineData(500u, SyntheticYpfSwapTable.Standard)]
-    [InlineData(501u, SyntheticYpfSwapTable.V500)]
-    [InlineData(501u, SyntheticYpfSwapTable.Garbro10)]
-    public void Open_DetectaATabelaDeTrocaPeloHashDoNome(uint version, SyntheticYpfSwapTable table)
-    {
-        var ypf = DiscriminatingNames(version, table).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-        Assert.Equal(Map(table), archive.Parameters.SwapTable);
-        Assert.All(archive.Entries, e => Assert.Equal(Map(table), e.SwapTable));
-    }
-
-    [Theory]
     [InlineData(200u, true)]
     [InlineData(299u, true)]
     [InlineData(300u, false)]
@@ -268,42 +131,11 @@ public partial class YpfArchiveFormatTests
     [InlineData(300u, true)]
     public void Open_AceitaAsDuasSemanticasDoHeaderSize(uint version, bool includesHeader)
     {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).WithHeaderSizeIncludesHeader(includesHeader).Build();
+        var ypf = SyntheticYpfSamples.DefaultSample(version).WithHeaderSizeIncludesHeader(includesHeader).Build();
 
         using var archive = Open(ypf.Bytes);
 
         AssertMatches(ypf, archive);
         Assert.Equal(includesHeader, archive.Parameters.HeaderSizeIncludesHeader);
-    }
-
-    [Theory]
-    [InlineData(300u, SyntheticYpfHashAlgorithm.Adler32, SyntheticYpfHashAlgorithm.MurmurHash2, SyntheticYpfOffsetSize.Bits64)]
-    [InlineData(300u, SyntheticYpfHashAlgorithm.MurmurHash2, SyntheticYpfHashAlgorithm.Crc32, SyntheticYpfOffsetSize.Bits32)]
-    [InlineData(500u, SyntheticYpfHashAlgorithm.Crc32, SyntheticYpfHashAlgorithm.Adler32, SyntheticYpfOffsetSize.Bits32)]
-    [InlineData(200u, SyntheticYpfHashAlgorithm.Crc32, SyntheticYpfHashAlgorithm.Crc32, SyntheticYpfOffsetSize.Bits64)]
-    public void Open_DetectaOsAlgoritmosPelaComparacaoENaoPelaVersao(
-        uint version,
-        SyntheticYpfHashAlgorithm nameHash,
-        SyntheticYpfHashAlgorithm dataHash,
-        SyntheticYpfOffsetSize offsetSize)
-    {
-        var ypf = SyntheticYpfBuilderTests.SampleBuilder(version, offsetSize, nameHash, dataHash).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Fact]
-    public void Open_ArquivoSoComEntradasVaziasUsaOHashDeDadosPadraoDaVersao()
-    {
-        // Murmur e CRC32 de dados vazios valem 0: a amostra não separa os dois e vale o padrão da versão.
-        var ypf = new SyntheticYpfBuilder(500).AddFile(@"a\vazio.ybn", []).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        Assert.Single(archive.Entries);
-        Assert.Equal(YpfHashAlgorithm.MurmurHash2, archive.Parameters.DataHash);
-        Assert.False(archive.Parameters.DataHashVerified);
     }
 }

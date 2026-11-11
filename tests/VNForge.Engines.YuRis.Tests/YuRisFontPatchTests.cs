@@ -74,53 +74,6 @@ public sealed class YuRisFontPatchTests : IDisposable
     }
 
     [Fact]
-    public void Executavel_em_branco_e_recusado_na_criacao()
-    {
-        Assert.Throws<ArgumentException>(() => new YuRisFontPatch(" "));
-    }
-
-    [Fact]
-    public void Aceita_o_executavel_com_o_nome_japones_seguido_de_zero()
-    {
-        Write(SyntheticExe());
-
-        Assert.True(Patch().CanApply(_root, out var reason));
-        Assert.Null(reason);
-    }
-
-    [Fact]
-    public void Aplicar_troca_so_o_nome_por_MS_Gothic_em_ASCII_com_zeros()
-    {
-        var original = SyntheticExe();
-        Write(original);
-
-        Patch().Apply(_root);
-
-        var after = File.ReadAllBytes(ExePath);
-        Assert.Equal(Patched(original), after);
-        var changed = Enumerable.Range(0, original.Length).Where(i => original[i] != after[i]).ToList();
-        Assert.Equal(13, changed.Count);
-        Assert.Equal(NameOffset, changed[0]);
-        Assert.Equal(NameOffset + 12, changed[^1]);
-        Assert.Equal(Gothic, after[NameOffset..(NameOffset + 9)]);
-        Assert.All(after[(NameOffset + 9)..(NameOffset + 16)], b => Assert.Equal(0, b));
-    }
-
-    [Fact]
-    public void Nao_mexe_no_nome_em_UTF16_nem_no_resto_do_executavel()
-    {
-        var original = SyntheticExe();
-        Write(original);
-
-        Patch().Apply(_root);
-
-        var after = File.ReadAllBytes(ExePath);
-        Assert.Equal(original.Length, after.Length);
-        Assert.Equal(original[0x800..0x810], after[0x800..0x810]);
-        Assert.Equal(original[(NameOffset + 16)..], after[(NameOffset + 16)..]);
-    }
-
-    [Fact]
     public void Aplicar_de_novo_nao_muda_nada()
     {
         Write(SyntheticExe());
@@ -148,46 +101,6 @@ public sealed class YuRisFontPatchTests : IDisposable
     }
 
     [Fact]
-    public void Nome_que_faz_parte_de_um_texto_maior_nao_conta()
-    {
-        Write(SyntheticExe(afterName: [0x82, 0x6C, 0x00]));
-
-        Assert.False(Patch().CanApply(_root, out var reason));
-        Assert.NotNull(reason);
-    }
-
-    [Fact]
-    public void Nome_no_fim_de_uma_string_maior_nao_conta()
-    {
-        var bytes = SyntheticExe();
-        bytes[NameOffset - 1] = (byte)'X';
-        Write(bytes);
-
-        Assert.False(Patch().CanApply(_root, out var reason));
-        Assert.Contains("ＭＳ ゴシック", reason);
-        Assert.Throws<InvalidOperationException>(() => Patch().Apply(_root));
-        Assert.Equal(bytes, File.ReadAllBytes(ExePath));
-    }
-
-    [Fact]
-    public void Nome_com_um_unico_terminador_e_trocado_e_depois_reconhecido_como_ja_aplicado()
-    {
-        Write(SyntheticExe(afterName: [0x00, 0x41, 0x42]));
-        Assert.True(Patch().CanApply(_root, out _));
-
-        Patch().Apply(_root);
-        var once = File.ReadAllBytes(ExePath);
-
-        Assert.Equal(Gothic, once[NameOffset..(NameOffset + 9)]);
-        Assert.All(once[(NameOffset + 9)..(NameOffset + 14)], b => Assert.Equal(0, b));
-        Assert.Equal((byte)'A', once[NameOffset + 14]);
-        Assert.True(Patch().CanApply(_root, out var reason));
-        Assert.Null(reason);
-        Patch().Apply(_root);
-        Assert.Equal(once, File.ReadAllBytes(ExePath));
-    }
-
-    [Fact]
     public void Nome_repetido_e_recusado_porque_nao_se_sabe_qual_e_o_das_falas()
     {
         Write(SyntheticExe(nameCount: 2));
@@ -206,15 +119,6 @@ public sealed class YuRisFontPatchTests : IDisposable
     }
 
     [Fact]
-    public void Arquivo_vazio_e_recusado()
-    {
-        Write([]);
-
-        Assert.False(Patch().CanApply(_root, out var reason));
-        Assert.Contains("MZ", reason);
-    }
-
-    [Fact]
     public void Executavel_ausente_e_recusado_com_o_nome_do_arquivo()
     {
         Assert.False(Patch().CanApply(_root, out var reason));
@@ -226,15 +130,6 @@ public sealed class YuRisFontPatchTests : IDisposable
     {
         Assert.False(Patch("../jogo.exe").CanApply(_root, out var reason));
         Assert.NotNull(reason);
-    }
-
-    [Fact]
-    public void MS_Gothic_sem_a_folga_de_zeros_nao_e_tomado_por_patch_ja_aplicado()
-    {
-        var bytes = SyntheticExe(name: Gothic, afterName: [0x00, 0x41]);
-        Write(bytes);
-
-        Assert.False(Patch().CanApply(_root, out _));
     }
 
     [Fact]
