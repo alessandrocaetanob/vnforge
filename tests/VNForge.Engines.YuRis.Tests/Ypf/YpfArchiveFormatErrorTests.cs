@@ -138,4 +138,10 @@ public partial class YpfArchiveFormatTests
     }
 
     // ---- Tabelas de troca e hash ----
+
+    [Fact]
+    public void Open_ArquivoMenorQueOCabecalhoLancaErro()
+    {
+        AssertInvalid("YPF\0"u8.ToArray(), "4 bytes", "32");
+    }
 }

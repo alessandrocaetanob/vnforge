@@ -103,4 +103,28 @@ public class YscmReaderTests
                 Assert.Empty(expression.Arguments);
             });
     }
+
+    [Fact]
+    public void GetOpcode_ComandoAusente_ErroNomeiaOComando()
+    {
+        var file = Read(new SyntheticYscmBuilder().WithTextCommands().Build().Bytes);
+
+        var error = Assert.Throws<InvalidFileException>(() => file.GetOpcode("ES.SEL.SET"));
+
+        Assert.Contains("'ES.SEL.SET'", error.Reason);
+    }
+
+    [Fact]
+    public void GetOpcodes_VariosAusentes_ErroNomeiaTodos()
+    {
+        var file = Read(new SyntheticYscmBuilder().AddCommand("WORD").AddCommand(GosubCommand).Build().Bytes);
+
+        var error = Assert.Throws<InvalidFileException>(() => file.GetOpcodes());
+
+        Assert.Contains("'_'", error.Reason);
+        Assert.Contains("'RETURNCODE'", error.Reason);
+        Assert.Contains("'CG'", error.Reason);
+        Assert.DoesNotContain("'WORD'", error.Reason);
+        Assert.DoesNotContain("'GOSUB'", error.Reason);
+    }
 }

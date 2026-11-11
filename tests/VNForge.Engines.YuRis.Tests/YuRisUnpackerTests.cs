@@ -157,4 +157,14 @@ public sealed class YuRisUnpackerTests : IDisposable
         Assert.Equal(["こんにちは", "さようなら"], extraction.Units.Select(u => u.Source));
         Assert.All(extraction.Units, u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
     }
+
+    [Fact]
+    public void Open_sem_ysc_ybn_e_erro_em_portugues()
+    {
+        Directory.CreateDirectory(_cache);
+
+        var ex = Assert.Throws<VNForgeException>(() => _engine.Open(_cache));
+
+        Assert.Contains("ysc.ybn não está em", ex.Message);
+    }
 }

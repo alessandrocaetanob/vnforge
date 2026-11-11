@@ -166,4 +166,12 @@ public class YstlReaderTests
         var script = Assert.Single(file.Scripts);
         Assert.Equal(new YstlScript(0, AYst, 1, 2, 3, 4), script);
     }
+
+    [Fact]
+    public void ModifiedUtc_ForaDoIntervalo_ENulo()
+    {
+        var script = new YstlScript(0, AYst, ulong.MaxValue, 0, 0, null);
+
+        Assert.Null(script.ModifiedUtc);
+    }
 }

@@ -67,4 +67,19 @@ public sealed class YstbDumperTests
         Assert.Equal(YstbArgumentKind.Empty, argument.Kind);
         Assert.Null(argument.Value);
     }
+
+    [Fact]
+    public void Dump_de_expressao_que_nao_e_string_mostra_os_bytes_em_hexadecimal()
+    {
+        var builder = NewBuilder();
+        builder.AddCommand("WAIT", 1, builder.ResourceArgument([0x4D, 0x01, 0x00, 0x22], assignOp: 1));
+
+        var argument = Assert.Single(Assert.Single(Dump(builder).Instructions).Arguments);
+
+        Assert.Equal(YstbArgumentKind.Expression, argument.Kind);
+        Assert.Equal("4D010022", argument.Value);
+        Assert.Equal("+=", argument.AssignOperator);
+        Assert.Equal(1, argument.AssignOp);
+        Assert.Equal(4u, argument.Size);
+    }
 }

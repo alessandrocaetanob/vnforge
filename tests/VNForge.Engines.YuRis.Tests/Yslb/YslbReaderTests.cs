@@ -43,4 +43,12 @@ public class YslbReaderTests
         Assert.Equal(485u, file.Version);
         Assert.Equal(new YslbLabel("A", 7, 2, 1, 3), Assert.Single(file.Labels));
     }
+
+    [Fact]
+    public void Find_NomeEmDoisScriptsSemCaixaExata_NaoEscolheNenhum()
+    {
+        var file = Read(new SyntheticYslbBuilder().AddLabel("ES.SAVE.END", 51).AddLabel("es.Save.end", 19).Build());
+
+        Assert.Null(file.Find("Es.Save.End"));
+    }
 }

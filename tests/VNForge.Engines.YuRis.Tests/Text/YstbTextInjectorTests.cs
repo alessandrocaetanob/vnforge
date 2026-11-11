@@ -341,4 +341,26 @@ public class YstbTextInjectorTests
 
         public IReadOnlyList<int> FindUnencodable(string text) => [];
     }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoComoNarracao_TiraSoONomeEMantemAsAspas()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(0), "Hello.") with { ChosenSpeaker = string.Empty };
+
+        var raw = Inject(loaded, unit);
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("「Hello.」"), FirstMessage(raw));
+        var read = Load(raw).Extraction.Units.Single(u => u.Id == UnitId(0));
+        Assert.Equal((null, "「Hello.」", TextUnitKind.Dialogue), (read.Speaker, read.Source, read.Kind));
+    }
+
+    [Fact]
+    public void Inject_FalanteEscolhidoNumaFalaJaEntreAspasSemNome_PoeSoONome()
+    {
+        var loaded = Load(FullScript());
+        var unit = Translate(loaded, UnitId(5), "「Hi, all」") with { ChosenSpeaker = "Misaki" };
+
+        Assert.Equal(GameEncodings.ShiftJis.GetBytes("Misaki「Hi, all」"), MessageAt(Inject(loaded, unit), 5));
+    }
 }

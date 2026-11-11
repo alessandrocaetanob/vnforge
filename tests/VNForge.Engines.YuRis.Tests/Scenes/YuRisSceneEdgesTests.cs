@@ -175,4 +175,13 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     private sealed class OtherContext() : EngineContext("outra");
+
+    [Fact]
+    public void Rotulo_de_script_que_nao_esta_no_jogo_nao_gera_aresta()
+    {
+        var b = NewScript();
+        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
+
+        Assert.Empty(Read(ReadLabels(Labels()), (1, b)));
+    }
 }
