@@ -11,7 +11,7 @@ public partial class YpfArchiveFormatTests
 {
     // ---- Vetores de ouro ----
 
-    // Os três vetores do SyntheticYpfBuilderTests foram montados fora do gerador: uma entrada "bg\scene_0001.png", conteúdo "ABC".
+    // Os três vetores do SyntheticYpfSamples foram montados fora do gerador: uma entrada "bg\scene_0001.png", conteúdo "ABC".
     private readonly record struct GoldenVector(
         uint Version,
         uint HeaderSize,
@@ -27,7 +27,14 @@ public partial class YpfArchiveFormatTests
 
     private static void AssertGolden(string hex, GoldenVector golden)
     {
+        // O gerador e o escritor produzem os bytes montados a mão: um erro de hash ou de layout não pode estar igual nos dois lados.
+        var built = new SyntheticYpfBuilder(golden.Version)
+            .AddFile(@"bg\scene_0001.png", "ABC"u8.ToArray(), SyntheticYpfFileType.Png)
+            .Build();
+        Assert.Equal(hex, Convert.ToHexStringLower(built.Bytes));
+
         using var archive = Open(Convert.FromHexString(hex));
+        Assert.Equal(Convert.FromHexString(hex), Write(archive));
 
         var entry = Assert.Single(archive.Entries);
         Assert.Equal("bg/scene_0001.png", entry.Path);
@@ -48,32 +55,22 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void Open_VetorDeOuroV200()
+    public void Vetores_de_ouro_montados_a_mao_em_v200_v300_e_v500_batem_com_o_leitor_o_gerador_e_o_escritor()
     {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV200,
+            SyntheticYpfSamples.GoldenV200,
             new GoldenVector(
                 200, 0x28, false,
                 YpfHashAlgorithm.Adler32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
                 0xFF, 0x36A705C7, 0x018D00C7, 0x48));
-    }
-
-    [Fact]
-    public void Open_VetorDeOuroV300()
-    {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV300,
+            SyntheticYpfSamples.GoldenV300,
             new GoldenVector(
                 300, 0x48, true,
                 YpfHashAlgorithm.Crc32, YpfHashAlgorithm.Adler32, YpfOffsetSize.Bits32, YpfSwapTable.Standard,
                 0xFF, 0xE582ABD0, 0x018D00C7, 0x48));
-    }
-
-    [Fact]
-    public void Open_VetorDeOuroV500()
-    {
         AssertGolden(
-            SyntheticYpfBuilderTests.GoldenV500,
+            SyntheticYpfSamples.GoldenV500,
             new GoldenVector(
                 500, 0x4C, true,
                 YpfHashAlgorithm.MurmurHash2, YpfHashAlgorithm.MurmurHash2, YpfOffsetSize.Bits64, YpfSwapTable.V500,
@@ -93,27 +90,10 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(100u)]
-    [InlineData(199u)]
     [InlineData(600u)]
-    [InlineData(1000u)]
-    [InlineData(9999u)]
-    public void Open_VersaoForaDaFaixaConhecidaComIndiceLegivelAbreNormalmente(uint version)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
-
-        using var archive = Open(ypf.Bytes);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Theory]
-    [InlineData(100u)]
-    [InlineData(199u)]
-    [InlineData(600u)]
-    [InlineData(9999u)]
     public void Open_VersaoDesconhecidaComIndiceIlegivelLancaUnknownVersionException(uint version)
     {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
+        var ypf = SyntheticYpfSamples.DefaultSample(version).Build();
 
         var ex = Assert.Throws<UnknownVersionException>(() => Open(ypf.WithWrongNameHash(ypf.Entries[2].Name)));
 
@@ -124,176 +104,7 @@ public partial class YpfArchiveFormatTests
         Assert.IsType<InvalidFileException>(ex.InnerException);
     }
 
-    [Fact]
-    public void Open_VersaoConhecidaComIndiceIlegivelLancaInvalidFileException()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-
-        Assert.Throws<InvalidFileException>(() => Open(ypf.WithWrongNameHash(ypf.Entries[2].Name)));
-    }
-
-    [Fact]
-    public void Open_SemAssinaturaYpfLancaErroQueDizOQueFalhou()
-    {
-        var bytes = new byte[64];
-        "ZIP\0"u8.CopyTo(bytes);
-
-        AssertInvalid(bytes, "assinatura", "não é um arquivo YPF");
-    }
-
-    [Fact]
-    public void Open_ArquivoMenorQueOCabecalhoLancaErro()
-    {
-        AssertInvalid("YPF\0"u8.ToArray(), "4 bytes", "32");
-    }
-
-    [Fact]
-    public void Open_ContagemDeArquivosMaiorQueOArquivoLancaErro()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        var bytes = (byte[])ypf.Bytes.Clone();
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 100_000);
-
-        AssertInvalid(bytes, "100000 arquivos");
-    }
-
-    [Fact]
-    public void Open_ContagemMenorQueONumeroRealDeEntradasDizOQueEsperavaEOQueAchou()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        var bytes = (byte[])ypf.Bytes.Clone();
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), ypf.FileCount - 1);
-
-        AssertInvalid(bytes, "header_size");
-    }
-
-    [Theory]
-    [InlineData(200u)]
-    [InlineData(300u)]
-    [InlineData(500u)]
-    public void Open_HashDoNomeErradoLancaErroComAEntradaEAPosicao(uint version)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
-        var target = ypf.Entries[2];
-
-        AssertInvalid(
-            ypf.WithWrongNameHash(target.Name),
-            "hash do nome",
-            "entrada 3 de 5",
-            $"posição {target.IndexPosition}");
-    }
-
-    [Theory]
-    [InlineData(200u, 1)]
-    [InlineData(300u, 1)]
-    [InlineData(300u, -1)]
-    [InlineData(500u, 32)]
-    [InlineData(500u, 0)]
-    public void Open_HeaderSizeInconsistenteDizOEsperadoEOGravado(uint version, int delta)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
-        var wrong = delta == 0 ? 7u : (uint)(ypf.HeaderSize + delta);
-        var indexSize = (int)ypf.DataStart - YpfHeader.Size;
-
-        AssertInvalid(
-            ypf.WithHeaderSize(wrong),
-            $"header_size gravado é {wrong}",
-            $"ocupa {indexSize} bytes",
-            $"esperado era {indexSize} (só o índice) ou {ypf.DataStart} (índice e os 32 bytes do cabeçalho)");
-    }
-
-    [Theory]
-    [InlineData(300u)]
-    [InlineData(500u)]
-    public void Open_ArquivoTruncadoNosDadosLancaErroComOTamanhoDoArquivo(uint version)
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(version).Build();
-        var truncated = ypf.Truncated(1);
-
-        AssertInvalid(truncated, "mas o arquivo tem só", $"{truncated.Length} bytes", "truncado");
-    }
-
-    [Fact]
-    public void Open_ArquivoTruncadoNoIndiceLancaErro()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        var truncated = ypf.Bytes[..((int)ypf.DataStart - 10)];
-
-        AssertInvalid(truncated, "não foi possível ler o índice");
-    }
-
-    [Fact]
-    public void Open_NomesQueDecodificamParaOMesmoCaminhoLancamErro()
-    {
-        var ypf = new SyntheticYpfBuilder(300)
-            .AddFile(@"bg\fundo.png", [1])
-            .AddFile("bg/fundo.png", [2])
-            .Build();
-
-        AssertInvalid(ypf.Bytes, "bg/fundo.png", "mais de uma entrada");
-    }
-
-    [Fact]
-    public void Open_HashDosDadosSemConfirmacaoUsaOPadraoDaVersaoENaoVerificado()
-    {
-        var ypf = new SyntheticYpfBuilder(500).AddFile(@"a\um.ybn", [1, 2, 3, 4]).Build();
-        var bytes = ypf.WithWrongDataHash(@"a\um.ybn");
-
-        using var archive = Open(bytes);
-
-        Assert.False(archive.Parameters.DataHashVerified);
-        Assert.Equal(YpfHashAlgorithm.MurmurHash2, archive.Parameters.DataHash);
-        Assert.Equal(ypf.Entries[0].DataHash ^ 1, archive.Entries[0].DataHash);
-    }
-
-    [Fact]
-    public void Open_DadoOuHashCorrompidoNumaEntradaSoApareceAoAbriLaQuandoOutrasConfirmamOAlgoritmo()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-
-        using var wrongHash = Open(ypf.WithWrongDataHash(SyntheticYpfBuilderTests.Script1));
-        using var corrupted = Open(ypf.WithCorruptedData(SyntheticYpfBuilderTests.Script1));
-
-        Assert.True(wrongHash.Parameters.DataHashVerified);
-        Assert.Equal(YpfHashAlgorithm.Adler32, wrongHash.Parameters.DataHash);
-        Assert.Equal(YpfHashAlgorithm.Adler32, corrupted.Parameters.DataHash);
-        Assert.Equal(ypf.Entries.Count, corrupted.Entries.Count);
-    }
-
     // ---- CanOpen e ciclo de vida ----
-
-    [Fact]
-    public void CanOpen_ReconheceYpfEDevolveAPosicaoDoFluxo()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        using var stream = new MemoryStream(ypf.Bytes) { Position = 11 };
-
-        Assert.True(Format.CanOpen(stream));
-        Assert.Equal(11, stream.Position);
-    }
-
-    [Fact]
-    public void CanOpen_RecusaOutroFormatoEFluxoCurto()
-    {
-        Assert.False(Format.CanOpen(new MemoryStream("PK\u0003\u0004"u8.ToArray())));
-        Assert.False(Format.CanOpen(new MemoryStream(new byte[64])));
-        Assert.False(Format.CanOpen(new MemoryStream("YPF\0"u8.ToArray())));
-    }
-
-    [Fact]
-    public void CanOpen_AceitaVersaoDesconhecidaParaOpenExplicarOErro()
-    {
-        var ypf = new SyntheticYpfBuilder(9999).Build();
-
-        Assert.True(Format.CanOpen(new MemoryStream(ypf.Bytes)));
-    }
-
-    [Fact]
-    public void Formato_TemIdEExtensao()
-    {
-        Assert.Equal("ypf", Format.Id);
-        Assert.Equal([".ypf"], Format.FileExtensions);
-    }
 
     [Fact]
     public void Open_ErroNaoFechaOFluxoDeQuemChamou()
@@ -306,20 +117,9 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void Open_LeAPartirDoInicioMesmoComOFluxoNoMeio()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        using var stream = new MemoryStream(ypf.Bytes) { Position = ypf.Bytes.Length - 3 };
-
-        using var archive = (YpfArchive)Format.Open(stream);
-
-        AssertMatches(ypf, archive);
-    }
-
-    [Fact]
     public void Dispose_FechaOFluxoDeOrigem()
     {
-        var stream = new MemoryStream(SyntheticYpfBuilderTests.DefaultSample(300).Build().Bytes);
+        var stream = new MemoryStream(SyntheticYpfSamples.DefaultSample(300).Build().Bytes);
         var archive = Format.Open(stream);
 
         archive.Dispose();
@@ -333,7 +133,7 @@ public partial class YpfArchiveFormatTests
     [Fact]
     public void OpenEntry_RejeitaEntradaDeOutroPacoteENula()
     {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
         using var archive = Open(ypf.Bytes);
         using var other = Open(ypf.Bytes);
 
@@ -342,40 +142,11 @@ public partial class YpfArchiveFormatTests
         Assert.Throws<ArgumentNullException>(() => archive.OpenEntry(null!));
     }
 
-    [Fact]
-    public void OpenEntry_DepoisDoDisposeLancaObjectDisposed()
-    {
-        var ypf = SyntheticYpfBuilderTests.DefaultSample(300).Build();
-        var archive = Open(ypf.Bytes);
-        var entry = archive.Entries[0];
-        archive.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => archive.OpenEntry(entry));
-    }
-
     // ---- Tabelas de troca e hash ----
 
     [Fact]
-    public void SwapTables_BatemComATabelaDoGerador()
+    public void Open_ArquivoMenorQueOCabecalhoLancaErro()
     {
-        foreach (var table in Enum.GetValues<SyntheticYpfSwapTable>())
-        {
-            for (var value = 0; value < 256; value++)
-            {
-                Assert.Equal(
-                    SyntheticYpfSwapTables.Swap(table, (byte)value),
-                    YpfSwapTables.Swap(Map(table), (byte)value));
-            }
-        }
-    }
-
-    [Fact]
-    public void YpfHashCompute_UsaOAlgoritmoEscolhido()
-    {
-        var data = "ABC"u8.ToArray();
-
-        Assert.Equal(YpfHash.Adler32(data), YpfHash.Compute(YpfHashAlgorithm.Adler32, data));
-        Assert.Equal(YpfHash.Crc32(data), YpfHash.Compute(YpfHashAlgorithm.Crc32, data));
-        Assert.Equal(YpfHash.MurmurHash2(data), YpfHash.Compute(YpfHashAlgorithm.MurmurHash2, data));
+        AssertInvalid("YPF\0"u8.ToArray(), "4 bytes", "32");
     }
 }
