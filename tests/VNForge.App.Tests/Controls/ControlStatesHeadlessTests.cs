@@ -9,7 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -50,7 +50,7 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Settle();
         }
 
-        public void Settle() => ScreenRenderer.Settle(window!);
+        public void Settle() => ScreenHost.Settle(window!);
 
         public void Dispose() => window?.Close();
     }

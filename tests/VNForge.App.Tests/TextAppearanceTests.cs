@@ -5,7 +5,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -207,24 +207,24 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             await vm.ProjectOpening;
             await vm.Editor.Loading;
             vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             var before = EditorRowFontSize(window);
             Assert.Equal(13d, before);
 
             window.KeyPress(Key.OemPlus, RawInputModifiers.Control, PhysicalKey.Equal, "=");
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(110, vm.Settings.TextScalePercent);
             Assert.Equal(14.3, EditorRowFontSize(window));
 
             window.KeyPress(Key.OemMinus, RawInputModifiers.Control, PhysicalKey.Minus, "-");
             window.KeyPress(Key.OemMinus, RawInputModifiers.Control, PhysicalKey.Minus, "-");
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(90, vm.Settings.TextScalePercent);
             Assert.Equal(11.7, EditorRowFontSize(window));
 
             window.KeyPress(Key.D0, RawInputModifiers.Control, PhysicalKey.Digit0, "0");
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(before, EditorRowFontSize(window));
 
             var caption = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("caption") && t.Text == vm.Nav[0].Label);
@@ -232,12 +232,12 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             vm.Settings.IncreaseTextSizeCommand.Execute(null);
             vm.Settings.IncreaseTextSizeCommand.Execute(null);
             vm.Settings.IncreaseTextSizeCommand.Execute(null);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(150, vm.Settings.TextScalePercent);
             Assert.Equal(captionBefore, caption.FontSize);
 
             vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Settings);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             var bodySm = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Classes.Contains("body-sm"));
             Assert.Equal(13d, bodySm.FontSize);
         }
@@ -262,13 +262,13 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
             await vm.ProjectOpening;
             await vm.Editor.Loading;
             vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             var original = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Classes.Contains("jp-row"));
             Assert.Equal("Noto Sans JP", original.FontFamily.FamilyNames[0]);
 
             vm.Settings.SelectedJapaneseFont = vm.Settings.JapaneseFonts.Single(f => f.Value == JapaneseFontChoice.Meiryo);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.Equal("Meiryo UI", original.FontFamily.FamilyNames[0]);
         }

@@ -6,7 +6,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -40,7 +40,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         }
 
         window.Show();
-        ScreenRenderer.Settle(window);
+        ScreenHost.Settle(window);
         return window;
     }
 
@@ -74,7 +74,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
             Assert.Equal(enabled, window.Classes.Contains(Motion.MotionClass));
 
             using var __ = MotionPreferences.Force(!enabled);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(!enabled, window.Classes.Contains(Motion.MotionClass));
         }
         finally
@@ -244,7 +244,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
             Assert.True(bar.IsSliding);
 
             window.Content = null;
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.False(bar.IsSliding);
         }
@@ -291,7 +291,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
             Assert.Equal(4, skeleton.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("skeleton-bar")));
 
             skeleton.Rows = 2;
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             Assert.Equal(2, skeleton.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("skeleton-bar")));
         }
         finally
@@ -315,7 +315,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
             var clicks = 0;
             state.ActionText = "Abrir projeto";
             state.ActionCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(() => clicks++);
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             Assert.True(button.IsVisible);
             button.Command!.Execute(null);
@@ -337,7 +337,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         try
         {
             window.Show();
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             window.KeyPress(Key.OemQuestion, RawInputModifiers.Shift, PhysicalKey.Slash, "?");
             Assert.True(vm.IsShortcutMapOpen);
@@ -348,7 +348,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
 
             var box = new TextBox();
             window.Content = new StackPanel { Children = { box } };
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
             box.Focus();
             window.KeyPress(Key.OemQuestion, RawInputModifiers.Shift, PhysicalKey.Slash, "?");
             Assert.False(vm.IsShortcutMapOpen);
@@ -371,7 +371,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         {
             window.Show();
             toasts.Show("Linha 12 gravada.", ToastKind.Success, undo: () => { });
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
 
             var host = window.GetVisualDescendants().OfType<ToastHost>().Single();
             var texts = host.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();

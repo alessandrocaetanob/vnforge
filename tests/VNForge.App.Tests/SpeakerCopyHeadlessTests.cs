@@ -8,7 +8,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Controls;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Glossary;
@@ -62,7 +62,7 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
     {
         var window = new Window { Width = width, Height = height, Content = content };
         window.Show();
-        ScreenRenderer.Settle(window);
+        ScreenHost.Settle(window);
         return window;
     }
 
@@ -238,7 +238,7 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
 
                 row.Speaker = null;
                 row.SpeakerOriginal = null;
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
                 Assert.Equal(LineRow.NarrationLabel, speaker.Text);
                 Assert.Null(speaker.ContextFlyout);
                 window.Close();

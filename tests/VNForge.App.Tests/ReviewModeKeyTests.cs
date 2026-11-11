@@ -3,7 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -121,7 +121,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             (window, vm) =>
             {
                 vm.ToggleShortcutMapCommand.Execute(null);
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
                 Assert.True(vm.IsShortcutMapOpen);
 
                 Teclar(window, [(Key.Escape, PhysicalKey.Escape, true)]);
@@ -144,7 +144,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             (window, vm) =>
             {
                 vm.ToggleShortcutMapCommand.Execute(null);
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 Teclar(window, [(Key.Enter, PhysicalKey.Enter, true), (Key.M, PhysicalKey.M, true), (Key.Right, PhysicalKey.ArrowRight, true), (Key.E, PhysicalKey.E, true)]);
             },
@@ -168,7 +168,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             (window, vm) =>
             {
                 vm.Translate.IsOpen = true;
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 Teclar(window, [(Key.Enter, PhysicalKey.Enter, true), (Key.Right, PhysicalKey.ArrowRight, true)]);
             },
@@ -192,7 +192,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             {
                 Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
                 vm.Editor.StartReview();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 Teclar(window, [(Key.Enter, PhysicalKey.Enter, false)]);
             },
@@ -241,7 +241,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
                 inscritosAntes = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
 
                 vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Dashboard);
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
 
                 inscritosDepois = (Inscritos(window, "Deactivated", typeof(WindowBase), typeof(ReviewModeView)), InscritosPropertyChanged(window, typeof(EditorView)));
             },
@@ -304,7 +304,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
                 window.KeyRelease(key, RawInputModifiers.None, physical, null);
             }
 
-            ScreenRenderer.Settle(window);
+            ScreenHost.Settle(window);
         }
     }
 
@@ -317,7 +317,7 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
                 using var config = new TempFolder();
                 var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
                 var vm = new MainWindowViewModel(start) { Editor = new EditorViewModel(clock: new FixedClock(Now), postToUi: action => action()) { ApprovalLogFactory = _ => log } };
-                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
+                var window = new MainWindow { Width = ScreenHost.Width, Height = ScreenHost.Height, DataContext = vm };
                 try
                 {
                     window.Show();
@@ -325,10 +325,10 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
                     await vm.ProjectOpening;
                     await vm.Editor.Loading;
                     vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
 
                     vm.Editor.StartReviewCommand.Execute(null);
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     var review = vm.Editor.Review!;
                     var view = window.GetVisualDescendants().OfType<ReviewModeView>().Single(v => v.IsEffectivelyVisible);
                     Assert.True(view.FindControl<Grid>("Root")!.IsFocused, "a tela do modo revisão recebe o foco ao abrir");
