@@ -153,7 +153,8 @@ public sealed class App : Application
             player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
             playLog: playLog,
             switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
-            engines: engines);
+            engines: engines,
+            portugueseChecker: () => new PortugueseTranslationChecker(vndb));
         library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
         return library;
     }

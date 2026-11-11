@@ -190,7 +190,7 @@ public sealed partial class MainWindowViewModel
         }
         else if (game.Engine.Translatable)
         {
-            ShowWizard(newProjectWizard, game.Folder);
+            ShowWizard(newProjectWizard, game.Folder, game.VndbId);
         }
         else
         {

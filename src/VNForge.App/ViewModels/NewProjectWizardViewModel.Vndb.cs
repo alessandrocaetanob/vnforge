@@ -225,6 +225,7 @@ public sealed partial class NewProjectWizardViewModel
     private readonly Func<VndbLink, string?> translatedSynopsis;
     private VndbLink? confirmedLink;
     private string? vndbSearchedFolder;
+    private string? knownVndbId;
     private CancellationTokenSource? vndbCts;
 
     /// <summary>Os resultados da busca no VNDB, o mais provável primeiro.</summary>
@@ -315,6 +316,18 @@ public sealed partial class NewProjectWizardViewModel
         }
 
         vndbSearchedFolder = GameFolder;
+        if (knownVndbId is { } known)
+        {
+            // O jogo veio da Biblioteca com o casamento já confirmado: traz a ficha direto, sem buscar de novo. Só um erro do VNDB cai na busca de sempre; quem cancelou já cuidou do estado.
+            knownVndbId = null;
+            if (vndb is not null && await ConfirmAsync(string.Empty, token => VndbProjectLinker.BuildAsync(vndb, known, token)) is not false)
+            {
+                return;
+            }
+
+            ErrorMessage = null;
+        }
+
         IsBusy = true;
         string? title = null;
         try
@@ -457,38 +470,47 @@ public sealed partial class NewProjectWizardViewModel
             return;
         }
 
+        await ConfirmAsync(chosen.Title, async token => VndbProjectLinker.From(chosen.Candidate.VisualNovel, await vndb.GetCharactersAsync(chosen.Candidate.VisualNovel.Id, token)));
+    }
+
+    /// <summary>Traz a ficha (<paramref name="load"/>) e mostra o que chega ao projeto. Devolve se chegou à confirmação, nulo se o pedido foi cancelado; no erro volta à lista de resultados.</summary>
+    private async Task<bool?> ConfirmAsync(string title, Func<CancellationToken, Task<VndbLink>> load)
+    {
         Stage = VndbStage.Confirming;
         VndbHeadline = "Trazendo os personagens";
-        VndbDetail = chosen.Title;
+        VndbDetail = title;
         IsBusy = true;
         using var cts = vndbCts = new CancellationTokenSource();
         try
         {
-            var characters = await vndb.GetCharactersAsync(chosen.Candidate.VisualNovel.Id, cts.Token);
+            var link = await load(cts.Token);
             if (cts.IsCancellationRequested)
             {
-                return;
+                return null;
             }
 
             var gameNames = await ReadGameNamesAsync(cts.Token);
             if (cts.IsCancellationRequested)
             {
-                return;
+                return null;
             }
 
-            confirmedLink = VndbProjectLinker.From(chosen.Candidate.VisualNovel, characters);
-            Preview = VndbPreview.From(confirmedLink, gameNames, translatedSynopsis(confirmedLink));
+            confirmedLink = link;
+            Preview = VndbPreview.From(link, gameNames, translatedSynopsis(link));
             Stage = VndbStage.Preview;
+            return true;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
             // Quem cancelou já cuidou do estado.
+            return null;
         }
         catch (VNForgeException e) when (!cts.IsCancellationRequested)
         {
             ErrorMessage = $"{e.Message} Tente de novo ou siga sem o VNDB.";
             Stage = VndbStage.Choosing;
             VndbHeadline = ChoosingHeadline();
+            return false;
         }
         finally
         {
@@ -568,6 +590,15 @@ public sealed partial class NewProjectWizardViewModel
 
         confirmedLink = null;
         Preview = null;
+        if (Candidates.Count == 0)
+        {
+            // A ficha veio direto do casamento da Biblioteca, sem lista de resultados para voltar: oferece buscar.
+            VndbHeadline = "Escolha outro jogo no VNDB";
+            VndbDetail = "Busque por um título ou siga sem o VNDB.";
+            Stage = VndbStage.Empty;
+            return true;
+        }
+
         Stage = VndbStage.Choosing;
         return true;
     }
