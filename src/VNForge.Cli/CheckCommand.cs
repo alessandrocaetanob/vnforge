@@ -371,9 +371,16 @@ internal static class CheckCommand
                 translation = v.Translation,
                 reference = v.IsReference,
                 lines = v.Lines.Select(l => new { unit = l.UnitId, script = l.ScriptKey }),
-                diff = v.Diff.Select(d => new { kind = d.Kind == TextDiffKind.Same ? "same" : d.Kind == TextDiffKind.Added ? "added" : "missing", text = d.Text }),
+                diff = v.Diff.Select(d => new { kind = DiffKindName(d.Kind), text = d.Text }),
             }),
         }),
         issues = report.Issues.Select(i => new { rule = i.RuleId, severity = i.Severity == QaSeverity.Error ? "error" : "warn", unit = i.UnitId, script = i.ScriptKey, message = i.Message }),
+    };
+
+    private static string DiffKindName(TextDiffKind kind) => kind switch
+    {
+        TextDiffKind.Same => "same",
+        TextDiffKind.Added => "added",
+        _ => "missing",
     };
 }

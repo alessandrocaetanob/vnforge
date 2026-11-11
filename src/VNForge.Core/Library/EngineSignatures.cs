@@ -34,15 +34,9 @@ public static class EngineSignatures
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
         var probe = new FolderProbe(folder);
-        foreach (var signature in All)
-        {
-            if (probe.Safely(signature.Matches))
-            {
-                return new LibraryEngine(signature.Id, signature.Name, LibraryEngineSource.Signature);
-            }
-        }
-
-        return null;
+        return All.Where(signature => probe.Safely(signature.Matches))
+            .Select(signature => new LibraryEngine(signature.Id, signature.Name, LibraryEngineSource.Signature))
+            .FirstOrDefault();
     }
 
     private sealed record Signature(string Id, string Name, Func<FolderProbe, bool> Matches);

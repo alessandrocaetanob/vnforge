@@ -30,11 +30,11 @@ public static class SheetEditor
         }
 
         result.AddRange(characters.Where(c => c.Description is not null).Select(c => (SheetField.OfCharacter(c.Id), c.Description!)));
-        foreach (var tag in game.Tags)
+        foreach (var tagId in game.Tags.Select(tag => tag.Id))
         {
-            if (terms.Find(SheetTermKind.Tag, tag.Id) is { } term)
+            if (terms.Find(SheetTermKind.Tag, tagId) is { } term)
             {
-                result.Add((SheetField.OfTag(tag.Id), term.Text));
+                result.Add((SheetField.OfTag(tagId), term.Text));
             }
         }
 

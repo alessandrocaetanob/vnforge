@@ -63,6 +63,8 @@ public sealed partial class InstallerViewModel : ObservableObject
         Revert,
     }
 
+    private const string InstallTitle = "Instalar a tradução";
+
     private readonly IInstallerEngine? _engine;
     private readonly IInstallerShell _shell;
     private readonly TimeProvider _time;
@@ -95,7 +97,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         }
         else
         {
-            Title = "Instalar a tradução";
+            Title = InstallTitle;
         }
     }
 
@@ -105,9 +107,18 @@ public sealed partial class InstallerViewModel : ObservableObject
 
     public string SideLine { get; } = "Tradução para português do Brasil";
 
-    public string SideVersionLine => _engine is null
-        ? string.Empty
-        : string.IsNullOrWhiteSpace(_engine.Manifest.Credits) ? $"Versão {_engine.Manifest.Version}" : $"Versão {_engine.Manifest.Version} · {_engine.Manifest.Credits.Trim()}";
+    public string SideVersionLine
+    {
+        get
+        {
+            if (_engine is null)
+            {
+                return string.Empty;
+            }
+
+            return string.IsNullOrWhiteSpace(_engine.Manifest.Credits) ? $"Versão {_engine.Manifest.Version}" : $"Versão {_engine.Manifest.Version} · {_engine.Manifest.Credits.Trim()}";
+        }
+    }
 
     /// <summary>As duas linhas sob o nome do jogo, na coluna da esquerda.</summary>
     public string SideInfo => _engine is null ? SideLine : $"{SideLine}\n{SideVersionLine}";
@@ -467,7 +478,7 @@ public sealed partial class InstallerViewModel : ObservableObject
     private void ShowChecking(string folder)
     {
         Screen = InstallerScreen.Folder;
-        Title = "Instalar a tradução";
+        Title = InstallTitle;
         Intro = "Escolha a pasta onde o jogo está instalado.";
         Note = string.Empty;
         FolderPath = folder;
@@ -479,7 +490,7 @@ public sealed partial class InstallerViewModel : ObservableObject
     private void ShowNoFolder()
     {
         Screen = InstallerScreen.Folder;
-        Title = "Instalar a tradução";
+        Title = InstallTitle;
         Intro = "Escolha a pasta onde o jogo está instalado. O instalador procurou e não achou.";
         Note = "Antes de mexer no jogo, o instalador guarda uma cópia dos arquivos originais.";
         FolderPath = string.Empty;
@@ -492,7 +503,7 @@ public sealed partial class InstallerViewModel : ObservableObject
     private void ShowFolderError(string folder, string message)
     {
         Screen = InstallerScreen.Folder;
-        Title = "Instalar a tradução";
+        Title = InstallTitle;
         Intro = "Escolha a pasta onde o jogo está instalado.";
         Note = string.Empty;
         FolderPath = folder;
@@ -518,7 +529,7 @@ public sealed partial class InstallerViewModel : ObservableObject
         }
 
         Screen = InstallerScreen.Folder;
-        Title = "Instalar a tradução";
+        Title = InstallTitle;
         Intro = source == FolderSource.Searched
             ? "Escolha a pasta onde o jogo está instalado. O instalador procurou e achou esta."
             : "Escolha a pasta onde o jogo está instalado.";
@@ -588,9 +599,10 @@ public sealed partial class InstallerViewModel : ObservableObject
         }
         else
         {
+            var restoreVerb = restoreNames.Count == 1 ? "volta" : "voltam";
             var detail = count == 0
                 ? "Nenhum arquivo do jogo mudou desde a instalação."
-                : $"{InstallerText.NameList(restoreNames)} {(restoreNames.Count == 1 ? "volta" : "voltam")} byte a byte.";
+                : $"{InstallerText.NameList(restoreNames)} {restoreVerb} byte a byte.";
             if ((restoreNames.Count == 0 && removeNames.Count > 0) || (count == 0 && plan.Kept.Count > 0))
             {
                 detail = string.Empty;
@@ -625,7 +637,8 @@ public sealed partial class InstallerViewModel : ObservableObject
     private void ShowDone(string folder, PatchInstallResult result)
     {
         var leaf = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)));
-        var changed = result.Written.Count == 0 ? "Nenhum arquivo precisou mudar." : $"{InstallerText.Files(result.Written.Count)} {(result.Written.Count == 1 ? "alterado" : "alterados")}.";
+        var changedWord = result.Written.Count == 1 ? "alterado" : "alterados";
+        var changed = result.Written.Count == 0 ? "Nenhum arquivo precisou mudar." : $"{InstallerText.Files(result.Written.Count)} {changedWord}.";
         GameExecutablePath = _shell.FindGame(folder, _engine!.Manifest);
         OnPropertyChanged(nameof(GameExecutablePath));
         OnPropertyChanged(nameof(CanOpenGame));
@@ -642,9 +655,10 @@ public sealed partial class InstallerViewModel : ObservableObject
     private void ShowReverted(PatchUninstallResult result)
     {
         var count = result.Restored.Count + result.Removed.Count;
+        var keptVerb = result.Kept.Count == 1 ? "está" : "estão";
         var kept = result.Kept.Count == 0
             ? string.Empty
-            : $" Deixei {InstallerText.NameList([.. result.Kept.Select(InstallerText.FileName)])} como {(result.Kept.Count == 1 ? "está" : "estão")}: mudou depois da instalação.";
+            : $" Deixei {InstallerText.NameList([.. result.Kept.Select(InstallerText.FileName)])} como {keptVerb}: mudou depois da instalação.";
         Screen = InstallerScreen.Reverted;
         Title = "Jogo original de volta";
         Intro = string.Empty;
@@ -735,9 +749,14 @@ public sealed partial class InstallerViewModel : ObservableObject
         Steps[index].Detail = InstallerText.Percent(fraction);
     }
 
-    private int StepIndex(PatchPhase phase) => _operation == Operation.Revert
-        ? phase == PatchPhase.Restore ? 0 : -1
-        : phase switch
+    private int StepIndex(PatchPhase phase)
+    {
+        if (_operation == Operation.Revert)
+        {
+            return phase == PatchPhase.Restore ? 0 : -1;
+        }
+
+        return phase switch
         {
             PatchPhase.Check => 0,
             PatchPhase.Backup => 1,
@@ -745,6 +764,7 @@ public sealed partial class InstallerViewModel : ObservableObject
             PatchPhase.Verify => 3,
             _ => -1,
         };
+    }
 
     private double Fraction(PatchProgress progress)
     {

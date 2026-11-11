@@ -180,12 +180,21 @@ internal static partial class LibraryCommand
         }
         else
         {
-            output.WriteLine(current is not null
-                ? $"Locale Emulator: {current}.{(changed ? " Gravado." : string.Empty)}"
-                : $"Locale Emulator: não configurado.{(changed ? " Caminho esquecido." : " Informe com vnf library emulator <pasta ou LEProc.exe>.")}");
+            output.WriteLine(EmulatorSummary(current, changed));
         }
 
         return ErrorHandler.OkExitCode;
+    }
+
+    private static string EmulatorSummary(string? current, bool changed)
+    {
+        if (current is not null)
+        {
+            return $"Locale Emulator: {current}.{(changed ? " Gravado." : string.Empty)}";
+        }
+
+        var hint = changed ? " Caminho esquecido." : " Informe com vnf library emulator <pasta ou LEProc.exe>.";
+        return $"Locale Emulator: não configurado.{hint}";
     }
 
     private static void WriteWarnings(ParseResult parseResult, PlayLogFile file, PlayLog played)

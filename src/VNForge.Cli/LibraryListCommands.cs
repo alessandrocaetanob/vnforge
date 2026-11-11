@@ -143,10 +143,30 @@ internal static class LibraryListCommands
         output.WriteLine($"    Início: {DateText(fields.Started)}");
         output.WriteLine($"    Fim: {DateText(fields.Finished)}");
         output.WriteLine($"    Notas: {fields.Notes ?? "nenhuma"}");
-        output.WriteLine("    Sincronização: " + (state.SyncedAt is null ? "nunca sincronizado" : state.Pending ? "há mudança aqui que o VNDB ainda não tem" : "em dia") + (state.SyncedAt is { } at ? $" (última em {at.LocalDateTime.ToString("g", PortugueseBrazil)})" : string.Empty));
+        output.WriteLine("    Sincronização: " + SyncStatus(state) + (state.SyncedAt is { } at ? $" (última em {at.LocalDateTime.ToString("g", PortugueseBrazil)})" : string.Empty));
+    }
+
+    private static string SyncStatus(LibraryListState state)
+    {
+        if (state.SyncedAt is null)
+        {
+            return "nunca sincronizado";
+        }
+
+        return state.Pending ? "há mudança aqui que o VNDB ainda não tem" : "em dia";
     }
 
     private static string DateText(DateOnly? date) => date is { } value ? value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "nenhuma";
+
+    private static LibrarySyncDirection SyncDirection(bool pull, bool push)
+    {
+        if (pull)
+        {
+            return LibrarySyncDirection.Pull;
+        }
+
+        return push ? LibrarySyncDirection.Push : LibrarySyncDirection.Both;
+    }
 
     private static async Task<int> SyncAsync(VnfCli cli, ParseResult parseResult, CancellationToken cancellationToken)
     {
@@ -164,7 +184,7 @@ internal static class LibraryListCommands
             throw new UsageException("--recreate manda entradas ao VNDB e não combina com --pull.");
         }
 
-        var direction = pull ? LibrarySyncDirection.Pull : push ? LibrarySyncDirection.Push : LibrarySyncDirection.Both;
+        var direction = SyncDirection(pull, push);
         var json = parseResult.GetValue(cli.Options.Json);
         var output = parseResult.InvocationConfiguration.Output;
         var token = RequireToken(cli);
@@ -361,11 +381,31 @@ internal static class LibraryListCommands
         {
             LabelsSet = labels,
             LabelsUnset = unlabels,
-            Vote = vote is null ? default : vote.Trim().Length == 0 ? VndbChange<int>.Clear : ParseVote(vote),
+            Vote = ReadVote(vote),
             Started = ReadDate(started, "--started"),
             Finished = ReadDate(finished, "--finished"),
-            Notes = notes is null ? default : notes.Trim().Length == 0 ? VndbChange<string>.Clear : VndbChange<string>.Set(notes.Trim()),
+            Notes = ReadNotes(notes),
         };
+    }
+
+    private static VndbChange<int> ReadVote(string? vote)
+    {
+        if (vote is null)
+        {
+            return default;
+        }
+
+        return vote.Trim().Length == 0 ? VndbChange<int>.Clear : ParseVote(vote);
+    }
+
+    private static VndbChange<string> ReadNotes(string? notes)
+    {
+        if (notes is null)
+        {
+            return default;
+        }
+
+        return notes.Trim().Length == 0 ? VndbChange<string>.Clear : VndbChange<string>.Set(notes.Trim());
     }
 
     private static VndbChange<int> ParseVote(string text)

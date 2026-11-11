@@ -162,7 +162,7 @@ internal static partial class LibraryCommand
         patch = state.Patch is { } patch
             ? new
             {
-                kind = !state.PatchRecorded ? "unknown" : patch.Kind == GameTestKind.AccentTest ? "accentTest" : "translation",
+                kind = PatchKind(state.PatchRecorded, patch),
                 appliedAt = patch.AppliedAt,
                 backup = patch.BackupDirectory,
                 scene = patch.ScriptKey,
@@ -171,6 +171,26 @@ internal static partial class LibraryCommand
             : null,
         reason = state.Reason,
     };
+
+    private static string PatchKind(bool recorded, GameInGame patch)
+    {
+        if (!recorded)
+        {
+            return "unknown";
+        }
+
+        return patch.Kind == GameTestKind.AccentTest ? "accentTest" : "translation";
+    }
+
+    private static string PatchScope(GameInGame patch)
+    {
+        if (patch.Kind == GameTestKind.AccentTest)
+        {
+            return "teste de acentos";
+        }
+
+        return patch.ScriptKey is { } scene ? $"só a cena {scene}" : "tradução";
+    }
 
     private static string DescribeTranslation(LibraryTranslationState state)
     {
@@ -185,9 +205,7 @@ internal static partial class LibraryCommand
                     return $"traduzido (há uma injeção de {patch.AppliedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PortugueseBrazil)}, backup {patch.BackupDirectory}, mas o projeto não registra o que ela gravou; pode ser só o ajuste do executável. Use --traduzido para gravar a tradução inteira)";
                 }
 
-                var what = patch.Kind == GameTestKind.AccentTest
-                    ? "teste de acentos"
-                    : patch.ScriptKey is { } scene ? $"só a cena {scene}" : "tradução";
+                var what = PatchScope(patch);
                 var fingerprint = patch.TextFingerprint is { Length: > 0 } text ? $", textos {text[..Math.Min(8, text.Length)]}" : string.Empty;
                 return $"traduzido ({what} de {patch.AppliedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PortugueseBrazil)}{fingerprint}, backup {patch.BackupDirectory})";
             default:

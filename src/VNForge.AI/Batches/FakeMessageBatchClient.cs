@@ -147,9 +147,12 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
         public MessageBatchEntry Entry(MessageBatchItem item, FakeMessageBatchClient owner)
         {
             var outcome = CancelRequested ? MessageBatchOutcome.Canceled : owner.OutcomeOf(item);
-            return outcome == MessageBatchOutcome.Succeeded
-                ? new MessageBatchEntry(item.CustomId, outcome, owner.Reply(item))
-                : new MessageBatchEntry(item.CustomId, outcome, Error: outcome == MessageBatchOutcome.Errored ? "overloaded_error" : null);
+            if (outcome == MessageBatchOutcome.Succeeded)
+            {
+                return new MessageBatchEntry(item.CustomId, outcome, owner.Reply(item));
+            }
+
+            return new MessageBatchEntry(item.CustomId, outcome, Error: outcome == MessageBatchOutcome.Errored ? "overloaded_error" : null);
         }
     }
 }

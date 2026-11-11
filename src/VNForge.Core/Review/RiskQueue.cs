@@ -75,13 +75,10 @@ public sealed class RiskQueue
         // EditorSuggestionsFile.For varre a lista a cada chamada; com dezenas de milhares de linhas indexa-se uma vez e usa-se o mesmo critério (IsLiveFor).
         var byLine = suggestions?.Suggestions.ToLookup(s => (s.ScriptKey, s.UnitId));
         var scored = new List<LineRisk>();
-        foreach (var line in lines)
+        foreach (var line in lines.Where(line => line.Unit.Status is TranslationStatus.Machine or TranslationStatus.Translated))
         {
-            if (line.Unit.Status is TranslationStatus.Machine or TranslationStatus.Translated)
-            {
-                var hasSuggestion = byLine is not null && byLine[(line.ScriptKey, line.Unit.Id)].Any(s => s.IsLiveFor(line.Unit));
-                scored.Add(LineRisk.Of(line, hasSuggestion));
-            }
+            var hasSuggestion = byLine is not null && byLine[(line.ScriptKey, line.Unit.Id)].Any(s => s.IsLiveFor(line.Unit));
+            scored.Add(LineRisk.Of(line, hasSuggestion));
         }
 
         return new RiskQueue([.. scored.OrderByDescending(l => l.Score)]);

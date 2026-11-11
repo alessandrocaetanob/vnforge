@@ -67,12 +67,11 @@ public sealed class PlayLogFile(string directory, TimeProvider? clock = null, Ti
         {
             var current = File.ReadAllBytes(Path);
             var folder = System.IO.Path.GetDirectoryName(Path)!;
-            foreach (var existing in Directory.EnumerateFiles(folder, InvalidCopyPrefix + "*"))
+            var existing = Directory.EnumerateFiles(folder, InvalidCopyPrefix + "*")
+                .FirstOrDefault(candidate => File.ReadAllBytes(candidate).AsSpan().SequenceEqual(current));
+            if (existing is not null)
             {
-                if (File.ReadAllBytes(existing).AsSpan().SequenceEqual(current))
-                {
-                    return existing;
-                }
+                return existing;
             }
 
             var stamp = (clock ?? TimeProvider.System).GetUtcNow().ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);

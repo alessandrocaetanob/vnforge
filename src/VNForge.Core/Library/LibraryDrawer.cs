@@ -93,7 +93,12 @@ public static class LibraryDrawers
     public static string VndbText(LibraryGame game)
     {
         ArgumentNullException.ThrowIfNull(game);
-        return game.VndbId is { } id ? $"{id} · casado" : game.Candidates.Count > 0 ? "a confirmar" : "sem casamento";
+        if (game.VndbId is { } id)
+        {
+            return $"{id} · casado";
+        }
+
+        return game.Candidates.Count > 0 ? "a confirmar" : "sem casamento";
     }
 
     /// <summary>O ano da data de lançamento do VNDB (<c>2019</c>, <c>2019-04-12</c>); nulo para <c>TBA</c> e para o que não começa por um ano.</summary>

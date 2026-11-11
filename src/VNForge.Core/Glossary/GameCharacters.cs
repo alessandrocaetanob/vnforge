@@ -31,14 +31,12 @@ public static class GameCharacters
         ArgumentNullException.ThrowIfNull(existing);
         var known = existing.ToList();
         var missing = new List<CharacterEntry>();
-        foreach (var name in names)
+        // O livro é imutável: refazê-lo a cada nome novo cobre dois nomes que a comparação trata como o mesmo.
+        // O Where é preguiçoso e roda o filtro de cada nome depois do corpo do nome anterior.
+        foreach (var name in names.Where(candidate => new CharacterBook(known).Find(candidate.Source) is null))
         {
-            // O livro é imutável: refazê-lo a cada nome novo cobre dois nomes que a comparação trata como o mesmo.
-            if (new CharacterBook(known).Find(name.Source) is null)
-            {
-                known.Add(name);
-                missing.Add(name);
-            }
+            known.Add(name);
+            missing.Add(name);
         }
 
         return missing;

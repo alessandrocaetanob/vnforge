@@ -169,11 +169,11 @@ internal static class EvalCommand
             return new EvalProvider(translator, () => (translator as ClaudeTranslationProvider)?.Usage);
         }
 
-        IJudgeProvider? judge = judgeModel is null
-            ? null
-            : cli.JudgeProviderFactory is { } judgeFactory
-                ? judgeFactory(judgeModel, ClaudeEffort.Low)
-                : ClaudeProviderFactory.CreateJudge(Key(), new ClaudeOptions { Model = judgeModel, Effort = ClaudeEffort.Low });
+        IJudgeProvider Judge(string model) => cli.JudgeProviderFactory is { } judgeFactory
+            ? judgeFactory(model, ClaudeEffort.Low)
+            : ClaudeProviderFactory.CreateJudge(Key(), new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low });
+
+        IJudgeProvider? judge = judgeModel is null ? null : Judge(judgeModel);
 
         return new EvalRunRequest(project, configs, sample, seed, Provider)
         {

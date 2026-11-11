@@ -240,14 +240,14 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
                 hasUsage = true;
             }
 
-            foreach (var line in request.Lines.Where(l => selected.Contains(l.Id)))
+            foreach (var lineId in request.Lines.Where(l => selected.Contains(l.Id)).Select(l => l.Id))
             {
-                if (outcome.Results is { } read && read.FirstOrDefault(r => r.Id == line.Id) is { } result)
+                if (outcome.Results is { } read && read.FirstOrDefault(r => r.Id == lineId) is { } result)
                 {
                     if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
                     {
                         refused++;
-                        unfinished.Add(line.Id);
+                        unfinished.Add(lineId);
                     }
                     else
                     {
@@ -257,7 +257,7 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
                 else
                 {
                     failed++;
-                    unfinished.Add(line.Id);
+                    unfinished.Add(lineId);
                 }
             }
         }

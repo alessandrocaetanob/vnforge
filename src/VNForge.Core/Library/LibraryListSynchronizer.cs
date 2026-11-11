@@ -297,7 +297,15 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
     private static string ShowDate(object? value) => value is DateOnly date ? date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) : "nenhuma";
 
-    private static string ShowNotes(object? value) => value is string { Length: > 0 } text ? (text.Length <= 40 ? text : text[..40] + "...") : "nenhuma";
+    private static string ShowNotes(object? value)
+    {
+        if (value is not string { Length: > 0 } text)
+        {
+            return "nenhuma";
+        }
+
+        return text.Length <= 40 ? text : text[..40] + "...";
+    }
 
     private static LibrarySyncStep Plan(LibraryGame game, VndbListEntry? entry, LibrarySyncOptions options, DateTimeOffset now)
     {
@@ -534,9 +542,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             Vote = Diff(before.Vote, after.Vote),
             Started = Diff(before.Started, after.Started),
             Finished = Diff(before.Finished, after.Finished),
-            Notes = string.Equals(before.Notes, after.Notes, StringComparison.Ordinal)
-                ? default
-                : after.Notes is null ? VndbChange<string>.Clear : VndbChange<string>.Set(after.Notes),
+            Notes = DiffNotes(before.Notes, after.Notes),
             LabelsSet = setIds,
             LabelsUnset = unsetIds,
         };
@@ -545,9 +551,26 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             : update;
     }
 
+    private static VndbChange<string> DiffNotes(string? before, string? after)
+    {
+        if (string.Equals(before, after, StringComparison.Ordinal))
+        {
+            return default;
+        }
+
+        return after is null ? VndbChange<string>.Clear : VndbChange<string>.Set(after);
+    }
+
     private static VndbChange<T> Diff<T>(T? before, T? after)
-        where T : struct =>
-        Equals(before, after) ? default : after is { } value ? VndbChange<T>.Set(value) : VndbChange<T>.Clear;
+        where T : struct
+    {
+        if (Equals(before, after))
+        {
+            return default;
+        }
+
+        return after is { } value ? VndbChange<T>.Set(value) : VndbChange<T>.Clear;
+    }
 
     private sealed record Scalar(string Name, Func<LibraryListFields, object?> Get, Func<LibraryListFields, object?, LibraryListFields> Set, Func<object?, string> Show, LibrarySyncFields Group);
 }

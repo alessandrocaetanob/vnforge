@@ -116,12 +116,9 @@ public static class UnwritableCharacters
 
         var decomposed = original.Normalize(NormalizationForm.FormD);
         var bare = new StringBuilder(decomposed.Length);
-        foreach (var c in decomposed)
+        foreach (var c in decomposed.Where(c => c is < '̀' or > 'ͯ'))
         {
-            if (c is < '̀' or > 'ͯ')
-            {
-                bare.Append(c);
-            }
+            bare.Append(c);
         }
 
         return bare.Length > 0 && bare.Length < decomposed.Length && bare.ToString() != original ? bare.ToString() : null;

@@ -107,6 +107,11 @@ public static class ImageEraser
             return [.. first.Zip(second, (p, q) => p + ((q - p) * t))];
         }
 
-        return hasA ? Read(a) : hasB ? Read(b) : null;
+        if (hasA)
+        {
+            return Read(a);
+        }
+
+        return hasB ? Read(b) : null;
     }
 }
