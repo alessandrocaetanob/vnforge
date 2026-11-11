@@ -56,6 +56,27 @@ public sealed class LineDetailInspectorTests : IDisposable
         Assert.Equal("Narração", narracao.SpeakerPair);
     }
 
+    [Theory]
+    [InlineData("manual", null, "Editada à mão (há 10 min).")]
+    [InlineData("anthropic", "claude-opus-5-5", "Traduzida pela IA, Claude Opus 5.5 (há 10 min).")]
+    [InlineData("anthropic", null, "Traduzida pela IA (há 10 min).")]
+    [InlineData("anthropic", "", "Traduzida pela IA (há 10 min).")]
+    public void Historico_diz_quem_traduziu_o_modelo_e_quando(string provedor, string? modelo, string esperado)
+    {
+        var unidade = Fala("美咲", "「ふふっ」\\p", "Oi.\\p") with { Origin = new TranslationOrigin(provedor, modelo, Agora.AddMinutes(-10)) };
+        using var vm = Abrir(unidade);
+
+        Assert.Equal(esperado, vm.HistoryText);
+    }
+
+    [Fact]
+    public void Historico_sem_origem_avisa_que_nao_ha_registro()
+    {
+        using var vm = Abrir(Fala("美咲", "「ふふっ」\\p", "Oi.\\p"));
+
+        Assert.Equal("Sem registro de origem para esta tradução.", vm.HistoryText);
+    }
+
     [Fact]
     public void Falante_sem_cadastro_aparece_so_com_o_nome_original()
     {

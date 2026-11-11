@@ -232,7 +232,9 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
                     var pageArea = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "PageArea");
                     var pageLeft = pageArea.TranslatePoint(default, window)!.Value.X;
                     var left = ContentLeft(window, pageArea, vm.CurrentPage);
-                    Assert.True(left >= pageLeft + 31.5 && left <= pageLeft + 32.5, $"{name}: o conteúdo começa em x={left}, o cabeçalho em x={pageLeft + 32}");
+                    // A grade do Editor avança BoardInset (8 px) sobre a margem em janela larga, como no quadro da #537 (grade em x=104, abas e filtros em 112).
+                    var expected = key == NavKey.Editor ? 24 : 32;
+                    Assert.True(left >= pageLeft + expected - 0.5 && left <= pageLeft + expected + 0.5, $"{name}: o conteúdo começa em x={left}, o esperado é x={pageLeft + expected}");
                 }
 
                 ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("shell-pagina-" + name, theme)));

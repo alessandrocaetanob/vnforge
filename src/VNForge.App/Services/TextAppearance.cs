@@ -17,6 +17,9 @@ public static class TextAppearance
 
     private const double BasePillHeight = 20;
 
+    /// <summary>O selo de porcentagem do cartão da memória de tradução (#537), mais alto que o chip comum.</summary>
+    private const double BaseMemoryPillHeight = 24;
+
     private const double BaseMarkerHeight = 22;
 
     /// <summary>A linha de um texto que leva selo de marcador: o selo (<see cref="BaseMarkerHeight"/>) mais 4 de folga, para o selo não encostar nas linhas vizinhas.</summary>
@@ -66,6 +69,7 @@ public static class TextAppearance
 
         resources["Vnf.RowHeight"] = Math.Round(BaseRowHeight * factor);
         resources["Vnf.PillHeight"] = Math.Round(BasePillHeight * factor);
+        resources["Vnf.MemoryPillHeight"] = Math.Round(BaseMemoryPillHeight * factor);
         resources["Vnf.MarkerHeight"] = Math.Round(BaseMarkerHeight * factor);
         resources["Vnf.MarkerLineHeight"] = Math.Round(BaseMarkerLineHeight * factor);
         return resources;

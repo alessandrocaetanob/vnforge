@@ -7,6 +7,17 @@
              x:Class="VNForge.App.Views.LineDetailView"
              x:DataType="vm:LineDetailViewModel">
 
+  <UserControl.Resources>
+    <!-- A linha de estado dos marcadores: um só desenho, usado no inspetor compacto (ao lado do "Cabe") e no largo (abaixo). -->
+    <DataTemplate x:Key="MarkerStateRow" x:DataType="vm:LineDetailViewModel">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
+        <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
+        <TextBlock Classes="meta marker-state" Classes.ok="{Binding MarkersMatch}" Text="{Binding MarkerStateText}"/>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <UserControl.Styles>
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/LineDetail.axaml"/>
@@ -171,10 +182,10 @@
           <!-- Memória de tradução (#537): o que já foi aprovado em outros projetos para esta fala ou uma parecida. "Usar" põe o texto no campo; nada grava sozinho. -->
           <Border x:Name="MemoryFragment" Classes="memory" Margin="0,-1,0,0" IsVisible="{Binding ShowMemoryCard}" AutomationProperties.Name="Memória de tradução">
             <StackPanel Spacing="2">
-              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Database}"/>
-                  <c:OverlineText Classes="overline" Text="Memória de tradução"/>
+                  <c:OverlineText Classes="overline" FontWeight="Normal" Text="Memória de tradução"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Classes="caption secondary" VerticalAlignment="Center" Text="{Binding MemorySummary}" IsVisible="{Binding HasMemory}"/>
               </Grid>
@@ -184,7 +195,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:MemorySuggestionViewModel">
                     <Border Classes="memory-item">
-                      <StackPanel Spacing="2">
+                      <StackPanel Spacing="3">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                           <Border Classes="memory-pill" Classes.exact="{Binding IsExact}" VerticalAlignment="Center">
                             <TextBlock Text="{Binding PercentText}" AutomationProperties.Name="{Binding PercentText, StringFormat='Correspondência de {0}'}"/>
@@ -253,7 +264,7 @@
                            IsVisible="{Binding Problem, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               </StackPanel>
             </StackPanel>
-            <!-- Quadro do #546: "Cabe · 2 de 3 linhas" e "49 caracteres" na mesma linha (vão de 14 e 4) e o estado dos marcadores na linha de baixo. -->
+            <!-- Quadro do #546: "Cabe · 2 de 3 linhas" e "49 caracteres" na mesma linha (vão de 14 e 4) e o estado dos marcadores na linha de baixo. No inspetor compacto (quadro do #537) os caracteres vão para o cabeçalho e os marcadores sobem para a linha do "Cabe". -->
             <StackPanel Spacing="4" AutomationProperties.Name="Medidas da tradução">
             <WrapPanel ItemSpacing="14" LineSpacing="4">
               <StackPanel IsVisible="{Binding IsCompactInspector}">
@@ -279,12 +290,23 @@
                 </StackPanel>
               </StackPanel>
               <TextBlock Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding !IsCompactInspector}"/>
+              <ContentControl ContentTemplate="{StaticResource MarkerStateRow}" Content="{Binding}">
+                <ContentControl.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="IsCompactInspector"/>
+                    <Binding Path="HasMarkerState"/>
+                  </MultiBinding>
+                </ContentControl.IsVisible>
+              </ContentControl>
             </WrapPanel>
-              <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding MarkerStateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                <PathIcon Width="14" Height="14" Classes="marker-state" Classes.ok="{Binding MarkersMatch}" Data="{StaticResource Icon.Check}" IsVisible="{Binding MarkersMatch}"/>
-                <PathIcon Width="14" Height="14" Classes="marker-state" Data="{StaticResource Icon.Error}" IsVisible="{Binding !MarkersMatch}"/>
-                <TextBlock Classes="meta marker-state" Classes.ok="{Binding MarkersMatch}" Text="{Binding MarkerStateText}"/>
-              </StackPanel>
+              <ContentControl ContentTemplate="{StaticResource MarkerStateRow}" Content="{Binding}">
+                <ContentControl.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="!IsCompactInspector"/>
+                    <Binding Path="HasMarkerState"/>
+                  </MultiBinding>
+                </ContentControl.IsVisible>
+              </ContentControl>
             </StackPanel>
           </StackPanel>
 
