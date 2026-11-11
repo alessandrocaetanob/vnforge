@@ -25,6 +25,10 @@ internal sealed record ScreenDef(string Name, Func<string, ThemeVariant, Task<Sc
 /// </summary>
 internal static class ScreenCatalog
 {
+    private const string AmaotoTitle = "Amaoto no Hakoniwa";
+
+    private const string AmaotoOriginalTitle = "雨音の箱庭";
+
     /// <summary>As páginas do trilho e do cabeçalho do jogo que abrem sobre o projeto de demonstração. Uma janela só passa por todas, como a pessoa faz.</summary>
     public static IReadOnlyList<(string Name, NavKey Key)> Pages { get; } =
     [
@@ -45,7 +49,7 @@ internal static class ScreenCatalog
     public static IReadOnlyList<ScreenDef> Standalone { get; } =
     [
         new("biblioteca", Library()),
-        new("biblioteca-gaveta", Library(l => l.Select(Card(l, "Amaoto no Hakoniwa")), played: true)),
+        new("biblioteca-gaveta", Library(l => l.Select(Card(l, AmaotoTitle)), played: true)),
         new("biblioteca-adulto", Library(l =>
         {
             l.IsAdultPopoverOpen = true;
@@ -197,9 +201,9 @@ internal static class ScreenCatalog
     private static IEnumerable<LibraryGame> PortugueseChecked()
     {
         var checkedAt = LibrarySamples.Now.AddDays(-1);
-        return LibrarySamples.Games().Select(g => g.ProjectPath is null && g.IsConfirmed
-            ? g with { Portuguese = new LibraryPortuguese(g.VndbId!, g.Title == "Akatsuki no Kōro" ? PortugueseStatus.Partial : PortugueseStatus.None, checkedAt, []) }
-            : g);
+        return LibrarySamples.Games().Select(g => g.ProjectPath is null && g.IsConfirmed ? g with { Portuguese = new LibraryPortuguese(g.VndbId!, StatusOf(g), checkedAt, []) } : g);
+
+        static PortugueseStatus StatusOf(LibraryGame g) => g.Title == "Akatsuki no Kōro" ? PortugueseStatus.Partial : PortugueseStatus.None;
     }
 
     /// <summary>A primeira varredura: a pasta, o andamento e a tabela com um jogo em cada estado de suporte e de casamento.</summary>
@@ -209,7 +213,7 @@ internal static class ScreenCatalog
         var scan = library.Scan;
         scan.Begin("D:\\Jogos\\VN");
         var games = LibrarySamples.Games().Where(g => g.Title != "Fuyu no Shiori").ToList();
-        string[] tail = ["Kōrin no Mori", "Amaoto no Hakoniwa", "Shirogane Station 9", "Yūgure Kissaten", "Tōge no Kaji", "Hoshikuzu Diary", "Nanairo Ressha"];
+        string[] tail = ["Kōrin no Mori", AmaotoTitle, "Shirogane Station 9", "Yūgure Kissaten", "Tōge no Kaji", "Hoshikuzu Diary", "Nanairo Ressha"];
         var order = games.Where(g => !tail.Contains(g.Title)).Concat(tail.Select(t => games.Single(g => g.Title == t))).ToList();
         order[^1] = order[^1] with { VndbId = null, Info = null, Confirmation = LibraryConfirmation.None, SearchedAt = null };
         for (var i = 0; i < order.Count; i++)
@@ -224,7 +228,7 @@ internal static class ScreenCatalog
     /// <summary>Três jogos jogados, como no quadro: hoje (27 h 40 min), há 5 dias (7 h 05 min) e há 12 dias (3 h 20 min).</summary>
     private static void PlaySamples(PlayLogFile playLog)
     {
-        foreach (var (title, daysAgo, time) in new[] { ("Amaoto no Hakoniwa", 0, new TimeSpan(27, 40, 0)), ("Hoshikuzu Diary", 5, new TimeSpan(7, 5, 0)), ("Namiuchigiwa no Shiori", 12, new TimeSpan(3, 20, 0)) })
+        foreach (var (title, daysAgo, time) in new[] { (AmaotoTitle, 0, new TimeSpan(27, 40, 0)), ("Hoshikuzu Diary", 5, new TimeSpan(7, 5, 0)), ("Namiuchigiwa no Shiori", 12, new TimeSpan(3, 20, 0)) })
         {
             var end = LibrarySamples.Now.AddDays(-daysAgo).AddMinutes(-20);
             playLog.Record(LibrarySamples.Games().Single(g => g.Title == title).Id, new PlaySession(PlaySession.NewId(), end - time, end, time));
@@ -327,7 +331,7 @@ internal static class ScreenCatalog
         File.WriteAllText(Path.Combine(gameFolder, "Game.exe"), "x");
         var emulator = data.SubFolder("LocaleEmulator");
         File.WriteAllText(Path.Combine(emulator, "LEProc.exe"), "x");
-        var game = new LibraryGame("g1a2b3c4d", GameLibrary.NormalizeFolder(gameFolder), "Game.exe", new LibraryEngine("yuris", "Yu-RIS", LibraryEngineSource.Engine), "Amaoto no Hakoniwa", "雨音の箱庭", now)
+        var game = new LibraryGame("g1a2b3c4d", GameLibrary.NormalizeFolder(gameFolder), "Game.exe", new LibraryEngine("yuris", "Yu-RIS", LibraryEngineSource.Engine), AmaotoTitle, AmaotoOriginalTitle, now)
         {
             ProjectPath = GameLibrary.NormalizeFolder(root),
             RequiresJapaneseLocale = true,
@@ -430,11 +434,11 @@ internal static class ScreenCatalog
             await GameSheetSamples.SeedAsync(config.Path);
         }
 
-        var held = new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto no Hakoniwa", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id };
+        var held = new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, AmaotoTitle, null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id };
         new LibraryFile(config.Path).Save(new GameLibrary([held]));
         new UserTagsFile(config.Path).Update(tags => tags.Add("g1", "favorito"));
         var folder = ProjectFolder.Open(root);
-        folder.SaveVndbLink(new VndbLink(GameSheetSamples.Id, "Amaoto no Hakoniwa", "雨音の箱庭", null, []));
+        folder.SaveVndbLink(new VndbLink(GameSheetSamples.Id, AmaotoTitle, AmaotoOriginalTitle, null, []));
         var host = await ScreenHost.OpenProjectAsync(root, theme, start =>
         {
             var vm = new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
@@ -572,7 +576,7 @@ internal static class ScreenCatalog
         {
             start.NewProjectCommand.Execute(null);
             await wizard.SetGameFolderAsync(game);
-            wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null, "雨音の箱庭"));
+            wizard.SetLibraryGame(new LibraryGameContext(AmaotoTitle, "v90001", null, AmaotoOriginalTitle));
             host.Settle();
             if (steps > 0)
             {
@@ -609,10 +613,10 @@ internal static class ScreenCatalog
     private static VNForge.Vndb.FakeVndbCatalog WizardCatalog()
     {
         var main = new VndbVisualNovel(
-            "v31201", "Amaoto no Hakoniwa", "雨音の箱庭", [], ["Amaoto jogo"], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 10,
+            "v31201", AmaotoTitle, AmaotoOriginalTitle, [], ["Amaoto jogo"], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 10,
             "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.", [], Rating: 79);
         var disc = main with { Id = "v31202", Title = "Amaoto no Hakoniwa: Fan Disc", AltTitle = "雨音の箱庭 ファンディスク", Aliases = [], Released = "2020-03-01", Length = 2, LengthMinutes = 180 };
-        VndbCharacter Character(string id, string name, string original, string? gender, string role, params string[] aliases) =>
+        static VndbCharacter Character(string id, string name, string original, string? gender, string role, params string[] aliases) =>
             new(id, name, original, aliases, null, null, gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance("v31201", role, 0, null)], []);
         return new VNForge.Vndb.FakeVndbCatalog(
             [main, disc],
@@ -631,7 +635,7 @@ internal static class ScreenCatalog
 
         public string? Load() => token;
 
-        public void Save(string value) => token = value;
+        public void Save(string token) => this.token = token;
 
         public bool Delete()
         {

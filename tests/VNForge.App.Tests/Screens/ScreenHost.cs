@@ -121,7 +121,7 @@ internal sealed class ScreenHost : IDisposable
         Settle();
     }
 
-    /// <summary>O prazo de cada carga em segundo plano. Sobra para o computador ocupado e ainda assim acaba antes de o teste todo travar sem dizer onde.</summary>
+    /// <summary>O prazo de cada carga em segundo plano. Sobra para o computador ocupado e ainda assim acaba antes de o teste inteiro travar sem dizer onde.</summary>
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(60);
 
     private const string RunningScript = "yst00014";
