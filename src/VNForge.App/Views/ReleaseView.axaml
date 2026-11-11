@@ -101,11 +101,11 @@
               <!-- A Versão do jogo divide a célula do Número da versão e só aparece quando o executável não traz versão; as legendas ficam numa linha de largura inteira para a altura da linha não mudar. -->
               <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" ColumnSpacing="12" RowSpacing="4">
                 <StackPanel Spacing="4">
-                  <TextBlock Classes="body-strong" Text="Número da versão"/>
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Número da versão"/>
                   <TextBox Text="{Binding Version}" AutomationProperties.Name="Número da versão"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding ShowGameVersionField}">
-                  <TextBlock Classes="body-strong" Text="Versão do jogo"/>
+                  <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Versão do jogo"/>
                   <TextBox Text="{Binding GameVersion}" MaxLength="64" PlaceholderText="1.00" AutomationProperties.Name="Versão do jogo"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
