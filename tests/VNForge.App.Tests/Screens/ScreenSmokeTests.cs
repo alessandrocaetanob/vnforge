@@ -34,6 +34,7 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
             },
             TestContext.Current.CancellationToken);
 
+        ReleaseNativeMemory();
         Assert.True(problems.Count == 0, $"texto cortado: {string.Join("; ", problems)}");
     }
 
@@ -52,8 +53,20 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
             },
             TestContext.Current.CancellationToken);
 
+        ReleaseNativeMemory();
         clipped.RemoveAll(c => KnownClipped.TryGetValue(name, out var known) && c.Contains(known, StringComparison.Ordinal));
         Assert.True(clipped.Count == 0, $"{name}: texto cortado: {string.Join("; ", clipped)}");
+    }
+
+    /// <summary>
+    /// A janela fechada ainda segura superfícies do Skia até o finalizador rodar. Sem coletar aqui o processo do App passa de 900 MB só com o smoke,
+    /// porque o coletor não tem pressa em um computador com memória sobrando.
+    /// </summary>
+    private static void ReleaseNativeMemory()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
 
     /// <summary>A pasta do projeto de demonstração, gravada uma vez por classe de teste e apagada no fim.</summary>
@@ -61,7 +74,7 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
     {
         private readonly TempFolder temp = new();
 
-        public DemoFolderFixture() => Root = ScreenCatalog.CreateDemoFolder(temp);
+        public DemoFolderFixture() => Root = ScreenCatalog.CreateDemoFolder(temp, trimmed: true);
 
         public string Root { get; }
 

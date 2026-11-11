@@ -123,12 +123,22 @@ internal static class ScreenCatalog
 
     /// <summary>
     /// O projeto de demonstração gravado numa pasta de <paramref name="temp"/>, com a caixa de 40 colunas e 3 linhas e a voz dos três personagens do trecho,
-    /// como os artboards mostram.
+    /// como os artboards mostram. Com <paramref name="trimmed"/> ficam só os oito scripts nomeados (o smoke); sem ele, os 312 do artboard (as capturas).
     /// </summary>
-    public static string CreateDemoFolder(TempFolder temp)
+    public static string CreateDemoFolder(TempFolder temp, bool trimmed = false)
     {
         var root = DemoProject.Create(temp.SubFolder("projeto"));
         var folder = ProjectFolder.Open(root);
+        if (trimmed)
+        {
+            // O smoke só precisa dos capítulos que as telas citam: 5 mil linhas em vez das 48 mil, que custam segundos e centenas de MB a cada abertura.
+            var keep = DemoProject.Named.Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
+            foreach (var key in DemoProject.Texts.Keys.Where(k => !keep.Contains(k)))
+            {
+                File.Delete(folder.TextPath(key));
+            }
+        }
+
         File.WriteAllText(folder.FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 40, "maxLines": 3, "charWidth": "uniform" } }""");
         var tones = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -443,6 +453,8 @@ internal static class ScreenCatalog
             if (review)
             {
                 host.Vm.Sheet.StartReviewCommand.Execute(null);
+                // Clicar de novo na aba Ficha durante a revisão volta para a ficha.
+                host.Vm.SelectedGameTab = host.Vm.GameTabs.Single(t => t.Tab == GameTab.Sheet);
             }
 
             host.Settle();
