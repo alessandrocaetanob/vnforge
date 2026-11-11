@@ -81,7 +81,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
 
-- T2 (#656): a pasta `Rendering` saiu; o `ScreenSmokeTests` abre as telas do catálogo e `tools/VNForge.Capturas` grava os PNG (`docs/04-testes.md`). App: 3.118 para 2.714 testes; linhas 94,08% (19.840 de 21.088) e ramos 84,88% (10.776 de 12.696) em processo único, abaixo da base medida na mesma main (linhas 94,26%, 19.878; ramos no mínimo 84,93%). Faltam uns 38 linhas e de 50 a 100 ramos, em estados de erro e de corrida; memória do processo ainda em 2,2 GB.
+- T2 (#656): a pasta `Rendering` saiu; o `ScreenSmokeTests` abre as telas do catálogo e `tools/VNForge.Capturas` grava os PNG (`docs/04-testes.md`). App: 3.118 para 2.756 testes, todos verdes; linhas 94,48% (19.924 de 21.088) e ramos 85,76% (10.888 de 12.696) em processo único, acima do piso (94,26% e 85,35%). Memória: a sessão headless esvazia o cache de fontes do Skia depois de cada Dispatch (cerca de 17 MB nativos por janela principal ficavam presos), o que baixou o pico do processo de 2.227 para 1.674 MB e o do smoke de 684 para cerca de 480 MB. Falta chegar a 600 MB: os segmentos fixados do compositor (cerca de 1.750 arrays de 100 a 260 KB, 186 MB) sobram de cada aplicativo isolado por Dispatch; `AvaloniaTestIsolationLevel.PerAssembly` os evita (processo em 353 MB, 166 s) mas 361 testes headless falham com "different thread owns it", então a troca fica para a T seguinte.
 
 ## Fora da corrida
 
