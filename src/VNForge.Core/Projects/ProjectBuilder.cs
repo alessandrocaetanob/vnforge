@@ -316,7 +316,7 @@ public static class ProjectBuilder
     /// A Conferência já recusa o nome que não dá para gravar (<see cref="SpeakerEncodingRule"/>); aqui a recusa só vale para quem roda o build sem essa regra.
     /// </summary>
     /// <exception cref="VNForgeException">O nome de uma linha não pode ser gravado na estratégia.</exception>
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> ResolveSpeakers(
+    private static SortedDictionary<string, IReadOnlyList<TextUnit>> ResolveSpeakers(
         IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
         CharacterBook characters,
         ITextEncoder encoder,

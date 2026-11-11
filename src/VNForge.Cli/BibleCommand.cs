@@ -649,7 +649,7 @@ internal static class BibleCommand
             : new BibleRelation(text[..at].Trim(), text[(at + 1)..].Trim());
     }
 
-    private static IEnumerable<string> SplitList(string text) =>
+    private static string[] SplitList(string text) =>
         text.Split(text.Contains(';', StringComparison.Ordinal) ? ';' : ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static int Export(VnfCli cli, ParseResult parseResult, string? path)

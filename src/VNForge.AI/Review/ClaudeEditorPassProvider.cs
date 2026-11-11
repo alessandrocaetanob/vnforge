@@ -93,7 +93,7 @@ public sealed class ClaudeEditorPassProvider(IClaudeMessageClient client, Claude
         sb.AppendLine();
     }
 
-    private static IReadOnlyList<EditorPassProposal> Parse(string text, TranslationBatch batch)
+    private static List<EditorPassProposal> Parse(string text, TranslationBatch batch)
     {
         var ids = batch.Lines.Select(u => u.Id).ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);

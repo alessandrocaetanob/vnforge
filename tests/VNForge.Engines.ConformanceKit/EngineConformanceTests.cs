@@ -477,7 +477,7 @@ public abstract class EngineConformanceTests : IDisposable
     /// A regra 3 do <c>CLAUDE.md</c> vista de dentro do script: pelas faixas de <see cref="DescribeScript"/>, só as das unidades reescritas, os campos
     /// compartilhados e as áreas que crescem podem diferir. O resto, inclusive o argumento de uma unidade que a tradução não tocou, sai igual.
     /// </summary>
-    private void AssertOnlyRewrittenChanged(Subject subject, ReadOnlyMemory<byte> before, ReadOnlyMemory<byte> after, IReadOnlyList<TextUnit> units, ISet<int> rewritten)
+    private void AssertOnlyRewrittenChanged(Subject subject, ReadOnlyMemory<byte> before, ReadOnlyMemory<byte> after, List<TextUnit> units, HashSet<int> rewritten)
     {
         var old = DescribeScript(new ScriptFile(subject.File.Name, before), units);
         var current = DescribeScript(new ScriptFile(subject.File.Name, after), units);

@@ -128,7 +128,7 @@ public sealed class FakeMessageBatchClient : IMessageBatchClient
     {
         public string Id { get; } = id;
 
-        public IReadOnlyList<MessageBatchItem> Items { get; } = items;
+        public List<MessageBatchItem> Items { get; } = items;
 
         public bool Ended { get; set; }
 

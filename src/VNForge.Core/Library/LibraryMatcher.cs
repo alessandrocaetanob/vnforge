@@ -62,7 +62,7 @@ public sealed record LibraryMatchRun(
 /// </summary>
 public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = null)
 {
-    private static readonly IReadOnlyDictionary<TermSource, double> Weights = new Dictionary<TermSource, double>
+    private static readonly Dictionary<TermSource, double> Weights = new Dictionary<TermSource, double>
     {
         [TermSource.WindowTitle] = 1.0,
         [TermSource.Folder] = 0.95,

@@ -170,7 +170,7 @@ internal static class ImagesCommand
         return minPixels < 0 ? throw new UsageException("--min-pixels precisa ser zero ou maior.") : defaults with { MinPixels = minPixels };
     }
 
-    private static IImageTextReader CreateClaudeReader(VnfCli cli, string model) =>
+    private static ClaudeImageTextReader CreateClaudeReader(VnfCli cli, string model) =>
         ClaudeProviderFactory.CreateImageReader(RequireApiKey(cli), new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low, MaxTokens = 2000 });
 
     /// <summary>O orçamento do <c>app.json</c>. Arquivo ilegível avisa no erro padrão e só segue com <c>--yes</c>: ele pode esconder um limite que a pessoa pôs.</summary>

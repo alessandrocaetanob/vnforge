@@ -339,7 +339,7 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
 
     private static string ScriptKeyOf(string unitId) => unitId.Contains(':', StringComparison.Ordinal) ? unitId[..unitId.IndexOf(':', StringComparison.Ordinal)] : unitId;
 
-    private static void CheckLimits(IReadOnlyList<MessageBatchItem> items)
+    private static void CheckLimits(List<MessageBatchItem> items)
     {
         if (items.Count > AnthropicMessageBatchClient.MaxRequests)
         {

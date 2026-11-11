@@ -6,7 +6,7 @@ namespace VNForge.Core.Tests.Eval;
 
 public sealed class GoldSetTests
 {
-    private static IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts() => new Dictionary<string, IReadOnlyList<TextUnit>>
+    private static Dictionary<string, IReadOnlyList<TextUnit>> Texts() => new Dictionary<string, IReadOnlyList<TextUnit>>
     {
         ["s1"] =
         [

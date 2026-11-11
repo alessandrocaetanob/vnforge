@@ -49,7 +49,7 @@ public sealed class ImageScanPlan
 
         var previous = existing.GroupBy(e => e.Hash, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Text, StringComparer.Ordinal);
         var previousTranslations = existing.Where(e => !string.IsNullOrEmpty(e.Translation)).GroupBy(e => e.Hash, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Translation!, StringComparer.Ordinal);
-        IReadOnlyDictionary<string, string> known = force ? new Dictionary<string, string>() : previous;
+        Dictionary<string, string> known = force ? new Dictionary<string, string>() : previous;
 
         var unique = listing.Candidates.Where(c => !known.ContainsKey(c.Hash)).DistinctBy(c => c.Hash, StringComparer.Ordinal);
         List<ImageCandidate> toRead = [.. limit is { } max ? unique.Take(Math.Max(0, max)) : unique];
