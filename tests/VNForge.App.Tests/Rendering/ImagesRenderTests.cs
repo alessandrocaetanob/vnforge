@@ -47,7 +47,9 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
         return composer.Render(new RasterPicture(Width, Height, bgra), edit);
     }
 
-    internal static async Task<(ImagesViewModel Vm, TempFolder Temp)> Open(AvaloniaImageComposer composer)
+    internal static ImagesViewModel NewPage(AvaloniaImageComposer composer) => new([new ImagesViewModelTests.ArchiveEngine()], composer, TimeSpan.Zero);
+
+    internal static async Task<(ImagesViewModel Vm, TempFolder Temp)> Open(AvaloniaImageComposer composer, ImagesViewModel? page = null)
     {
         var temp = new TempFolder();
         var game = temp.SubFolder("jogo");
@@ -64,7 +66,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
             new ImageTextEntry(Pack, "ui/logo.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, "ロゴ"),
             new ImageTextEntry(Pack, "bg/rua.png", Convert.ToHexStringLower(SHA256.HashData(other)), 640, 360, string.Empty),
         ]);
-        var vm = new ImagesViewModel([new ImagesViewModelTests.ArchiveEngine()], composer, TimeSpan.Zero);
+        var vm = page ?? NewPage(composer);
         vm.Project = ProjectSummaryReader.Read(folder.Root);
         await vm.Loading;
         foreach (var item in vm.Items)

@@ -59,7 +59,7 @@ public sealed partial class GameHeaderView : UserControl
         }
         else if (change.Property == IsImagesProperty)
         {
-            ImagesActions.IsVisible = IsImages;
+            UpdateHeaderLayout();
         }
     }
 
@@ -69,8 +69,10 @@ public sealed partial class GameHeaderView : UserControl
         var editor = IsEditor && !IsCompact;
         EditorHeader.IsVisible = editor;
         EditorActions.IsVisible = IsEditor;
+        ImagesActions.IsVisible = IsImages && Sections.IsVisible;
         ReadAsPlayerCompact.IsVisible = IsEditor && IsCompact;
-        PlaceEditorActions(IsCompact ? 0 : 1, VerticalAlignment.Bottom, new Thickness(0, 0, RightMargin, 1));
+        PlaceActions(EditorActions, IsCompact ? 0 : 1);
+        PlaceActions(ImagesActions, IsCompact ? 0 : 1);
         Regular.IsVisible = !editor && !IsCompact;
         Compact.IsVisible = !editor && IsCompact;
     }
@@ -88,7 +90,7 @@ public sealed partial class GameHeaderView : UserControl
         set => SetValue(IsEditorProperty, value);
     }
 
-    /// <summary>A página aberta é Imagens: "Abrir inventário" fica na linha do seletor de seções, à direita, como no quadro do #587.</summary>
+    /// <summary>A página aberta é Imagens: "Abrir inventário" fica na linha do seletor de seções, à direita, como no quadro do #587, e desce para a linha de baixo quando não cabe ao lado.</summary>
     public bool IsImages
     {
         get => GetValue(IsImagesProperty);
@@ -108,15 +110,21 @@ public sealed partial class GameHeaderView : UserControl
         }
     }
 
-    private void PlaceEditorActions(int row, VerticalAlignment alignment, Thickness margin)
+    /// <summary>Linha 0: na linha do nome, no compacto. Linha 1: ao lado do seletor de seções. Linha 2: sob o seletor, quando não cabe ao lado.</summary>
+    private static void PlaceActions(StackPanel actions, int row)
     {
-        if (Grid.GetRow(EditorActions) != row)
+        if (Grid.GetRow(actions) != row)
         {
-            Grid.SetRow(EditorActions, row);
+            Grid.SetRow(actions, row);
         }
 
-        EditorActions.VerticalAlignment = row == 0 ? VerticalAlignment.Top : alignment;
-        EditorActions.Margin = row == 0 ? new Thickness(0, 6, RightMargin, 0) : margin;
+        actions.VerticalAlignment = row == 1 ? VerticalAlignment.Bottom : VerticalAlignment.Top;
+        actions.Margin = row switch
+        {
+            0 => new Thickness(0, 6, RightMargin, 0),
+            2 => new Thickness(0, 8, RightMargin, 0),
+            _ => new Thickness(0, 0, RightMargin, 1),
+        };
     }
 
     /// <summary>
@@ -125,7 +133,13 @@ public sealed partial class GameHeaderView : UserControl
     /// </summary>
     private void UpdateActionsPlacement()
     {
-        if (!EditorActions.IsVisible || IsCompact || Bounds.Width <= 0 || EditorActions.DesiredSize.Width <= 0 || Sections.ItemsPanelRoot is not { } panel)
+        var images = IsImages && Sections.IsVisible;
+        if (ImagesActions.IsVisible != images)
+        {
+            ImagesActions.IsVisible = images;
+        }
+
+        if (IsCompact || Bounds.Width <= 0 || Sections.ItemsPanelRoot is not { } panel)
         {
             return;
         }
@@ -138,9 +152,11 @@ public sealed partial class GameHeaderView : UserControl
 
         // A largura do ListBox já vem limitada pela janela; a natural é a soma dos itens, como no compacto.
         var sections = items.Sum(c => c.DesiredSize.Width) + ((items.Count - 1) * 4) + Sections.Padding.Left + Sections.Padding.Right;
-        var actions = EditorActions.DesiredSize.Width - EditorActions.Margin.Left - EditorActions.Margin.Right;
-        var below = 2 * RightMargin + sections + SectionsGap + actions > Bounds.Width;
-        PlaceEditorActions(below ? 2 : 1, below ? VerticalAlignment.Top : VerticalAlignment.Bottom, below ? new Thickness(0, 8, RightMargin, 0) : new Thickness(0, 0, RightMargin, 1));
+        foreach (var actions in new[] { EditorActions, ImagesActions }.Where(a => a.IsVisible && a.DesiredSize.Width > 0))
+        {
+            var width = actions.DesiredSize.Width - actions.Margin.Left - actions.Margin.Right;
+            PlaceActions(actions, 2 * RightMargin + sections + SectionsGap + width > Bounds.Width ? 2 : 1);
+        }
     }
 
     /// <summary>A largura que a segunda linha pede e a que sobra depois das abas; <paramref name="known"/> é falso enquanto os itens ainda não foram medidos.</summary>

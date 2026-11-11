@@ -107,10 +107,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, ImagesViewModel? images = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
+        Images = images ?? new();
         Library = library ?? LibraryViewModel.Detached();
         Library.RecentProjects = () => recentProjects;
         start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
@@ -154,6 +155,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.Rate = () => Settings.Rate;
         Bible.Rate = () => Settings.Rate;
         Bible.Limits = () => Settings.Budget;
+        Images.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ImagesViewModel.CanOpenInventory))
+            {
+                OpenImagesInventoryCommand.NotifyCanExecuteChanged();
+            }
+        };
         Images.Rate = () => Settings.Rate;
         Images.Limits = () => Settings.Budget;
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
@@ -337,7 +345,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public BibleViewModel Bible { get; } = new();
 
     /// <summary>O editor de imagens com texto (#535).</summary>
-    public ImagesViewModel Images { get; } = new();
+    public ImagesViewModel Images { get; }
 
     public BuildViewModel Build { get; }
 
