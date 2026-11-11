@@ -120,7 +120,7 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Segmento_marcado_tem_4_5_para_1_de_contraste_e_o_outro_nao_pinta_accent(string themeName)
+    public async Task Segmento_marcado_e_uma_pilula_neutra_com_4_5_para_1_de_contraste_e_sem_accent(string themeName)
     {
         var theme = Variant(themeName);
         await OnUi(() =>
@@ -137,19 +137,21 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
             ScreenRenderer.Render(list, theme, RenderOutput.PathFor(ScreenRenderer.FileName("base-segmentado", theme)), 400, 100, window =>
             {
                 var accent = Token(window, "Vnf.AccentColor");
-                var onAccent = Token(window, "Vnf.OnAccentColor");
+                var card = Token(window, "Vnf.BgCardColor");
+                var text = Token(window, "Vnf.TextPrimaryColor");
                 var items = list.GetVisualDescendants().OfType<ListBoxItem>().ToList();
                 Assert.Equal(2, items.Count);
 
                 var selected = Presenter(items[0]);
-                Assert.Equal(accent, SolidColor(selected.Background));
-                Assert.Equal(onAccent, SolidColor(selected.Foreground));
-                Assert.True(Contrast(onAccent, accent) >= 4.5);
+                Assert.Equal(card, SolidColor(selected.Background));
+                Assert.Equal(text, SolidColor(selected.Foreground));
+                Assert.True(Contrast(text, card) >= 4.5);
                 var label = items[0].GetVisualDescendants().OfType<TextBlock>().Single();
-                Assert.Equal(onAccent, SolidColor(label.Foreground));
+                Assert.Equal(text, SolidColor(label.Foreground));
 
                 var on = PixelProbe.Capture(window, items[0]);
-                Assert.True(on.CountInArea(new Rect(0, 0, on.Width, on.Height), accent, 2) > on.Width * on.Height * 0.5);
+                Assert.True(on.CountInArea(new Rect(0, 0, on.Width, on.Height), card, 2) > on.Width * on.Height * 0.5);
+                Assert.Equal(0, on.CountInArea(new Rect(0, 0, on.Width, on.Height), accent, 2));
                 var off = PixelProbe.Capture(window, items[1]);
                 Assert.Equal(0, off.CountInArea(new Rect(0, 0, off.Width, off.Height), accent, 2));
             });

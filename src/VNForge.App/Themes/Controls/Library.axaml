@@ -76,6 +76,13 @@
     <Setter Property="MinWidth" Value="0"/>
     <Setter Property="Margin" Value="0,-6,-12,-6"/>
   </Style>
+  <!-- O quadro desenha o trilho com 36 de largura e 20 de altura; o do Fluent tem 40. -->
+  <Style Selector="ToggleSwitch.lib-switch /template/ Border#OuterBorder, ToggleSwitch.lib-switch /template/ Border#SwitchKnobBounds">
+    <Setter Property="Width" Value="36"/>
+  </Style>
+  <Style Selector="ToggleSwitch.lib-switch:checked /template/ Grid#PART_MovingKnobs">
+    <Setter Property="RenderTransform" Value="translate(-4px, 0px)"/>
+  </Style>
   <!-- O contorno da capa escolhida passa da caixa do cartão: nenhum apresentador no caminho pode cortá-lo. -->
   <Style Selector="ContentControl.libcover /template/ ContentPresenter">
     <Setter Property="ClipToBounds" Value="False"/>

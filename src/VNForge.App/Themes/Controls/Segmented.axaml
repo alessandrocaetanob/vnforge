@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="using:VNForge.App.Controls">
 
-  <!-- Controle segmentado (artboard de Ajustes, "esforço"): ListBox de seleção única, 30px de altura, borda stroke-control de 4px de raio.
-       O segmento marcado fica em accent com texto on-accent em 600. -->
+  <!-- Controle segmentado (artboard de Ajustes, "esforço"): ListBox de seleção única, 34px de altura com a borda, stroke-control de 4px de raio.
+       O segmento marcado vira pílula neutra: fundo bg-card, texto text-primary em 600. -->
   <Style Selector="ListBox.seg">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
@@ -21,9 +21,9 @@
     </Setter>
   </Style>
   <Style Selector="ListBox.seg > ListBoxItem">
-    <Setter Property="Height" Value="30"/>
+    <Setter Property="Height" Value="32"/>
     <Setter Property="MinHeight" Value="0"/>
-    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="Padding" Value="18,0"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="CornerRadius" Value="0"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
@@ -52,8 +52,8 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
   </Style>
   <Style Selector="ListBox.seg > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
-    <Setter Property="Foreground" Value="{DynamicResource Vnf.OnAccent}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
   <!-- Desligada e não marcada: apagada. Desligada e marcada (o ajuste escolhido que a estratégia não grava) mantém o texto normal sobre o destaque, para continuar legível. -->

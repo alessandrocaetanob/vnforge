@@ -348,6 +348,31 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
         });
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Interruptor_da_biblioteca_tem_trilho_de_36_e_bolinha_centrada(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var off = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = false };
+            var on = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, IsChecked = true };
+            ui.Show(new StackPanel { Children = { off, on } });
+
+            Assert.Equal(36, Part<Border>(off, "OuterBorder").Bounds.Width);
+            Assert.Equal(36, Part<Border>(on, "SwitchKnobBounds").Bounds.Width);
+            var track = Part<Border>(off, "OuterBorder").Bounds;
+            foreach (var (toggle, name) in new[] { (off, "SwitchKnobOff"), (on, "SwitchKnobOn") })
+            {
+                var knob = Part<Avalonia.Controls.Shapes.Ellipse>(toggle, name);
+                var center = knob.TranslatePoint(new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), Part<Border>(toggle, "OuterBorder"));
+                Assert.NotNull(center);
+                var inset = toggle.IsChecked == true ? track.Width - center.Value.X : center.Value.X;
+                Assert.Equal(track.Height / 2, inset, 1);
+                Assert.Equal(track.Height / 2, center.Value.Y, 1);
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- ToggleRule
 
     [Theory]
@@ -384,11 +409,11 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Segmentado_marca_um_segmento_em_accent_e_troca_ao_selecionar(string theme)
+    public async Task Segmentado_marca_um_segmento_em_pilula_neutra_e_troca_ao_selecionar(string theme)
     {
         await OnUi(theme, ui =>
         {
-            var seg = new ListBox { Classes = { "seg" } };
+            var seg = new ListBox { Classes = { "seg" }, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
             foreach (var text in Levels)
             {
                 seg.Items.Add(new ListBoxItem { Content = text });
@@ -399,15 +424,34 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             ui.Show(seg);
             ContentPresenter Presenter(int i) => PresenterOf(seg.GetVisualDescendants().OfType<ListBoxItem>().ElementAt(i));
 
-            Assert.Equal(Token(seg, "Vnf.Accent"), ColorOf(Presenter(1).Background));
-            Assert.Equal(Token(seg, "Vnf.OnAccent"), ColorOf(Presenter(1).Foreground));
+            Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(1).Background));
+            Assert.Equal(Token(seg, "Vnf.TextPrimary"), ColorOf(Presenter(1).Foreground));
             Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(0).Background));
-            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(30, i.Bounds.Height));
+            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(32, i.Bounds.Height));
+            Assert.Equal(34, seg.Bounds.Height);
 
             seg.SelectedIndex = 2;
             ui.Settle();
-            Assert.Equal(Token(seg, "Vnf.Accent"), ColorOf(Presenter(2).Background));
+            Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(2).Background));
             Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(1).Background));
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public async Task Segmentado_Semanas_Lista_tem_34_de_altura_e_padding_de_18(string theme)
+    {
+        await OnUi(theme, ui =>
+        {
+            var seg = new ListBox { Classes = { "seg" }, SelectedIndex = 0, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+            seg.Items.Add(new ListBoxItem { Content = "Semanas" });
+            seg.Items.Add(new ListBoxItem { Content = "Lista" });
+
+            ui.Show(seg);
+
+            // O quadro desenha 161. Com padding de 18 o texto (56 e 29 px de largura) fecha em 160: o layout arredonda cada item para cima e nenhum padding simétrico dá 161.
+            Assert.Equal(160, seg.Bounds.Width);
+            Assert.Equal(34, seg.Bounds.Height);
         });
     }
 
