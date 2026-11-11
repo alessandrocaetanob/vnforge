@@ -92,6 +92,7 @@ public sealed class App : Application
                 },
                 Images =
                 {
+                    HasApiKey = () => ApiKeyStatus.Resolve(configDirectory).Key is not null,
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(
                         ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
                         new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low, MaxTokens = 2000 }),
