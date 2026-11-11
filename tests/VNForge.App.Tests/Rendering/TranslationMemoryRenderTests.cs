@@ -104,10 +104,10 @@ public sealed class TranslationMemoryRenderTests(HeadlessFixture fixture) : ICla
                     var originalBox = Assert.Single(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "OriginalBox" && b.IsEffectivelyVisible);
                     var originalBottom = Avalonia.VisualExtensions.TranslatePoint(originalBox, new Avalonia.Point(0, originalBox.Bounds.Height), window)!.Value.Y;
                     Assert.Equal(9, Avalonia.VisualExtensions.TranslatePoint(card, default, window)!.Value.Y - originalBottom, 0.5);
-                    // O selo de porcentagem é o chip do tema comum: Vnf.PillHeight (20 px), em Noto Sans (não mono).
+                    // O selo de porcentagem do quadro do #537 tem 24 px de altura, em Noto Sans (não mono).
                     var pills = card.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("memory-pill") && b.IsEffectivelyVisible).ToList();
                     Assert.Equal(2, pills.Count);
-                    Assert.All(pills, b => Assert.Equal(20, b.Bounds.Height));
+                    Assert.All(pills, b => Assert.Equal(24, b.Bounds.Height));
                     Assert.True(editor.Detail.IsSceneCollapsed);
                     var header = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "HeaderFragment" && g.IsEffectivelyVisible);
                     var headerTexts = header.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();

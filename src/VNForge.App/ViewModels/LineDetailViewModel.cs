@@ -221,6 +221,8 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         : MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText
         : "Falta ou sobra um marcador";
 
+    public bool HasMarkerState => MarkerStateText.Length > 0;
+
     /// <summary>Quantas viradas de página a tradução tem a mais que o original; é a fala dividida em páginas, e não conta como marcador diferente.</summary>
     private int extraPages;
 
@@ -708,6 +710,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         MarkersMatch = match;
         OnPropertyChanged(nameof(MarkersMatch));
         OnPropertyChanged(nameof(MarkerStateText));
+        OnPropertyChanged(nameof(HasMarkerState));
     }
 
     private static IReadOnlyList<TextSegment> SplitOrPlain(string source, out IReadOnlyList<string> markers)
