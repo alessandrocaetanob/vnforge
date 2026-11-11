@@ -64,7 +64,7 @@ public sealed class EditorTextSizeRenderTests(HeadlessFixture fixture) : IClassF
             // O inspetor rola (a coluna passa da altura a 1366x768 com a tradução longa): o corte aceito é o da rolagem. O que não rola, as linhas sem quebra, não pode estar cortado.
             Assert.Empty(ClippedTextHeadlessTests.FindClipped(inspector));
             var translation = inspector.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("jp-body"));
-            Assert.Equal(Math.Round(19 * percent / 100d, 1), translation.FontSize);
+            Assert.Equal(Math.Round(20 * percent / 100d, 1), translation.FontSize);
         }, percent);
     }
 
