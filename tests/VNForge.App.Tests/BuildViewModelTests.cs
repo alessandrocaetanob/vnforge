@@ -949,4 +949,22 @@ public sealed class BuildViewModelTests : IDisposable
             WorkingDirectory = workingDirectory;
         }
     }
+
+    [Fact]
+    public void Os_pedidos_da_pagina_de_testar_avisam_quem_escuta_e_nao_falham_sem_ninguem()
+    {
+        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], starter);
+        var pedido = new LineRequest("yst00001", "yst00001:000001");
+        vm.ShowErrorsCommand.Execute(null);
+        vm.OpenLineCommand.Execute(pedido);
+        var avisos = new List<string>();
+        vm.ErrorsRequested += (_, _) => avisos.Add("erros");
+        vm.LineRequested += (_, request) => avisos.Add(request.UnitId);
+
+        vm.ShowErrorsCommand.Execute(null);
+        vm.OpenLineCommand.Execute(pedido);
+        vm.OpenLineCommand.Execute(null);
+
+        Assert.Equal(["erros", "yst00001:000001"], avisos);
+    }
 }
