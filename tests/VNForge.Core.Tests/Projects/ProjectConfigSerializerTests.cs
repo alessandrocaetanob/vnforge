@@ -282,6 +282,50 @@ public class ProjectConfigSerializerTests
         Assert.Equal("$.game.title.extra", erro.Field);
     }
 
+    [Fact]
+    public void Sem_versao_do_jogo_o_campo_e_nulo_e_nao_e_gravado()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+
+        Assert.Null(config.Game.Version);
+        Assert.DoesNotContain("\"version\": \"", ProjectConfigSerializer.Serialize(config), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Versao_do_jogo_faz_ida_e_volta_no_vnforge_json()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+        config = config with { Game = config.Game with { Version = "1.01" } };
+
+        var texto = ProjectConfigSerializer.Serialize(config);
+
+        Assert.Contains("\"version\": \"1.01\"", texto, StringComparison.Ordinal);
+        Assert.Equal("1.01", ProjectConfigSerializer.Parse(texto).Game.Version);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1.0\n2")]
+    public void Versao_do_jogo_invalida_aponta_o_campo(string version)
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+        config = config with { Game = config.Game with { Version = version } };
+
+        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
+
+        Assert.Equal("$.game.version", erro.Field);
+    }
+
+    [Fact]
+    public void Versao_do_jogo_longa_demais_e_recusada()
+    {
+        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
+        config = config with { Game = config.Game with { Version = new string('1', GameConfig.MaxVersionLength + 1) } };
+
+        Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
+    }
+
     private static string RemoverLinha(string texto, string trecho) =>
         string.Join('\n', texto.Split('\n').Where(l => !l.Contains(trecho)));
 }

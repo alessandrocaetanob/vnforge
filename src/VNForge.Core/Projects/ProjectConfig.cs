@@ -17,6 +17,18 @@ public sealed record GameConfig(string Path, string Exe)
 {
     /// <summary>Título da janela do jogo, lido pelo <c>vnf extract</c>; nulo enquanto o jogo não foi extraído ou não tem título.</summary>
     public GameTitleConfig? Title { get; init; }
+
+    /// <summary>
+    /// A versão do jogo de referência (<c>1.00</c>), a que o patch vale. O <c>vnf release</c> a grava ao verificar o patch, com a que o executável traz ou a que o
+    /// usuário digitou (<c>--versao-do-jogo</c>, ou o campo do app quando o executável não traz versão); nula enquanto nenhum lançamento a guardou.
+    /// </summary>
+    public string? Version { get; init; }
+
+    public const int MaxVersionLength = 64;
+
+    /// <summary>A versão do jogo é texto livre do jogador (<c>1.01</c>, <c>Ver 1.2</c>): só não pode ser vazia, longa demais nem ter caractere de controle.</summary>
+    public static bool IsValidVersion(string? version) =>
+        !string.IsNullOrWhiteSpace(version) && version.Trim().Length <= MaxVersionLength && !version.Any(char.IsControl);
 }
 
 /// <summary>O título da janela do jogo: o original, lido do jogo, e a tradução que o build grava no lugar dele.</summary>

@@ -195,6 +195,65 @@ public sealed class ReleaseCommandTests : IDisposable
         Assert.Null(manifest.GameVersion);
     }
 
+    [Fact]
+    public async Task A_versao_do_jogo_da_opcao_fica_gravada_no_projeto()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        var result = await Release("1.0.0", "--versao-do-jogo", " 1.00 ");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.00", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+        Assert.Contains("\"version\": \"1.00\"", await File.ReadAllTextAsync(Path.Combine(ProjectPath, ProjectFolder.ConfigFileName), Token), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sem_a_opcao_a_versao_do_jogo_vem_do_projeto()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "1.07" } });
+
+        var result = await Release("1.0.0");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.07", ManifestOf("1.0.0").GameVersion);
+        Assert.Equal("1.07", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+    }
+
+    [Fact]
+    public async Task A_opcao_troca_a_versao_que_o_projeto_guardava()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "1.07" } });
+
+        var result = await Release("1.0.0", "--versao-do-jogo", "1.08");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.08", ManifestOf("1.0.0").GameVersion);
+        Assert.Equal("1.08", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+    }
+
+    [Fact]
+    public async Task Versao_do_jogo_invalida_e_recusada_e_nada_e_gravado()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        var result = await Release("1.0.0", "--versao-do-jogo", new string('9', GameConfig.MaxVersionLength + 1));
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Versão do jogo inválida", result.Error);
+        Assert.Null(ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+        Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
+    }
+
     [Theory]
     [InlineData("texto", "não é PNG, JPEG nem WebP")]
     [InlineData("grande", "aceita até")]
