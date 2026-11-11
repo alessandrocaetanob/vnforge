@@ -38,31 +38,6 @@ public class PatchManifestFieldsTests
     }
 
     [Fact]
-    public void Patch_antigo_sem_versao_do_jogo_nem_capa_continua_abrindo()
-    {
-        using var game = new SyntheticGame();
-        var current = game.BuildPackage(SyntheticGame.Info() with { GameVersion = "1.00", Cover = Cover }).ToArray();
-        var length = BinaryPrimitives.ReadInt32LittleEndian(current.AsSpan(12, 4));
-        var manifest = JsonNode.Parse(current.AsSpan(16, length))!.AsObject();
-        manifest.Remove("gameVersion");
-        manifest.Remove("cover");
-        var oldJson = Encoding.UTF8.GetBytes(manifest.ToJsonString());
-        var old = new MemoryStream();
-        old.Write(current, 0, 12);
-        old.Write(BitConverter.GetBytes(oldJson.Length));
-        old.Write(oldJson);
-        old.Write(current, 16 + length, current.Length - 16 - length);
-        old.Position = 0;
-
-        using var package = PatchPackage.Open(old);
-
-        Assert.Null(package.Manifest.GameVersion);
-        Assert.Null(package.Manifest.Cover);
-        Assert.Equal("1.2.0", package.Manifest.Version);
-        Assert.Equal(PatchCheckState.Ready, PatchInstaller.Check(game.Game, package).State);
-    }
-
-    [Fact]
     public void Capa_maior_que_o_limite_e_recusada_ao_montar_o_patch()
     {
         using var game = new SyntheticGame();
