@@ -144,6 +144,8 @@ public class TextAppearanceSettingsTests
         Assert.Equal(72d, at150["Vnf.RowHeight"]);
         Assert.Equal(20d, at100["Vnf.PillHeight"]);
         Assert.Equal(30d, at150["Vnf.PillHeight"]);
+        Assert.Equal(24d, at100["Vnf.MemoryPillHeight"]);
+        Assert.Equal(36d, at150["Vnf.MemoryPillHeight"]);
         Assert.Equal(22d, at100["Vnf.MarkerHeight"]);
         Assert.Equal(33d, at150["Vnf.MarkerHeight"]);
         Assert.Equal(26d, at100["Vnf.MarkerLineHeight"]);
@@ -189,6 +191,8 @@ public class TextAppearanceHeadlessTests(HeadlessFixture fixture) : IClassFixtur
         Assert.Equal(48d, row);
         Assert.True(app.TryGetResource("Vnf.PillHeight", null, out var pill));
         Assert.Equal(20d, pill);
+        Assert.True(app.TryGetResource("Vnf.MemoryPillHeight", null, out var memoryPill));
+        Assert.Equal(24d, memoryPill);
         return Task.CompletedTask;
     });
 

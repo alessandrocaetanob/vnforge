@@ -26,7 +26,7 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
     <Setter Property="Padding" Value="11,0"/>
-    <Setter Property="MinHeight" Value="24"/>
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.MemoryPillHeight}"/>
   </Style>
   <Style Selector="Border.memory-pill > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>
