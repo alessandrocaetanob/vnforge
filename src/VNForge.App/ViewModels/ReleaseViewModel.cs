@@ -146,6 +146,8 @@ public sealed partial class ReleaseViewModel : ObservableObject
     private bool outputEdited;
     private bool installerEdited;
     private bool settingDerived;
+    private bool settingGameVersion;
+    private bool gameVersionEdited;
     private int loadVersion;
     private int generationEpoch;
     private ReleaseStepRow? runningStep;
@@ -239,7 +241,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
 
     /// <summary>A versão do jogo de referência que o jogador digita (<c>1.00</c>); o Core a grava no projeto ao gerar. Vazia, o patch segue sem versão.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GameVersionError), nameof(HasGameVersionError))]
+    [NotifyPropertyChangedFor(nameof(GameVersionError), nameof(HasGameVersionError), nameof(GameVersionHelp))]
     public partial string GameVersion { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -363,11 +365,21 @@ public sealed partial class ReleaseViewModel : ObservableObject
     public bool ShowGameVersionField => IsReady && readiness is { GameVersion: null or "" };
 
     /// <summary>A versão do jogo digitada, ou nulo quando o campo está oculto ou vazio (o patch segue sem versão, e o botão de gerar fica ativo).</summary>
-    private string? TypedGameVersion() => ShowGameVersionField && !string.IsNullOrWhiteSpace(GameVersion) ? GameVersion.Trim() : null;
+    private string? TypedGameVersion() => ShowGameVersionField ? GameConfig.NormalizeVersion(GameVersion) : null;
 
-    public string? GameVersionError => !ShowGameVersionField || GameVersion.Length == 0 || GameConfig.IsValidVersion(GameVersion)
+    public string? GameVersionError => !ShowGameVersionField || string.IsNullOrWhiteSpace(GameVersion) || GameConfig.NormalizeVersion(GameVersion) is not null
         ? null
         : $"Use de 1 a {GameConfig.MaxVersionLength} caracteres, sem quebra de linha.";
+
+    /// <summary>
+    /// O que o campo faz, em tooltip (a legenda sob o formulário é do número da versão e não pode crescer): vazio, vale a versão que o projeto guarda; sem
+    /// versão guardada, o patch segue sem versão. É a precedência do Core (<see cref="ReleaseService.ResolveGameVersion"/>).
+    /// </summary>
+    public string GameVersionHelp => !string.IsNullOrWhiteSpace(GameVersion)
+        ? "Fica gravada no projeto ao gerar."
+        : readiness?.ReferenceVersion is { Length: > 0 } saved
+            ? $"Vazio: vale a versão guardada no projeto ({saved})."
+            : "Vazio: o patch segue sem versão do jogo.";
 
     public bool HasGameVersionError => GameVersionError is not null;
 
@@ -405,8 +417,10 @@ public sealed partial class ReleaseViewModel : ObservableObject
         CancelRunning = null;
         loadVersion++;
         readiness = null;
-        GameVersion = string.Empty;
+        gameVersionEdited = false;
+        SetGameVersion(string.Empty);
         OnPropertyChanged(nameof(ShowGameVersionField));
+        OnPropertyChanged(nameof(GameVersionHelp));
         OnPropertyChanged(nameof(OutputError));
         OnPropertyChanged(nameof(HasOutputError));
         outputEdited = false;
@@ -452,7 +466,24 @@ public sealed partial class ReleaseViewModel : ObservableObject
         UpdateCommands();
     }
 
-    partial void OnGameVersionChanged(string value) => UpdateCommands();
+    partial void OnGameVersionChanged(string value)
+    {
+        gameVersionEdited |= !settingGameVersion;
+        UpdateCommands();
+    }
+
+    private void SetGameVersion(string value)
+    {
+        settingGameVersion = true;
+        try
+        {
+            GameVersion = value;
+        }
+        finally
+        {
+            settingGameVersion = false;
+        }
+    }
 
     partial void OnInstallerNameChanged(string value) => installerEdited |= !settingDerived;
 
@@ -513,8 +544,19 @@ public sealed partial class ReleaseViewModel : ObservableObject
         SetChecksum(read.ChangedFiles);
         SetReceived(null);
         HasQaErrors = read.QaErrors > 0;
-        GameVersion = read.GameVersion is { Length: > 0 } ? string.Empty : GameVersion.Length > 0 ? GameVersion : read.ReferenceVersion ?? string.Empty;
+        if (read.GameVersion is { Length: > 0 })
+        {
+            gameVersionEdited = false;
+            SetGameVersion(string.Empty);
+        }
+        else if (!gameVersionEdited)
+        {
+            // Quem apagou o campo de propósito não o vê voltar preenchido na próxima leitura.
+            SetGameVersion(read.ReferenceVersion ?? string.Empty);
+        }
+
         OnPropertyChanged(nameof(ShowGameVersionField));
+        OnPropertyChanged(nameof(GameVersionHelp));
         GameFolder = read.GameFolder;
         GameFolderLabel = read.GameVersion is { Length: > 0 } found ? $"{read.GameFolder} (versão {found})" : read.GameFolder;
         WhatToDoText = "Aponte a pasta da versão original que você usou para extrair o texto"

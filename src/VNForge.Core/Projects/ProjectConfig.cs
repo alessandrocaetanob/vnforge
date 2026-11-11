@@ -26,9 +26,20 @@ public sealed record GameConfig(string Path, string Exe)
 
     public const int MaxVersionLength = 64;
 
-    /// <summary>A versão do jogo é texto livre do jogador (<c>1.01</c>, <c>Ver 1.2</c>): só não pode ser vazia, longa demais nem ter caractere de controle.</summary>
+    /// <summary>
+    /// A versão do jogo é texto livre (<c>1.01</c>, <c>Ver 1.2</c>): não pode ser vazia, ter espaço nas pontas, passar de <see cref="MaxVersionLength"/>
+    /// nem ter caractere de controle. O que vem do jogador ou do executável passa antes por <see cref="NormalizeVersion"/>; o <c>vnforge.json</c> só aceita
+    /// o valor já normalizado.
+    /// </summary>
     public static bool IsValidVersion(string? version) =>
-        !string.IsNullOrWhiteSpace(version) && version.Trim().Length <= MaxVersionLength && !version.Any(char.IsControl);
+        !string.IsNullOrWhiteSpace(version) && version == version.Trim() && version.Length <= MaxVersionLength && !version.Any(char.IsControl);
+
+    /// <summary>A versão sem os espaços das pontas, ou nula quando em branco ou inválida mesmo assim.</summary>
+    public static string? NormalizeVersion(string? version)
+    {
+        var trimmed = version?.Trim();
+        return IsValidVersion(trimmed) ? trimmed : null;
+    }
 }
 
 /// <summary>O título da janela do jogo: o original, lido do jogo, e a tradução que o build grava no lugar dele.</summary>

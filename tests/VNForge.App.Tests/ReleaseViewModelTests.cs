@@ -261,6 +261,32 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
+    public async Task Quem_apaga_o_campo_de_proposito_nao_o_ve_voltar_preenchido_e_a_ajuda_diz_o_que_vale()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync(Ready() with { ReferenceVersion = "1.00" });
+        using var _t = temp;
+        Assert.Equal("1.00", vm.GameVersion);
+        Assert.Equal("Fica gravada no projeto ao gerar.", vm.GameVersionHelp);
+
+        vm.GameVersion = string.Empty;
+
+        Assert.Equal("Vazio: vale a versão guardada no projeto (1.00).", vm.GameVersionHelp);
+        await vm.ReloadAsync();
+        Assert.Equal(string.Empty, vm.GameVersion);
+        await vm.GenerateCommand.ExecuteAsync(null);
+        Assert.Null(Assert.Single(publisher.Created).GameVersion);
+    }
+
+    [Fact]
+    public async Task Sem_versao_guardada_o_campo_vazio_diz_que_o_patch_segue_sem_versao()
+    {
+        var (vm, _, temp, _) = await OpenAsync(Ready());
+        using var _t = temp;
+
+        Assert.Equal("Vazio: o patch segue sem versão do jogo.", vm.GameVersionHelp);
+    }
+
+    [Fact]
     public async Task Gerar_leva_a_versao_digitada_ao_core_e_o_campo_vazio_vai_como_nulo()
     {
         var (vm, publisher, temp, _) = await OpenAsync();

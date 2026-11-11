@@ -307,6 +307,8 @@ public class ProjectConfigSerializerTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("1.0\n2")]
+    [InlineData(" 1.0")]
+    [InlineData("1.0 ")]
     public void Versao_do_jogo_invalida_aponta_o_campo(string version)
     {
         var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);

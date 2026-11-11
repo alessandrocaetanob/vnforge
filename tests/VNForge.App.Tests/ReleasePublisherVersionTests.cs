@@ -1,5 +1,6 @@
 using VNForge.App.Services;
 using VNForge.Core.Projects;
+using VNForge.Core.Publishing;
 
 namespace VNForge.App.Tests;
 
@@ -52,7 +53,7 @@ public sealed class ReleasePublisherVersionTests
     }
 
     [Fact]
-    public void Executavel_com_versao_a_devolve_como_a_da_pasta_e_a_do_projeto_vale_como_referencia()
+    public void Executavel_com_versao_vence_a_do_projeto_na_tela_como_no_patch()
     {
         using var temp = new TempFolder();
         var project = CreateProject(temp, "0.9", exeWithVersion: true);
@@ -60,6 +61,8 @@ public sealed class ReleasePublisherVersionTests
         var read = new ReleasePublisher([]).Inspect(project.Root, TestContext.Current.CancellationToken);
 
         Assert.False(string.IsNullOrEmpty(read.GameVersion));
-        Assert.Equal("0.9", read.ReferenceVersion);
+        Assert.NotEqual("0.9", read.GameVersion);
+        Assert.Equal(read.GameVersion, read.ReferenceVersion);
+        Assert.Equal(ReleaseService.ResolveGameVersion(null, ReleaseService.DetectGameVersion(project.Root, project.LoadConfig()), "0.9"), read.ReferenceVersion);
     }
 }

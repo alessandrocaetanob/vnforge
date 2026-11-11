@@ -115,11 +115,11 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
     }
 
     /// <summary>
-    /// A versão de referência é a que o projeto guarda; sem ela, a do executável da pasta vale enquanto a pasta não foi reprovada pelo checksum
-    /// (numa pasta de outra versão ela não diz nada sobre a referência).
+    /// A mesma regra do patch (<see cref="ReleaseService.ResolveGameVersion"/>), para a tela mostrar a referência que o <c>vnf release</c> usaria. Numa pasta
+    /// que o checksum reprovou, a versão do executável não diz nada sobre a referência, então só vale a que o projeto guarda.
     /// </summary>
     private static string? ReferenceVersionOf(ProjectConfig config, string? folderVersion, ReleaseReference reference) =>
-        config.Game.Version ?? (reference == ReleaseReference.Differs ? null : folderVersion);
+        ReleaseService.ResolveGameVersion(null, reference == ReleaseReference.Differs ? null : folderVersion, config.Game.Version);
 
     private static ScriptNames SceneNames(ProjectFolder project)
     {

@@ -106,7 +106,8 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding ShowGameVersionField}">
                   <TextBlock Classes="body-strong" TextWrapping="Wrap" Text="Versão do jogo"/>
-                  <TextBox Text="{Binding GameVersion}" MaxLength="64" PlaceholderText="1.00" AutomationProperties.Name="Versão do jogo"/>
+                  <TextBox Text="{Binding GameVersion}" MaxLength="64" PlaceholderText="1.00" AutomationProperties.Name="Versão do jogo"
+                           AutomationProperties.HelpText="{Binding GameVersionHelp}" ToolTip.Tip="{Binding GameVersionHelp}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
                   <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding VersionHelp}" IsVisible="{Binding !HasVersionError}"/>

@@ -20,7 +20,7 @@ internal static partial class ProjectConfigValidator
         NotBlank(config.Game.Exe, "$.game.exe");
         if (config.Game.Version is not null && !GameConfig.IsValidVersion(config.Game.Version))
         {
-            throw new ProjectConfigException("$.game.version", $"deve ter de 1 a {GameConfig.MaxVersionLength} caracteres, sem quebra de linha.");
+            throw new ProjectConfigException("$.game.version", $"deve ter de 1 a {GameConfig.MaxVersionLength} caracteres, sem espaço nas pontas nem quebra de linha.");
         }
 
         NotBlank(config.Engine.Id, "$.engine.id");
