@@ -14,6 +14,26 @@ public class LibraryAdultModeTests
     private static LibraryCatalogResult Catalog(AdultMode mode) =>
         LibraryCatalog.Render(new GameLibrary(Library, new LibraryPrivacy(Adult: mode)), new PlayLog(), Now, null, null, _ => null);
 
+    [Theory]
+    [InlineData(2.0, false, true, true)]
+    [InlineData(0.0, false, false, false)]
+    [InlineData(0.0, true, true, false)]
+    public void A_capa_borrada_e_o_selo_seguem_a_mesma_nota_da_imagem_que_a_tela_usa_para_borrar(double sexual, bool infoAdult, bool adult, bool blurred)
+    {
+        var candidate = new LibraryCandidate("v7", "Candidato", null, null, 0.9, ["pasta"]) { Image = new VndbImageRef("https://t.vndb.org/cv/7.jpg", sexual) };
+        var game = new LibraryGame("g1", "C:\\Jogos\\Candidato", null, LibraryEngine.Unknown, "Candidato", null, Now) { Candidates = [candidate] };
+        if (infoAdult)
+        {
+            game = TagTestGames.WithVndb("Candidato", adult: true);
+        }
+
+        var card = LibraryCards.Describe(game, new LibraryPrivacy(Adult: AdultMode.Blur));
+
+        Assert.Equal(adult, card.Adult);
+        Assert.Equal(blurred, card.CoverBlurred);
+        Assert.Equal(blurred, card.Image is { } image && VndbImageVisibility.IsBlurred(image, new LibraryPrivacy(Adult: AdultMode.Blur)));
+    }
+
     [Fact]
     public void Esconder_tira_o_jogo_adulto_da_grade_da_busca_dos_contadores_da_fila_e_do_catalogo()
     {

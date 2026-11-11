@@ -9,19 +9,32 @@ namespace VNForge.App.ViewModels;
 public sealed partial class PrivacySettingsViewModel : ObservableObject
 {
     private readonly Func<VNForge.Core.Library.AdultMode> read;
-    private readonly Action<VNForge.Core.Library.AdultMode> write;
+    private readonly Func<VNForge.Core.Library.AdultMode, bool> write;
+    private readonly Func<string?>? readError;
 
-    public PrivacySettingsViewModel(Func<VNForge.Core.Library.AdultMode> read, Action<VNForge.Core.Library.AdultMode> write)
+    /// <param name="write">Grava o modo; falso quando o arquivo não gravou.</param>
+    /// <param name="readError">O aviso que a Biblioteca deu quando a gravação falhou.</param>
+    public PrivacySettingsViewModel(Func<VNForge.Core.Library.AdultMode> read, Func<VNForge.Core.Library.AdultMode, bool> write, Func<string?>? readError = null)
     {
         this.read = read;
         this.write = write;
+        this.readError = readError;
         foreach (var item in Modes)
         {
             item.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(AdultModeItem.IsSelected) && item.IsSelected && !refreshing)
                 {
-                    this.write(item.Mode);
+                    if (this.write(item.Mode))
+                    {
+                        ErrorMessage = null;
+                    }
+                    else
+                    {
+                        // O arquivo não gravou: o cartão volta ao modo que vale e o aviso fica na própria aba.
+                        ErrorMessage = this.readError?.Invoke() ?? "O modo do conteúdo adulto não pôde ser gravado.";
+                        Refresh();
+                    }
                 }
             };
         }
@@ -30,6 +43,13 @@ public sealed partial class PrivacySettingsViewModel : ObservableObject
     }
 
     private bool refreshing;
+
+    /// <summary>Por que o modo escolhido não foi gravado; nulo quando a última escolha valeu.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    public partial string? ErrorMessage { get; set; }
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
     /// <summary>Os três cartões, na ordem do quadro.</summary>
     public IReadOnlyList<AdultModeItem> Modes { get; } = AdultModeItem.All();

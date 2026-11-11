@@ -70,9 +70,12 @@ public sealed partial class LibraryViewModel
     /// <summary>Os jogos que a privacidade deixa nas listas: todos, menos os adultos no Esconder.</summary>
     private IReadOnlyList<LibraryGame> Listed => library.Privacy.Listed(games);
 
+    /// <summary>A chave do "Mostrar": o jogo do VNDB, ou a pasta quando ele ainda não casou (a capa de um candidato também borra).</summary>
+    internal static string RevealKey(LibraryGame game) => game.VndbId ?? game.Id;
+
     /// <summary>A privacidade para este jogo: o jogo que a pessoa revelou nesta sessão vale como Mostrar (capa, tags e traços), e os outros seguem o modo.</summary>
     internal LibraryPrivacy PrivacyOf(LibraryGame game) =>
-        library.Privacy.Adult == AdultMode.Blur && Reveal.IsRevealed(game.VndbId) ? library.Privacy with { Adult = AdultMode.Show } : library.Privacy;
+        library.Privacy.Adult == AdultMode.Blur && Reveal.IsRevealed(RevealKey(game)) ? library.Privacy with { Adult = AdultMode.Show } : library.Privacy;
 
     /// <summary>Escolhe o modo e grava no <c>library.json</c>, o mesmo que <c>vnf library privacy --adult</c> grava. Um arquivo que não grava vira o aviso da página e o modo não muda.</summary>
     [RelayCommand]
@@ -85,13 +88,21 @@ public sealed partial class LibraryViewModel
         }
     }
 
-    /// <summary>Escolhe o modo (o atalho dos filtros e a aba Privacidade dos Ajustes chamam este).</summary>
-    public void ChooseAdultMode(AdultMode mode)
+    /// <summary>Escolhe o modo (o atalho dos filtros e a aba Privacidade dos Ajustes chamam este). Falso quando o arquivo não gravou e o modo ficou o que era.</summary>
+    public bool ChooseAdultMode(AdultMode mode)
     {
-        if (mode != library.Privacy.Adult && WriteAdultMode(mode))
+        if (mode == library.Privacy.Adult)
         {
-            Redraw();
+            return true;
         }
+
+        if (!WriteAdultMode(mode))
+        {
+            return false;
+        }
+
+        Redraw();
+        return true;
     }
 
     /// <summary>Grava o modo no arquivo e passa a usá-lo; falso quando o arquivo não gravou (o aviso já foi dado).</summary>
@@ -140,19 +151,37 @@ public sealed partial class LibraryViewModel
         AdultModeChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Alguém trocou o modo por fora (a aba Privacidade dos Ajustes, a CLI): relê o arquivo e redesenha.</summary>
-    public Task ReloadPrivacyAsync() => LoadCoreAsync();
+    /// <summary>Alguém trocou o modo por fora (a CLI, com o app aberto): relê o arquivo e redesenha.</summary>
+    public Task ReloadPrivacyAsync() => Loading = LoadCoreAsync();
+
+    /// <summary>
+    /// Segue o aviso da fonte de imagens, o mesmo que já faz as capas se relerem quando a CLI troca a privacidade: a grade, as contagens, o popover e a aba Privacidade passam a seguir o arquivo.
+    /// Uma troca que o próprio app gravou chega igual ao que a Biblioteca já tem e não relê nada.
+    /// </summary>
+    public void FollowPrivacy(IVndbImageSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        source.PrivacyChanged += (_, _) => post(() =>
+        {
+            if (source.Privacy != library.Privacy)
+            {
+                // O "Mostrar" valia para o modo antigo.
+                Reveal.Clear();
+                _ = ReloadPrivacyAsync();
+            }
+        });
+    }
 
     [RelayCommand]
     private void ToggleAdultPopover() => IsAdultPopoverOpen = !IsAdultPopoverOpen;
 
     /// <summary>O "Mostrar" do jogo adulto: capa, tags, traços e retratos dele aparecem até a pessoa sair da Biblioteca.</summary>
     [RelayCommand]
-    private void RevealGame(LibraryCardViewModel? card) => Reveal.Reveal(card?.Game.VndbId);
+    private void RevealGame(LibraryCardViewModel? card) => Reveal.Reveal(card is null ? null : RevealKey(card.Game));
 
     /// <summary>O olho no canto da capa revelada: o jogo volta a ficar borrado.</summary>
     [RelayCommand]
-    private void ConcealGame(LibraryCardViewModel? card) => Reveal.Conceal(card?.Game.VndbId);
+    private void ConcealGame(LibraryCardViewModel? card) => Reveal.Conceal(card is null ? null : RevealKey(card.Game));
 
     /// <summary>O texto do cabeçalho no Esconder: "1 adulto escondido", "3 adultos escondidos"; vazio nos outros modos ou sem jogo escondido.</summary>
     public string HiddenAdultText => HiddenAdultCount switch

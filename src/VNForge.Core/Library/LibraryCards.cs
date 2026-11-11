@@ -58,11 +58,13 @@ public static class LibraryCards
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(privacy);
         var info = game.Info;
-        var adult = info is { Adult: true };
-        var blurred = adult && privacy.Adult == AdultMode.Blur;
         var progress = game.ProjectPath is not null ? PercentReady(translation) : null;
 
         var image = CoverOf(game);
+        // Uma regra só para o borrão e para o botão Mostrar: a imagem da capa é adulta (a tela borra pela mesma nota, VndbImageVisibility), então toda capa borrada tem o Mostrar e nenhuma nítida o oferece.
+        var coverAdult = image is not null && VndbImageVisibility.IsAdult(image);
+        var adult = info is { Adult: true } || coverAdult;
+        var blurred = coverAdult && privacy.Adult == AdultMode.Blur;
         var cover = image is null ? LibraryCoverKind.NoArt : LibraryCoverKind.Image;
         var (match, matchText) = game.IsConfirmed
             ? (LibraryMatchState.Matched, "Casado com o VNDB")
@@ -93,7 +95,7 @@ public static class LibraryCards
             progress,
             parts.Count == 0 ? NoData : string.Join(" · ", parts),
             adult,
-            blurred && image is not null);
+            blurred);
     }
 
     /// <summary>A parte pronta (revisada, aprovada ou "não traduzir") do projeto, de 0 a 100, arredondada para baixo: a mesma conta do cabeçalho do jogo. Nula sem linhas.</summary>

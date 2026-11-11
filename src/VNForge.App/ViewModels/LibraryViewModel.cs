@@ -520,7 +520,7 @@ public sealed partial class LibraryViewModel : ObservableObject
                 break;
             }
 
-            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, PrivacyOf(game), translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), revealed: Reveal.IsRevealed(game.VndbId)) { IsPlaying = game.Id == PlayingId };
+            var card = new LibraryCardViewModel(game, LibraryCards.Describe(game, PrivacyOf(game), translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), revealed: Reveal.IsRevealed(RevealKey(game))) { IsPlaying = game.Id == PlayingId };
             Continue.Add(new LibraryContinueViewModel(card, $"{PlayTime.LastPlayed(last, now)} · {PlayTime.Format(stats.Total)}"));
         }
 
@@ -540,7 +540,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         var entries = Arrange(shown);
         foreach (var entry in entries)
         {
-            Cards.Add(new LibraryCardViewModel(entry.Game, LibraryCards.Describe(entry.Game, PrivacyOf(entry.Game), translations.GetValueOrDefault(entry.Game.Id)), versions.GetValueOrDefault(entry.Game.Id), Tags.CardChips(entry.Game), Reveal.IsRevealed(entry.Game.VndbId)) { IsPlaying = entry.Game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(entry.Game, LibraryCards.Describe(entry.Game, PrivacyOf(entry.Game), translations.GetValueOrDefault(entry.Game.Id)), versions.GetValueOrDefault(entry.Game.Id), Tags.CardChips(entry.Game), Reveal.IsRevealed(RevealKey(entry.Game))) { IsPlaying = entry.Game.Id == PlayingId });
         }
 
         RebuildRows(entries);

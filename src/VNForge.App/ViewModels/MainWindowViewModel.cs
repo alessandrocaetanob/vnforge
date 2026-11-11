@@ -182,7 +182,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet"), Reveals = Library.Reveal };
         Library.Reveal.Changed += (_, _) => OnPropertyChanged(nameof(GameCoverRevealed));
-        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode);
+        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode, () => Library.ErrorMessage);
         Library.AdultModeChanged += (_, _) => Settings.Privacy?.Refresh();
         // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
         Library.GamesLoaded += (_, _) =>

@@ -313,6 +313,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusLg}"/>
+    <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
   </Style>
   <!-- Uma linha do popover: botão sem aparência com a caixa, a tag e a contagem. -->
   <Style Selector="Button.lib-opt">
@@ -471,6 +472,7 @@
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusXl}"/>
     <Setter Property="Padding" Value="24"/>
+    <Setter Property="BoxShadow" Value="{DynamicResource Vnf.ShadowFlyout}"/>
   </Style>
   <!-- ".card" dos quadros da varredura. -->
   <Style Selector="Border.lib-card">
