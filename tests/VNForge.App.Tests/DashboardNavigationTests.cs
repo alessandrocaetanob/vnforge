@@ -88,8 +88,65 @@ public class DashboardNavigationTests
         Assert.Equal(NavKey.Glossary, main.SelectedNav!.Key);
 
         main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
+        // Voltar ao Painel relê a pasta, e a leitura refaz a lista de capítulos fora da thread do teste: sem esperar, o Single() pode pegar a lista vazia.
+        await main.DashboardRefresh;
         main.Dashboard.OpenChapterCommand.Execute(main.Dashboard.Chapters.Single());
         Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
         Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);
+    }
+
+    [Fact]
+    public async Task Abrir_a_cena_na_Biblia_leva_ao_Editor_nela()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+        main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Bible);
+        await main.Bible.Loading;
+        main.Bible.SelectedRow = main.Bible.Rows.Single(r => r.Key == "yst00002");
+
+        main.Bible.OpenInEditorCommand.Execute(null);
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);
+    }
+
+    [Fact]
+    public async Task Os_pedidos_das_telas_de_conferir_e_testar_trocam_para_a_tela_pedida()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+
+        main.Conference.TestCommand.Execute(null);
+        await main.Build.Loading;
+        Assert.Equal(NavKey.Build, main.SelectedNav!.Key);
+
+        main.Build.ShowErrorsCommand.Execute(null);
+        await main.ConferenceLoading;
+        Assert.Equal(NavKey.Conference, main.SelectedNav!.Key);
+    }
+
+    [Fact]
+    public async Task O_pedido_de_ajustes_do_jogar_abre_a_aba_dos_jogos_nos_Ajustes()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+
+        main.Play.Session!.OpenSettingsCommand.Execute(null);
+
+        Assert.Equal(NavKey.Settings, main.SelectedNav!.Key);
+        Assert.Equal(SettingsViewModel.GamesTab, main.Settings.SelectedTab);
+    }
+
+    [Fact]
+    public async Task Confirmar_a_regravacao_das_imagens_leva_a_pagina_de_testar()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+
+        main.Images.ConfirmRewriteCommand.Execute(null);
+        await main.Build.Loading;
+
+        Assert.Equal(NavKey.Build, main.SelectedNav!.Key);
     }
 }

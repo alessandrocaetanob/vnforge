@@ -15,18 +15,18 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusSm}"/>
-    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="Padding" Value="14,10,14,9"/>
   </Style>
   <Style Selector="Border.memory-item">
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="BorderThickness" Value="0,1,0,0"/>
-    <Setter Property="Padding" Value="0,7"/>
+    <Setter Property="Padding" Value="0,7,0,10"/>
   </Style>
   <Style Selector="Border.memory-pill">
     <Setter Property="Background" Value="{DynamicResource Vnf.StatusAiBg}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
-    <Setter Property="Padding" Value="8,0"/>
-    <Setter Property="MinHeight" Value="20"/>
+    <Setter Property="Padding" Value="11,0"/>
+    <Setter Property="MinHeight" Value="{DynamicResource Vnf.MemoryPillHeight}"/>
   </Style>
   <Style Selector="Border.memory-pill > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusAiFg}"/>

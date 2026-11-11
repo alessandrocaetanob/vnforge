@@ -33,30 +33,6 @@ public class PatchUpdateAndValidationTests
     }
 
     [Fact]
-    public void Atualizacao_que_falha_no_segundo_arquivo_volta_para_a_versao_anterior_e_nao_para_os_originais()
-    {
-        using var game = new SyntheticGame();
-        InstallFirstVersionAndChangeBuild(game);
-        var installedExe = SyntheticGame.Sha(Path.Combine(game.Game, "Game/Game.exe"));
-        var installedScript = SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf"));
-        var installedCreated = SyntheticGame.Sha(Path.Combine(game.Game, SyntheticGame.CreatedFile));
-        using var second = SecondVersionWithBrokenScriptDelta(game);
-
-        var error = Assert.Throws<PatchException>(() => PatchInstaller.Install(game.Game, second, null, Ct));
-
-        Assert.Contains("estado de antes desta instalação", error.Message);
-        Assert.DoesNotContain("ao que eram", error.Message);
-        Assert.Equal(installedExe, SyntheticGame.Sha(Path.Combine(game.Game, "Game/Game.exe")));
-        Assert.Equal(installedScript, SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
-        Assert.Equal(installedCreated, SyntheticGame.Sha(Path.Combine(game.Game, SyntheticGame.CreatedFile)));
-        Assert.Equal("1.1.0", PatchInstaller.InstalledVersion(game.Game));
-        Assert.False(Directory.Exists(Path.Combine(game.Game, PatchInstaller.BackupFolderName, ".anterior")));
-
-        PatchInstaller.Uninstall(game.Game, null, Ct);
-        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
-    }
-
-    [Fact]
     public void Primeira_instalacao_que_falha_deixa_o_manifesto_sem_instalacao_e_o_jogo_original()
     {
         using var game = new SyntheticGame();

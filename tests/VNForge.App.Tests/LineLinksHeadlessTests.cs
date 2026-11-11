@@ -6,7 +6,7 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.App.Controls;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 
@@ -39,7 +39,7 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     {
         var window = new Window { Width = 1200, Height = 900, Content = new BuildView { DataContext = vm, TechnicalExpanded = true } };
         window.Show();
-        ScreenRenderer.Settle(window);
+        ScreenHost.Settle(window);
         return window;
     }
 
@@ -47,7 +47,7 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
     {
         var line = window.GetVisualDescendants().OfType<TextBlock>().First(t => LineLinks.GetSource(t) == Message);
         line.BringIntoView();
-        ScreenRenderer.Settle(window);
+        ScreenHost.Settle(window);
         return line;
     }
 
@@ -126,7 +126,7 @@ public class LineLinksHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
                 LineLinks.SetSource(block, text);
                 var window = new Window { Width = 600, Height = 200, Content = block };
                 window.Show();
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
                 try
                 {
                     var link = Assert.IsType<Avalonia.Controls.Documents.Run>(block.Inlines![0]);

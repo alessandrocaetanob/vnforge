@@ -52,7 +52,6 @@ O código de produção medido é o do projeto que o teste tem o mesmo nome. Os 
 O App leva uns 17 minutos com cobertura e passa do limite de 10 minutos de um comando em primeiro plano. Para ele, divida em fatias, uma por chamada, e some no fim:
 
 ```bash
-export VNFORGE_RENDER_DIR="$PWD/.tmp/render"
 VNFORGE_FATIAS=3 VNFORGE_FATIA=0 bash tools/cobertura.sh App
 VNFORGE_FATIAS=3 VNFORGE_FATIA=1 bash tools/cobertura.sh App
 VNFORGE_FATIAS=3 VNFORGE_FATIA=2 bash tools/cobertura.sh App
@@ -79,8 +78,20 @@ Para o App, rode uma fatia de cada vez com `-ClassesFile` (um nome de classe por
 
 ### Prova da tarefa
 
-`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo). Com `VNFORGE_RENDER_DIR` apontando para uma pasta dentro de `.tmp`, os PNGs de render ficam lá.
+`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo).
 
 ## Relatório de cada tarefa
 
 O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo, cobertura de linhas e de ramos (do `tools/cobertura.sh`) e, no App, a memória do processo. A cobertura de linhas e de ramos depois tem que ser igual ou maior que a da base. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
+
+## Capturas das telas
+
+Os PNG das telas para o designer não saem da suíte. A ferramenta `tools/VNForge.Capturas` grava cada tela a 1440×1000, nos dois temas, com o projeto de demonstração:
+
+```bash
+dotnet run --project tools/VNForge.Capturas -c Release -- [--saida pasta] [--tela nome] [--tema escuro|claro]
+```
+
+Sem argumentos ela grava as 50 capturas por tema em `.tmp/capturas` (uns 2 minutos por tema), no formato `<tela>-<escuro|claro>.png`. `--tela` grava uma só (`painel`, `editor`, `biblioteca-gaveta`, `novo-projeto-ia` e as outras do catálogo).
+
+O catálogo de telas fica em `tests/VNForge.App.Tests/Screens/ScreenCatalog.cs` e é compilado nos dois lugares: o `ScreenSmokeTests` abre cada tela dele (num tema) e a ferramenta usa o mesmo projeto de demonstração reduzido (os oito scripts nomeados), numa pasta nova por tema. Tela nova entra no catálogo e ganha o smoke e a captura juntos.

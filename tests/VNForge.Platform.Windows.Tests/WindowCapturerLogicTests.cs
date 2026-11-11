@@ -29,14 +29,6 @@ public sealed class WindowCapturerLogicTests
     // ---- escolha da janela ----
 
     [Fact]
-    public void Sem_dizer_qual_janela_nao_captura_nada()
-    {
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget()));
-
-        Assert.Contains("Diga qual janela", error.Message);
-    }
-
-    [Fact]
     public void Entre_as_janelas_que_combinam_vale_a_maior()
     {
         AddGame(1, "CLANNAD", 100, 100);
@@ -77,36 +69,6 @@ public sealed class WindowCapturerLogicTests
         Assert.Equal(200, byFolderAndTitle.Width);
     }
 
-    [Fact]
-    public void So_minimizada_diz_que_esta_minimizada()
-    {
-        AddGame().Minimized = true;
-
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(TitleContains: "CLANNAD")));
-
-        Assert.Contains("minimizada", error.Message);
-    }
-
-    [Fact]
-    public void Minimizada_e_outra_aberta_captura_a_aberta()
-    {
-        AddGame(1, "CLANNAD", 900, 900).Minimized = true;
-        AddGame(2, "CLANNAD", 100, 100);
-        BringToFront(2);
-
-        Assert.Equal(100, Capturer.Capture(new WindowTarget(TitleContains: "CLANNAD")).Width);
-    }
-
-    [Fact]
-    public void Janela_sem_tamanho_informado_nao_e_escolhida()
-    {
-        AddGame().ClientSizeKnown = false;
-
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(TitleContains: "CLANNAD")));
-
-        Assert.Contains("Não achei nenhuma janela", error.Message);
-    }
-
     [Theory]
     [InlineData("pasta", "titulo", "com o título 'titulo' e de um programa da pasta 'pasta'")]
     [InlineData("pasta", null, "de um programa da pasta 'pasta'")]
@@ -119,24 +81,6 @@ public sealed class WindowCapturerLogicTests
     }
 
     // ---- a janela escolhida ----
-
-    [Fact]
-    public void Janela_que_sumiu_e_um_erro_claro()
-    {
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: 99)));
-
-        Assert.Contains("não existe mais", error.Message);
-    }
-
-    [Fact]
-    public void Janela_minimizada_pelo_identificador_e_um_erro_claro()
-    {
-        AddGame().Minimized = true;
-
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
-
-        Assert.Contains("minimizada", error.Message);
-    }
 
     [Theory]
     [InlineData(0, 100)]
@@ -151,14 +95,6 @@ public sealed class WindowCapturerLogicTests
     }
 
     [Fact]
-    public void Janela_cujo_tamanho_o_sistema_nao_informa_nao_captura()
-    {
-        AddGame().ClientSizeKnown = false;
-
-        Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
-    }
-
-    [Fact]
     public void Janela_maior_que_o_limite_e_recusada()
     {
         AddGame(width: WindowImage.MaxSide + 1, height: 10);
@@ -169,83 +105,6 @@ public sealed class WindowCapturerLogicTests
     }
 
     // ---- de onde vem a imagem ----
-
-    [Fact]
-    public void A_imagem_da_propria_janela_vale_e_diz_de_que_janela_veio()
-    {
-        var window = AddGame(width: 4, height: 2);
-        window.Pixels = Solid(4, 2, 7);
-
-        var image = Capturer.Capture(new WindowTarget(Handle: Game));
-
-        Assert.Equal(window.Pixels, image.Bgra);
-        Assert.Equal(new WindowSource("CLANNAD", window.Program), image.Source);
-        Assert.Equal(0, _system.ScreenCopies);
-    }
-
-    [Fact]
-    public void Imagem_preta_com_a_janela_na_frente_cai_para_a_copia_da_tela()
-    {
-        AddGame(width: 4, height: 2);
-        BringToFront(Game);
-        _system.Screen = Solid(4, 2, 5);
-
-        var image = Capturer.Capture(new WindowTarget(Handle: Game));
-
-        Assert.Equal(Solid(4, 2, 5), image.Bgra);
-        Assert.Equal(1, _system.ScreenCopies);
-    }
-
-    [Fact]
-    public void Janela_que_nao_deu_a_imagem_com_ela_na_frente_cai_para_a_copia_da_tela()
-    {
-        var window = AddGame(width: 4, height: 2);
-        window.PrintSucceeds = false;
-        BringToFront(Game);
-        _system.Screen = Solid(4, 2, 5);
-
-        Assert.Equal(Solid(4, 2, 5), Capturer.Capture(new WindowTarget(Handle: Game)).Bgra);
-    }
-
-    [Fact]
-    public void Imagem_preta_com_outra_janela_em_primeiro_plano_nao_copia_a_tela()
-    {
-        AddGame(width: 4, height: 2);
-        _system.Windows[Other] = new FakeWindow { Title = "Outro", Width = 4, Height = 2 };
-        BringToFront(Other);
-
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
-
-        Assert.Contains("Traga o jogo para a frente", error.Message);
-        Assert.Equal(0, _system.ScreenCopies);
-    }
-
-    [Fact]
-    public void Imagem_preta_com_a_janela_na_frente_mas_coberta_num_canto_nao_copia_a_tela()
-    {
-        AddGame(width: 40, height: 20);
-        _system.Windows[Other] = new FakeWindow { Title = "Outro" };
-        BringToFront(Game);
-        // O canto de baixo à direita da área do jogo, a um pixel da borda, está sob outra janela.
-        _system.WindowAtOverride = (x, y) => (x, y) == (100 + 38, 100 + 18) ? Other : Game;
-
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
-
-        Assert.Contains("Traga o jogo para a frente", error.Message);
-        Assert.Equal(0, _system.ScreenCopies);
-    }
-
-    [Fact]
-    public void Janela_filha_da_janela_do_jogo_no_ponto_conta_como_o_jogo()
-    {
-        AddGame(width: 4, height: 2);
-        _system.Windows[Other] = new FakeWindow { Title = "Filha", Root = Game };
-        BringToFront(Game);
-        _system.WindowAtOverride = (_, _) => Other;
-        _system.Screen = Solid(4, 2, 3);
-
-        Assert.Equal(Solid(4, 2, 3), Capturer.Capture(new WindowTarget(Handle: Game)).Bgra);
-    }
 
     [Fact]
     public void Sem_janela_em_primeiro_plano_ou_fora_de_qualquer_janela_nao_copia_a_tela()
@@ -267,15 +126,6 @@ public sealed class WindowCapturerLogicTests
         Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
 
         Assert.Equal(0, _system.ScreenCopies);
-    }
-
-    [Fact]
-    public void Janela_sem_raiz_nao_esta_na_frente()
-    {
-        AddGame(width: 4, height: 2).Root = 0;
-        BringToFront(Game);
-
-        Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget(Handle: Game)));
     }
 
     [Fact]

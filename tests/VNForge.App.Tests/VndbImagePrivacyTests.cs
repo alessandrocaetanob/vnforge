@@ -7,7 +7,7 @@ using Avalonia.Platform;
 using Microsoft.Extensions.Time.Testing;
 using VNForge.App.Controls;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.Core.Library;
 using VNForge.Core.Vndb;
 
@@ -70,7 +70,7 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
         {
             if (window is not null)
             {
-                ScreenRenderer.Settle(window);
+                ScreenHost.Settle(window);
             }
 
             await Task.Delay(25);
@@ -302,7 +302,7 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                 {
                     Assert.True(Directory.Exists(config), "o leitor cria a pasta antes de observar");
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     // Sem arquivo vale o padrão, Blur: a imagem aparece, desfocada. O download e a decodificação rodam fora da UI, então a imagem chega depois do Show.
                     await WaitUntil(() => portrait.HasImage && portrait.IsBlurred, window);
 
@@ -582,9 +582,9 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                 try
                 {
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     portrait.Image = b;
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     Assert.Equal(2, gated.Requests);
 
                     // A carga velha (A) chega depois da troca: não aparece e o bitmap dela é devolvido.
@@ -611,7 +611,7 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
 
                     // Sem imagem, o controle devolve a posse e volta ao marcador.
                     portrait.Image = null;
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     Assert.False(portrait.HasImage);
                     Assert.Throws<ObjectDisposedException>(() => _ = bitmapB.PixelSize);
                 }
@@ -640,9 +640,9 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                 try
                 {
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     window.Content = null;
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
 
                     var bitmap = Blank();
                     gated.Complete(a.Url, BitmapLease.Own(bitmap));

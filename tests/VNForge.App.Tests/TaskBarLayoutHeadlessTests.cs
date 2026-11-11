@@ -4,7 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using VNForge.App.Services;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Projects;
@@ -101,7 +101,7 @@ public class TaskBarLayoutHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     var view = new TaskBar { DataContext = new TaskBarViewModel(service) };
                     var window = new Window { Width = width, Height = 200, Content = view };
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     try
                     {
                         problems.AddRange(OverlapsIn(view));
@@ -144,7 +144,7 @@ public class TaskBarLayoutHeadlessTests(HeadlessFixture fixture) : IClassFixture
                 {
                     var window = new MainWindow { DataContext = vm, Width = width, Height = 900 };
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     try
                     {
                         var view = window.GetVisualDescendants().OfType<TaskBar>().Single();
@@ -191,7 +191,7 @@ public class TaskBarLayoutHeadlessTests(HeadlessFixture fixture) : IClassFixture
                     var view = new TaskBar { DataContext = new TaskBarViewModel(service) };
                     var window = new Window { Width = 960, Height = 200, Content = view };
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
                     try
                     {
                         var title = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == item.Title);

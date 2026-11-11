@@ -68,8 +68,14 @@ public sealed partial class EditorView : UserControl
 
     private const double ColumnsTop = 16;
 
-    /// <summary>O quadro do #546 recua a grade, as cenas e o inspetor 24 px da borda (".eb"), mas o shell do #544 fixa o conteúdo de toda página em x=112 (32 px); fica 0 até o Alessandro decidir.</summary>
-    private const double ColumnsBleed = 0;
+    /// <summary>A borda do corpo do Editor no quadro do #546 (".eb"): a grade, as cenas e o inspetor ficam 24 px da borda da janela.</summary>
+    private const double BoardInset = 24;
+
+    /// <summary>
+    /// O shell do #544 fixa o resto da página (abas, filtros, ações) na margem do Editor, 32 px (x=112), mas o corpo do quadro fica em <see cref="BoardInset"/>: a grade avança a diferença.
+    /// Sai da mesma decisão largo/estreito da margem; em janela estreita a margem já é a do quadro e não avança. Antes da primeira largura válida não avança.
+    /// </summary>
+    private double ColumnsBleed => windowSize >= EditorBreakpoints.NarrowMarginBelow ? EditorBreakpoints.WideMargin - BoardInset : 0;
 
     /// <summary>
     /// A lista de cenas na grade: a coluna inteira, a faixa do estado recolhido (#393) ou, abaixo de 1400 px, nenhuma (o flyout do cabeçalho a substitui).

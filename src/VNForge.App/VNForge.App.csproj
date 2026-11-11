@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="VNForge.App.Tests" />
+    <InternalsVisibleTo Include="VNForge.Capturas" />
   </ItemGroup>
 
   <!-- A galeria de componentes (Gallery/) só existe no build Debug. -->

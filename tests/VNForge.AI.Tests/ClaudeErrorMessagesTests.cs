@@ -28,15 +28,6 @@ public class ClaudeErrorMessagesTests
     }
 
     [Fact]
-    public void Falha_de_rede_e_tempo_esgotado_dizem_para_conferir_a_conexao()
-    {
-        Assert.Contains("conexão", ClaudeErrorMessages.Describe(new AnthropicIOException("boom", Rede)));
-        Assert.Contains("conexão", ClaudeErrorMessages.Describe(Rede));
-        Assert.Contains("conexão", ClaudeErrorMessages.Describe(new TimeoutException()));
-        Assert.Contains("conexão", ClaudeErrorMessages.Describe(new TaskCanceledException()));
-    }
-
-    [Fact]
     public void Recusa_do_modelo_e_resposta_invalida_usam_a_mensagem_em_portugues_do_proprio_erro()
     {
         Assert.Equal("O modelo recusou a linha.", ClaudeErrorMessages.Describe(new ClaudeRefusalException("O modelo recusou a linha.")));

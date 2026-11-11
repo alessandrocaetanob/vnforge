@@ -1,7 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using VNForge.App.Controls;
-using VNForge.App.Tests.Rendering;
+using VNForge.App.Tests.Screens;
 
 namespace VNForge.App.Tests.Controls;
 
@@ -57,7 +57,7 @@ public sealed class ReviewStageTests(HeadlessFixture fixture) : IClassFixture<He
                 try
                 {
                     window.Show();
-                    ScreenRenderer.Settle(window);
+                    ScreenHost.Settle(window);
 
                     Assert.True(stage.Bounds.Height >= column.MinStageHeight - 0.5, $"o palco tem {stage.Bounds.Height} px");
                     Assert.True(column.Bounds.Height <= 500 + 0.5, $"a coluna tem {column.Bounds.Height} px de 500");

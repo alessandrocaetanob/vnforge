@@ -627,4 +627,18 @@ public sealed class ReviewModeTests : IDisposable
 
         public int ReviewedOn(DateTimeOffset now, TimeZoneInfo zone) => Records.Select(r => r.UnitId).Distinct().Count();
     }
+
+    [Fact]
+    public async Task Sem_cena_aberta_o_modo_revisao_nao_abre_e_a_fila_por_risco_so_abre_pelo_proprio_comando()
+    {
+        var vm = new EditorViewModel();
+
+        vm.StartReview();
+        vm.StartReviewOf(ReviewSource.Doubts);
+        await vm.StartRiskReviewAsync();
+
+        Assert.False(vm.IsReviewing);
+        Assert.Throws<ArgumentNullException>(() => vm.StartReviewOf(null!));
+        Assert.Throws<ArgumentException>(() => vm.StartReviewOf(ReviewSource.Risk));
+    }
 }

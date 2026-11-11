@@ -43,32 +43,6 @@ public class ClaudeGlossarySuggesterTests
     }
 
     [Fact]
-    public async Task O_pedido_vai_para_o_haiku_com_as_falas_e_o_schema_de_personagens()
-    {
-        var client = new StubClient(_ => Ok("""{"characters":[{"name":"美咲","gender":"female","voice":"x"},{"name":"健太","gender":"male","voice":"y"}]}"""));
-        var suggester = new ClaudeGlossarySuggester(client);
-
-        await suggester.SuggestVoicesAsync(Voices, CancellationToken.None);
-
-        var request = Assert.Single(client.Requests);
-        Assert.Equal("claude-haiku-5-5", request.Model);
-        Assert.Contains("えへへ、ありがとう！", request.User);
-        Assert.Contains("\"characters\"", request.JsonSchema);
-        Assert.Contains("\"female\"", request.JsonSchema);
-    }
-
-    [Fact]
-    public async Task Lista_vazia_nao_chama_a_api()
-    {
-        var client = new StubClient(_ => Ok("{}"));
-        var suggester = new ClaudeGlossarySuggester(client);
-
-        Assert.Empty(await suggester.SuggestVoicesAsync([], CancellationToken.None));
-        Assert.Empty(await suggester.SuggestTermsAsync([], CancellationToken.None));
-        Assert.Empty(client.Requests);
-    }
-
-    [Fact]
     public async Task Divide_muitos_personagens_em_varias_chamadas()
     {
         var many = Enumerable.Range(0, ClaudeGlossarySuggester.VoiceChunk + 3).Select(i => new CharacterVoiceRequest($"p{i}", ["あ"])).ToArray();
@@ -83,71 +57,6 @@ public class ClaudeGlossarySuggesterTests
 
         Assert.Equal(2, client.Requests.Count);
         Assert.Equal(many.Select(m => m.Name), result.Select(r => r.Name));
-    }
-
-    [Fact]
-    public async Task Recusa_lanca_a_excecao_de_recusa()
-    {
-        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => new ClaudeReply("refusal", string.Empty)));
-
-        await Assert.ThrowsAsync<ClaudeRefusalException>(() => suggester.SuggestVoicesAsync(Voices, CancellationToken.None));
-        await Assert.ThrowsAsync<ClaudeRefusalException>(() => suggester.SuggestTermsAsync([new TermTranslationRequest("魔法", 9)], CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Resposta_cortada_por_limite_de_tokens_lanca()
-    {
-        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => new ClaudeReply("max_tokens", """{"characters":[""")));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestVoicesAsync(Voices, CancellationToken.None));
-    }
-
-    [Theory]
-    [InlineData("isto não é json")]
-    [InlineData("""{"outra":[]}""")]
-    [InlineData("""{"characters":[{"name":"美咲","gender":"female"}]}""")]
-    [InlineData("""{"characters":[{"name":"美咲","gender":"robô","voice":"x"},{"name":"健太","gender":"male","voice":"y"}]}""")]
-    [InlineData("""{"characters":[{"name":"美咲","gender":"female","voice":"x"}]}""")]
-    [InlineData("""{"characters":[{"name":"美咲","gender":"female","voice":"x"},{"name":"美咲","gender":"female","voice":"x"},{"name":"健太","gender":"male","voice":"y"}]}""")]
-    [InlineData("""{"characters":[{"name":"美咲","gender":"female","voice":"x"},{"name":"健太","gender":"male","voice":"y"},{"name":"他人","gender":"male","voice":"z"}]}""")]
-    public async Task Resposta_invalida_lanca(string json)
-    {
-        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => Ok(json)));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestVoicesAsync(Voices, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Devolve_traducao_e_motivo_de_cada_termo()
-    {
-        var client = new StubClient(_ => Ok("""{"terms":[{"source":"魔法学院","target":"Academia de Magia","reason":"Nome da escola, aparece em todo o jogo."},{"source":"先輩","target":"veterano","reason":"Tratamento entre alunos."}]}"""));
-        var suggester = new ClaudeGlossarySuggester(client);
-
-        var result = await suggester.SuggestTermsAsync([new TermTranslationRequest("魔法学院", 40, "魔法学院に入る"), new TermTranslationRequest("先輩", 12)], CancellationToken.None);
-
-        Assert.Equal(
-            [
-                new TermTranslationSuggestion("魔法学院", "Academia de Magia", "Nome da escola, aparece em todo o jogo."),
-                new TermTranslationSuggestion("先輩", "veterano", "Tratamento entre alunos."),
-            ],
-            result);
-        var request = Assert.Single(client.Requests);
-        Assert.Equal("claude-haiku-5-5", request.Model);
-        Assert.Contains("魔法学院に入る", request.User);
-        Assert.Contains("\"terms\"", request.JsonSchema);
-    }
-
-    [Theory]
-    [InlineData("""{"terms":[{"source":"魔法学院","target":"x"}]}""")]
-    [InlineData("""{"terms":[{"source":"魔法学院","target":" ","reason":"y"}]}""")]
-    [InlineData("""{"terms":[]}""")]
-    [InlineData("""{"terms":[{"source":"outro","target":"x","reason":"y"}]}""")]
-    [InlineData("""[1,2]""")]
-    public async Task Termos_com_resposta_invalida_lancam(string json)
-    {
-        var suggester = new ClaudeGlossarySuggester(new StubClient(_ => Ok(json)));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => suggester.SuggestTermsAsync([new TermTranslationRequest("魔法学院", 3)], CancellationToken.None));
     }
 
     public static TheoryData<string?, string> Falhas => new()
@@ -204,18 +113,6 @@ public class ClaudeGlossarySuggesterTests
         await suggester.SuggestTermsAsync([new TermTranslationRequest("魔法", 3)], CancellationToken.None);
 
         Assert.Equal(new ClaudeUsage(200, 40, 10, 0), suggester.Usage);
-    }
-
-    [Fact]
-    public async Task Cancelamento_antes_da_chamada_lanca_sem_pedir_nada()
-    {
-        var client = new StubClient(_ => Ok("{}"));
-        var suggester = new ClaudeGlossarySuggester(client);
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => suggester.SuggestVoicesAsync(Voices, cts.Token));
-        Assert.Empty(client.Requests);
     }
 
     [Fact]

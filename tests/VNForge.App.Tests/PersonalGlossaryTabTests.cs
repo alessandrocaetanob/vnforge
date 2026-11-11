@@ -48,6 +48,22 @@ public sealed class PersonalGlossaryTabTests : IDisposable
         Assert.Equal("1 de 3 termos entraram", vm.Personal.BannerTitle);
         Assert.Equal("3 termos", vm.Personal.ProjectTermsText);
         Assert.Equal(["遅刻 · atraso", "傘 · guarda-chuva"], vm.Personal.Candidates.Select(c => c.Label));
+        Assert.True(vm.Personal.HasCandidates);
+        Assert.Equal(["senpai", "tum-tum", "chegar tarde"], linhas.Select(r => r.Target));
+        Assert.Equal(["manter em romaji", "onomatopeia", string.Empty], linhas.Select(r => r.Notes));
+        Assert.Equal([false, false, true], linhas.Select(r => r.Differs));
+    }
+
+    [Fact]
+    public async Task Com_um_termo_so_o_resumo_e_o_rodape_ficam_no_singular()
+    {
+        var pessoal = Pessoal();
+        pessoal.Upsert(new PersonalTerm("先輩", "senpai", null, ["a"]));
+        var (vm, _) = await AbrirAsync(pessoal);
+
+        Assert.Equal(1, vm.Personal.Count);
+        Assert.StartsWith("1 termo ·", vm.Personal.Summary, StringComparison.Ordinal);
+        Assert.StartsWith("1 termo", vm.Personal.FooterText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -156,6 +172,7 @@ public sealed class PersonalGlossaryTabTests : IDisposable
 
         vm.Personal.SaveEditCommand.Execute(null);
         Assert.Equal("Escreva o original e a tradução.", vm.Personal.EditError);
+        Assert.True(vm.Personal.HasEditError);
 
         vm.Personal.EditSource = "先輩";
         vm.Personal.EditTarget = "outro";

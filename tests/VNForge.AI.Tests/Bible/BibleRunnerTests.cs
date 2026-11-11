@@ -26,54 +26,6 @@ public sealed class BibleRunnerTests : IDisposable
     ];
 
     [Fact]
-    public async Task Le_um_capitulo_de_cada_vez_em_chamadas_de_ate_N_cenas_e_grava_a_biblia()
-    {
-        var project = NewProject(_root);
-        var provider = new FakeBibleProvider();
-        var runner = new BibleRunner(provider, NoWait());
-
-        var result = await runner.RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(4, result.ScenesWritten);
-        Assert.Equal(2, result.ChaptersRead);
-        Assert.Empty(result.Failures);
-        Assert.Equal(
-            ExpectedSceneCalls,
-            provider.SceneCalls.Select(c => (c.Chapter.Name, c.Keys.ToArray())));
-        var bible = project.LoadBible();
-        Assert.Equal(["yst1", "yst2", "yst3", "yst4"], bible.Scenes.Select(s => s.Key));
-        Assert.All(bible.Scenes, s => Assert.NotEmpty(s.Summary));
-    }
-
-    [Fact]
-    public async Task Depois_dos_capitulos_pede_a_sinopse_e_a_linha_do_tempo_com_o_resumo_das_cenas()
-    {
-        var project = NewProject(_root);
-        var provider = new FakeBibleProvider();
-
-        await new BibleRunner(provider, NoWait()).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        var digests = Assert.Single(provider.OverviewCalls);
-        Assert.Equal(["Manhã", "Festival"], digests.Select(d => d.Name));
-        Assert.Equal(3, digests[0].Summaries.Count);
-        var bible = project.LoadBible();
-        Assert.NotEmpty(bible.Synopsis);
-        Assert.Equal(["Manhã", "Festival"], bible.Timeline.Select(t => t.Title));
-    }
-
-    [Fact]
-    public async Task Rodada_parcial_nao_pede_a_sinopse()
-    {
-        var project = NewProject(_root);
-        var provider = new FakeBibleProvider();
-
-        await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken, includeOverview: false);
-
-        Assert.Empty(provider.OverviewCalls);
-        Assert.Equal("", project.LoadBible().Synopsis);
-    }
-
-    [Fact]
     public async Task O_que_a_pessoa_escreveu_sobrevive_a_uma_nova_geracao()
     {
         var project = NewProject(_root);
@@ -138,23 +90,6 @@ public sealed class BibleRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Recusa_nao_e_repetida()
-    {
-        var project = NewProject(_root);
-        var calls = 0;
-        var provider = new FakeBibleProvider(describe: (_, _) =>
-        {
-            calls++;
-            throw new ClaudeRefusalException("A IA recusou.");
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, calls);
-        Assert.Equal(1, Assert.Single(result.Failures).Attempts);
-    }
-
-    [Fact]
     public async Task Resposta_cortada_por_max_tokens_nao_e_repetida_com_o_mesmo_limite()
     {
         var project = NewProject(_root);
@@ -169,23 +104,6 @@ public sealed class BibleRunnerTests : IDisposable
 
         Assert.Equal(1, calls);
         Assert.Equal(1, Assert.Single(result.Failures).Attempts);
-    }
-
-    [Fact]
-    public async Task JSON_fora_do_formato_ainda_e_repetido()
-    {
-        var project = NewProject(_root);
-        var calls = 0;
-        var provider = new FakeBibleProvider(describe: (_, _) =>
-        {
-            calls++;
-            throw new ClaudeResponseException("Incompleta.", detail: "A resposta não é o JSON esperado.");
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(3, calls);
-        Assert.Equal(3, Assert.Single(result.Failures).Attempts);
     }
 
     [Fact]

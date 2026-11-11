@@ -427,6 +427,26 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
+    public async Task Os_atalhos_da_pagina_avisam_quem_escuta_e_nao_falham_sem_ninguem()
+    {
+        var (vm, _, temp, _) = await OpenAsync(Ready());
+        using var _t = temp;
+        vm.ShowTestCommand.Execute(null);
+        vm.ShowErrorsCommand.Execute(null);
+        vm.ChooseGameFolderCommand.Execute(null);
+        var avisados = new List<string>();
+        vm.TestRequested += (_, _) => avisados.Add("teste");
+        vm.ErrorsRequested += (_, _) => avisados.Add("erros");
+        vm.GameFolderRequested += (_, _) => avisados.Add("pasta");
+
+        vm.ShowTestCommand.Execute(null);
+        vm.ShowErrorsCommand.Execute(null);
+        vm.ChooseGameFolderCommand.Execute(null);
+
+        Assert.Equal(["teste", "erros", "pasta"], avisados);
+    }
+
+    [Fact]
     public async Task Erros_da_conferencia_travam_o_botao_e_a_faixa_manda_para_os_erros()
     {
         var (vm, _, temp, _) = await OpenAsync(Ready(errors: 3));

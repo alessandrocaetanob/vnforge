@@ -21,6 +21,28 @@ public sealed class VndbListTests
     private static VndbListEntry Entry(string id, DateTimeOffset modified, int? vote = null, string? notes = null, params int[] labels) =>
         new(id, "Jogo", T0, modified, null, vote, null, null, notes, [.. labels.Select(LibraryListLabels.Named)]);
 
+    [Fact]
+    public async Task Atualizar_com_token_pergunta_ao_VNDB_de_quem_e_e_sem_token_so_limpa_o_estado()
+    {
+        using var withToken = new Setup([Game("g1", "v4")], []);
+        var connection = new VndbConnectionViewModel(withToken.Service, new FixedClock(Later));
+
+        await connection.RefreshAsync();
+
+        Assert.True(connection.HasToken);
+        Assert.Equal("Trocar token", connection.ChangeTokenLabel);
+        Assert.True(connection.CanRemoveToken);
+        Assert.False(connection.HasAccountError);
+
+        using var withoutToken = new Setup([Game("g1", "v4")], [], withToken: false);
+        var empty = new VndbConnectionViewModel(withoutToken.Service, new FixedClock(Later));
+
+        await empty.RefreshAsync();
+
+        Assert.False(empty.HasToken);
+        Assert.False(empty.HasAccountError);
+    }
+
     private sealed class Setup : IDisposable
     {
         private readonly TempFolder folder = new();
@@ -83,6 +105,8 @@ public sealed class VndbListTests
 
         Assert.False(connection.HasToken);
         Assert.Contains("Grave de novo", connection.TokenSourceText);
+        Assert.Equal("Guardar um token", connection.ChangeTokenLabel);
+        Assert.False(connection.CanRemoveToken);
     }
 
     private sealed class BrokenVault : IVndbTokenStore
@@ -283,6 +307,11 @@ public sealed class VndbListTests
 
         connection.SyncVote = false;
         connection.MarkFinishedOnVndb = true;
+        Assert.True(connection.SyncLabels);
+        Assert.True(connection.SyncDates);
+        Assert.True(connection.SyncNotes);
+        Assert.True(connection.MarkFinishedOnVndb);
+        Assert.False(connection.SyncVote);
 
         var saved = new VndbSyncSettingsFile(setup.Config).Load();
         Assert.False(saved.Vote);
@@ -425,5 +454,57 @@ public sealed class VndbListTests
         await library.LoadAsync();
 
         Assert.NotNull(main.Sheet.ListCard);
+    }
+
+    [Fact]
+    public async Task Sem_token_guardado_colar_vazio_e_sincronizar_so_pedem_o_token()
+    {
+        using var setup = new Setup([Game("g1", "v4")], [], withToken: false);
+        var connection = new VndbConnectionViewModel(setup.Service, new FixedClock(Later));
+
+        connection.ChangeTokenCommand.Execute(null);
+        Assert.True(connection.IsChangingToken);
+        connection.NewToken = "   ";
+        await connection.SaveTokenCommand.ExecuteAsync(null);
+        Assert.Equal("Cole o token que você gerou em vndb.org/u/tokens.", connection.Message);
+        Assert.Null(setup.Store.Load());
+
+        connection.NewToken = "meio-colado";
+        connection.CancelChangeTokenCommand.Execute(null);
+        Assert.False(connection.IsChangingToken);
+        Assert.Equal(string.Empty, connection.NewToken);
+
+        await connection.SyncNowCommand.ExecuteAsync(null);
+        Assert.Equal("Guarde o token do VNDB antes de sincronizar.", connection.Message);
+    }
+
+    [Fact]
+    public async Task Cada_campo_da_sincronizacao_e_gravado_nas_escolhas()
+    {
+        using var setup = new Setup([Game("g1", "v4")], []);
+        var connection = new VndbConnectionViewModel(setup.Service, new FixedClock(Later));
+        await connection.RefreshAsync();
+
+        connection.SyncLabels = false;
+        connection.SyncDates = false;
+        connection.SyncNotes = false;
+
+        Assert.False(connection.SyncLabels);
+        Assert.False(connection.SyncDates);
+        Assert.False(connection.SyncNotes);
+        Assert.False(setup.Service.Choices.Labels);
+        Assert.False(setup.Service.Choices.Dates);
+        Assert.False(setup.Service.Choices.Notes);
+    }
+
+    [Fact]
+    public void Escolher_o_lado_remoto_de_um_conflito_desmarca_o_local_e_o_contrario()
+    {
+        var conflito = new VndbConflictRow("g1", "Jogo", "Notas", "local", "remoto", localWins: true);
+
+        conflito.UseRemote = true;
+        Assert.False(conflito.UseLocal);
+        conflito.UseRemote = false;
+        Assert.True(conflito.UseLocal);
     }
 }

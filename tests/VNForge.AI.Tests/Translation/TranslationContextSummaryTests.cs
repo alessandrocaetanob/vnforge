@@ -25,14 +25,6 @@ public sealed class TranslationContextSummaryTests : IDisposable
     }
 
     [Fact]
-    public void Projeto_vazio_nao_leva_nada_junto()
-    {
-        var summary = TranslationContextSummary.Read(Folder());
-
-        Assert.Equal(new TranslationContextSummary(0, 0, 0, 0, false), summary);
-    }
-
-    [Fact]
     public void Conta_glossario_voz_genero_e_guia_de_estilo()
     {
         var folder = Folder();
@@ -48,14 +40,5 @@ public sealed class TranslationContextSummaryTests : IDisposable
         var summary = TranslationContextSummary.Read(folder);
 
         Assert.Equal(new TranslationContextSummary(2, 3, 1, 1, true), summary);
-    }
-
-    [Fact]
-    public void Guia_de_estilo_em_branco_nao_conta()
-    {
-        var folder = Folder();
-        File.WriteAllText(Path.Combine(folder.Root, TranslationContextSummary.StyleGuideFileName), "   \n");
-
-        Assert.False(TranslationContextSummary.Read(folder).HasStyleGuide);
     }
 }

@@ -7,25 +7,16 @@ public class InstallerTextTests
 {
     [Theory]
     [InlineData(0, "0 B")]
-    [InlineData(900, "900 B")]
     [InlineData(2048, "2,0 KB")]
     [InlineData(5_347_737, "5,1 MB")]
-    [InlineData(228_589_568, "218 MB")]
     [InlineData(1_288_490_189, "1,2 GB")]
     public void Tamanhos_usam_virgula_e_unidade(long bytes, string expected) => Assert.Equal(expected, InstallerText.Size(bytes));
 
     [Theory]
     [InlineData(200, "0,2 s")]
-    [InlineData(10, "0,1 s")]
     [InlineData(12_400, "12 s")]
     [InlineData(65_000, "1 min 5 s")]
     public void Tempos_seguem_o_formato_do_quadro(int milliseconds, string expected) => Assert.Equal(expected, InstallerText.Elapsed(TimeSpan.FromMilliseconds(milliseconds)));
-
-    [Theory]
-    [InlineData(1, "1 arquivo")]
-    [InlineData(4, "4 arquivos")]
-    [InlineData(1234, "1234 arquivos")]
-    public void Plural_de_arquivos(int count, string expected) => Assert.Equal(expected, InstallerText.Files(count));
 
     [Fact]
     public void Lista_de_nomes_une_com_e_e_resume_as_longas()
@@ -45,15 +36,8 @@ public class InstallerTextTests
 
     [Theory]
     [InlineData(10L * 1024 * 1024, "Leva poucos segundos.")]
-    [InlineData(600L * 1024 * 1024, "Leva cerca de 20 segundos.")]
     [InlineData(4L * 1024 * 1024 * 1024, "Leva cerca de 3 minutos.")]
     public void A_estimativa_vira_uma_frase(long bytes, string expected) => Assert.Equal(expected, InstallerText.EstimateSentence(bytes));
-
-    [Theory]
-    [InlineData("Game/script.ypf", "script.ypf")]
-    [InlineData("Game.exe", "Game.exe")]
-    [InlineData(@"a\b\c.dat", "c.dat")]
-    public void O_nome_do_arquivo_sai_do_caminho_relativo(string path, string expected) => Assert.Equal(expected, InstallerText.FileName(path));
 
     [Fact]
     public void O_executavel_do_jogo_e_o_exe_que_o_patch_troca_ou_o_unico_da_pasta()

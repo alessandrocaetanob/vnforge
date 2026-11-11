@@ -111,11 +111,14 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
             }
 
             var age = RelativeTime.Format(origin.At, clock.GetUtcNow());
-            return origin.Provider == "manual"
-                ? $"Editada à mão ({age})."
-                : origin.Model is { Length: > 0 } model
-                    ? $"Traduzida pela IA, {ProjectLabels.Model(model)} ({age})."
-                    : $"Traduzida pela IA ({age}).";
+            if (origin.Provider == "manual")
+            {
+                return $"Editada à mão ({age}).";
+            }
+
+            return origin.Model is { Length: > 0 } model
+                ? $"Traduzida pela IA, {ProjectLabels.Model(model)} ({age})."
+                : $"Traduzida pela IA ({age}).";
         }
     }
 
@@ -130,7 +133,18 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     public CharacterColor? SpeakerColor => Speaker is null ? null : Context?.SpeakerColor;
 
     /// <summary>"美咲 → Misaki" no alto do original; só o nome original sem cadastro; "Narração" sem falante.</summary>
-    public string SpeakerPair => Speaker is null ? "Narração" : SpeakerTarget is null ? Speaker : $"{Speaker} → {SpeakerTarget}";
+    public string SpeakerPair
+    {
+        get
+        {
+            if (Speaker is null)
+            {
+                return "Narração";
+            }
+
+            return SpeakerTarget is null ? Speaker : $"{Speaker} → {SpeakerTarget}";
+        }
+    }
 
     /// <summary>O tom de voz do personagem, no bloco de contexto.</summary>
     public string? Voice => string.IsNullOrWhiteSpace(Context?.Voice) ? null : Context.Voice;
@@ -216,10 +230,20 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
     /// <summary>Os marcadores da tradução são os do original (nenhum a menos, nenhum a mais); falso sem tradução.</summary>
     public bool MarkersMatch { get; private set; }
 
-    public string MarkerStateText =>
-        string.IsNullOrWhiteSpace(Translation) ? string.Empty
-        : MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText
-        : "Falta ou sobra um marcador";
+    public string MarkerStateText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Translation))
+            {
+                return string.Empty;
+            }
+
+            return MarkersMatch ? "Marcadores iguais ao original" + ExtraPagesText : "Falta ou sobra um marcador";
+        }
+    }
+
+    public bool HasMarkerState => MarkerStateText.Length > 0;
 
     /// <summary>Quantas viradas de página a tradução tem a mais que o original; é a fala dividida em páginas, e não conta como marcador diferente.</summary>
     private int extraPages;
@@ -708,6 +732,7 @@ public sealed partial class LineDetailViewModel : ObservableObject, IDisposable
         MarkersMatch = match;
         OnPropertyChanged(nameof(MarkersMatch));
         OnPropertyChanged(nameof(MarkerStateText));
+        OnPropertyChanged(nameof(HasMarkerState));
     }
 
     private static IReadOnlyList<TextSegment> SplitOrPlain(string source, out IReadOnlyList<string> markers)

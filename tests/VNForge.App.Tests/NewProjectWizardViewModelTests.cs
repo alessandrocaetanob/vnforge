@@ -394,4 +394,16 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Contains("A extração não terminou", vm.ErrorMessage);
         Assert.False(vm.IsExtracted);
     }
+
+    [Theory]
+    [InlineData(null, "Amaoto no Hakoniwa", "")]
+    [InlineData("", "Amaoto no Hakoniwa", "")]
+    [InlineData("雨音の箱庭", "Amaoto no Hakoniwa 雨音の箱庭", " 雨音の箱庭")]
+    public void O_jogo_da_Biblioteca_mostra_o_nome_e_o_original_so_quando_o_VNDB_tem(string? original, string titulo, string sufixo)
+    {
+        var jogo = new LibraryGameContext("Amaoto no Hakoniwa", null, null, original);
+
+        Assert.Equal(titulo, jogo.DisplayTitle);
+        Assert.Equal(sufixo, jogo.OriginalSuffix);
+    }
 }

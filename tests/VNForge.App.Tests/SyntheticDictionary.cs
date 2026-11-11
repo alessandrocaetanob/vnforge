@@ -44,11 +44,11 @@ internal static class SyntheticDictionary
         """;
 
     /// <summary>Grava o índice do dicionário inventado na pasta e devolve o dicionário do app já carregado.</summary>
-    public static async Task<OfflineDictionary> InstalledAsync(string folder, Func<HttpClient>? http = null, Action<Action>? postToUi = null)
+    public static async Task<OfflineDictionary> InstalledAsync(string folder, Func<HttpClient>? http = null, Action<Action>? postToUi = null, string extraEntries = "")
     {
         var store = new JmdictStore(folder);
         Directory.CreateDirectory(folder);
-        using (var input = new MemoryStream(Encoding.UTF8.GetBytes(Xml)))
+        using (var input = new MemoryStream(Encoding.UTF8.GetBytes(Xml.Replace("</JMdict>", extraEntries + "</JMdict>", StringComparison.Ordinal))))
         using (var output = File.Create(store.IndexPath))
         {
             JmdictImporter.Import(input, output);
@@ -73,6 +73,18 @@ internal static class SyntheticDictionary
         return output.ToArray();
     }
 
+    /// <summary>Um servidor que anuncia o tamanho do arquivo, entrega só o começo e para: o download fica em andamento com a fração já conhecida.</summary>
+    public sealed class StalledServer : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var all = Gzip();
+            var content = new StreamContent(new HangingStream(all[..(all.Length / 2)]));
+            content.Headers.ContentLength = all.Length;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        }
+    }
+
     /// <summary>Um servidor que responde o cabeçalho e nunca entrega o corpo: o download só termina se for cancelado ou estourar o prazo.</summary>
     public sealed class HangingServer : HttpMessageHandler
     {
@@ -87,8 +99,10 @@ internal static class SyntheticDictionary
             throw new TaskCanceledException("O tempo limite da solicitação foi atingido.", new TimeoutException());
     }
 
-    private sealed class HangingStream : Stream
+    private sealed class HangingStream(byte[]? prefix = null) : Stream
     {
+        private int served;
+
         public override bool CanRead => true;
 
         public override bool CanSeek => false;
@@ -113,6 +127,14 @@ internal static class SyntheticDictionary
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
+            if (prefix is not null && served < prefix.Length)
+            {
+                var count = Math.Min(buffer.Length, prefix.Length - served);
+                prefix.AsMemory(served, count).CopyTo(buffer);
+                served += count;
+                return count;
+            }
+
             await Task.Delay(Timeout.Infinite, cancellationToken);
             return 0;
         }

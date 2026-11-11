@@ -10,6 +10,9 @@
     <Project Path="src/VNForge.Platform.Windows/VNForge.Platform.Windows.csproj" />
     <Project Path="src/VNForge.Vndb/VNForge.Vndb.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/VNForge.Capturas/VNForge.Capturas.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VNForge.AI.Tests/VNForge.AI.Tests.csproj" />
     <Project Path="tests/VNForge.App.Tests/VNForge.App.Tests.csproj" />

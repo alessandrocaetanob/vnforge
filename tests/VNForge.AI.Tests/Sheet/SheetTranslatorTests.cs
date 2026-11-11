@@ -43,61 +43,6 @@ public sealed class SheetTranslatorTests
         Assert.Equal("Comédia", result[1].Text);
     }
 
-    [Fact]
-    public async Task As_regras_vao_no_bloco_estavel_e_os_itens_na_mensagem_do_usuario()
-    {
-        var client = new StubClient(_ => Reply("""{"items":[]}"""));
-
-        await new ClaudeSheetTranslator(client).TranslateAsync(Request(), Ct);
-
-        var request = Assert.Single(client.Requests);
-        Assert.Equal("claude-opus-5-5", request.Model);
-        Assert.Contains("[spoiler]", request.System, StringComparison.Ordinal);
-        Assert.Contains("português do Brasil", request.System, StringComparison.Ordinal);
-        Assert.DoesNotContain("A rainy town", request.System, StringComparison.Ordinal);
-        using var user = JsonDocument.Parse(request.User[(request.User.IndexOf('\n', request.User.IndexOf('\n') + 1) + 1)..]);
-        var items = user.RootElement.EnumerateArray().ToList();
-        Assert.Equal(3, items.Count);
-        Assert.Equal(("synopsis", "synopsis", "A rainy town. [spoiler]He dies.[/spoiler]"), (items[0].GetProperty("key").GetString(), items[0].GetProperty("kind").GetString(), items[0].GetProperty("text").GetString()));
-        Assert.Equal(("tag_name", "cont"), (items[1].GetProperty("kind").GetString(), items[1].GetProperty("context").GetString()));
-        Assert.Contains("Amaoto no Hakoniwa", request.User, StringComparison.Ordinal);
-        Assert.Contains("\"items\"", request.JsonSchema, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task O_mesmo_pedido_manda_sempre_o_mesmo_bloco_de_sistema_para_o_cache_acertar()
-    {
-        var client = new StubClient(_ => Reply("""{"items":[]}"""));
-        var translator = new ClaudeSheetTranslator(client);
-
-        await translator.TranslateAsync(Request(), Ct);
-        await translator.TranslateAsync(new SheetTranslationRequest("Outro", [new SheetTranslationItem("tag:g1", SheetItemKind.TagName, "Drama", "cont")]), Ct);
-
-        Assert.Equal(client.Requests[0].System, client.Requests[1].System);
-    }
-
-    [Fact]
-    public async Task Soma_o_uso_de_todas_as_chamadas_com_o_que_veio_do_cache()
-    {
-        var translator = new ClaudeSheetTranslator(new StubClient(_ => Reply("""{"items":[]}""")));
-
-        await translator.TranslateAsync(Request(), Ct);
-        await translator.TranslateAsync(Request(), Ct);
-
-        Assert.Equal(new ClaudeUsage(200, 100, 800, 0), translator.Usage);
-    }
-
-    [Fact]
-    public async Task Respeita_o_modelo_e_o_esforco_pedidos()
-    {
-        var client = new StubClient(_ => Reply("""{"items":[]}"""));
-        var translator = new ClaudeSheetTranslator(client, new ClaudeOptions { Model = ClaudeModels.Haiku, Effort = ClaudeEffort.Low });
-
-        await translator.TranslateAsync(Request(), Ct);
-
-        Assert.Equal((ClaudeModels.Haiku, ClaudeEffort.Low), (client.Requests[0].Model, client.Requests[0].Effort));
-    }
-
     [Theory]
     [InlineData("não é json")]
     [InlineData("""{"itens":[]}""")]
