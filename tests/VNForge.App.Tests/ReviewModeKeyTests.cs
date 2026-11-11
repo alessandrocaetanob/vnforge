@@ -141,16 +141,6 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             });
     }
 
-    private static int Inscritos(object alvo, string evento, Type dono, Type ouvinte) =>
-        ((MulticastDelegate?)dono.GetField(evento, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(alvo))?
-        .GetInvocationList().Count(d => d.Target?.GetType() == ouvinte) ?? 0;
-
-    private static int InscritosPropertyChanged(object alvo, Type ouvinte) =>
-        typeof(Avalonia.AvaloniaObject).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-            .Where(f => f.FieldType == typeof(EventHandler<Avalonia.AvaloniaPropertyChangedEventArgs>))
-            .Select(f => (MulticastDelegate?)f.GetValue(alvo))
-            .Sum(d => d?.GetInvocationList().Count(h => h.Target?.GetType() == ouvinte) ?? 0);
-
     private Task Pressionar(string root, Key key, PhysicalKey physical, Action<MainWindowViewModel, ReviewModeViewModel> verificar) =>
         Pressionar(root, [(key, physical, true)], verificar);
 
@@ -215,5 +205,18 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     {
         var root = SampleProjects.Create(parent, "Teste", TranslationStatus.Machine, TranslationStatus.Machine, TranslationStatus.Machine);
         return root;
+    }
+
+    [Fact]
+    public async Task Segurar_o_Enter_aprova_so_uma_fala_porque_a_repeticao_da_tecla_e_ignorada()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
+        {
+            Assert.Equal(1, review.Position);
+            Assert.Equal(1, review.ApprovedCount);
+        });
     }
 }

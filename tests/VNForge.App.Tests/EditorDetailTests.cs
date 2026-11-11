@@ -27,30 +27,6 @@ public class EditorDetailTests : IDisposable
 
     private TextUnit Gravada(int n) => ProjectFolder.Open(raiz).LoadText("yst00001")[n];
 
-    private string ProjetoComTilJapones(string subpasta, bool pontuacaoDoTeclado)
-    {
-        var projeto = ProjectFolder.Create(Path.Combine(pasta.Path, subpasta), new ProjectConfig(
-            "Real",
-            new GameConfig("D:/Jogos/VN", "VN.exe"),
-            new EngineConfig("yuris", 500, "0xD36FAC96"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("cp1252"),
-            AiConfig.Default)
-        {
-            Style = StyleConfig.Default with { KeyboardPunctuation = pontuacaoDoTeclado },
-        });
-        projeto.SaveText("story04", [new TextUnit("story04:000064", TextUnitKind.Dialogue, null, "～朝～", "～Manhã～", TranslationStatus.Machine)]);
-        return projeto.Root;
-    }
-
-    private async Task<EditorViewModel> AbrirProjeto(string raizDoProjeto)
-    {
-        var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao());
-        vm.Project = EditorFixtures.Summary("Real", raizDoProjeto);
-        await vm.Loading;
-        return vm;
-    }
-
     [Fact]
     public async Task Ctrl_Enter_aprova_e_move_a_selecao_para_a_proxima_linha()
     {

@@ -535,22 +535,6 @@ public class ConferenceViewModelTests
         Assert.Equal(expected, ConferenceIssueRowViewModel.FormatLine(unitId));
     }
 
-    private sealed class FixGateRule(ManualResetEventSlim entered, ManualResetEventSlim gate) : IQaRule, IQaFixer
-    {
-        public string Id => "regra-porta";
-
-        public string Description => "Corrige só depois que o teste liberar.";
-
-        public IEnumerable<QaIssue> Check(QaContext context) => [];
-
-        public string Fix(string translation)
-        {
-            entered.Set();
-            gate.Wait(TimeSpan.FromSeconds(10));
-            return translation;
-        }
-    }
-
     private sealed class ThrowingRule : IQaRule
     {
         public string Id => "regra-quebrada";
@@ -558,19 +542,6 @@ public class ConferenceViewModelTests
         public string Description => "Sempre lança.";
 
         public IEnumerable<QaIssue> Check(QaContext context) => throw new InvalidOperationException("regra quebrada.");
-    }
-
-    private sealed class GateRule(ManualResetEventSlim gate) : IQaRule
-    {
-        public string Id => "regra-porta";
-
-        public string Description => "Espera o teste liberar.";
-
-        public IEnumerable<QaIssue> Check(QaContext context)
-        {
-            gate.Wait(TimeSpan.FromSeconds(10));
-            return [];
-        }
     }
 
     [Fact]

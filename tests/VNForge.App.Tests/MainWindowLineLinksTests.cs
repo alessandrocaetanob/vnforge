@@ -9,8 +9,6 @@ public class MainWindowLineLinksTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 26, 20, 0, 0, TimeSpan.Zero);
 
-    private const string BuildError = "Não foi possível reconstruir o script 'yst00001.ybn' com o text/yst00001.json: A tradução da unidade 'yst00001:000002' não pode ser gravada: O texto tem 1 caractere(s) que a estratégia cp1252 não grava.";
-
     private static async Task<MainWindowViewModel> Opened(TempFolder temp)
     {
         var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved, TranslationStatus.Approved);
@@ -18,12 +16,6 @@ public class MainWindowLineLinksTests
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
         return vm;
-    }
-
-    private static LineRequest FirstIdOf(string message)
-    {
-        var mention = LineIds.Find(message)[0];
-        return new LineRequest(mention.ScriptKey, mention.UnitId);
     }
 
     [Fact]

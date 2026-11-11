@@ -381,4 +381,59 @@ public sealed class BibleViewModelTests : IDisposable
         Assert.False(vm.HasScene);
         Assert.Equal(string.Empty, vm.SceneHeader);
     }
+
+    [Fact]
+    public void Abrir_a_cena_nao_a_marca_como_editada()
+    {
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "Resumo.", Tone = ["seco"] }]));
+        var vm = Open();
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+        vm.SelectedRow = vm.Rows[0];
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        Assert.Empty(_project.LoadBible().Scene("yst00002")!.Edited);
+        Assert.Equal("seco", vm.ToneText);
+    }
+
+    [Fact]
+    public async Task Abrir_a_geracao_mostra_o_preco_antes_de_rodar_e_nao_chama_a_IA()
+    {
+        var vm = Open();
+
+        vm.OpenGenerateCommand.Execute(null);
+        await vm.Generation;
+
+        Assert.True(vm.IsGenerateOpen);
+        Assert.StartsWith("Custo (aproximado): R$ ", vm.EstimateText, StringComparison.Ordinal);
+        Assert.StartsWith("Já gasto no projeto: R$ ", vm.SpentText, StringComparison.Ordinal);
+        Assert.Equal("Campos que você editou (0 cenas)", vm.EditedKeptText);
+        Assert.Empty(_provider.SceneCalls);
+        Assert.StartsWith("Gerar de novo · R$ ", vm.GenerateLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Lista_as_cenas_na_ordem_da_historia_e_marca_as_sem_resumo()
+    {
+        var vm = Open();
+
+        Assert.Equal(["yst00001", "yst00002", "yst00010"], vm.Rows.Select(r => r.Key));
+        Assert.Equal([1, 2, 3], vm.Rows.Select(r => r.Number));
+        Assert.Equal("Cena 2", vm.Rows[1].Title);
+        Assert.Equal(3, vm.NoSummaryCount);
+        Assert.Equal(0, vm.EditedCount);
+    }
+
+    [Fact]
+    public async Task Reescrever_com_recusa_da_IA_mostra_a_mensagem_e_registra_o_gasto()
+    {
+        var client = new StubClient(() => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(2_000, 500, 0, 0)));
+        var vm = OpenWith(client);
+
+        await vm.RewriteFieldCommand.ExecuteAsync(BibleField.Tone);
+
+        Assert.Equal(1, client.Calls);
+        Assert.Contains("não quis ler", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.True(AiUsageLog.Load(_project).Dollars > 0m);
+    }
 }

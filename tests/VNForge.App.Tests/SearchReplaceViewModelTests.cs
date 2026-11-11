@@ -213,4 +213,18 @@ public class SearchReplaceViewModelTests
         Assert.Equal("yst00001", aberto.ScriptKey);
         Assert.Equal("yst00001:000000", aberto.UnitId);
     }
+
+    [Fact]
+    public async Task Mudar_o_padrao_limpa_o_resultado_escolhido()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = Abrir(temp, TranslationStatus.Translated);
+        vm.Pattern = "tradução";
+        await vm.FindCommand.ExecuteAsync(null);
+        vm.SelectedResult = vm.Results[0];
+
+        vm.Pattern = "outra";
+
+        Assert.Null(vm.SelectedResult);
+    }
 }

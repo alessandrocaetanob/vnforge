@@ -420,4 +420,32 @@ public class AddressTermsViewModelTests
         public Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
             Task.FromException<IReadOnlyList<AddressTermSuggestion>>(error);
     }
+
+    [Fact]
+    public async Task Falha_ao_gravar_os_tratamentos_avisa_que_ainda_citam_o_nome_antigo_e_a_nova_tentativa_nao_troca_de_novo()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+        File.Delete(folder.AddressTermsPath);
+        Directory.CreateDirectory(folder.AddressTermsPath);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "tmp";
+        vm.Characters.Single(c => c.Source == "健太").Source = "美咲";
+        vm.Characters.Single(c => c.Source == "tmp").Source = "健太";
+        vm.Flush();
+
+        Assert.True(vm.SaveFailed);
+        Assert.Contains("ainda citam o nome antigo", vm.ErrorMessage);
+        Assert.Equal(["健太", "美咲", "先生"], folder.LoadCharacters().Select(c => c.Source));
+
+        Directory.Delete(folder.AddressTermsPath);
+        vm.Flush();
+
+        Assert.False(vm.SaveFailed);
+        Assert.Equal(
+        [
+            new AddressTerm("美咲", "健太", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("健太", "美咲", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
 }

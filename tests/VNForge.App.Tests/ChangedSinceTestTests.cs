@@ -200,24 +200,4 @@ public sealed class ChangedSinceTestTests
     {
         public void Start(string executablePath, string workingDirectory) => throw new IOException("o teste não abre o jogo");
     }
-
-    /// <summary>Retrato dos textos do projeto de demonstração e, depois dele, a primeira fala traduzida de três cenas editada.</summary>
-    internal static (TranslationSnapshot Snapshot, IReadOnlyList<string> Keys) EditThreeScenes(ProjectFolder project)
-    {
-        var snapshot = TranslationChanges.Snapshot(project.LoadAllText());
-        var keys = new List<string>();
-        foreach (var (key, units) in project.LoadAllText().OrderBy(t => t.Key, StringComparer.Ordinal))
-        {
-            var index = units.ToList().FindIndex(u => u.NeedsRewrite);
-            if (index < 0 || keys.Count == 3)
-            {
-                continue;
-            }
-
-            project.SaveText(key, [.. units.Select((u, i) => i == index ? u with { Translation = u.Translation + "!" } : u)]);
-            keys.Add(key);
-        }
-
-        return (snapshot, keys);
-    }
 }

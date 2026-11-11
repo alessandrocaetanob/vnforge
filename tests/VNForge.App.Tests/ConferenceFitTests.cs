@@ -39,17 +39,6 @@ public sealed class ConferenceFitTests : IDisposable
         return vm;
     }
 
-    private sealed class Encurtador(string resposta) : ILineShortener
-    {
-        public List<string> Pedidos { get; } = [];
-
-        public Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct)
-        {
-            Pedidos.Add(current);
-            return Task.FromResult(resposta);
-        }
-    }
-
     [Fact]
     public async Task Corrigir_e_ir_para_o_proximo_divide_a_fala_e_mantem_os_marcadores_do_original_mais_a_virada_a_mais()
     {

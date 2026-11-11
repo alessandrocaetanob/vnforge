@@ -13,8 +13,6 @@ public sealed class LibraryQueueTests : IDisposable
 
     public void Dispose() => _config.Dispose();
 
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
     private static VndbRelease PortugueseRelease(string visualNovelId) =>
         new("r1", "Tradução", null, [new VndbReleaseLanguage("pt-br", null, null, false, true)], [], null, null, false, false, false, null, null, [new VndbReleaseVisualNovel(visualNovelId, "complete")]);
 

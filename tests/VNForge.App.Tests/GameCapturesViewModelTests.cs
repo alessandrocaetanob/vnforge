@@ -12,8 +12,6 @@ public sealed class GameCapturesViewModelTests : IDisposable
 {
     private static readonly LibraryEngine Engine = new("yuris", "Yu-RIS", LibraryEngineSource.Engine);
 
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
     private readonly TempFolder _data = new();
     private readonly TempFolder _game = new();
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 8, 21, 14, 0, TimeSpan.Zero));

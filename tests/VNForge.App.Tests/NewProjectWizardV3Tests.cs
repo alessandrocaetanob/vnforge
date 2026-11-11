@@ -43,8 +43,6 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         return vm;
     }
 
-    private static string ProjectChoicesDefaultModel => VNForge.Core.Projects.ProjectChoices.DefaultAi.Model;
-
     [Theory]
     [InlineData("abc")]
     [InlineData("0")]

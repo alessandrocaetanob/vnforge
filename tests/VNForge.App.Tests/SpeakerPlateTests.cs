@@ -18,7 +18,6 @@ public sealed class SpeakerPlateTests : IDisposable
     private const string Perfil = """{ "wrap": { "enabled": true, "maxWidth": 40, "maxLines": 3, "charWidth": "uniform" } }""";
 
     private readonly TempFolder pasta = new();
-    private readonly FakeTimeProvider relogio = new(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
 
     public void Dispose()
     {
@@ -31,15 +30,6 @@ public sealed class SpeakerPlateTests : IDisposable
 
     private static SpeakerNaming Nomes(string encoder = "sjis") =>
         new(new CharacterBook([new CharacterEntry("美咲", "Misaki")]), TextEncoderRegistry.Default.Create(encoder));
-
-    private ProjectFolder Projeto(string nome, params TextUnit[] linhas)
-    {
-        var folder = ProjectFolder.Open(SampleProjects.Create(pasta.SubFolder(nome), "Teste", TranslationStatus.Translated));
-        folder.SaveFormatting(FormattingProfileSerializer.Parse(Perfil));
-        folder.SaveCharacters([new CharacterEntry("美咲", "Misaki")]);
-        folder.SaveText("yst00001", linhas);
-        return folder;
-    }
 
     [Theory]
     [InlineData("sjis")]

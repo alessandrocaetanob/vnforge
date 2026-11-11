@@ -28,62 +28,6 @@ public class TaskBarLayoutHeadlessTests(HeadlessFixture fixture) : IClassFixture
         { 2560, 0.4 },
     };
 
-    private static Rect BoundsIn(Control control, Visual ancestor)
-    {
-        var origin = control.TranslatePoint(default, ancestor) ?? default;
-        return new Rect(origin, control.Bounds.Size);
-    }
-
-    /// <summary>Inicia uma tarefa que já relatou progresso e mensagem e fica em andamento até o <paramref name="gate"/> abrir.</summary>
-    private static async Task<BackgroundTaskItem> StartReported(BackgroundTaskService service, string title, double? progress, TaskCompletionSource gate)
-    {
-        var reported = new TaskCompletionSource();
-        var item = service.Start(title, (reporter, _) =>
-        {
-            reporter.Report(progress, "Traduzindo esta cena");
-            reported.SetResult();
-            return gate.Task;
-        });
-        await reported.Task;
-        return item;
-    }
-
-    private static List<string> OverlapsIn(Visual root)
-    {
-        var problems = new List<string>();
-        var title = root.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Traduzindo o capítulo");
-        var message = root.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Traduzindo esta cena");
-        var bar = root.GetVisualDescendants().OfType<ProgressBar>().Single();
-        var cell = (Control)bar.GetVisualParent()!;
-
-        var titleBox = BoundsIn(title, root);
-        var barBox = BoundsIn(bar, root);
-        var cellBox = BoundsIn(cell, root);
-        var messageBox = BoundsIn(message, root);
-
-        if (bar.Bounds.Width > cell.Bounds.Width + Tolerance)
-        {
-            problems.Add($"a barra tem {bar.Bounds.Width:0.#} px e a célula {cell.Bounds.Width:0.#} px");
-        }
-
-        if (barBox.Left < titleBox.Right - Tolerance)
-        {
-            problems.Add($"a barra começa em {barBox.Left:0.#}, dentro do título, que termina em {titleBox.Right:0.#}");
-        }
-
-        if (barBox.Right > messageBox.Left + Tolerance)
-        {
-            problems.Add($"a barra termina em {barBox.Right:0.#}, dentro da mensagem, que começa em {messageBox.Left:0.#}");
-        }
-
-        if (cellBox.Intersects(titleBox.Deflate(Tolerance)) || cellBox.Intersects(messageBox.Deflate(Tolerance)))
-        {
-            problems.Add("a célula da barra cruza o título ou a mensagem");
-        }
-
-        return problems;
-    }
-
     [Fact]
     public async Task Titulo_longo_corta_com_reticencias_e_nao_empurra_a_barra()
     {

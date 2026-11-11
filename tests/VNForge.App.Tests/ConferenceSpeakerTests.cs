@@ -29,14 +29,6 @@ public class ConferenceSpeakerTests
     private static TextUnit Unit(int n, string? speaker, string translation = "Bom dia!") =>
         new($"yst00001:{n:D6}", TextUnitKind.Dialogue, speaker, $"原文{n}", translation, TranslationStatus.Translated);
 
-    private static async Task<ConferenceViewModel> Loaded(TempFolder temp, params TextUnit[] units)
-    {
-        var folder = CreateProject(temp, units);
-        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
-        await vm.RefreshAsync();
-        return vm;
-    }
-
     [Fact]
     public async Task Pela_janela_o_botao_abre_o_Glossario_nos_Personagens_com_o_nome_preenchido()
     {

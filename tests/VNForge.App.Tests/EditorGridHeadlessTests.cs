@@ -40,20 +40,45 @@ public static class HeadlessEntry
 /// <summary>Uma sessão para o processo todo: o Avalonia só aceita uma instância de aplicativo por thread de UI, então as classes de teste a dividem.</summary>
 public sealed class HeadlessFixture
 {
-    private static readonly Lazy<HeadlessUnitTestSession> Shared = new(() =>
+    private static readonly object Gate = new();
+    private static HeadlessUnitTestSession? shared;
+
+    // Um Lazy guardaria a exceção da primeira tentativa e todo teste falharia igual, sem a causa; aqui uma falha de subida não fica guardada e
+    // chega aos testes com a mensagem original.
+    private static HeadlessUnitTestSession Shared()
     {
-        var session = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry), AvaloniaTestIsolationLevel.PerAssembly);
-        // Um Application só: o Dispatcher.UIThread pertence à thread da sessão desde o primeiro Dispatch, e qualquer teste que o leia antes dele
-        // (um ViewModel que posta na interface) criaria um dispatcher preso à thread do xUnit.
-        session.Dispatch(() => 0, CancellationToken.None).GetAwaiter().GetResult();
-        return session;
-    });
+        lock (Gate)
+        {
+            if (shared is not null)
+            {
+                return shared;
+            }
+
+            var session = HeadlessUnitTestSession.StartNew(typeof(HeadlessEntry), AvaloniaTestIsolationLevel.PerAssembly);
+            try
+            {
+                // Um Application só: o Dispatcher.UIThread pertence à thread da sessão desde o primeiro Dispatch, e qualquer teste que o leia antes dele
+                // (um ViewModel que posta na interface) criaria um dispatcher preso à thread do xUnit.
+                ResilientHeadlessSession.RunWithRetry(async () =>
+                {
+                    await session.Dispatch(() => 0, CancellationToken.None);
+                    return 0;
+                }).GetAwaiter().GetResult();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"A sessão headless não subiu: {e.Message}", e);
+            }
+
+            return shared = session;
+        }
+    }
 
     /// <summary>Sobe a sessão antes do primeiro teste do assembly (<see cref="HeadlessSessionFixture"/>).</summary>
-    internal static void Warm() => _ = Shared.Value;
+    internal static void Warm() => _ = Shared();
 
     // Sem Dispose: Session.Dispose() trava quando chamado da thread do xUnit; a thread da sessão não segura o processo.
-    public ResilientHeadlessSession Session { get; } = new(Shared.Value);
+    public ResilientHeadlessSession Session { get; } = new(Shared());
 }
 
 /// <summary>Fixture do assembly: abre a sessão headless uma vez, antes de qualquer teste, ver <see cref="HeadlessFixture"/>.</summary>
@@ -134,8 +159,81 @@ public class EditorGridHeadlessTests(HeadlessFixture fixture) : IClassFixture<He
             CancellationToken.None);
     }
 
-    private static string? Automation(Control control) => Avalonia.Automation.AutomationProperties.GetName(control);
 
-    private static Color? Cor(Control control, string key) =>
-        control.TryFindResource(key, control.ActualThemeVariant, out var found) && found is ISolidColorBrush brush ? brush.Color : null;
+    [Fact]
+    public async Task Grade_com_50_mil_linhas_so_realiza_as_linhas_da_janela_e_rola_sem_travar()
+    {
+        var vm = await Carregado(LineCount);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var abrir = Stopwatch.StartNew();
+                var window = Abrir(vm);
+                try
+                {
+                    abrir.Stop();
+                    var grade = Grade(window);
+
+                    Assert.True(abrir.Elapsed < Limit, $"Abrir a tela com {LineCount} linhas levou {abrir.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Equal(LineCount, grade.ItemCount);
+                    Assert.Equal(1, Realizadas(grade)[0]);
+
+                    var fim = Stopwatch.StartNew();
+                    grade.ScrollIntoView(LineCount - 1);
+                    Assentar(window);
+                    fim.Stop();
+                    Assert.True(fim.Elapsed < Limit, $"Rolar até o fim levou {fim.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Contains(LineCount, Realizadas(grade));
+
+                    var meio = Stopwatch.StartNew();
+                    grade.ScrollIntoView(LineCount / 2);
+                    Assentar(window);
+                    meio.Stop();
+                    Assert.True(meio.Elapsed < Limit, $"Rolar até o meio levou {meio.Elapsed.TotalMilliseconds:N0} ms.");
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                    Assert.Contains(LineCount / 2 + 1, Realizadas(grade));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Selecao_acompanha_a_lista_e_a_linha_selecionada_entra_na_janela()
+    {
+        var vm = await Carregado(LineCount);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                try
+                {
+                    var grade = Grade(window);
+                    Assert.Equal(1, vm.SelectedLine?.Number);
+                    Assert.Same(vm.SelectedLine, grade.SelectedItem);
+
+                    vm.SelectNextCommand.Execute(null);
+                    Assentar(window);
+                    Assert.Equal(2, vm.SelectedLine?.Number);
+                    Assert.Same(vm.SelectedLine, grade.SelectedItem);
+
+                    vm.SelectedLine = vm.Lines[^1];
+                    Assentar(window);
+                    Assert.Contains(LineCount, Realizadas(grade));
+                    Assert.InRange(grade.GetRealizedContainers().Count(), 1, MaxRealized);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
 }

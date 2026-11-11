@@ -82,8 +82,6 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
         }
     });
 
-    private static Avalonia.AvaloniaProperty TranslateTransform_Y => Avalonia.Media.TranslateTransform.YProperty;
-
     [Fact]
     public Task Interrogacao_abre_o_mapa_de_atalhos_e_esc_fecha_mas_nao_dentro_de_um_campo() => OnUi(() =>
     {

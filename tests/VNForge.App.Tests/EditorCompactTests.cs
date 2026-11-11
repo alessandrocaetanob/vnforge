@@ -17,9 +17,6 @@ namespace VNForge.App.Tests;
 /// <summary>O Editor compacto da #314: os pontos de quebra sem janela e o layout montado a 1366 e a 1440 px.</summary>
 public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
-
-    private static readonly string[] TabbedNames = ["TranslationEditor", "ExplainCard", "SceneLines", "ContextFragment", "SuggestionCard", "GameBox", "ApproveButton", "UseSuggestionButton"];
-    private static readonly double[] ResizeSteps = [1440.0, 1366.0, 1440.0];
     private static readonly double[] CrossingSteps = [1399.0, 1440.0];
 
     private static void Settle(Window window)

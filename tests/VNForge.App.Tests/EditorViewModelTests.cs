@@ -30,10 +30,6 @@ public class EditorViewModelTests
         return vm;
     }
 
-    private static FilterChipViewModel Chip(EditorViewModel vm, LineStatusFilter filter) => vm.Filters.Single(f => f.Filter == filter);
-
-    private static void Filtrar(EditorViewModel vm, LineStatusFilter filter) => vm.SelectFilterCommand.Execute(Chip(vm, filter));
-
     [Fact]
     public async Task Carga_seleciona_o_primeiro_script_e_preenche_as_linhas()
     {

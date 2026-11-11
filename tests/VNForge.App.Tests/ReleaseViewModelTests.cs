@@ -15,8 +15,6 @@ public sealed class ReleaseViewModelTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static DateTime LocalTested => new DateTimeOffset(2026, 11, 8, 19, 42, 0, TimeSpan.Zero).ToLocalTime().DateTime;
-
     internal static ProjectSummary Summary(string root) =>
         new("Amaoto no Hakoniwa", root, "yuris", 500, "cp1252", "claude", 312, new StatusCounts(0, 0, 100, 200, 100, 0));
 
@@ -165,9 +163,6 @@ public sealed class ReleaseViewModelTests
 
         public void Start(string executablePath, string workingDirectory) => Started.Add(executablePath);
     }
-
-    /// <summary>As 48.211 linhas e os 34% aprovados que o banner do quadro mostra; só os testes de render usam.</summary>
-    internal static StatusCounts QuadroCounts { get; } = new(3_811, 8_000, 20_000, 0, 16_400);
 
     internal static async Task<(ReleaseViewModel Vm, FakePublisher Publisher, TempFolder Temp, FakeTimeProvider Clock)> OpenAsync(ReleaseReadiness? readiness = null, StatusCounts? counts = null)
     {

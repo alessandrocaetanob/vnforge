@@ -48,8 +48,6 @@ public sealed class BuildTestViewModelTests : IDisposable
 
     private static TestStepState[] States(BuildViewModel vm) => [.. vm.LastTestSteps.Select(r => r.State)];
 
-    private static readonly TestStepState[] AllPending = [.. Enumerable.Repeat(TestStepState.Pending, 5)];
-
     private async Task<Task> StartHeldAsync(BuildViewModel vm, bool accents = false)
     {
         starter.Hold = new ManualResetEventSlim();

@@ -602,4 +602,16 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("ainda não tem tradução", StringComparison.Ordinal));
         Assert.Equal(TranslationStatus.Untranslated, Store.LoadTerms().Find(SheetTermKind.Tag, "g1")!.Text.Status);
     }
+
+    [Fact]
+    public async Task Item_que_a_IA_esqueceu_fica_pendente_e_o_aviso_diz_quantos()
+    {
+        var vm = await ReadyAsync(translate: false);
+        vm.TranslatorFactory = () => new VNForge.AI.Sheet.FakeSheetTranslator(item => item.Key == "synopsis" ? null : item.IsProse ? item.Source : "x");
+
+        await vm.TranslateCommand.ExecuteAsync(null);
+
+        Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("1 ficou sem tradução", StringComparison.Ordinal));
+        Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame(GameSheetSamples.Id)!.Synopsis!.Status);
+    }
 }

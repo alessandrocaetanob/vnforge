@@ -17,8 +17,6 @@ namespace VNForge.App.Tests;
 /// <summary>O painel de detalhe real, com o <see cref="GameTextbox"/> medido e desenhado a partir do perfil do projeto.</summary>
 public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>, IDisposable
 {
-    private static readonly string[] MsGothic = ["MS Gothic", "ＭＳ ゴシック"];
-    private static readonly string[] BizUdGothic = ["BIZ UDGothic", "BIZ UDゴシック"];
 
     private readonly TempFolder pasta = new();
 
@@ -61,17 +59,6 @@ public class GameTextboxHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
                 window.Close();
             },
             CancellationToken.None);
-    }
-
-    private static Size Medir(string traducao)
-    {
-        var vm = new TextboxPreviewViewModel(
-            new TextUnit("a:1", TextUnitKind.Dialogue, null, "原文", "x", TranslationStatus.Translated),
-            FormattingProfile.Default,
-            traducao);
-        var caixa = new GameTextbox { Layout = vm.Layout };
-        caixa.Measure(Size.Infinity);
-        return caixa.DesiredSize;
     }
 
     /// <summary>Chama <c>Render</c> direto num contexto de desenho: uma exceção no desenho apareceria aqui.</summary>

@@ -23,10 +23,6 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 {
     public static TheoryData<string> Themes => ["Dark", "Light"];
 
-    private static readonly string[] Levels = ["Baixo", "Médio", "Alto"];
-
-    private static readonly string[] Headers = ["IA", "Formatação", "Acentuação"];
-
     private static ThemeVariant Variant(string name) => name == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
 
     private Task OnUi(string theme, Action<Ui> test) =>
@@ -66,9 +62,6 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
     private static T Part<T>(Visual root, string name) where T : Control =>
         root.GetVisualDescendants().OfType<T>().First(c => c.Name == name);
 
-    private static ContentPresenter PresenterOf(Visual item) =>
-        item.GetVisualDescendants().OfType<ContentPresenter>().First(p => p.Name == "PART_ContentPresenter");
-
     // ---------------------------------------------------------------- SeverityTag
 
     [Fact]
@@ -84,61 +77,11 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
     // ---------------------------------------------------------------- PipelineStepper
 
-    private static PipelineStepper Stepper(ICommand? command = null)
-    {
-        var states = PipelineStepper.Resolve([true, false, false, false, false]);
-        string[] titles = ["Extrair", "Traduzir", "Conferir", "Build", "Injetar"];
-        return new PipelineStepper
-        {
-            ItemsSource = titles.Select((t, i) => new PipelineStep(i + 1, t, $"sub {t}", states[i], command, t)).ToList(),
-        };
-    }
-
-    private sealed class RelayCommand(Action<object?> run) : ICommand
-    {
-        public event EventHandler? CanExecuteChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public bool CanExecute(object? parameter) => true;
-
-        public void Execute(object? parameter) => run(parameter);
-    }
-
     // ---------------------------------------------------------------- LineRow
 
     // ---------------------------------------------------------------- ScriptItem
 
     // ---------------------------------------------------------------- ToggleSwitch (#580)
-
-    private static void AssertKnobCentered(ToggleSwitch toggle, Ui ui)
-    {
-        // A bolinha desliza por uma transição de Canvas.Left: espera ela parar antes de medir.
-        var moving = Part<Grid>(toggle, "PART_MovingKnobs");
-        var previous = double.NaN;
-        for (var i = 0; i < 100; i++)
-        {
-            ui.Settle();
-            var left = Avalonia.Controls.Canvas.GetLeft(moving);
-            if (left == previous)
-            {
-                break;
-            }
-
-            previous = left;
-            System.Threading.Thread.Sleep(30);
-        }
-
-        var track = Part<Border>(toggle, "OuterBorder");
-        var knob = Part<Avalonia.Controls.Shapes.Ellipse>(toggle, toggle.IsChecked == true ? "SwitchKnobOn" : "SwitchKnobOff");
-        var center = knob.TranslatePoint(new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), track);
-        Assert.NotNull(center);
-        var inset = toggle.IsChecked == true ? track.Bounds.Width - center.Value.X : center.Value.X;
-        Assert.Equal(10, inset, 1);
-        Assert.Equal(10, center.Value.Y, 1);
-    }
 
     // ---------------------------------------------------------------- ToggleRule
 

@@ -10,7 +10,6 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class PaletteRiskCountTests
 {
-    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
 
     private static string CreateProject(TempFolder temp, bool corrupt = false)
     {

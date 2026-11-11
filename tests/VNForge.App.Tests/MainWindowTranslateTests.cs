@@ -322,4 +322,22 @@ public sealed class MainWindowTranslateTests : IDisposable
             return [.. batch.Lines.Select(u => new TranslationResult(u.Id, "x"))];
         }
     }
+
+    [Fact]
+    public async Task Conferencia_aberta_durante_a_traducao_rele_a_lista_quando_ela_termina()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        int Untranslated() => vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Where(r => r.IsScriptSummary).Sum(r => r.Count);
+        Assert.Equal(3, Untranslated());
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, Untranslated());
+    }
 }

@@ -434,4 +434,24 @@ public sealed class LineDictionaryTests : IDisposable
         var outra = Assert.Single(vm.WordOthers);
         Assert.Equal("せんたく", outra.Title);
     }
+
+    [Fact]
+    public async Task Palavra_conjugada_mostra_a_forma_de_dicionario_a_nota_e_as_quatro_primeiras_acepcoes()
+    {
+        const string original = "「平気平気！ほら、行こう！」";
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), original);
+
+        vm.HoverSource(Em(original, "行こう", 1));
+
+        Assert.Equal("行く", vm.WordText);
+        Assert.Equal("いく · ゆく", vm.WordReading);
+        Assert.Equal("v5k-s, vi", vm.WordTag);
+        Assert.Equal("行こう é a forma volitiva (\"vamos\") de 行く", vm.WordNote);
+        Assert.Equal(4, vm.WordSenses.Count);
+        Assert.Equal("to go; to move (towards)", vm.WordSenses[0].Text);
+        Assert.Equal("Mais 6 sentidos · 2 leituras", vm.WordMore);
+        Assert.True(vm.HasWordMore);
+        Assert.Equal(Em(original, "行こう"), vm.WordStart);
+        Assert.Equal(3, vm.WordLength);
+    }
 }

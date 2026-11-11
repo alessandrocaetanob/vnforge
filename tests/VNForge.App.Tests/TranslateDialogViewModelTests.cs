@@ -269,4 +269,63 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.True(vm.EditorPass);
         Assert.True(vm.CanChooseEditorPass);
     }
+
+    [Fact]
+    public async Task Reabrir_numa_cena_com_linhas_nao_deixa_o_cartao_apagado_da_abertura_anterior()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings(), scene: "yst00003");
+        Assert.False(vm.Scopes[0].IsAvailable);
+
+        // A leitura do projeto devolve o resultado pelo contexto de quem abriu; num contexto que só roda quando o teste manda, o estado do meio da
+        // abertura fica parado até as asserções, em vez de depender de a leitura terminar depois delas.
+        var held = new HeldContext();
+        var previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(held);
+        Task reopening;
+        try
+        {
+            reopening = vm.OpenAsync(folder, "yst00001", Settings());
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        Assert.True(vm.Scopes[0].IsAvailable);
+        Assert.Equal(0, vm.Scopes[0].Lines);
+        Assert.Equal(string.Empty, vm.Scopes[0].Summary);
+        held.RunUntil(reopening);
+        await reopening;
+        Assert.True(vm.Scopes[0].IsAvailable);
+        Assert.Equal(100, vm.Scopes[0].Lines);
+    }
+
+    private sealed class HeldContext : SynchronizationContext
+    {
+        private readonly System.Collections.Concurrent.BlockingCollection<(SendOrPostCallback Callback, object? State)> queue = [];
+
+        public override void Post(SendOrPostCallback d, object? state) => queue.Add((d, state));
+
+        public void RunUntil(Task task)
+        {
+            var deadline = Environment.TickCount64 + 30_000;
+            while (!task.IsCompleted)
+            {
+                Assert.True(Environment.TickCount64 < deadline, "A abertura não terminou no prazo.");
+                if (queue.TryTake(out var item, 50))
+                {
+                    SetSynchronizationContext(this);
+                    try
+                    {
+                        item.Callback(item.State);
+                    }
+                    finally
+                    {
+                        SetSynchronizationContext(null);
+                    }
+                }
+            }
+        }
+    }
 }

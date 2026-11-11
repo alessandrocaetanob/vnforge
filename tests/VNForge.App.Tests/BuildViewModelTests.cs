@@ -374,16 +374,6 @@ public sealed class BuildViewModelTests : IDisposable
     private BuildViewModel Open(TimeProvider? clock = null, QaEngine? qa = null) =>
         new(new BackgroundTaskService(), [new FakeEngine()], starter, qa, clock) { Project = ProjectSummaryReader.Read(folder.Root) };
 
-    private BuildViewModel OpenWithQaRules(params IQaRule[] rules)
-    {
-        folder.SaveText("a001",
-        [
-            new TextUnit("a001:000000", TextUnitKind.Dialogue, null, "こんにちは", "Olá", TranslationStatus.Translated),
-            new TextUnit("a001:000001", TextUnitKind.Dialogue, null, "さようなら", "Tchau", TranslationStatus.Translated),
-        ]);
-        return Open(qa: new QaEngine(rules));
-    }
-
     [Fact]
     public async Task O_resultado_acompanha_o_estado_do_build_da_injecao_e_da_restauracao()
     {
@@ -560,25 +550,6 @@ public sealed class BuildViewModelTests : IDisposable
         }
     }
 
-    /// <summary>Hora fixa; cada leitura do cronômetro avança o passo, então a duração de uma operação é conhecida.</summary>
-    private sealed class SteppingClock(DateTimeOffset now, TimeSpan step) : TimeProvider
-    {
-        private long ticks;
-
-        public override DateTimeOffset GetUtcNow() => now;
-
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
-
-        public override long TimestampFrequency => 1000;
-
-        public override long GetTimestamp()
-        {
-            var current = ticks;
-            ticks += (long)step.TotalMilliseconds;
-            return current;
-        }
-    }
-
     private sealed class BadTranslationRule : UnitQaRule
     {
         public override string Id => "traducao-ruim";
@@ -677,5 +648,37 @@ public sealed class BuildViewModelTests : IDisposable
         vm.OpenLineCommand.Execute(null);
 
         Assert.Equal(["erros", "yst00001:000001"], avisos);
+    }
+
+    [Fact]
+    public async Task O_log_leva_o_horario_e_o_cabecalho_a_duracao_total()
+    {
+        var clock = new SteppingClock(Now, TimeSpan.FromMilliseconds(6800));
+        var vm = BuildableVm(new QaEngine([]), clock);
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.All(vm.Log, l => Assert.Equal("00:41:07", l.Time));
+        Assert.Equal("24/10/2026 00:41 · 6,8 s", vm.LogSummary);
+        Assert.Contains(vm.Log, l => l.Message.StartsWith("Build concluído em 6,8 s", StringComparison.Ordinal));
+    }
+
+    /// <summary>Hora fixa; cada leitura do cronômetro avança o passo, então a duração de uma operação é conhecida.</summary>
+    private sealed class SteppingClock(DateTimeOffset now, TimeSpan step) : TimeProvider
+    {
+        private long ticks;
+
+        public override DateTimeOffset GetUtcNow() => now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp()
+        {
+            var current = ticks;
+            ticks += (long)step.TotalMilliseconds;
+            return current;
+        }
     }
 }

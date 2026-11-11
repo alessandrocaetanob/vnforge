@@ -13,19 +13,6 @@ public class MainWindowRailTests
     private static MainWindowViewModel Create(TempFolder temp, string root) =>
         new(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
 
-    private static async Task<MainWindowViewModel> OpenedWithProblem(TempFolder temp)
-    {
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Approved, TranslationStatus.Approved);
-        var folder = ProjectFolder.Open(root);
-        var units = folder.LoadText("yst00001").ToList();
-        units[1] = WithMarkerError(units[1]);
-        folder.SaveText("yst00001", units);
-        var vm = Create(temp, root);
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        return vm;
-    }
-
     /// <summary>Uma linha com erro (o <c>\p</c> do original falta na tradução), dos que travam o teste no jogo.</summary>
     private static TextUnit WithMarkerError(TextUnit unit) => unit with { Source = @"「行こう」\p", Translation = "Vamos" };
 

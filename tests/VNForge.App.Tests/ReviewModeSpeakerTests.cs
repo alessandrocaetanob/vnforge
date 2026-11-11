@@ -50,8 +50,6 @@ public sealed class ReviewModeSpeakerTests : IDisposable
         return vm;
     }
 
-    private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
-
     [Fact]
     public async Task Voltar_na_primeira_linha_de_uma_cena_reabre_a_ultima_da_cena_anterior()
     {

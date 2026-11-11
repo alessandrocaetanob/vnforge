@@ -43,14 +43,6 @@ public sealed class EditorV2HeadlessTests(HeadlessFixture fixture) : IClassFixtu
         return window;
     }
 
-    private static List<string> VisibleTexts(LineDetailViewModel? detail)
-    {
-        var window = Show(new LineDetailView { DataContext = detail }, 388);
-        var shown = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!).ToList();
-        window.Close();
-        return shown;
-    }
-
     [Fact]
     public async Task Ctrl_F_e_Ctrl_H_abrem_o_painel_de_busca_dentro_do_Editor()
     {

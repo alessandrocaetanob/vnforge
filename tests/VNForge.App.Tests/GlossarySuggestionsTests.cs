@@ -290,22 +290,6 @@ public class GlossarySuggestionsTests
         Assert.Equal("casual de novo", folder.LoadCharacters().Single(c => c.Source == "健太").Tone);
     }
 
-    private sealed class RemovingSuggester(Action beforeAnswer) : IGlossarySuggester
-    {
-        public Task<IReadOnlyList<CharacterVoiceSuggestion>> SuggestVoicesAsync(IReadOnlyList<CharacterVoiceRequest> characters, CancellationToken ct)
-        {
-            beforeAnswer();
-            IReadOnlyList<CharacterVoiceSuggestion> all = [.. characters.Select(c => new CharacterVoiceSuggestion(c.Name, CharacterGender.Male, "x"))];
-            return Task.FromResult(all);
-        }
-
-        public Task<IReadOnlyList<TermTranslationSuggestion>> SuggestTermsAsync(IReadOnlyList<TermTranslationRequest> terms, CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyList<AddressTermSuggestion>> SuggestAddressTermsAsync(IReadOnlyList<AddressTermRequest> speakers, IReadOnlyList<AddressTermCharacter> characters, CancellationToken ct) =>
-            throw new NotSupportedException();
-    }
-
     [Fact]
     public async Task Sem_provedor_ou_sem_o_que_sugerir_o_botao_fica_desligado()
     {

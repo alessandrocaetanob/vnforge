@@ -18,7 +18,6 @@ namespace VNForge.App.Tests;
 /// <summary>A cor do personagem (#467): a paleta fixa com contraste nos dois temas, o Glossário que a troca e o nome pintado na grade, na placa da caixa do jogo e no Modo revisão.</summary>
 public sealed class CharacterColorTests
 {
-    private const string Perfil = """{ "wrap": { "enabled": true, "maxWidth": 40, "maxLines": 3, "charWidth": "uniform" } }""";
 
     private static double Luminance(Color c)
     {
@@ -49,9 +48,6 @@ public sealed class CharacterColorTests
         var hits = Regex.Matches(axaml, $@"x:Key=""Vnf\.{name}Color"">(#[0-9A-Fa-f]{{6}})<");
         return Color.Parse(hits[dark ? 0 : 1].Groups[1].Value);
     }
-
-    private static SpeakerNaming Nomes(string? cor = "rose") =>
-        new(new CharacterBook([new CharacterEntry("美咲", "Misaki", Color: cor)]), TextEncoderRegistry.Default.Create("sjis"));
 
     private static TextUnit Linha(string? falante) =>
         new("yst00001:000000", TextUnitKind.Dialogue, falante, "原文", "Bom dia!", TranslationStatus.Translated);
@@ -92,8 +88,6 @@ public sealed class CharacterColorTests
             [new CharacterEntry("美咲", "Misaki", Color: "green"), new CharacterEntry("健太", "Kenta")],
             folder.LoadCharacters());
     }
-
-    private static readonly string[] SimilarNames = ["学生A", "学生I", "学生Q", "学生Y"];
 
     [Fact]
     public void Voltar_a_automatica_tira_a_cor_do_arquivo()
@@ -148,5 +142,21 @@ public sealed class CharacterColorTests
         Assert.Same(CharacterPalette.Find("teal"), vm.Review!.Detail!.SpeakerColor);
         vm.Review.SkipCommand.Execute(null);
         Assert.Null(vm.Review.Detail!.SpeakerColor);
+    }
+
+    [Theory]
+    [InlineData("BgBase")]
+    [InlineData("BgLayer")]
+    [InlineData("BgCard")]
+    [InlineData("BgCardHover")]
+    [InlineData("BgInset")]
+    [InlineData("AccentSoft")]
+    public void Cada_cor_passa_de_4_5_para_1_nos_fundos_de_cada_tema(string fundo)
+    {
+        foreach (var cor in CharacterPalette.All)
+        {
+            Assert.True(Contrast(cor.Light, Token(fundo, dark: false)) >= 4.5, $"{cor.Key} no tema claro sobre {fundo}");
+            Assert.True(Contrast(cor.Dark, Token(fundo, dark: true)) >= 4.5, $"{cor.Key} no tema escuro sobre {fundo}");
+        }
     }
 }

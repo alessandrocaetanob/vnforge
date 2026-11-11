@@ -23,7 +23,6 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
-    private const string Wide = "Ｃ氏";
 
     private const string Original = "犬井";
 
@@ -56,27 +55,12 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
         return await window.Clipboard!.TryGetTextAsync();
     }
 
-    private static SelectableTextBlock SpeakerOf(Control root) => root.GetVisualDescendants().OfType<SelectableTextBlock>().Single(b => b.Name == "PART_Speaker");
-
     private static Window Show(Control content, int width = 1200, int height = 800)
     {
         var window = new Window { Width = width, Height = height, Content = content };
         window.Show();
         ScreenHost.Settle(window);
         return window;
-    }
-
-    private static ProjectFolder CreateCp1252Project(TempFolder temp, params TextUnit[] units)
-    {
-        var folder = ProjectFolder.Create(temp.SubFolder("vn"), new ProjectConfig(
-            "Teste",
-            new GameConfig("D:/Jogos/Teste", "Teste.exe"),
-            new EngineConfig("yuris", 500, "0xD36FAC96"),
-            new LanguagesConfig("ja", "pt-BR"),
-            new EncodingConfig("cp1252"),
-            AiConfig.Default));
-        folder.SaveText("yst00001", units);
-        return folder;
     }
 
     [Fact]
@@ -144,5 +128,38 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
                 window.Close();
             },
             CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Conferencia_sem_erro_de_falante_nao_mostra_o_botao_de_cadastrar()
+    {
+        using var temp = new TempFolder();
+        var folder = CreateCp1252Project(temp, new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "Misaki", "原文", "duas  palavras", TranslationStatus.Translated));
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
+        await vm.RefreshAsync();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new ConferenceView { DataContext = vm });
+
+                Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.RegisterCharacterCommand);
+                Assert.Single(window.GetVisualDescendants().OfType<SelectableTextBlock>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Quem fala");
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    private static ProjectFolder CreateCp1252Project(TempFolder temp, params TextUnit[] units)
+    {
+        var folder = ProjectFolder.Create(temp.SubFolder("vn"), new ProjectConfig(
+            "Teste",
+            new GameConfig("D:/Jogos/Teste", "Teste.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default));
+        folder.SaveText("yst00001", units);
+        return folder;
     }
 }

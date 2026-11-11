@@ -91,4 +91,29 @@ public class MainWindowViewModelTests
 
         Assert.Same(vm.Library, vm.CurrentPage);
     }
+
+    [Fact]
+    public async Task Projeto_criado_pelo_assistente_abre_no_app_e_entra_nos_recentes()
+    {
+        using var temp = new TempFolder();
+        var (vm, wizard) = CreateWithWizard(temp);
+        var game = temp.SubFolder("jogo");
+        File.WriteAllText(Path.Combine(game, "Jogo.exe"), "MZ");
+        vm.Start.NewProjectCommand.Execute(null);
+        await wizard.SetGameFolderAsync(game);
+        wizard.SetProjectDirectory(Path.Combine(temp.Path, "meu-projeto"));
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+        await wizard.NextCommand.ExecuteAsync(null);
+
+        wizard.FinishCommand.Execute(null);
+        await vm.ProjectOpening;
+        await vm.Editor.Loading;
+
+        Assert.Same(vm.Library, vm.CurrentPage);
+        Assert.Equal("meu-projeto", vm.ProjectTitle);
+        Assert.Single(vm.Start.Recents);
+    }
 }

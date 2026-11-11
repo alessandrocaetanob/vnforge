@@ -127,4 +127,24 @@ public sealed class EditorRecheckTests : IDisposable
 
         Assert.Empty(vm.Lines);
     }
+
+    [Fact]
+    public async Task Trocar_o_nome_do_personagem_acende_o_aviso_nas_linhas_que_usam_o_nome_antigo()
+    {
+        var vm = await Abrir();
+        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
+        vm.Detail!.Translation = "Ele olhou para Kameshima.";
+        vm.FlushPendingEdits();
+        Assert.False(vm.Lines[0].HasWarning);
+
+        projeto.SaveCharacters([new CharacterEntry("亀島", "Kamejima", CharacterGender.Male)]);
+        Distinguir(projeto.CharactersPath);
+        await vm.RecheckAsync();
+
+        Assert.True(Tem(vm.Lines[0], "personagem-diferente"));
+        Assert.True(vm.Lines[0].HasWarning);
+        Assert.Equal(1, vm.IssueCount);
+        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Warnings).Count);
+        Assert.Single(vm.Detail.QaIssues);
+    }
 }

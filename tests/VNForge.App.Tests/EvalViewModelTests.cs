@@ -349,4 +349,33 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.Equal([0.6], EvalChrfBar.Shares([31]).Select(s => Math.Round(s, 3)));
         Assert.Empty(EvalChrfBar.Shares([]));
     }
+
+    [Fact]
+    public async Task Rodar_mostra_o_relatorio_sem_gravar_traducao_no_projeto()
+    {
+        var project = Project();
+        var before = File.ReadAllText(project.TextPath("yst00001"));
+        var vm = Vm();
+
+        await RunRound(vm, project);
+
+        Assert.True(vm.HasRound);
+        Assert.False(vm.IsRunning);
+        Assert.False(vm.IsRunOpen);
+        Assert.Equal(3, vm.Rows.Count);
+        Assert.Equal("A", vm.Rows[0].Letter);
+        Assert.Equal("Opus 5.5", vm.Rows[0].ModelName);
+        Assert.Equal("100,0", vm.Rows[0].ChrfText);
+        Assert.Equal("9,0", vm.Rows[0].JudgeText);
+        Assert.True(double.Parse(vm.Rows[1].ChrfText.Replace(',', '.'), System.Globalization.CultureInfo.InvariantCulture) < 100);
+        Assert.StartsWith("Rodada de ", vm.RoundTitle);
+        Assert.Equal("30 linhas sorteadas do conjunto ouro · mesma amostra em todas as configurações", vm.RoundSubtitle);
+        Assert.Contains("20 linhas que faltam", vm.Footnote);
+        Assert.Equal(3, vm.Points.Count);
+        Assert.Contains("terminou", vm.Message);
+        Assert.False(string.IsNullOrWhiteSpace(vm.Reading));
+        Assert.Equal(before, File.ReadAllText(project.TextPath("yst00001")));
+        Assert.NotNull(EvalStore.LoadLatest(project));
+        Assert.Equal([ClaudeModels.Opus, ClaudeModels.Sonnet, ClaudeModels.Haiku], _models);
+    }
 }

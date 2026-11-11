@@ -63,18 +63,6 @@ public class MainWindowConferenceTests
         Assert.Contains(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>(), r => r.UnitId == "yst00001:000002" && r.RuleId == "espaco-duplo");
     }
 
-    private static async Task PendingEditThen(MainWindowViewModel vm, Func<Task> fix)
-    {
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-        await vm.Editor.Loading;
-        vm.Editor.SelectedLine = vm.Editor.Lines[2];
-        vm.Editor.Detail!.Translation = "pendente  aqui";
-
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-        await fix();
-    }
-
     [Fact]
     public async Task Abrir_linha_que_sumiu_avisa_no_Editor_e_um_salto_certo_limpa_o_aviso()
     {

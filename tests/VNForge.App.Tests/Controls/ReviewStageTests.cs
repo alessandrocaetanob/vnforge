@@ -1,11 +1,9 @@
 using Avalonia;
-using Avalonia.Controls;
 using VNForge.App.Controls;
-using VNForge.App.Tests.Screens;
 
 namespace VNForge.App.Tests.Controls;
 
-/// <summary>A conta do palco 16:9 e a pilha que o acompanha (<see cref="StageColumn"/>), sem janela: só medida e arranjo.</summary>
+/// <summary>A conta do palco 16:9 (<see cref="ReviewStage.Fit"/>), sem janela.</summary>
 public sealed class ReviewStageTests
 {
     private const double Aspect = 16d / 9d;
@@ -22,13 +20,5 @@ public sealed class ReviewStageTests
 
         Assert.Equal(expectedWidth, fitted.Width, 3);
         Assert.Equal(expectedWidth / Aspect, fitted.Height, 3);
-    }
-
-    private static (StageColumn Column, ReviewStage Stage, ScrollViewer Below) Build(double belowHeight)
-    {
-        var stage = new ReviewStage();
-        var below = new ScrollViewer { Content = new Border { Height = belowHeight } };
-        var column = new StageColumn { Children = { stage, below } };
-        return (column, stage, below);
     }
 }

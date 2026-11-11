@@ -281,4 +281,16 @@ public class TaskEntriesTests
         Assert.False(entry.CanCheckNow);
         Assert.False(entry.ShowsProgress);
     }
+
+    [Fact]
+    public async Task Depois_de_limpar_o_proximo_passo_abre_um_teste_novo()
+    {
+        await Done("Build de Jogo", Test);
+        bar.ClearFinishedCommand.Execute(null);
+
+        await Done("Injetar no jogo", Test);
+
+        var entry = Assert.Single(bar.Entries);
+        Assert.Equal(["Injetar no jogo"], entry.Steps.Select(s => s.Title));
+    }
 }

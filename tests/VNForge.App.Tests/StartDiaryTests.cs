@@ -56,4 +56,24 @@ public class StartDiaryTests
         Assert.Equal(7, vm.Diary.Source.Today);
         Assert.False(vm.Diary.IsLoading);
     }
+
+    [Fact]
+    public async Task O_diario_do_projeto_selecionado_chega_ao_Inicio_com_dias_seguidos_e_o_que_foi_aprovado_ontem()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved, TranslationStatus.Machine);
+        Seed(root, [.. Day(Now.AddHours(-1), 4), .. Day(Now.AddDays(-1), 120, 100), .. Day(Now.AddDays(-2), 10, 400)]);
+        var vm = Create(temp, new FixedClock(Now));
+
+        await vm.OpenAsync(root);
+        await vm.DetailLoading;
+
+        Assert.Equal(3, vm.Diary.Source.Streak);
+        Assert.Equal("3", vm.Diary.StreakValue);
+        Assert.Equal("dias seguidos", vm.Diary.StreakCaption);
+        Assert.Equal("Ontem você aprovou 120 linhas.", vm.Diary.YesterdayText);
+        Assert.Equal("Hoje: 4 linhas.", vm.Diary.TodayText);
+        Assert.Equal("134 linhas aprovadas nas últimas 12 semanas.", vm.Diary.TotalText);
+        Assert.True(vm.Diary.HasActivity);
+    }
 }

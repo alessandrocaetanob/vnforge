@@ -401,4 +401,23 @@ public sealed class BatchRequestTests : IDisposable
         Assert.NotNull(vm.Editor.Search.RequestPlan);
         Assert.Empty(provider.Received);
     }
+
+    [Fact]
+    public async Task O_pedido_fecha_o_leitor_de_cena_antes_de_abrir_o_painel()
+    {
+        var vm = new EditorViewModel(postToUi: action => action());
+        vm.Search.Requests = new BatchRequestService((_, _) => FakeBatchRequestProvider.Replacing("você", "tu"), () => Settings());
+        vm.Project = ProjectSummaryReader.Read(root);
+        await vm.Loading;
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00001");
+        vm.StartReading();
+        Assert.True(vm.IsReadingScene);
+
+        Assert.True(vm.OpenBatchRequest(Request));
+        await vm.BatchRequest;
+
+        Assert.False(vm.IsReadingScene);
+        Assert.True(vm.IsSearchOpen);
+        Assert.NotNull(vm.Search.RequestPlan);
+    }
 }

@@ -119,26 +119,6 @@ public class BuildViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
             CancellationToken.None);
     }
 
-    private static Border Cartao(Window window, string name) =>
-        window.GetVisualDescendants().OfType<Border>().Single(b => b.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == name);
-
-    /// <summary>Um build que troca dezenas de scripts e uma pasta de backup cheia: as duas listas passam muito da altura do cartão.</summary>
-    private static BuildViewModel ComLogEBackupsLongos()
-    {
-        var vm = new BuildViewModel(new BackgroundTaskService(), [new FakeEngine()], new NoopStarter());
-        for (var i = 0; i < 80; i++)
-        {
-            vm.Log.Add(new BuildLogLine("11:16:09", $"AVISO yst{i:00000}:{i * 1000} [caixa-acima-do-limite] caixa 1 com 4 linhas (máximo 3).", "2026-10-28"));
-        }
-
-        for (var i = 0; i < 40; i++)
-        {
-            vm.Backups.Add(new BackupRow($"backup{Path.DirectorySeparatorChar}2026102811{i:00}00", "12,4 MB", "ysbin.ypf, yst_cap1.ybn e outros originais · injeção de 28/10"));
-        }
-
-        return vm;
-    }
-
     private sealed class NoopStarter : IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory)

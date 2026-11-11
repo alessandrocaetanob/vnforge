@@ -136,16 +136,6 @@ public class BudgetSettingsViewModelTests
 
     private static AppSettings Saved(TempFolder temp) => new AppSettingsFile(temp.SubFolder("config")).Load();
 
-    private static async Task<(SettingsViewModel Vm, ProjectFolder Folder)> OpenAsync(TempFolder temp, int pending)
-    {
-        var statuses = Enumerable.Repeat(TranslationStatus.Untranslated, pending).Concat([TranslationStatus.Approved]).ToArray();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", statuses);
-        var vm = Create(temp);
-        vm.Load(ProjectSummaryReader.Read(root));
-        await vm.EstimateLoading;
-        return (vm, ProjectFolder.Open(root));
-    }
-
     [Theory]
     [InlineData("zero")]
     [InlineData("0")]
