@@ -65,7 +65,11 @@ public sealed class NewProjectWizardRenderTests(HeadlessFixture fixture) : IClas
                     wizard.SetLibraryGame(new LibraryGameContext("Amaoto no Hakoniwa", "v90001", null, "雨音の箱庭"));
                     Render(window, "novo-projeto-v6-1-jogo", theme);
                     var gameTexts = VisibleTexts(window);
-                    Assert.Contains("Amaoto no Hakoniwa 雨音の箱庭", gameTexts);
+                    var title = window.GetVisualDescendants().OfType<TextBlock>().Single(b => b.IsEffectivelyVisible && b.Inlines is { Count: 2 });
+                    var runs = title.Inlines!.OfType<Avalonia.Controls.Documents.Run>().ToArray();
+                    Assert.Equal(("Amaoto no Hakoniwa", " 雨音の箱庭"), (runs[0].Text, runs[1].Text));
+                    Assert.Equal((14d, FontWeight.Normal), (runs[1].FontSize, runs[1].FontWeight));
+                    Assert.Equal((17d, FontWeight.Bold), (title.FontSize, title.FontWeight));
                     Assert.Contains("Feito com o motor YU-RIS · VNDB v90001", gameTexts);
                     var recognized = window.GetVisualDescendants().OfType<Border>().Single(b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Motor do jogo");
                     Assert.InRange(recognized.Bounds.Height, 246, 248);

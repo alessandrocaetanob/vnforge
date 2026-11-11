@@ -17,6 +17,9 @@ public sealed record LibraryGameContext(string Title, string? VndbId, VndbImageR
 {
     /// <summary>O nome e, quando o VNDB tem, o original ao lado: "Amaoto no Hakoniwa 雨音の箱庭".</summary>
     public string DisplayTitle => string.IsNullOrEmpty(OriginalTitle) ? Title : $"{Title} {OriginalTitle}";
+
+    /// <summary>O original com o espaço que o separa do nome, para ir em um trecho de 14px normal ao lado do nome em título; vazio sem original.</summary>
+    public string OriginalSuffix => string.IsNullOrEmpty(OriginalTitle) ? string.Empty : $" {OriginalTitle}";
 }
 
 /// <summary>Os passos do assistente de novo projeto, na ordem do doc 04.</summary>
