@@ -372,4 +372,35 @@ public sealed class CharactersViewModelTests : IDisposable
         vm.RevealPortraitCommand.Execute(null);
         Assert.False(reveals.IsRevealed(string.Empty));
     }
+
+    [Fact]
+    public async Task Ordenar_por_mais_jogos_e_por_papel_reordena_a_mesma_lista()
+    {
+        var vm = await OpenAsync(showSpoilers: true);
+        string[] porNome = [.. vm.Items.Select(i => i.Name)];
+
+        vm.SelectedSort = vm.SortOptions.Single(o => o.Sort == CharacterSort.MostGames);
+        string[] porJogos = [.. vm.Items.Select(i => i.Name)];
+        vm.SelectedSort = vm.SortOptions.Single(o => o.Sort == CharacterSort.Role);
+        string[] porPapel = [.. vm.Items.Select(i => i.Name)];
+
+        Assert.Equal("Hana Tsukino", porJogos[0]);
+        Assert.Equal(porNome.Order(), porJogos.Order());
+        Assert.Equal(porNome.Order(), porPapel.Order());
+        Assert.Equal("Hana Tsukino", porPapel[0]);
+    }
+
+    [Fact]
+    public async Task Buscar_um_traco_e_ver_todos_os_tracos_refazem_a_lista_de_tracos()
+    {
+        var vm = await OpenAsync(showSpoilers: true);
+
+        vm.ShowAllTraits = true;
+        Assert.Equal("Ver menos", vm.ShowAllTraitsText);
+        var todos = vm.TraitFacets.Count;
+        vm.TraitSearch = "zzzz-nenhum-traco";
+
+        Assert.True(vm.TraitFacets.Count <= todos);
+        Assert.Empty(vm.TraitFacets);
+    }
 }

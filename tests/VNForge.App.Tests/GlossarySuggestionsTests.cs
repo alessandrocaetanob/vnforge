@@ -932,4 +932,35 @@ public class GlossarySuggestionsTests
 
         Assert.Empty(vm.CorrectedTermRows);
     }
+
+    [Fact]
+    public async Task Os_comandos_de_aceitar_e_adicionar_ignoram_linha_ausente_ou_sem_sugestao()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp);
+        var termos = vm.Terms.Count;
+        var semSugestao = vm.Characters[0];
+
+        vm.AcceptSuggestionCommand.Execute(null);
+        vm.AcceptSuggestionCommand.Execute(semSugestao);
+        vm.AddRepeatedTermCommand.Execute(null);
+        vm.AddCorrectedTermCommand.Execute(null);
+
+        Assert.Equal(termos, vm.Terms.Count);
+        Assert.Equal(CharacterGender.Female, semSugestao.Gender);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
+    public void Sem_projeto_adicionar_um_termo_do_painel_nao_mexe_na_tabela()
+    {
+        var vm = new GlossaryViewModel();
+
+        vm.AddRepeatedTermCommand.Execute(new RepeatedTermRow("魔法学院", 6) { Target = "Academia" });
+        vm.AddCorrectedTermCommand.Execute(new CorrectedTermRow(new TermPair("先輩", "veterano", "colega mais velho", 3)));
+
+        Assert.False(vm.CanEdit);
+        Assert.Empty(vm.Terms);
+    }
+
 }
