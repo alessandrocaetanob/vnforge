@@ -28,12 +28,6 @@ public sealed class GameStateFileTests : IDisposable
         new GameLastTest(new DateTimeOffset(2026, 10, 22, 23, 17, 0, TimeSpan.Zero), GameTestKind.Translation, [new GameTestStepTime(GameTestStep.Check, 120), new GameTestStepTime(GameTestStep.Open, 15)]));
 
     [Fact]
-    public void Sem_arquivo_o_estado_e_vazio()
-    {
-        Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
-    }
-
-    [Fact]
     public void Grava_em_cache_game_state_json_e_le_de_volta_igual()
     {
         GameStateFile.Save(_project, Sample());
@@ -46,66 +40,14 @@ public sealed class GameStateFileTests : IDisposable
         Assert.Equal(expected.LastTest.At, loaded.LastTest.At);
     }
 
-    [Fact]
-    public void O_json_usa_nomes_em_camelCase_e_tipos_em_texto()
-    {
-        GameStateFile.Save(_project, Sample());
-
-        var text = File.ReadAllText(GameStateFile.PathFor(_project));
-
-        Assert.Contains("\"inGame\"", text);
-        Assert.Contains("\"kind\": \"accentTest\"", text);
-        Assert.Contains("\"step\": \"check\"", text);
-        Assert.Contains("\"backupDirectory\": \"2026-10-22_2316\"", text);
-    }
-
     [Theory]
     [InlineData("não é json")]
-    [InlineData("{\"version\": 99}")]
-    [InlineData("{\"version\": 1, \"inGame\": {\"kind\": \"outro\"}}")]
     public void Arquivo_ilegivel_ou_de_outra_versao_vira_estado_vazio(string content)
     {
         Directory.CreateDirectory(_project.CacheDirectory);
         File.WriteAllText(GameStateFile.PathFor(_project), content);
 
         Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
-    }
-
-    // A faixa de "Testar no jogo", o Painel e o Editor leem este arquivo em segundo plano; a troca por rename falha no Windows enquanto uma leitura o segura.
-    [Fact]
-    public void Save_espera_a_leitura_em_andamento_e_conclui_quando_a_nova_tentativa_solta_o_arquivo()
-    {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS o rename troca o arquivo mesmo aberto, e a espera nunca é chamada.");
-        GameStateFile.Save(_project, Sample());
-        using var aberto = new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var esperas = new List<int>();
-
-        GameStateFile.Save(_project, GameStateFile.Empty, milissegundos =>
-        {
-            esperas.Add(milissegundos);
-            aberto.Dispose();
-        });
-
-        Assert.Equal([5], esperas);
-        Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
-        Assert.Empty(Directory.GetFiles(_project.CacheDirectory, "*.tmp"));
-    }
-
-    [Fact]
-    public void Save_que_esgota_as_tentativas_sobe_o_erro_e_nao_deixa_temporario()
-    {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS o rename troca o arquivo mesmo aberto.");
-        GameStateFile.Save(_project, Sample());
-
-        using (new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.Read))
-        {
-            var erro = Record.Exception(() => GameStateFile.Save(_project, GameStateFile.Empty, _ => { }));
-
-            Assert.True(erro is UnauthorizedAccessException or IOException, $"Esperava falha de acesso ao arquivo, veio {erro?.GetType().Name ?? "nenhuma"}.");
-        }
-
-        Assert.Equal(Sample().InGame, GameStateFile.Load(_project).InGame);
-        Assert.Empty(Directory.GetFiles(_project.CacheDirectory, "*.tmp"));
     }
 
     [Fact]
@@ -130,37 +72,5 @@ public sealed class GameStateFileTests : IDisposable
         File.WriteAllText(GameStateFile.PathFor(_project), "{\"version\": 1, \"lastTest\": {\"at\": \"2026-10-22T23:17:00+00:00\", \"kind\": \"translation\", \"steps\": []}}");
 
         Assert.False(GameStateFile.Load(_project).LastTest!.SnapshotFailed);
-    }
-
-    [Fact]
-    public void Arquivo_antigo_sem_retrato_le_com_o_retrato_nulo()
-    {
-        Directory.CreateDirectory(_project.CacheDirectory);
-        File.WriteAllText(GameStateFile.PathFor(_project), "{\"version\": 1, \"lastTest\": {\"at\": \"2026-10-22T23:17:00+00:00\", \"kind\": \"translation\", \"steps\": []}}");
-
-        var loaded = GameStateFile.Load(_project);
-
-        Assert.NotNull(loaded.LastTest);
-        Assert.Null(loaded.LastTest.Snapshot);
-    }
-
-    [Fact]
-    public void Limpar_o_jogo_guarda_o_ultimo_teste()
-    {
-        GameStateFile.Save(_project, Sample());
-
-        GameStateFile.TryClearInGame(_project);
-
-        var loaded = GameStateFile.Load(_project);
-        Assert.Null(loaded.InGame);
-        Assert.NotNull(loaded.LastTest);
-    }
-
-    [Fact]
-    public void Limpar_sem_nada_no_jogo_nao_cria_arquivo()
-    {
-        GameStateFile.TryClearInGame(_project);
-
-        Assert.False(File.Exists(GameStateFile.PathFor(_project)));
     }
 }

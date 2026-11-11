@@ -30,40 +30,6 @@ public sealed class GameLaunchPlannerTests : IDisposable
     }
 
     [Fact]
-    public void Jogo_comum_abre_o_proprio_executavel_na_pasta_dele()
-    {
-        var launch = GameLaunchPlanner.Plan(new GameLibrary(), Game());
-
-        Assert.Equal(Path.Combine(Folder, "Clannad.exe"), launch.Executable);
-        Assert.Empty(launch.Arguments);
-        Assert.Equal(Folder, launch.WorkingDirectory);
-        Assert.False(launch.ViaLocaleEmulator);
-    }
-
-    [Fact]
-    public void Jogo_que_abre_um_lancador_leva_a_pasta_dele_para_achar_o_processo_do_jogo()
-    {
-        var launch = GameLaunchPlanner.Plan(new GameLibrary(), Game() with { OpensLauncher = true });
-
-        Assert.True(launch.OpensLauncher);
-        Assert.Equal(Folder, launch.GameFolder);
-    }
-
-    [Fact]
-    public void Jogo_que_pede_localidade_japonesa_abre_pelo_LEProc_com_o_executavel_como_argumento()
-    {
-        var le = Touch("LE", "LEProc.exe");
-        var library = new GameLibrary(localeEmulatorPath: le);
-
-        var launch = GameLaunchPlanner.Plan(library, Game(japanese: true));
-
-        Assert.Equal(le, launch.Executable);
-        Assert.Equal([Path.Combine(Folder, "Clannad.exe")], launch.Arguments);
-        Assert.Equal(Path.Combine(Folder, "Clannad.exe"), launch.GameExecutable);
-        Assert.True(launch.ViaLocaleEmulator);
-    }
-
-    [Fact]
     public void Caminho_do_Locale_Emulator_pode_ser_a_pasta_e_pode_vir_entre_aspas()
     {
         Touch("LE", "LEProc.exe");
@@ -110,16 +76,5 @@ public sealed class GameLaunchPlannerTests : IDisposable
 
         var outside = Game() with { Exe = @"..\Fora.exe" };
         Assert.Contains("não fica dentro da pasta", Assert.Throws<LibraryException>(() => GameLaunchPlanner.Plan(new GameLibrary(), outside)).Message);
-    }
-
-    [Fact]
-    public void Planejar_nao_grava_nada_na_pasta_do_jogo()
-    {
-        var game = Game();
-        var before = Directory.GetFileSystemEntries(Folder, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray();
-
-        GameLaunchPlanner.Plan(new GameLibrary(), game);
-
-        Assert.Equal(before, Directory.GetFileSystemEntries(Folder, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal));
     }
 }

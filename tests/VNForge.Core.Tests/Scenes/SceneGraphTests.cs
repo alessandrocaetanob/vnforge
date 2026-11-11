@@ -25,45 +25,6 @@ public class SceneGraphTests
     }
 
     [Fact]
-    public void Read_UsaAsArestasDaEngine()
-    {
-        var engine = new EdgeEngine([Jump("a", "b"), Jump("b", "c")]);
-
-        var graph = SceneGraph.Read(engine, new UnpackedGame(new TestContext(), []));
-
-        Assert.Equal(2, graph.Edges.Count);
-        Assert.Equal(["a", "b", "c"], graph.Scenes);
-    }
-
-    [Fact]
-    public void Construtor_DescartaSaltoECallParaOMesmoScript_MasGuardaEscolha()
-    {
-        var graph = new SceneGraph([Jump("a", "a"), Call("a", "a"), Choice("a", "a", "NEXT_01", "yst00001:000256")]);
-
-        var edge = Assert.Single(graph.Edges);
-        Assert.Equal(SceneEdgeKind.Choice, edge.Kind);
-        Assert.Equal("yst00001:000256", edge.ChoiceUnitId);
-    }
-
-    [Fact]
-    public void Construtor_JuntaArestasIguais_EOrdenaDeFormaEstavel()
-    {
-        var graph = new SceneGraph([Jump("b", "c"), Jump("a", "c"), Jump("a", "b"), Jump("a", "b")]);
-
-        Assert.Equal(
-            [("a", "b"), ("a", "c"), ("b", "c")],
-            graph.Edges.Select(e => (e.From, e.To)));
-    }
-
-    [Fact]
-    public void Construtor_MesmoDestinoPorTiposDiferentes_GuardaAsDuas()
-    {
-        var graph = new SceneGraph([Jump("a", "b"), Call("a", "b")]);
-
-        Assert.Equal(2, graph.Edges.Count);
-    }
-
-    [Fact]
     public void From_To_ListamAsArestasDeCadaCena()
     {
         var graph = new SceneGraph([Jump("a", "b"), Jump("a", "c"), Jump("b", "c")]);
@@ -76,43 +37,11 @@ public class SceneGraphTests
     }
 
     [Fact]
-    public void From_IgnoraACaixaDaChave()
-    {
-        var graph = new SceneGraph([Jump("yst00001", "yst00002")]);
-
-        Assert.Single(graph.From("YST00001"));
-    }
-
-    [Fact]
     public void ReachableFrom_SegueSaltosEscolhasECalls_SemRepetir()
     {
         var graph = new SceneGraph([Jump("a", "b"), Choice("b", "c"), Call("c", "d"), Jump("d", "b"), Jump("x", "y")]);
 
         Assert.Equal(["b", "c", "d"], graph.ReachableFrom("a").Order());
-    }
-
-    [Fact]
-    public void ReachableFrom_CicloQueVoltaAOrigem_IncluiAOrigem()
-    {
-        var graph = new SceneGraph([Jump("a", "b"), Jump("b", "a")]);
-
-        Assert.Equal(["a", "b"], graph.ReachableFrom("a").Order());
-    }
-
-    [Fact]
-    public void Construtor_EscolhasComMesmoRotuloEDestinoSemUnidade_ViramUma()
-    {
-        var graph = new SceneGraph([Choice("a", "b", "L"), Choice("a", "b", "L")]);
-
-        Assert.Single(graph.Edges);
-    }
-
-    [Fact]
-    public void ReachableFrom_SemSaidas_DevolveVazio()
-    {
-        var graph = new SceneGraph([Jump("a", "b")]);
-
-        Assert.Empty(graph.ReachableFrom("b"));
     }
 
     [Fact]
@@ -132,28 +61,5 @@ public class SceneGraphTests
         Assert.Empty(SceneGraph.Empty.Edges);
     }
 
-    [Fact]
-    public void Argumentos_Nulos_Recusam()
-    {
-        Assert.Throws<ArgumentNullException>(() => new SceneGraph(null!));
-        Assert.Throws<ArgumentNullException>(() => SceneGraph.Read(null!, new UnpackedGame(new TestContext(), [])));
-        Assert.Throws<ArgumentNullException>(() => SceneGraph.Read(new FakeEngine(), null!));
-    }
-
     private sealed class TestContext() : EngineContext("fake");
-
-    private sealed class EdgeEngine(IReadOnlyList<SceneEdge> edges) : IEngine
-    {
-        public string Id => "edge";
-
-        public EngineDetection Detect(string gameDir) => EngineDetection.NotDetected;
-
-        public IReadOnlyList<IArchiveFormat> Archives => [];
-
-        public IReadOnlyList<IScriptFormat> Scripts => [];
-
-        public IReadOnlyList<IGamePatch> Patches => [];
-
-        public IReadOnlyList<SceneEdge> ReadSceneEdges(UnpackedGame game) => edges;
-    }
 }

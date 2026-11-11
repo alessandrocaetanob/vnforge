@@ -31,36 +31,6 @@ public sealed class FormattingConflictRuleTests
         AiConfig.Default));
 
     [Fact]
-    public void Acusa_o_ajuste_uma_vez_por_linha_afetada()
-    {
-        var context = Context(EllipsisAsCharacter, units: [Unit("Bom dia... tudo bem... e voc\u00EA..."), Unit("Oi", "a:2"), Unit("Ah...", "a:3")]);
-
-        var issues = new FormattingConflictRule().Check(context).ToList();
-
-        Assert.Equal(["a:1", "a:3"], issues.Select(i => i.UnitId));
-        var issue = issues[0];
-        Assert.Equal(FormattingConflictRule.RuleId, issue.RuleId);
-        Assert.Equal(QaSeverity.Error, issue.Severity);
-        Assert.Equal("O ajuste Reticências (Caractere …) gera '…', que a estratégia cp1252 não grava.", issue.Message);
-    }
-
-    [Fact]
-    public void O_id_e_estavel_e_a_regra_esta_no_qa_padrao()
-    {
-        Assert.Equal("ajuste-nao-codificavel", FormattingConflictRule.RuleId);
-        Assert.IsType<FormattingConflictRule>(QaEngine.Default.Find("ajuste-nao-codificavel"));
-        Assert.Equal(QaCategories.Accents, QaCategories.Of(FormattingConflictRule.RuleId));
-    }
-
-    [Fact]
-    public void Reticencias_digitadas_na_traducao_tambem_sao_do_ajuste()
-    {
-        var context = Context(EllipsisAsCharacter, units: [Unit("Hm\u2026")]);
-
-        Assert.Single(new FormattingConflictRule().Check(context));
-    }
-
-    [Fact]
     public void Linha_de_papel_que_o_perfil_nao_formata_nao_e_do_ajuste()
     {
         var context = Context(EllipsisAsCharacter, units: [Unit("Hm\u2026", kind: TextUnitKind.Choice)]);
@@ -87,28 +57,6 @@ public sealed class FormattingConflictRuleTests
 
         Assert.Equal("a:1", ajuste.UnitId);
         Assert.Contains("U+266A", caractere.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Corte_de_um_ajuste_nao_esconde_o_mesmo_caractere_digitado_sem_ajuste()
-    {
-        var profile = FormattingProfile.Default with { Typography = new TypographyRule(Dash: '\u2015') };
-        var context = Context(profile, units: [Unit("a \u2014 b"), Unit("c \u2015 d", "a:2")]);
-
-        var ajustes = new FormattingConflictRule().Check(context).ToList();
-        var caracteres = new UnencodableCharacterRule().Check(context).ToList();
-
-        Assert.Equal("a:1", Assert.Single(ajustes).UnitId);
-        Assert.Equal("a:2", Assert.Single(caracteres).UnitId);
-    }
-
-    [Fact]
-    public void Sem_o_ajuste_a_linha_volta_a_ser_acusada_so_pelo_que_digitou()
-    {
-        var context = Context(FormattingProfile.Default, units: [Unit("Ah\u2026")]);
-
-        Assert.Empty(new FormattingConflictRule().Check(context));
-        Assert.Single(new UnencodableCharacterRule().Check(context));
     }
 
     [Fact]
@@ -152,33 +100,6 @@ public sealed class FormattingConflictRuleTests
     }
 
     [Fact]
-    public void Apply_a_seco_nao_grava_o_perfil_mas_conta_o_ajuste()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveFormatting(EllipsisAsCharacter);
-        project.SaveText("a", [Unit("Ah...")]);
-
-        var result = QaFixer.Apply(project, QaEngine.Default, dryRun: true);
-
-        Assert.Single(result.SettingsFixed);
-        Assert.Equal(EllipsisStyle.Character, project.LoadFormatting().Typography.Ellipsis);
-    }
-
-    [Fact]
-    public void Apply_sem_conflito_nao_cria_o_formatting_json()
-    {
-        using var folder = new TempFolder();
-        var project = NewProject(folder.Path);
-        project.SaveText("a", [Unit("Ah \u266A")]);
-
-        var result = QaFixer.Apply(project, QaEngine.Default);
-
-        Assert.Empty(result.SettingsFixed);
-        Assert.False(File.Exists(project.FormattingPath));
-    }
-
-    [Fact]
     public void Apply_com_filtro_de_regras_nao_troca_o_ajuste_se_a_regra_nao_foi_pedida()
     {
         using var folder = new TempFolder();
@@ -190,16 +111,6 @@ public sealed class FormattingConflictRuleTests
 
         Assert.Empty(result.SettingsFixed);
         Assert.Equal(EllipsisStyle.Character, project.LoadFormatting().Typography.Ellipsis);
-    }
-
-    [Fact]
-    public void Plan_nao_mexe_em_ajuste()
-    {
-        var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { ["a"] = [Unit("Ah...")] };
-
-        var result = QaFixer.Plan(texts, QaEngine.Default, context: Context(EllipsisAsCharacter, units: [Unit("Ah...")]));
-
-        Assert.Empty(result.SettingsFixed);
     }
 
     [Fact]

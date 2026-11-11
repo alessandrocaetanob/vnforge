@@ -29,53 +29,6 @@ public sealed class TranslationQueueTests
         items.Select((item, index) => Release("r" + (index + 1), "v1", item.Language, item.Type, item.Machine));
 
     [Fact]
-    public void Traducao_completa_em_portugues_do_brasil_ou_de_portugal_conta()
-    {
-        Assert.Equal(PortugueseStatus.Complete, PortugueseTranslations.Classify("v1", Releases(("en", "complete", false), ("pt-br", "complete", false))).Status);
-        Assert.Equal(PortugueseStatus.Complete, PortugueseTranslations.Classify("v1", Releases(("pt-pt", "complete", false))).Status);
-    }
-
-    [Fact]
-    public void Traducao_parcial_nao_vale_como_completa()
-    {
-        var result = PortugueseTranslations.Classify("v1", Releases(("pt-br", "partial", false)));
-
-        Assert.Equal(PortugueseStatus.Partial, result.Status);
-        Assert.Equal(["r1"], result.ReleaseIds);
-    }
-
-    [Fact]
-    public void Traducao_automatica_nao_conta_como_traducao()
-    {
-        Assert.Equal(PortugueseStatus.MachineOnly, PortugueseTranslations.Classify("v1", Releases(("pt-br", "complete", true))).Status);
-    }
-
-    [Fact]
-    public void Edicao_de_teste_outro_idioma_ou_outro_jogo_nao_conta()
-    {
-        var releases = new[]
-        {
-            Release("r1", "v1", "pt-br", "trial"),
-            Release("r2", "v1", "en"),
-            Release("r3", "v2", "pt-br"),
-        };
-
-        var result = PortugueseTranslations.Classify("v1", releases);
-
-        Assert.Equal(PortugueseStatus.None, result.Status);
-        Assert.Empty(result.ReleaseIds);
-    }
-
-    [Fact]
-    public void A_melhor_traducao_vence_a_pior()
-    {
-        var result = PortugueseTranslations.Classify("v1", Releases(("pt-br", "complete", true), ("pt-br", "partial", false), ("pt-br", "complete", false)));
-
-        Assert.Equal(PortugueseStatus.Complete, result.Status);
-        Assert.Equal(["r3"], result.ReleaseIds);
-    }
-
-    [Fact]
     public async Task Confere_so_o_que_a_fila_precisa_e_nao_repete_o_que_ja_sabe()
     {
         var library = new GameLibrary(
@@ -119,19 +72,6 @@ public sealed class TranslationQueueTests
         await new PortugueseTranslationChecker(new FakeVndbCatalog()).CheckAllAsync(library, onChecked: game => kept.Add(game.Id), cancellationToken: Ct);
 
         Assert.Equal(["g1", "g2"], kept);
-    }
-
-    [Fact]
-    public async Task A_conferencia_de_outro_jogo_do_vndb_nao_vale_depois_que_o_casamento_muda()
-    {
-        var library = new GameLibrary([Game("g1", "Um", "v1")]);
-        await new PortugueseTranslationChecker(new FakeVndbCatalog(releases: [Release("r1", "v1")])).CheckAllAsync(library, cancellationToken: Ct);
-        Assert.Equal(PortugueseStatus.Complete, library.Find("g1").CurrentPortuguese?.Status);
-
-        library.Replace(library.Find("g1") with { VndbId = "v9" });
-
-        Assert.Null(library.Find("g1").CurrentPortuguese);
-        Assert.Equal(TranslationQueueState.Queued, TranslationQueue.Describe(library.Find("g1")).State);
     }
 
     [Fact]
@@ -192,25 +132,6 @@ public sealed class TranslationQueueTests
             [TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.Queued, TranslationQueueState.InProgress, TranslationQueueState.AlreadyTranslated, TranslationQueueState.UnsupportedEngine],
             entries.Select(e => e.State));
         Assert.Equal(["curto", "categoria", "longo", "sem-tempo", "automatica", "parcial", "sem-casamento"], TranslationQueue.Pending(library.Games).Select(e => e.Game.Id));
-    }
-
-    [Fact]
-    public void Jogo_ja_traduzido_vale_mais_que_engine_sem_suporte_e_projeto_aberto_vale_mais_que_os_dois()
-    {
-        var translated = Game("g1", "Um", "v1", Unsupported) with { Portuguese = new LibraryPortuguese("v1", PortugueseStatus.Complete, T0, ["r1"]) };
-        var started = translated with { ProjectPath = "C:\\Projetos\\um" };
-
-        Assert.Equal(TranslationQueueState.AlreadyTranslated, TranslationQueue.Describe(translated).State);
-        Assert.Equal(TranslationQueueState.InProgress, TranslationQueue.Describe(started).State);
-    }
-
-    [Fact]
-    public void O_texto_vem_dos_minutos_do_vndb_ou_da_categoria_de_duracao()
-    {
-        Assert.Equal(90, TranslationQueue.Describe(Game("g1", "Um", "v1", minutes: 90, category: 5)).ApproximateMinutes);
-        Assert.Equal(360, TranslationQueue.Describe(Game("g2", "Dois", "v2", category: 2)).ApproximateMinutes);
-        Assert.Null(TranslationQueue.Describe(Game("g3", "Três", "v3")).ApproximateMinutes);
-        Assert.Null(TranslationQueue.Describe(Game("g4", "Quatro", null)).ApproximateMinutes);
     }
 
     private sealed class TimeProviderAt(DateTimeOffset now) : TimeProvider

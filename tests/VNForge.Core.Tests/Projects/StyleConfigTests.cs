@@ -19,40 +19,6 @@ public class StyleConfigTests
     private static ProjectConfig Parse(string style = "") => ProjectConfigSerializer.Parse(Base.Replace("STYLE", style));
 
     [Fact]
-    public void Sem_bloco_style_vale_o_padrao_e_ele_nao_e_gravado()
-    {
-        var config = Parse();
-
-        Assert.Equal(StyleConfig.Default, config.Style);
-        Assert.Equal(HonorificsPolicy.Adapt, config.Style.Honorifics);
-        Assert.Equal(AddressForm.Voce, config.Style.Address);
-        Assert.True(config.Style.TranslateOnomatopoeia);
-        Assert.True(config.Style.WesternNameOrder);
-        Assert.True(config.Style.KeyboardPunctuation);
-        Assert.DoesNotContain("\"style\"", ProjectConfigSerializer.Serialize(config));
-    }
-
-    [Fact]
-    public void Parse_le_todas_as_escolhas()
-    {
-        var config = Parse("""
-            , "style": {
-              "honorifics": "keep", "address": "tu",
-              "narrator": { "who": "Kenta (protagonista)", "person": "third", "gender": "female" },
-              "onomatopoeia": false, "westernNameOrder": false
-            }
-            """);
-
-        Assert.Equal(HonorificsPolicy.Keep, config.Style.Honorifics);
-        Assert.Equal(AddressForm.Tu, config.Style.Address);
-        Assert.Equal("Kenta (protagonista)", config.Style.Narrator.Who);
-        Assert.Equal(NarratorPerson.Third, config.Style.Narrator.Person);
-        Assert.Equal(NarratorGender.Female, config.Style.Narrator.Gender);
-        Assert.False(config.Style.TranslateOnomatopoeia);
-        Assert.False(config.Style.WesternNameOrder);
-    }
-
-    [Fact]
     public void A_troca_da_pontuacao_japonesa_vem_ligada_e_faz_ida_e_volta_desligada()
     {
         Assert.True(StyleConfig.Default.KeyboardPunctuation);
@@ -88,30 +54,6 @@ public class StyleConfigTests
         Assert.Equal("$.style.speakerDelimiter", ex.Field);
         var invalid = Parse() with { Style = StyleConfig.Default with { SpeakerDelimiter = (SpeakerDelimiterStyle)9 } };
         Assert.Equal("$.style.speakerDelimiter", Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(invalid)).Field);
-    }
-
-    [Fact]
-    public void Vnforge_json_antigo_sem_o_campo_vale_o_padrao_e_nao_ganha_o_campo_ao_salvar()
-    {
-        var antigo = Parse("""
-            , "style": { "honorifics": "remove", "address": "tu", "onomatopoeia": false, "westernNameOrder": false }
-            """);
-
-        Assert.True(antigo.Style.KeyboardPunctuation);
-        var json = ProjectConfigSerializer.Serialize(antigo);
-
-        Assert.DoesNotContain("keyboardPunctuation", json, StringComparison.Ordinal);
-        Assert.Equal(antigo.Style, ProjectConfigSerializer.Parse(json).Style);
-    }
-
-    [Fact]
-    public void Bloco_style_parcial_completa_o_resto_com_o_padrao()
-    {
-        var config = Parse("""
-            , "style": { "honorifics": "remove" }
-            """);
-
-        Assert.Equal(StyleConfig.Default with { Honorifics = HonorificsPolicy.Remove }, config.Style);
     }
 
     [Fact]

@@ -67,48 +67,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     }
 
     [Fact]
-    public async Task No_nivel_maximo_aparecem_a_mentira_o_genero_real_e_o_personagem_de_spoiler_grande()
-    {
-        await Translated();
-
-        var card = Card(new SheetVisibility(2));
-
-        Assert.Equal(["Kenta Aizawa", "Aoi Sakura", "Ghost"], card.Characters.Select(c => c.Name));
-        Assert.Empty(card.HiddenCharacterCards);
-        Assert.Contains(card.Characters[0].Traits, t => t.Lie);
-        Assert.Equal("masculino", card.Characters[1].RealGender);
-        Assert.Equal(["PT: Comedy", "PT: Plot Twist"], card.Tags.Select(t => t.Name));
-    }
-
-    [Fact]
-    public async Task As_tags_escondidas_se_separam_por_spoiler_e_por_conteudo_adulto()
-    {
-        await Translated();
-
-        var hidden = Card(new SheetVisibility());
-        var adult = Card(new SheetVisibility(2, AdultMode.Show));
-
-        Assert.Equal((2, 1, 1), (hidden.HiddenTags, hidden.HiddenSpoilerTags, hidden.HiddenAdultTags));
-        Assert.Equal((0, 0, 0), (adult.HiddenTags, adult.HiddenSpoilerTags, adult.HiddenAdultTags));
-    }
-
-    [Fact]
-    public async Task O_cartao_traz_a_etapa_mais_atrasada_do_personagem_e_das_tags_e_os_dados_do_jogo()
-    {
-        await Translated();
-        SheetEditor.Review(Store, Game1, [SheetField.OfCharacter("c1"), SheetField.OfTag("g10")]);
-        SheetEditor.Approve(Store, Game1, [SheetField.OfCharacter("c1"), SheetField.OfTag("g10")]);
-
-        var card = Card(new SheetVisibility());
-
-        Assert.Equal(TranslationStatus.Machine, card.Characters[0].Status);
-        Assert.Equal(TranslationStatus.Approved, card.TagsStatus);
-        Assert.Equal("Média · 25 h (42 votos)", card.LengthDetail);
-        Assert.Equal("2019, em japonês", card.Released);
-        Assert.Equal("7,9 de 10", card.Rating);
-    }
-
-    [Fact]
     public async Task O_personagem_sem_descricao_e_sem_traco_visivel_fica_sem_etapa()
     {
         await SheetFetcher.FetchAsync(Catalog(), Store, Game1, cancellationToken: Ct);
@@ -136,28 +94,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         Assert.Equal(TranslationStatus.Machine, all.Status);
     }
 
-    [Fact]
-    public async Task Buscar_a_ficha_guarda_o_lancamento_a_lingua_e_a_nota()
-    {
-        await Translated();
-
-        var game = Store.LoadGame(Game1)!;
-
-        Assert.Equal(("2019-05-31", "ja", 79d), (game.Released, game.OriginalLanguage, game.Rating));
-    }
-
-    [Fact]
-    public void Uma_ficha_gravada_antes_dos_novos_campos_abre_com_eles_vazios()
-    {
-        var path = Store.GamePath(Game1);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, """{"version":1,"data":{"visualNovelId":"v900001","title":"Antiga","tags":[],"characterIds":[],"charactersTruncated":false,"fetchedAt":"2026-11-01T00:00:00+00:00","lengthVotes":0}}""");
-
-        var game = Store.LoadGame(Game1)!;
-
-        Assert.Equal(("Antiga", null, null, null), (game.Title, game.Released, game.OriginalLanguage, game.Rating));
-    }
-
     [Theory]
     [InlineData(TranslationStatus.Machine, false, "Traduzido pela IA")]
     [InlineData(TranslationStatus.Machine, true, "Traduzida pela IA")]
@@ -173,18 +109,15 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     [InlineData("primary", "feminino", "Principal")]
     [InlineData("side", "feminino", "Secundária")]
     [InlineData("side", "masculino", "Secundário")]
-    [InlineData("side", null, "Secundário")]
     [InlineData("appears", "feminino", "Aparece")]
     [InlineData("outro", null, "outro")]
     public void O_papel_do_selo_concorda_com_o_genero_do_personagem(string role, string? gender, string expected) =>
         Assert.Equal(expected, SheetLabels.RoleBadge(role, gender));
 
     [Theory]
-    [InlineData(1500, 3, 47, "Média · 25 h (47 votos)")]
     [InlineData(1080, 3, 1, "Média · 18 h (1 voto)")]
     [InlineData(45, 1, 0, "Muito curta · 45 min")]
     [InlineData(null, 2, 0, "Curta · 2 a 10 h")]
-    [InlineData(600, null, 3, "10 h (3 votos)")]
     [InlineData(null, null, 0, "Sem votos")]
     public void A_duracao_traz_a_categoria_as_horas_e_os_votos(int? minutes, int? category, int votes, string expected) =>
         Assert.Equal(expected, SheetLabels.LengthDetail(minutes, category, votes));
@@ -201,13 +134,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     public void O_lancamento_traz_o_ano_e_a_lingua_original(string? released, string? language, string? expected) =>
         Assert.Equal(expected, SheetLabels.Released(released, language));
 
-    [Theory]
-    [InlineData(79d, "7,9 de 10")]
-    [InlineData(100d, "10 de 10")]
-    [InlineData(0d, null)]
-    [InlineData(null, null)]
-    public void A_nota_sai_de_zero_a_dez_com_virgula(double? rating, string? expected) => Assert.Equal(expected, VndbRating.Score(rating));
-
     [Fact]
     public async Task Os_blocos_seguem_a_ordem_da_tela_e_o_nivel_de_spoiler()
     {
@@ -223,31 +149,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         Assert.Equal(["PT: Comedy"], hidden[1].Pairs[0].Target!.Split(", "));
         Assert.Equal(["Descrição de Kenta Aizawa", "Traços de Kenta Aizawa"], hidden[2].Pairs.Select(p => p.Title));
         Assert.Equal(["Comedy", "Plot Twist"], all[1].Pairs[0].Original.Split(", "));
-    }
-
-    [Fact]
-    public async Task O_par_de_tracos_vira_uma_lista_com_um_campo_por_traco_visivel()
-    {
-        await Translated();
-
-        var traits = Blocks(new SheetVisibility(0, AdultMode.Show))[2].Pairs[1];
-
-        Assert.True(traits.IsList);
-        Assert.Equal([SheetField.OfTrait("i1"), SheetField.OfTrait("i104")], traits.Fields);
-        Assert.Equal("Long Hair, Virgin Sex", traits.Original);
-        Assert.Equal("PT: Long Hair, PT: Virgin Sex", traits.Target);
-        Assert.Equal(TranslationStatus.Machine, traits.Status);
-    }
-
-    [Fact]
-    public async Task Traco_com_spoiler_ou_mentira_nao_entra_no_par_de_tracos_mesmo_no_nivel_maximo()
-    {
-        await Translated();
-
-        var traits = Blocks(new SheetVisibility(2))[2].Pairs[1];
-
-        Assert.Equal("Long Hair", traits.Original);
-        Assert.Equal([SheetField.OfTrait("i1")], traits.Fields);
     }
 
     [Fact]
@@ -298,20 +199,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         var text = Store.LoadCharacter("c1")!.Description!;
         Assert.Equal(("O herói. [spoiler]Fantasma.[/spoiler]", TranslationStatus.Translated), (text.Target, text.Status));
         Assert.Throws<LibraryException>(() => SheetBlocks.EditPair(Store, Game1, pair, "O herói."));
-    }
-
-    [Fact]
-    public async Task Editar_uma_lista_grava_um_nome_por_item_e_deixa_como_estava_o_que_nao_mudou()
-    {
-        await Translated();
-        SheetEditor.Review(Store, Game1, [SheetField.OfTrait("i104")]);
-        var pair = Blocks(new SheetVisibility(0, AdultMode.Show))[2].Pairs[1];
-
-        SheetBlocks.EditPair(Store, Game1, pair, "Cabelo longo,  PT: Virgin Sex");
-
-        var terms = Store.LoadTerms();
-        Assert.Equal(("Cabelo longo", TranslationStatus.Translated), (terms.Find(SheetTermKind.Trait, "i1")!.Text.Target, terms.Find(SheetTermKind.Trait, "i1")!.Text.Status));
-        Assert.Equal(("PT: Virgin Sex", TranslationStatus.Reviewed), (terms.Find(SheetTermKind.Trait, "i104")!.Text.Target, terms.Find(SheetTermKind.Trait, "i104")!.Text.Status));
     }
 
     [Fact]
@@ -428,17 +315,6 @@ public sealed class SheetPageAndBlocksTests : IDisposable
     }
 
     [Fact]
-    public async Task A_pagina_sem_o_jogo_na_Biblioteca_esconde_o_spoiler_e_nao_tem_tags_suas()
-    {
-        await Translated();
-
-        var page = SheetPage.Load(_folder.Path, Game1)!;
-
-        Assert.Equal(new LibraryPrivacy(), page.Privacy);
-        Assert.Empty(page.UserTags);
-    }
-
-    [Fact]
     public async Task A_biblioteca_ilegivel_nao_impede_a_ficha_que_abre_com_a_privacidade_padrao()
     {
         await Translated();
@@ -457,13 +333,5 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         await File.WriteAllTextAsync(Store.GamePath(Game1), "{ não é json", Ct);
 
         Assert.Throws<LibraryException>(() => SheetPage.Load(_folder.Path, Game1));
-    }
-
-    [Fact]
-    public void A_contagem_por_etapa_aceita_as_etapas_ja_conhecidas()
-    {
-        var counts = SheetStatusCounts.OfStatuses([TranslationStatus.Machine, TranslationStatus.Approved, TranslationStatus.Machine, TranslationStatus.Untranslated]);
-
-        Assert.Equal(new SheetStatusCounts(1, 2, 0, 0, 1), counts);
     }
 }

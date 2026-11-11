@@ -38,7 +38,7 @@ Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/mara
   - Prova: `dotnet test tests/VNForge.App.Tests` e a ferramenta de capturas gerando os PNG das telas em `.tmp/capturas`
   - Pronto: a pasta `tests/VNForge.App.Tests/Rendering` some, com o `PixelProbe` e as asserções de medida. Um `ScreenSmokeTests` cobre cada tela num tema, sem exceção e sem texto cortado. As capturas viram um comando à parte (projeto de ferramenta ou opção da Cli) que o designer roda, fora do CI. O processo do App fica abaixo de 600 MB de memória.
   - Depende de: T1
-- [ ] **T3 · Core**
+- [x] **T3 · Core**
   - Issue: #657 (`infra`)
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: no máximo 500 testes, com as idas e voltas e a concorrência do `ProjectFileIo` mantidas, e o tempo e a contagem no relatório.
@@ -80,6 +80,7 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
+- T3 (#657): o alvo de 500 testes não fechou. O Core foi de 3.444 para 1.562 testes, 1.062 acima do alvo, com a cobertura igual à base: linhas 90,63% (17.025 de 18.785) e ramos 84,42% (11.079 de 13.123), contra 90,62% e 84,42%. Pela regra do plano, a cobertura vence: cada teste foi medido sozinho e ficou o menor conjunto que mantém linhas e ramos, mais os que protegem dado do usuário (ida e volta e byte a byte, concorrência do `ProjectFolder`, backup e restauração, recusa de dado inválido gravado em arquivo do projeto) e os de valor esperado explícito das codificações (Shift-JIS é a página 932). Cortar até 500 tira cobertura de ramo ou esses testes. Dois testes oscilaram no Windows por acesso negado ao criar arquivo: o de captura sem nome livre passou a esperar por condição, e o `WriteAtomically` do `ProjectFolder` segue sem nova tentativa na criação do temporário (#669).
 - T4 (#658): Engines.YuRis de 1.011 para 277 testes, 27 acima do alvo de 250. Dos 277, 29 são herdados do kit de conformidade (tests/VNForge.Engines.ConformanceKit, compartilhado) e ficaram. O resto acima do alvo são os oráculos independentes que a cobertura não vê e que a revisão pediu de volta: vetores de ouro do YPF e dos leitores, vetores de resposta conhecida de Adler32, Crc32 e MurmurHash2, as regras de extração de texto com valor esperado explícito, o header_size gigante e o nome Shift-JIS com 0x5C. Tempo 3,2 s para 2,1 s. Cobertura igual à base, medida com `bash tools/cobertura.sh Engines.YuRis`: linhas 95,90% (2.481 de 2.587) e ramos 93,36% (1.462 de 1.566). Os testes do gerador sintético de YPF saíram (a classe virou `SyntheticYpfSamples`, só os exemplos); cada formato com escrita manteve a ida e volta byte a byte e um teste por campo.
 
 ## Fora da corrida

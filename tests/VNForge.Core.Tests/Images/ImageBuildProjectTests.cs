@@ -49,29 +49,6 @@ public sealed class ImageBuildProjectTests : IDisposable
     private string BuiltPack => Path.Combine(_project.BuildDirectory, Pack);
 
     [Fact]
-    public void WithoutEditsTheImagePackageIsNotInTheBuild()
-    {
-        var result = Build();
-
-        Assert.False(File.Exists(BuiltPack));
-        Assert.DoesNotContain(result.Archives, a => a.GamePath == Pack);
-    }
-
-    [Fact]
-    public void AMarkedEditPutsTheRewrittenPackageInTheBuild()
-    {
-        MarkEdit();
-
-        var result = Build();
-
-        Assert.Equal(1, result.Archives.Single(a => a.GamePath == Pack).ReplacedFiles);
-        var built = WritableArchiveFormat.Read(BuiltPack);
-        Assert.Equal(_edited, built[Gate]);
-        Assert.Equal(new byte[] { 1, 2, 3 }, built["sys/dados.bin"]);
-        Assert.Equal(_original, WritableArchiveFormat.Read(Path.Combine(_game, Pack))[Gate]);
-    }
-
-    [Fact]
     public void AnIncrementalBuildPicksUpAnEditAddedLater()
     {
         Build();
@@ -79,31 +56,6 @@ public sealed class ImageBuildProjectTests : IDisposable
 
         Build(new BuildOptions { OnlyChanged = true });
 
-        Assert.Equal(_edited, WritableArchiveFormat.Read(BuiltPack)[Gate]);
-    }
-
-    [Fact]
-    public void AnIncrementalBuildDropsAnEditThatWasUnmarked()
-    {
-        MarkEdit();
-        Build();
-        MarkEdit(marked: false);
-
-        Build(new BuildOptions { OnlyChanged = true });
-
-        Assert.False(File.Exists(BuiltPack));
-    }
-
-    [Fact]
-    public void AnIncrementalBuildWithNothingNewReusesTheBuild()
-    {
-        MarkEdit();
-        Build();
-        var before = File.GetLastWriteTimeUtc(BuiltPack);
-
-        Build(new BuildOptions { OnlyChanged = true });
-
-        Assert.Equal(before, File.GetLastWriteTimeUtc(BuiltPack));
         Assert.Equal(_edited, WritableArchiveFormat.Read(BuiltPack)[Gate]);
     }
 

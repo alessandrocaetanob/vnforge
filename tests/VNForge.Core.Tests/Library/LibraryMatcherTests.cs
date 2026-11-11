@@ -39,63 +39,6 @@ public class LibraryMatcherTests
     }
 
     [Fact]
-    public async Task Pasta_com_o_titulo_certo_vira_candidato_sem_confirmar_se_nao_pediram()
-    {
-        var catalog = Catalog();
-
-        var matched = await Matcher(catalog).MatchAsync(Game("[Key] CLANNAD v1.02"), cancellationToken: Ct);
-
-        Assert.False(matched.IsConfirmed);
-        Assert.Equal(Now, matched.SearchedAt);
-        var candidate = Assert.Single(matched.Candidates);
-        Assert.Equal("v4", candidate.VndbId);
-        Assert.Equal(0.95, candidate.Score, 3);
-        Assert.Equal(["pasta"], candidate.Evidence);
-        Assert.Equal(["SearchVisualNovelsAsync(CLANNAD)"], catalog.Calls);
-    }
-
-    [Fact]
-    public async Task Confirma_sozinho_quando_o_titulo_da_janela_e_exato_e_guarda_a_ficha()
-    {
-        var catalog = new FakeVndbCatalog(
-        [
-            Vn(
-                "v4",
-                "CLANNAD",
-                "クラナド",
-                image: new VndbImage("https://example.test/c.jpg", null, 800, 600, 0.1, 0),
-                tags: [new VndbTag("g1", "Drama", "cont", 2.9, 0, false), new VndbTag("g2", "Final", "cont", 2.0, 2, false), new VndbTag("g3", "Mentira", "cont", 3.0, 0, Lie: true)],
-                description: "Sinopse [spoiler]final[/spoiler]."),
-        ]);
-
-        var matched = await Matcher(catalog).MatchAsync(Game("pasta qualquer", window: "クラナド"), Auto, Ct);
-
-        Assert.True(matched.IsConfirmed);
-        Assert.Equal("v4", matched.VndbId);
-        Assert.Equal(LibraryConfirmation.Auto, matched.Confirmation);
-        Assert.Equal("CLANNAD", matched.Title);
-        Assert.Equal(1.0, matched.MatchScore);
-        Assert.Equal(["janela"], matched.Candidates[0].Evidence);
-        var info = matched.Info!;
-        Assert.Equal("https://example.test/c.jpg", info.CoverUrl);
-        Assert.Equal(3000, info.LengthMinutes);
-        Assert.Equal(["Drama", "Final"], info.Tags.Select(t => t.Name));
-        Assert.False(info.Adult);
-        Assert.Contains("[spoiler]", info.Synopsis);
-        Assert.Single(catalog.Calls);
-    }
-
-    [Fact]
-    public async Task Pasta_e_exe_que_concordam_somam_pontos()
-    {
-        var matched = await Matcher(Catalog()).MatchAsync(Game("Steins;Gate", "Steins Gate.exe"), Auto, Ct);
-
-        Assert.Equal("v17", matched.VndbId);
-        Assert.Equal(1.0, matched.MatchScore);
-        Assert.Equal(["pasta", "exe"], matched.Candidates[0].Evidence);
-    }
-
-    [Fact]
     public async Task Abaixo_do_limiar_nunca_confirma_sozinho_mesmo_pedindo()
     {
         var matched = await Matcher(Catalog()).MatchAsync(Game("Clannad Full Voice", "Clannad.exe"), Auto, Ct);
@@ -128,16 +71,6 @@ public class LibraryMatcherTests
 
         Assert.Single(decided.Calls);
         Assert.Equal(["SearchVisualNovelsAsync(Janela Estranha)", "SearchVisualNovelsAsync(Nada Aqui)", "SearchVisualNovelsAsync(Nenhum)"], undecided.Calls);
-    }
-
-    [Fact]
-    public async Task Jogo_que_o_vndb_nao_tem_fica_sem_candidatos_e_marcado_como_buscado()
-    {
-        var matched = await Matcher(Catalog()).MatchAsync(Game("Jogo Inexistente"), Auto, Ct);
-
-        Assert.Empty(matched.Candidates);
-        Assert.Equal(Now, matched.SearchedAt);
-        Assert.False(matched.IsConfirmed);
     }
 
     [Fact]
@@ -191,22 +124,6 @@ public class LibraryMatcherTests
         Assert.Equal(["CLANNAD"], onlyOne.Confirmed.Select(g => g.Title));
         Assert.Equal(["Jogo Inexistente"], again.NotFound.Select(g => GameLibrary.FolderName(g)));
         Assert.Equal(Now, library.Find("Jogo Inexistente").SearchedAt);
-    }
-
-    [Fact]
-    public async Task Falha_do_vndb_vai_para_a_lista_de_falhas_sem_marcar_o_jogo_como_buscado()
-    {
-        var library = new GameLibrary([Game("CLANNAD"), Game("Steins;Gate")]);
-        var catalog = new FailingCatalog(Catalog(), "clannad");
-
-        var run = await Matcher(catalog).MatchAllAsync(library, Auto, cancellationToken: Ct);
-
-        var failure = Assert.Single(run.Failures);
-        Assert.Equal("CLANNAD", failure.Game.Title);
-        Assert.Contains("rede fora", failure.Message);
-        Assert.Equal(["Steins;Gate"], run.Confirmed.Select(g => g.Title));
-        Assert.Null(library.Find("CLANNAD").SearchedAt);
-        Assert.Null(run.AbortReason);
     }
 
     [Fact]
@@ -267,55 +184,6 @@ public class LibraryMatcherTests
         var confirmed = await matcher.ConfirmAsync(matched, "v4", Ct);
 
         Assert.Equal(matched.Candidates[0].Score, confirmed.MatchScore);
-    }
-
-    [Fact]
-    public void Desfazer_a_confirmacao_volta_o_titulo_da_pasta_e_guarda_os_candidatos()
-    {
-        var game = Game("[Key] CLANNAD v1.02") with { Candidates = [new LibraryCandidate("v4", "CLANNAD", null, null, 0.9, ["pasta"])] };
-        var confirmed = LibraryMatcher.Confirm(game, Vn("v4", "Outro Titulo"), LibraryConfirmation.Auto, 0.9);
-
-        var undone = LibraryMatcher.Unconfirm(confirmed);
-
-        Assert.Equal("Outro Titulo", confirmed.Title);
-        Assert.Null(undone.VndbId);
-        Assert.Null(undone.Info);
-        Assert.Null(undone.MatchScore);
-        Assert.Equal(LibraryConfirmation.None, undone.Confirmation);
-        Assert.Equal("CLANNAD", undone.Title);
-        Assert.Single(undone.Candidates);
-    }
-
-    [Theory]
-    [InlineData(1.5, false, true)]
-    [InlineData(0.2, false, false)]
-    [InlineData(0.2, true, true)]
-    public void Marca_como_adulto_pela_capa_ou_por_tag_erotica_sem_spoiler(double sexual, bool eroticTag, bool expected)
-    {
-        var tags = eroticTag ? new[] { new VndbTag("g9", "Sexo explícito", "ero", 2.5, 0, false) } : [];
-        var novel = Vn("v1", "X", image: new VndbImage("https://example.test/x.jpg", null, null, null, sexual, 0), tags: tags);
-
-        Assert.Equal(expected, LibraryMatcher.InfoOf(novel).Adult);
-    }
-
-    [Fact]
-    public async Task Casa_titulo_japones_pelo_titulo_original_do_vndb()
-    {
-        var matched = await Matcher(Catalog()).MatchAsync(Game("x", window: "クラナド"), Auto, Ct);
-
-        Assert.Equal("v4", matched.VndbId);
-    }
-
-    [Theory]
-    [InlineData(1.0, 0.9, true)]
-    [InlineData(0.95, 0.85, true)]
-    [InlineData(0.95, 0.851, false)]
-    [InlineData(0.9, null, true)]
-    [InlineData(0.899, null, false)]
-    [InlineData(1.0, 0.95, false)]
-    public void A_folga_de_dez_pontos_conta_mesmo_com_o_erro_do_ponto_flutuante(double top, double? second, bool expected)
-    {
-        Assert.Equal(expected, new LibraryMatchOptions().IsDecisive(top, second));
     }
 
     private sealed class Sync<T>(Action<T> action) : IProgress<T>

@@ -13,14 +13,6 @@ public class AiUsageLogTests
         AiConfig.Default));
 
     [Fact]
-    public void Sem_registro_o_total_e_zero()
-    {
-        using var temp = new TempFolder();
-
-        Assert.Equal(AiUsageTotals.Empty, AiUsageLog.Load(NovoProjeto(temp.Path)));
-    }
-
-    [Fact]
     public void Cada_execucao_soma_ao_total_e_conta_como_uma()
     {
         using var temp = new TempFolder();
@@ -63,21 +55,6 @@ public class AiUsageLogTests
         Assert.Equal(antes, File.ReadAllText(AiUsageLog.PathFor(projeto)));
         Assert.Equal(1, AiUsageLog.Load(projeto).Runs);
         Assert.Empty(Directory.GetFiles(projeto.CacheDirectory, "*.tmp"));
-    }
-
-    [Fact]
-    public void Execucao_sem_preco_conta_como_sem_preco_e_nao_soma_dolar()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-
-        AiUsageLog.TryRecord(projeto, new AiUsageTotals(10, 5, 0, 0, 1m, 1));
-        AiUsageLog.TryRecord(projeto, new AiUsageTotals(10, 5, 0, 0, 0m, 1, UnpricedRuns: 1));
-
-        var total = AiUsageLog.Load(projeto);
-        Assert.Equal(2, total.Runs);
-        Assert.Equal(1, total.UnpricedRuns);
-        Assert.Equal(1m, total.Dollars);
     }
 
     [Fact]

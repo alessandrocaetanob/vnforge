@@ -31,20 +31,6 @@ public sealed class GameCharacterNamesTests : IDisposable
     }
 
     [Fact]
-    public void Nao_grava_nada_na_pasta_do_jogo_e_apaga_a_pasta_temporaria()
-    {
-        File.WriteAllText(Path.Combine(game, "a001.fake"), "name|Kenta");
-        var before = Directory.EnumerateFileSystemEntries(game, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList();
-        var leftovers = () => Directory.EnumerateDirectories(Path.GetTempPath(), "vnforge-nomes-*").Count();
-        var temporaryBefore = leftovers();
-
-        ProjectInitializer.ReadGameCharacterNames(Inspect(new FakeEngine()), game, TestContext.Current.CancellationToken);
-
-        Assert.Equal(before, Directory.EnumerateFileSystemEntries(game, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList());
-        Assert.Equal(temporaryBefore, leftovers());
-    }
-
-    [Fact]
     public void Engine_que_nao_extrai_texto_devolve_nulo()
     {
         Assert.Null(ProjectInitializer.ReadGameCharacterNames(Inspect(new NoUnpackerEngine()), game, TestContext.Current.CancellationToken));

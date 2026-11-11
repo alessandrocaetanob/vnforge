@@ -39,15 +39,4 @@ public class GameEncodingsTests
         Assert.Equal(esperado, GameEncodings.Windows1252.GetBytes("ação€"));
         Assert.Equal("ação€", GameEncodings.Windows1252.GetString(esperado));
     }
-
-    [Fact]
-    public void AcessosRepetidos_DevolvemAMesmaInstancia()
-    {
-        // Sanidade: a thread-safety do registro vem do construtor estático, não deste teste.
-        var instancias = new System.Text.Encoding[16];
-
-        Parallel.For(0, instancias.Length, i => instancias[i] = GameEncodings.ShiftJis);
-
-        Assert.All(instancias, e => Assert.Same(GameEncodings.ShiftJis, e));
-    }
 }

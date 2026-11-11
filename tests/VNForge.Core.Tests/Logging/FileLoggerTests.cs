@@ -47,21 +47,6 @@ public sealed class FileLoggerTests : IDisposable
     }
 
     [Fact]
-    public void Nivel_minimo_filtra_mensagens_abaixo_dele()
-    {
-        using (var factory = VNForgeLogging.CreateFactory(_root, LogLevel.Warning))
-        {
-            var logger = factory.CreateLogger("Teste");
-            logger.LogInformation("ignorada");
-            logger.LogWarning("registrada");
-        }
-
-        var content = File.ReadAllText(Assert.Single(Directory.GetFiles(VNForgeLogging.GetLogDirectory(_root))));
-        Assert.DoesNotContain("ignorada", content);
-        Assert.Contains("registrada", content);
-    }
-
-    [Fact]
     public void Falha_ao_gravar_o_log_nao_derruba_o_programa()
     {
         Directory.CreateDirectory(_root);

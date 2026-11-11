@@ -10,14 +10,6 @@ public class XlsxReviewFormatTests
         new(0, id, "dialogue", "美咲", source, translation, "machine", notes);
 
     [Fact]
-    public void Esta_registrado_pelo_nome_e_pela_extensao()
-    {
-        Assert.Same(Xlsx, ReviewFormats.Find("XLSX"));
-        Assert.Same(Xlsx, ReviewFormats.FromPath("C:/x/revisao.XLSX"));
-        Assert.Equal(".xlsx", Xlsx.Extension);
-    }
-
-    [Fact]
     public void Ida_e_volta_preserva_japones_quebras_de_linha_espacos_e_texto_de_formula()
     {
         var rows = new[]
@@ -36,17 +28,6 @@ public class XlsxReviewFormatTests
         {
             Assert.Equal(rows[i] with { Line = i + 2 }, lidas[i]);
         }
-    }
-
-    [Fact]
-    public void Aceita_colunas_em_outra_ordem_extras_e_celulas_vazias_omitidas()
-    {
-        var original = Xlsx.Write([Linha("a:1", translation: "", notes: "")]);
-        var lidas = Xlsx.Read(original, "r.xlsx");
-
-        Assert.Equal("", lidas[0].Translation);
-        Assert.Equal("", lidas[0].Notes);
-        Assert.Equal("a:1", lidas[0].Id);
     }
 
     [Fact]

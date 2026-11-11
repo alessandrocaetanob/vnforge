@@ -9,7 +9,6 @@ namespace VNForge.Core.Tests.Factsheet;
 internal static class SheetSamples
 {
     public const string Game1 = "v900001";
-    public const string Game2 = "v900002";
 
     public static VndbTag Comedy { get; } = new("g10", "Comedy", "cont", 2.5, 0, false);
 

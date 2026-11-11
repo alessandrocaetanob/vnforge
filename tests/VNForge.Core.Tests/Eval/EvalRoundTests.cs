@@ -5,18 +5,6 @@ namespace VNForge.Core.Tests.Eval;
 
 public sealed class EvalRoundTests
 {
-    [Fact]
-    public void Nomes_da_configuracao_saem_em_portugues()
-    {
-        var config = Config("A", "claude-opus-5-5", "high");
-
-        Assert.Equal("Opus 5.5", config.ModelName);
-        Assert.Equal("effort alto · 15 falas · com bíblia", config.Detail);
-        Assert.Equal("Opus 5.5 · effort alto · com bíblia", config.Title);
-        Assert.Equal("15 falas de contexto", config.ContextText);
-        Assert.Equal("Fable 5.1", EvalConfig.ModelLabel("claude-fable-5-1"));
-        Assert.Equal("effort médio · 2 falas · sem bíblia", Config("D", context: 2, bible: false).Detail);
-    }
 
     [Fact]
     public void Projeta_custo_e_tempo_do_jogo_todo_pelas_linhas_medidas()

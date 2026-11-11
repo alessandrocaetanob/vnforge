@@ -85,12 +85,4 @@ public sealed class EvalStoreTests : IDisposable
         Assert.Equal("20261108-093005".Length, late.Length);
         Assert.True(string.CompareOrdinal(early, late) < 0);
     }
-
-    [Fact]
-    public void Gravar_a_rodada_nao_toca_os_textos_do_projeto()
-    {
-        EvalStore.SaveRound(_project, Board());
-
-        Assert.Empty(_project.LoadAllText());
-    }
 }

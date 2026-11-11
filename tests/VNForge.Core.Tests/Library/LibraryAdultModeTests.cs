@@ -15,8 +15,6 @@ public class LibraryAdultModeTests
         LibraryCatalog.Render(new GameLibrary(Library, new LibraryPrivacy(Adult: mode)), new PlayLog(), Now, null, null, _ => null);
 
     [Theory]
-    [InlineData(2.0, false, true, true)]
-    [InlineData(0.0, false, false, false)]
     [InlineData(0.0, true, true, false)]
     public void A_capa_borrada_e_o_selo_seguem_a_mesma_nota_da_imagem_que_a_tela_usa_para_borrar(double sexual, bool infoAdult, bool adult, bool blurred)
     {
@@ -53,28 +51,6 @@ public class LibraryAdultModeTests
         Assert.Equal(["Jogo comum"], listed.Select(g => g.Title));
         Assert.Equal(1, catalog.Games);
         Assert.DoesNotContain("Jogo adulto", catalog.Html);
-    }
-
-    [Theory]
-    [InlineData(AdultMode.Show)]
-    [InlineData(AdultMode.Blur)]
-    public void Mostrar_e_desfocar_deixam_o_jogo_adulto_em_todas_as_listas(AdultMode mode)
-    {
-        var privacy = new LibraryPrivacy(Adult: mode);
-
-        Assert.Equal(2, LibraryListing.Filter(Library, LibraryFilter.All, null, NoProject, null, privacy).Count);
-        Assert.Single(LibraryListing.Filter(Library, LibraryFilter.All, "adulto", NoProject, null, privacy));
-        Assert.Equal(2, LibraryListing.Count(Library, NoProject, privacy).All);
-        Assert.Equal(2, TranslationQueue.Build(Library, privacy).Count);
-        Assert.Equal(2, privacy.Listed(Library).Count);
-    }
-
-    [Fact]
-    public void So_o_mostrar_leva_o_jogo_adulto_ao_catalogo()
-    {
-        Assert.Equal(2, Catalog(AdultMode.Show).Games);
-        Assert.Equal(1, Catalog(AdultMode.Blur).Games);
-        Assert.Equal(1, Catalog(AdultMode.Hide).Games);
     }
 
     [Fact]

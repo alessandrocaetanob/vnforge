@@ -21,22 +21,6 @@ public sealed class PlayLogTests : IDisposable
         new(id, Path.Combine(Path.GetTempPath(), id), "x.exe", LibraryEngine.Unknown, title, null, T0);
 
     [Fact]
-    public void Tempo_total_e_ultimo_jogado_saem_das_sessoes()
-    {
-        var log = new PlayLog();
-        log.Upsert("g1", Session(0, 30));
-        log.Upsert("g1", Session(5, 45));
-        log.Upsert("g1", Session(2, 10));
-
-        var stats = log.StatsOf("g1");
-
-        Assert.Equal(TimeSpan.FromMinutes(85), stats.Total);
-        Assert.Equal(T0.AddHours(5).AddMinutes(45), stats.LastPlayedAt);
-        Assert.Equal(3, stats.Sessions);
-        Assert.Equal(PlayStats.None, log.StatsOf("nunca"));
-    }
-
-    [Fact]
     public void Ordem_da_biblioteca_poe_o_ultimo_jogado_no_topo_e_os_nunca_jogados_por_titulo()
     {
         var log = new PlayLog();
@@ -63,34 +47,6 @@ public sealed class PlayLogTests : IDisposable
         Assert.Equal(PlayLogFile.Serialize(log), PlayLogFile.Serialize(loaded));
         Assert.Equal(Session(1, 5, interrupted: true), Assert.Single(loaded.SessionsOf("g2")));
         Assert.Equal(["playtime.json"], Directory.GetFiles(_dir.Path).Select(Path.GetFileName));
-    }
-
-    [Fact]
-    public void Gravar_uma_sessao_nao_perde_a_que_outro_processo_gravou_no_meio()
-    {
-        var file = new PlayLogFile(_dir.Path);
-        var stale = file.Record("g1", Session(0, 30));
-
-        new PlayLogFile(_dir.Path).Record("g2", Session(1, 20));
-        file.Record("g1", Session(2, 10));
-
-        var loaded = file.Load();
-        Assert.Equal(2, loaded.SessionsOf("g1").Count);
-        Assert.Single(loaded.SessionsOf("g2"));
-        Assert.Single(stale.SessionsOf("g1"));
-    }
-
-    [Fact]
-    public void Sessao_sem_interrupcao_nao_escreve_o_campo()
-    {
-        var log = new PlayLog();
-        log.Upsert("g1", Session(0, 30));
-
-        var json = PlayLogFile.Serialize(log);
-
-        Assert.DoesNotContain("interrupted", json);
-        Assert.DoesNotContain("open", json);
-        Assert.Contains("\"duration\": \"00:30:00\"", json);
     }
 
     [Fact]
@@ -197,55 +153,8 @@ public sealed class PlayLogTests : IDisposable
         Assert.True(Assert.Single(log.SessionsOf("g2")).Open);
     }
 
-    [Fact]
-    public async Task Gravacoes_ao_mesmo_tempo_nao_perdem_sessao()
-    {
-        var file = new PlayLogFile(_dir.Path);
-
-        var writers = Enumerable.Range(0, 24).Select(i => Task.Run(() => file.Record($"g{i % 3}", Session(i, 5)), Ct));
-        await Task.WhenAll(writers);
-
-        var log = file.Load();
-        Assert.Equal(24, log.All.Values.Sum(s => s.Count));
-        Assert.Equal(8, log.SessionsOf("g1").Count);
-    }
-
-    [Fact]
-    public async Task Gravar_espera_quem_segura_a_trava_e_depois_grava()
-    {
-        var file = new PlayLogFile(_dir.Path);
-        var held = new FileStream(file.Path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        Task<PlayLog> writing;
-        try
-        {
-            writing = Task.Run(() => file.Record("g1", Session(0, 5)), Ct);
-            await Task.Delay(300, Ct);
-            Assert.False(writing.IsCompleted);
-            Assert.False(File.Exists(file.Path));
-        }
-        finally
-        {
-            await held.DisposeAsync();
-        }
-
-        await writing.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        Assert.Single(file.Load().SessionsOf("g1"));
-    }
-
-    [Fact]
-    public void Arquivo_que_nao_existe_e_um_historico_vazio()
-    {
-        Assert.Empty(new PlayLogFile(_dir.Path).Load().All);
-    }
-
     [Theory]
     [InlineData(0, "menos de 1 min")]
-    [InlineData(59, "menos de 1 min")]
-    [InlineData(60, "1 min")]
-    [InlineData(35 * 60, "35 min")]
-    [InlineData(60 * 60, "1 h 00 min")]
-    [InlineData((2 * 3600) + (5 * 60) + 40, "2 h 05 min")]
-    [InlineData(130 * 3600, "130 h 00 min")]
     public void Tempo_aparece_em_horas_e_minutos(int seconds, string expected)
     {
         Assert.Equal(expected, PlayTime.Format(TimeSpan.FromSeconds(seconds)));
@@ -266,11 +175,5 @@ public sealed class PlayLogTests : IDisposable
         Assert.False(loaded.Games[1].RequiresJapaneseLocale);
         var json = JsonDocument.Parse(File.ReadAllText(file.Path)).RootElement;
         Assert.Equal(1, json.GetProperty("games").EnumerateArray().Count(g => g.TryGetProperty("requiresJapaneseLocale", out _)));
-    }
-
-    [Fact]
-    public void Biblioteca_sem_o_caminho_nao_escreve_o_campo()
-    {
-        Assert.DoesNotContain("localeEmulatorPath", LibraryFile.Serialize(new GameLibrary()));
     }
 }

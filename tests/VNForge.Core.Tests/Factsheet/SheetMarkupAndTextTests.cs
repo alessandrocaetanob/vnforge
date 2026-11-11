@@ -15,9 +15,6 @@ public sealed class SheetMarkupAndTextTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  \n ")]
     [InlineData("[b] [/b]")]
     public void Normalize_de_texto_sem_conteudo_devolve_nulo(string? text) => Assert.Null(SheetMarkup.Normalize(text));
 
@@ -59,16 +56,6 @@ public sealed class SheetMarkupAndTextTests
 
         Assert.Contains("revise", Assert.Throws<LibraryException>(machine.Approved).Message, StringComparison.OrdinalIgnoreCase);
         Assert.Throws<LibraryException>(SheetText.Pending("Hello").Reviewed);
-    }
-
-    [Fact]
-    public void Corrigir_a_mao_volta_a_pedir_revisao()
-    {
-        var approved = SheetText.Pending("Hello").TranslatedByAi("Olá").Reviewed().Approved();
-
-        var edited = approved.EditedByPerson("Oi");
-
-        Assert.Equal(("Oi", TranslationStatus.Translated), (edited.Target, edited.Status));
     }
 
     [Fact]

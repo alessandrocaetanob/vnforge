@@ -57,41 +57,6 @@ public sealed class SheetCatalogSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task Ficha_so_buscada_traz_o_original_e_nenhum_nome_de_tag_traduzido()
-    {
-        await Fetched();
-
-        var sheet = new SheetCatalogSource(Store).SheetOf(Game())!;
-
-        Assert.False(sheet.SynopsisTranslated);
-        Assert.StartsWith("A rainy town.", sheet.Synopsis, StringComparison.Ordinal);
-        Assert.Empty(sheet.TagNames);
-        Assert.Equal(["Kenta Aizawa", "Aoi Sakura", "Ghost"], sheet.Characters.Select(c => c.Name));
-        Assert.All(sheet.Characters.Where(c => c.Description is not null), c => Assert.False(c.Translated));
-    }
-
-    [Fact]
-    public async Task Ficha_traduzida_traz_a_sinopse_os_personagens_e_os_nomes_em_portugues_com_as_marcas_dos_tracos()
-    {
-        await Translated();
-
-        var sheet = new SheetCatalogSource(Store).SheetOf(Game())!;
-
-        Assert.True(sheet.SynopsisTranslated);
-        Assert.StartsWith("PT: A rainy town.", sheet.Synopsis, StringComparison.Ordinal);
-        Assert.Equal("PT: Comedy", sheet.TagNames["g10"]);
-        var kenta = sheet.Characters[0];
-        Assert.Equal("protagonista", kenta.Role);
-        Assert.True(kenta.Translated);
-        Assert.StartsWith("PT: The hero.", kenta.Description, StringComparison.Ordinal);
-        Assert.Equal(2, sheet.Characters[2].Spoiler);
-        var adult = kenta.Traits.Single(t => t.Name == "PT: Virgin Sex");
-        Assert.True(adult.Sexual);
-        Assert.True(kenta.Traits.Single(t => t.Name == "PT: Tsundere").Lie);
-        Assert.Equal(1, kenta.Traits.Single(t => t.Name == "PT: Amnesia").Spoiler);
-    }
-
-    [Fact]
     public async Task O_catalogo_com_a_ficha_esconde_o_traco_adulto_e_o_spoiler_e_sem_a_ficha_usa_o_original()
     {
         await Translated();

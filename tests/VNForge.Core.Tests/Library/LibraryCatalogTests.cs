@@ -88,81 +88,6 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void A_pagina_traz_a_ficha_o_que_voce_jogou_a_sua_nota_e_o_que_traduziu()
-    {
-        var game = Clannad();
-
-        var result = Render([game], played: Played(game), translation: _ => Counts(untranslated: 25, machine: 25, approved: 50));
-
-        var html = result.Html;
-        Assert.Contains("CLANNAD", html, StringComparison.Ordinal);
-        Assert.Contains("クラナド", html, StringComparison.Ordinal);
-        Assert.Contains("2004-04-28", html, StringComparison.Ordinal);
-        Assert.Contains("nota 8,6", html, StringComparison.Ordinal);
-        Assert.Contains("Sua nota: 8,5", html, StringComparison.Ordinal);
-        Assert.Contains("Terminado", html, StringComparison.Ordinal);
-        Assert.Contains("3 h 05 min", html, StringComparison.Ordinal);
-        Assert.Contains("2 sessões", html, StringComparison.Ordinal);
-        Assert.Contains("75%", html, StringComparison.Ordinal);
-        Assert.Contains("2026-03-04", html, StringComparison.Ordinal);
-        Assert.Contains("cerca de 60 h", html, StringComparison.Ordinal);
-        Assert.Equal(1, result.Games);
-    }
-
-    [Fact]
-    public void Cada_parte_desligada_some_da_pagina_e_o_credito_ao_VNDB_fica()
-    {
-        var game = Clannad();
-        var options = new LibraryCatalogOptions(new LibraryPrivacy(), IncludeSheet: false, IncludePlayed: false, IncludeVote: false, IncludeTranslation: false);
-
-        var html = Render([game], options, played: Played(game), translation: _ => Counts(untranslated: 25, machine: 25, approved: 50)).Html;
-
-        Assert.Contains("CLANNAD", html, StringComparison.Ordinal);
-        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
-        foreach (var gone in new[] { "Sinopse", "Uma história de família", "Drama", "Sua nota", "Terminado", "Jogado", "2026-03-04", "Tradução para o português" })
-        {
-            Assert.DoesNotContain(gone, html, StringComparison.Ordinal);
-        }
-    }
-
-    [Fact]
-    public void Jogo_sem_tempo_de_jogo_nem_projeto_nao_inventa_linhas()
-    {
-        var result = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(Adult: AdultMode.Show)));
-
-        Assert.DoesNotContain("Jogado", result.Html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Tradução", result.Html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Sua nota", result.Html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void O_rodape_credita_o_VNDB_e_a_ODbL()
-    {
-        var html = Render([Clannad()]).Html;
-
-        Assert.Contains("https://vndb.org/", html, StringComparison.Ordinal);
-        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
-        Assert.Contains("https://opendatacommons.org/licenses/odbl/1-0/", html, StringComparison.Ordinal);
-        Assert.Contains("https://vndb.org/d17", html, StringComparison.Ordinal);
-        Assert.Contains("<footer", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void As_imagens_entram_como_link_para_o_VNDB_e_nenhuma_e_copiada()
-    {
-        var html = Render([Clannad()]).Html;
-
-        Assert.Contains($"src=\"{CoverUrl}\"", html, StringComparison.Ordinal);
-        Assert.Contains("href=\"https://vndb.org/v4\"", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("data:", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("base64", html, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("<script", html, StringComparison.OrdinalIgnoreCase);
-        var sources = Parse(html).Descendants().Where(e => e.Name.LocalName == "img").Select(e => (string?)e.Attribute("src")).ToList();
-        Assert.NotEmpty(sources);
-        Assert.All(sources, src => Assert.True(VndbImageVisibility.IsAllowedSource(src), src));
-    }
-
-    [Fact]
     public void Endereco_de_imagem_que_nao_e_do_VNDB_nao_vira_img()
     {
         var game = Clannad();
@@ -187,29 +112,6 @@ public sealed class LibraryCatalogTests
         Assert.Equal(2, shown.Games);
         Assert.Equal(0, shown.Adult);
         Assert.Contains("9999.jpg", shown.Html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Spoiler_e_tag_erotica_ficam_escondidos_por_padrao()
-    {
-        var html = Render([Clannad()]).Html;
-
-        Assert.Contains("Drama", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ela morre no fim", html, StringComparison.Ordinal);
-        Assert.Contains(LibraryVisibility.SpoilerPlaceholder, html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Final triste", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Cena de sexo", html, StringComparison.Ordinal);
-        Assert.Contains("Fim da sinopse.", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Com_a_privacidade_liberada_spoiler_e_tags_aparecem()
-    {
-        var html = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(ShowSpoilers: true, Adult: AdultMode.Show))).Html;
-
-        Assert.Contains("Ela morre no fim", html, StringComparison.Ordinal);
-        Assert.Contains("Final triste", html, StringComparison.Ordinal);
-        Assert.Contains("Cena de sexo", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -239,26 +141,6 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void As_suas_notas_so_entram_quando_pedidas()
-    {
-        var without = Render([Clannad()]).Html;
-        var with = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(), IncludeNotes: true)).Html;
-
-        Assert.DoesNotContain("Chorei no terceiro ato.", without, StringComparison.Ordinal);
-        Assert.Contains("Chorei no terceiro ato.", with, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Jogo_sem_jogo_do_VNDB_confirmado_fica_de_fora_e_e_contado()
-    {
-        var result = Render([Clannad(), Unmatched()]);
-
-        Assert.Equal(1, result.Games);
-        Assert.Equal(1, result.Skipped);
-        Assert.DoesNotContain("Sem casamento", result.Html, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Biblioteca_vazia_gera_uma_pagina_valida_com_o_aviso()
     {
         var result = Render([]);
@@ -266,101 +148,6 @@ public sealed class LibraryCatalogTests
         Assert.Equal(0, result.Games);
         Assert.Contains("Nenhuma VN", result.Html, StringComparison.Ordinal);
         _ = Parse(result.Html);
-    }
-
-    [Fact]
-    public void Os_jogos_saem_em_ordem_de_titulo()
-    {
-        var zed = Clannad() with { Id = "gz", Title = "Zed", Info = Clannad().Info! with { Title = "Zed" } };
-        var alpha = Clannad() with { Id = "ga", Title = "Alfa", Info = Clannad().Info! with { Title = "Alfa" } };
-
-        var html = Render([zed, alpha]).Html;
-
-        Assert.True(html.IndexOf("Alfa", StringComparison.Ordinal) < html.IndexOf("Zed", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void A_ficha_traduzida_substitui_o_texto_original_e_sem_ela_vale_o_do_VNDB()
-    {
-        var sheets = new FakeSheets(new LibrarySheet(
-            "Uma história de família, em português.",
-            true,
-            [new LibrarySheetCharacter("Nagisa Furukawa", "古河 渚", "Protagonista", "Uma garota frágil.", true, [new LibrarySheetTrait("Tímida", 0, false, false), new LibrarySheetTrait("Morre", 2, false, false)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
-            new Dictionary<string, string> { ["g1"] = "Drama (pt)" }));
-
-        var translated = Render([Clannad()], sheets: sheets).Html;
-        var original = Render([Clannad()]).Html;
-
-        Assert.Contains("Uma história de família, em português.", translated, StringComparison.Ordinal);
-        Assert.DoesNotContain("Fim da sinopse", translated, StringComparison.Ordinal);
-        Assert.Contains("Nagisa Furukawa", translated, StringComparison.Ordinal);
-        Assert.Contains("Protagonista", translated, StringComparison.Ordinal);
-        Assert.Contains("Tímida", translated, StringComparison.Ordinal);
-        Assert.DoesNotContain("Morre", translated, StringComparison.Ordinal);
-        Assert.Contains("https://t.vndb.org/ch/12/3456.jpg", translated, StringComparison.Ordinal);
-        Assert.Contains("Drama (pt)", translated, StringComparison.Ordinal);
-        Assert.Contains("Fim da sinopse", original, StringComparison.Ordinal);
-        Assert.DoesNotContain("Personagens", original, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Personagem_com_spoiler_e_retrato_adulto_seguem_a_privacidade()
-    {
-        var sheets = new FakeSheets(new LibrarySheet(
-            null,
-            false,
-            [
-                new LibrarySheetCharacter("Segredo", null, null, "Vilã do final.", false, [], null, 2),
-                new LibrarySheetCharacter("Nua", null, null, null, false, [], new VndbImageRef("https://t.vndb.org/ch/00/0001.jpg", Sexual: 2), 0),
-            ],
-            new Dictionary<string, string>()));
-
-        var hidden = Render([Clannad()], sheets: sheets).Html;
-        var shown = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, AdultMode.Show)), sheets).Html;
-
-        Assert.DoesNotContain("Segredo", hidden, StringComparison.Ordinal);
-        Assert.DoesNotContain("0001.jpg", hidden, StringComparison.Ordinal);
-        Assert.Contains("Segredo", shown, StringComparison.Ordinal);
-        Assert.Contains("0001.jpg", shown, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Traco_sexual_e_o_sem_marca_somem_sem_o_conteudo_adulto_e_a_mentira_sem_os_spoilers()
-    {
-        var sheets = new FakeSheets(new LibrarySheet(
-            null,
-            false,
-            [
-                new LibrarySheetCharacter(
-                    "Ana",
-                    null,
-                    null,
-                    null,
-                    false,
-                    [
-                        new LibrarySheetTrait("Tímida", 0, false, false),
-                        new LibrarySheetTrait("Traço picante", 0, false, true),
-                        new LibrarySheetTrait("Traço de ficha antiga", 0, false, null),
-                        new LibrarySheetTrait("Traço enganoso", 0, true, false),
-                    ],
-                    null,
-                    0),
-            ],
-            new Dictionary<string, string>()));
-
-        var hidden = Render([Clannad()], sheets: sheets).Html;
-        var adult = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(false, AdultMode.Show)), sheets).Html;
-        var spoilers = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, AdultMode.Blur)), sheets).Html;
-
-        Assert.Contains("Tímida", hidden, StringComparison.Ordinal);
-        Assert.DoesNotContain("Traço picante", hidden, StringComparison.Ordinal);
-        Assert.DoesNotContain("Traço de ficha antiga", hidden, StringComparison.Ordinal);
-        Assert.DoesNotContain("Traço enganoso", hidden, StringComparison.Ordinal);
-        Assert.Contains("Traço picante", adult, StringComparison.Ordinal);
-        Assert.Contains("Traço de ficha antiga", adult, StringComparison.Ordinal);
-        Assert.DoesNotContain("Traço enganoso", adult, StringComparison.Ordinal);
-        Assert.Contains("Traço enganoso", spoilers, StringComparison.Ordinal);
-        Assert.DoesNotContain("Traço picante", spoilers, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -441,14 +228,6 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void A_data_de_geracao_aparece_no_rodape_em_pt_BR()
-    {
-        var html = Render([Clannad()]).Html;
-
-        Assert.Contains("09/11/2026", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Projeto_que_nao_se_le_ou_ausente_nao_tem_andamento()
     {
         var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
@@ -467,13 +246,7 @@ public sealed class LibraryCatalogTests
     }
 
     [Theory]
-    [InlineData("{\"version\": 1, \"units\": [{\"id\": \"a:1\", \"text\"")]
-    [InlineData("")]
-    [InlineData("[]")]
-    [InlineData("null")]
-    [InlineData("{\"version\": 1, \"units\": [null]}")]
     [InlineData("{\"version\": 1, \"units\": {\"a\": 1}}")]
-    [InlineData("{\"version\": 1, \"version\": 2, \"units\": []}")]
     public void Projeto_com_texto_truncado_ou_malformado_nao_derruba_o_catalogo(string textJson)
     {
         var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
@@ -486,24 +259,6 @@ public sealed class LibraryCatalogTests
 
             Assert.Null(LibraryCatalog.ReadTranslation(game));
             Assert.Equal(1, LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated).Games);
-        }
-        finally
-        {
-            Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public void Projeto_com_texto_fora_de_UTF8_nao_derruba_o_catalogo()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(folder, "text"));
-        try
-        {
-            File.WriteAllText(Path.Combine(folder, "vnforge.json"), "{}");
-            File.WriteAllBytes(Path.Combine(folder, "text", "script.json"), [0x7B, 0xFF, 0xFE, 0x7D]);
-
-            Assert.Null(LibraryCatalog.ReadTranslation(Clannad() with { ProjectPath = folder }));
         }
         finally
         {

@@ -33,23 +33,6 @@ public sealed class NightBatchStoreTests : IDisposable
         new(id, "O capítulo", "claude-opus-5-5", "Careful", "Medium", at, 13.46m, ["yst00001"], [new NightBatchRequest("r00001", [.. lines.Select(NightBatchLine.Of)])]);
 
     [Fact]
-    public void Guarda_e_le_o_lote_com_o_pedido_e_o_estado()
-    {
-        _store.Save(Lote("msgbatch_01", Agora, Linha(0), Linha(1)));
-
-        var read = _store.Find("msgbatch_01");
-
-        Assert.NotNull(read);
-        Assert.Equal("O capítulo", read.Title);
-        Assert.Equal(13.46m, read.EstimatedBrl);
-        Assert.Equal(2, read.LineCount);
-        Assert.Equal(NightBatchPhase.Processing, read.Phase);
-        Assert.True(read.IsOpen);
-        Assert.Equal(Agora, read.SubmittedAt);
-        Assert.Equal("yst00001:000001", read.Requests[0].Lines[1].Id);
-    }
-
-    [Fact]
     public void O_resultado_gravado_volta_na_leitura_e_fecha_o_lote()
     {
         var applied = Lote("msgbatch_01", Agora, Linha(0)) with

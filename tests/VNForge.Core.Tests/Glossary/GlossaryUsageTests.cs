@@ -17,34 +17,11 @@ public class GlossaryUsageTests
     ]);
 
     [Fact]
-    public void Conta_linhas_que_contem_o_termo_e_nao_ocorrencias_dentro_da_linha()
-    {
-        Assert.Equal(2, Usage.LinesContaining("先輩"));
-        Assert.Equal(2, Usage.LinesContaining("傘"));
-        Assert.Equal(1, Usage.LinesContaining("遅刻"));
-    }
-
-    [Fact]
     public void Termo_ausente_ou_vazio_conta_zero()
     {
         Assert.Equal(0, Usage.LinesContaining("文化祭"));
         Assert.Equal(0, Usage.LinesContaining(""));
         Assert.Equal(0, Usage.LinesContaining("   "));
-    }
-
-    [Fact]
-    public void Ignora_os_espacos_das_pontas_como_o_glossario()
-    {
-        Assert.Equal(2, Usage.LinesContaining("　先輩 "));
-    }
-
-    [Fact]
-    public void Compara_em_ordem_ordinal_sem_diferenciar_so_por_cultura()
-    {
-        var usage = GlossaryUsage.From([Line("Hello World")]);
-
-        Assert.Equal(1, usage.LinesContaining("World"));
-        Assert.Equal(0, usage.LinesContaining("world"));
     }
 
     [Fact]
@@ -54,15 +31,6 @@ public class GlossaryUsageTests
         Assert.Equal(1, Usage.LinesSpokenBy("健太"));
         Assert.Equal(0, Usage.LinesSpokenBy("先生"));
         Assert.Equal(0, Usage.LinesSpokenBy(""));
-    }
-
-    [Fact]
-    public void Conta_as_falas_do_personagem_cadastrado_com_letra_de_largura_diferente()
-    {
-        var usage = GlossaryUsage.From([Line("おはよう", "学生Ｃ"), Line("さようなら", "学生Ｃ"), Line("やあ", "学生C")]);
-
-        Assert.Equal(3, usage.LinesSpokenBy("学生C"));
-        Assert.Equal(3, usage.LinesSpokenBy("学生Ｃ"));
     }
 
     [Fact]

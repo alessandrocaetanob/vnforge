@@ -11,54 +11,12 @@ public class CorrectionLearnerTests
     private static (string, TextUnit)[] Em(params TextUnit[] linhas) => [.. linhas.Select(l => ("a", l))];
 
     [Theory]
-    [InlineData("Ei, vem aqui.", "Ô, vem aqui.", "Ei", "Ô")]
-    [InlineData("Ei, vem aqui.", "ô, vem aqui.", "Ei", "ô")]
     [InlineData("Eu gosto do guarda-chuva.", "Eu adoro do guarda-chuva.", "gosto", "adoro")]
-    [InlineData("Você vai se molhar.", "Tu vais te molhar.", "Você vai se", "Tu vais te")]
     public void Swaps_acha_a_troca_de_palavras(string ia, string pessoa, string de, string para)
     {
         var troca = Assert.Single(CorrectionLearner.Swaps(ia, pessoa));
 
         Assert.Equal(new WordSwap(de, para), troca);
-    }
-
-    [Theory]
-    [InlineData("Ei, vem aqui.", "Ei, vem aqui.")]
-    [InlineData("Ei, vem aqui.", "ei, vem aqui.")]
-    [InlineData("Ei, vem aqui.", "Ei! Vem aqui?")]
-    [InlineData("Ei, vem aqui.", "Ei, vem aqui agora.")]
-    [InlineData("Ei, vem aqui agora.", "Ei, vem aqui.")]
-    [InlineData(null, "Ei.")]
-    [InlineData("Ei.", " ")]
-    public void Swaps_ignora_pontuacao_caixa_e_acrescimos_ou_cortes_puros(string? ia, string? pessoa)
-    {
-        Assert.Empty(CorrectionLearner.Swaps(ia, pessoa));
-    }
-
-    [Fact]
-    public void Swaps_acha_varias_trocas_na_mesma_linha_na_ordem_do_texto()
-    {
-        var trocas = CorrectionLearner.Swaps("Ei, você viu o carro azul?", "Ô, você viu o carro vermelho?");
-
-        Assert.Equal([new WordSwap("Ei", "Ô"), new WordSwap("azul", "vermelho")], trocas);
-    }
-
-    [Fact]
-    public void Swaps_nao_aprende_com_linha_reescrita()
-    {
-        Assert.Empty(CorrectionLearner.Swaps("Um dois três quatro cinco seis sete oito.", "Cada coisa tem a sua hora marcada no relógio."));
-        Assert.Empty(CorrectionLearner.Swaps("a b c d e", "w x y z k"));
-    }
-
-    [Theory]
-    [InlineData("Ei, você viu o carro azul?", "Ei, você viu o novo carro vermelho?", "azul", "vermelho")]
-    [InlineData("Ei, você viu o novo carro azul?", "Ei, você viu o carro vermelho?", "azul", "vermelho")]
-    [InlineData("Ei, você viu o carro azul agora?", "Ô, você viu o carro azul?", "Ei", "Ô")]
-    public void Swaps_ignora_acrescimo_ou_corte_puro_no_meio_e_acha_a_troca_ao_lado(string ia, string pessoa, string de, string para)
-    {
-        var troca = CorrectionLearner.Swaps(ia, pessoa);
-
-        Assert.Equal([new WordSwap(de, para)], troca);
     }
 
     [Fact]
@@ -67,18 +25,6 @@ public class CorrectionLearnerTests
         Assert.Empty(CorrectionLearner.Swaps("Ei, vem aqui.", "Um dois três quatro, vem aqui."));
         Assert.Empty(CorrectionLearner.Swaps("Um dois três quatro, vem aqui.", "Ei, vem aqui."));
         Assert.Empty(CorrectionLearner.Swaps("Ei, vem aqui, azul.", "Um dois três quatro, vem aqui, vermelho."));
-    }
-
-    [Fact]
-    public void Swaps_aceita_troca_de_tres_palavras_de_cada_lado()
-    {
-        Assert.Equal([new WordSwap("um dois três", "a b c")], CorrectionLearner.Swaps("Foi um dois três vez.", "Foi a b c vez."));
-    }
-
-    [Fact]
-    public void Swaps_desempata_a_favor_de_remover_primeiro_quando_os_caminhos_empatam()
-    {
-        Assert.Equal([new WordSwap("C", "B x")], CorrectionLearner.Swaps("Foi A x C.", "Foi x B x."));
     }
 
     [Fact]
@@ -96,12 +42,6 @@ public class CorrectionLearnerTests
         Assert.Equal(new WordSwap("Ei", "Ô"), troca.Swap);
         Assert.Equal(3, troca.Count);
         Assert.Equal(["a:000001", "a:000002", "a:000003"], troca.Lines.Select(l => l.UnitId));
-    }
-
-    [Fact]
-    public void Find_nao_oferece_abaixo_do_limite()
-    {
-        Assert.Empty(CorrectionLearner.Find(Em(Linha(1, "健太", "Ei, vem.", "Ô, vem."), Linha(2, "健太", "Ei, anda.", "Ô, anda."))));
     }
 
     [Fact]
@@ -131,54 +71,6 @@ public class CorrectionLearnerTests
         var troca = Assert.Single(achadas);
         Assert.Equal(CorrectionScope.Project, troca.Scope);
         Assert.Equal(5, troca.Count);
-    }
-
-    [Fact]
-    public void Find_prefere_o_personagem_quando_ele_concentra_dois_tercos_da_troca()
-    {
-        var achadas = CorrectionLearner.Find(Em(
-            Linha(1, "健太", "Ei, a.", "Ô, a."),
-            Linha(2, "健太", "Ei, b.", "Ô, b."),
-            Linha(3, "健太", "Ei, c.", "Ô, c."),
-            Linha(4, "健太", "Ei, d.", "Ô, d."),
-            Linha(5, "美咲", "Ei, e.", "Ô, e.")));
-
-        var troca = Assert.Single(achadas);
-        Assert.Equal(CorrectionScope.Character, troca.Scope);
-        Assert.Equal(4, troca.Count);
-    }
-
-    [Fact]
-    public void Find_usa_o_falante_escolhido_e_trata_a_troca_sem_diferenciar_caixa()
-    {
-        var achadas = CorrectionLearner.Find(Em(
-            Linha(1, "美咲", "Ei, a.", "Ô, a.") with { ChosenSpeaker = "健太" },
-            Linha(2, "健太", "Vem, ei.", "Vem, ô."),
-            Linha(3, "健太", "EI, c.", "Ô, c.")));
-
-        var troca = Assert.Single(achadas);
-        Assert.Equal("健太", troca.Speaker);
-        Assert.Equal(3, troca.Count);
-    }
-
-    [Fact]
-    public void Find_conta_a_linha_uma_vez_mesmo_com_a_troca_repetida_nela()
-    {
-        var achadas = CorrectionLearner.Find(Em(
-            Linha(1, "健太", "Ei, ei, ei.", "Ô, ô, ô."),
-            Linha(2, "健太", "Ei, b.", "Ô, b.")));
-
-        Assert.Empty(achadas);
-    }
-
-    [Fact]
-    public void Find_ignora_linha_sem_texto_da_IA_ou_sem_traducao_utilizavel()
-    {
-        var manual = new TextUnit("a:000001", TextUnitKind.Dialogue, "健太", "x", "Ô, a.", TranslationStatus.Translated);
-        var limpa = Linha(2, "健太", "Ei, b.", "Ô, b.") with { Translation = null, Status = TranslationStatus.Untranslated };
-        var keep = Linha(3, "健太", "Ei, c.", "Ô, c.") with { Status = TranslationStatus.Keep };
-
-        Assert.Empty(CorrectionLearner.Find(Em(manual, limpa, keep, Linha(4, "健太", "Ei, d.", "Ô, d."))));
     }
 
     [Fact]

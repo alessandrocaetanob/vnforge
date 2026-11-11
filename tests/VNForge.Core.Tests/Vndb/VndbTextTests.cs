@@ -5,9 +5,6 @@ namespace VNForge.Core.Tests.Vndb;
 public sealed class VndbTextTests
 {
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   \n ")]
     [InlineData("[spoiler]só spoiler[/spoiler]")]
     public void Clean_devolve_nulo_quando_nao_sobra_texto(string? description) =>
         Assert.Null(VndbText.Clean(description));

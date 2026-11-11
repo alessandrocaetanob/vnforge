@@ -15,24 +15,6 @@ public sealed class GameBibleTests
     };
 
     [Fact]
-    public void As_cenas_ficam_na_ordem_da_historia_e_nao_na_ordem_alfabetica()
-    {
-        var bible = GameBible.From([new BibleScene("yst10"), new BibleScene("yst2"), new BibleScene("yst1")]);
-
-        Assert.Equal(["yst1", "yst2", "yst10"], bible.Scenes.Select(s => s.Key));
-    }
-
-    [Fact]
-    public void Editar_um_campo_marca_o_campo_como_da_pessoa()
-    {
-        var scene = Generated("yst1").EditSummary("  Meu resumo  ");
-
-        Assert.Equal("Meu resumo", scene.Summary);
-        Assert.True(scene.IsEdited(BibleField.Summary));
-        Assert.False(scene.IsEdited(BibleField.Tone));
-    }
-
-    [Fact]
     public void Gerar_de_novo_nao_sobrescreve_o_campo_que_a_pessoa_escreveu()
     {
         var bible = GameBible.Empty.WithGeneratedScene(Generated("yst1"))
@@ -46,15 +28,6 @@ public sealed class GameBibleTests
         Assert.Equal("Outro nome", scene.Name);
         Assert.Equal(["nova piada"], scene.Jokes);
         Assert.Equal([BibleField.Summary, BibleField.Tone], scene.Edited);
-    }
-
-    [Fact]
-    public void Uma_cena_nova_entra_como_a_IA_escreveu()
-    {
-        var bible = GameBible.Empty.WithGeneratedScene(Generated("yst1"));
-
-        Assert.Empty(bible.Scene("yst1")!.Edited);
-        Assert.Equal("Nome da IA", bible.SceneName("yst1"));
     }
 
     [Fact]
@@ -88,13 +61,5 @@ public sealed class GameBibleTests
 
         Assert.Null(bible.SceneName("yst1"));
         Assert.Equal(new Dictionary<string, string> { ["yst2"] = "Chuva" }, bible.SceneNames());
-    }
-
-    [Fact]
-    public void Lista_de_campo_ignora_vazios_e_repetidos()
-    {
-        var scene = new BibleScene("yst1").EditTone(["seco", " ", "seco", " tenso "]);
-
-        Assert.Equal(["seco", "tenso"], scene.Tone);
     }
 }
