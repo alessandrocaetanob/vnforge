@@ -184,7 +184,7 @@
 
         <Grid Grid.Row="1" Name="FilterRow" ColumnSpacing="8" VerticalAlignment="Top" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNullOrEmpty}}">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1000*" MinWidth="120" MaxWidth="320"/>
+            <ColumnDefinition Width="1000*" MinWidth="72" MaxWidth="320"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>

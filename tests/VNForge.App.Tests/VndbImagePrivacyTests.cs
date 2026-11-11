@@ -23,8 +23,18 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static void SetAdult(string directory, bool showAdult) =>
-        new LibraryFile(directory).Update(library => library.Privacy = new LibraryPrivacy(Adult: showAdult ? AdultMode.Show : AdultMode.Blur));
+    private static long writes;
+
+    /// <summary>Mostrar (verdadeiro) ou Esconder (falso): o Desfocar baixa a imagem e a tela a borra, então só o Esconder a tira da tela.</summary>
+    private static void SetAdult(string directory, bool showAdult) => SetMode(directory, showAdult ? AdultMode.Show : AdultMode.Hide);
+
+    private static void SetMode(string directory, AdultMode mode)
+    {
+        new LibraryFile(directory).Update(library => library.Privacy = new LibraryPrivacy(Adult: mode));
+
+        // "show", "blur" e "hide" têm o mesmo tamanho: o leitor só nota a troca pela data do arquivo, que duas gravações seguidas podem dividir.
+        File.SetLastWriteTimeUtc(Path.Combine(directory, LibraryFile.FileName), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(Interlocked.Increment(ref writes)));
+    }
 
     private static byte[] Png(int width = 16, int height = 16)
     {
@@ -217,6 +227,52 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                     SetAdult(temp.Path, showAdult: true);
                     reader.Refresh();
                     await WaitUntil(() => portrait.HasImage, window);
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = null;
+                    source.Dispose();
+                }
+
+                return 0;
+            },
+            Ct);
+    }
+
+    [Fact]
+    public async Task No_desfocar_a_imagem_adulta_baixa_e_a_tela_a_borra_ate_a_pessoa_revelar_e_o_esconder_a_tira()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                SetMode(temp.Path, AdultMode.Blur);
+                var (source, reader, downloader, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
+                VndbImages.Source = source;
+                var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
+                var window = new Window { Width = 200, Height = 200, Content = portrait };
+                try
+                {
+                    reader.Refresh();
+                    window.Show();
+                    await WaitUntil(() => portrait.HasImage, window);
+                    Assert.True(portrait.IsBlurred);
+                    Assert.Equal(1, downloader.Calls);
+
+                    portrait.Revealed = true;
+                    Assert.False(portrait.IsBlurred);
+                    portrait.Revealed = false;
+                    Assert.True(portrait.IsBlurred);
+
+                    SetMode(temp.Path, AdultMode.Show);
+                    reader.Refresh();
+                    await WaitUntil(() => portrait.HasImage && !portrait.IsBlurred, window);
+
+                    SetMode(temp.Path, AdultMode.Hide);
+                    reader.Refresh();
+                    await WaitUntil(() => !portrait.HasImage, window);
+                    Assert.False(portrait.IsBlurred);
                 }
                 finally
                 {

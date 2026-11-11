@@ -120,12 +120,12 @@ internal static class LibrarySamples
 
         public Task<BitmapLease?> LoadAsync(VndbImageRef image, CancellationToken cancellationToken) => Task.FromResult<BitmapLease?>(BitmapLease.Own(Png(image.Url)));
 
-        private static WriteableBitmap Png(string url)
+        private static Bitmap Png(string url)
         {
             var hue = Math.Abs(url.Aggregate(7, (h, c) => (h * 31) + c) % 360);
             const int width = 240;
             const int height = 320;
-            var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            using var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
             using var frame = bitmap.Lock();
             var pixels = new byte[frame.RowBytes * height];
             for (var y = 0; y < height; y++)
@@ -142,7 +142,12 @@ internal static class LibrarySamples
             }
 
             Marshal.Copy(pixels, 0, frame.Address, pixels.Length);
-            return bitmap;
+
+            // O Skia só redimensiona (o borrão do Desfocar) um bitmap decodificado, como o do cache; o gravável não.
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, PngBitmapEncoderOptions.Default);
+            stream.Position = 0;
+            return new Bitmap(stream);
         }
     }
 }

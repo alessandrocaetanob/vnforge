@@ -206,7 +206,6 @@ public sealed class LibraryViewModelTests : IDisposable
         vm.Select(card);
         Assert.True(vm.Drawer!.Card.IsBlurred);
         Assert.DoesNotContain(vm.Drawer.Chips, c => c.Text == "Final trágico");
-        Assert.Contains(vm.Drawer.Chips, c => c is { Text: "Adulto escondido", IsHidden: true });
 
         vm.RevealGameCommand.Execute(card);
 

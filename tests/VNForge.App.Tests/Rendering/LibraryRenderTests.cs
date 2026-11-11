@@ -47,10 +47,13 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Equal([12, 2, 9, 5], chips.Select(c => c.Count));
             Assert.True(chips[0].IsChecked);
 
-            foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Conteúdo adulto escondido", "18+" })
+            foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Adulto", "Desfocar", "Mostrar", "18+" })
             {
                 Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
             }
+
+            // O véu cinza de antes deu lugar ao desfoque: nenhuma capa adulta traz mais o texto "Conteúdo adulto escondido".
+            Assert.DoesNotContain("Conteúdo adulto escondido", texts);
 
             Assert.Contains("Média · 18 h · 38% traduzida", texts);
             Assert.Contains("Curta · 7 h · 100% traduzida", texts);
