@@ -89,7 +89,7 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                         await build.TestCommand.ExecuteAsync(null);
 
                         // O andamento volta à janela pelo Dispatcher, então o último passo chega depois do fim do comando.
-                        for (var i = 0; i < 100 && build.LastTestSteps.Count == 0 || build.LastTestSteps[^1].State != TestStepState.Failed; i++)
+                        for (var i = 0; i < 100 && (build.LastTestSteps.Count == 0 || build.LastTestSteps[^1].State != TestStepState.Failed); i++)
                         {
                             await Task.Delay(50, TestContext.Current.CancellationToken);
                             ScreenRenderer.Settle(window);
