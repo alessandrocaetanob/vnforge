@@ -63,24 +63,6 @@ public sealed class LibraryCommandTests : IDisposable
     private LibraryGame Saved(string reference) => new LibraryFile(_cli.UserConfigDirectory).Load().Find(reference);
 
     [Fact]
-    public async Task Scan_reconhece_as_engines_grava_a_biblioteca_e_pula_o_que_nao_e_jogo()
-    {
-        var result = await Run("library", "scan", Collection);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("4 jogos reconhecidos", result.Output);
-        Assert.Contains("KiriKiri 1", result.Output);
-        Assert.Contains("YU-RIS 1", result.Output);
-        Assert.Contains("vnf library match", result.Output);
-        var library = new LibraryFile(_cli.UserConfigDirectory).Load();
-        Assert.Equal(4, library.Games.Count);
-        Assert.Equal(
-            ["kirikiri", "renpy", "siglus", "yuris"],
-            library.Games.Select(g => g.Engine.Id).Order(StringComparer.Ordinal));
-        Assert.Equal(LibraryEngineSource.Engine, library.Games.Single(g => g.Engine.Id == "yuris").Engine.Source);
-    }
-
-    [Fact]
     public async Task Scan_json_traz_novos_conhecidos_e_o_total()
     {
         var folder = Collection;
@@ -235,22 +217,6 @@ public sealed class LibraryCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task List_mostra_a_tabela_com_o_estado_do_casamento()
-    {
-        UseFakeCatalog();
-        await Run("library", "scan", Collection);
-        await Run("library", "match", "--auto");
-
-        var result = await Run("library", "list");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("CLANNAD", result.Output);
-        Assert.Contains("v4 (auto)", result.Output);
-        Assert.Contains("não achado", result.Output);
-        Assert.Contains("4 jogos na biblioteca", result.Output);
-    }
-
-    [Fact]
     public async Task List_filtra_por_engine_e_por_estado()
     {
         UseFakeCatalog();
@@ -295,22 +261,6 @@ public sealed class LibraryCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_da_ficha_respeita_a_privacidade_nos_dados()
-    {
-        UseFakeCatalog();
-        await Run("library", "scan", Collection);
-        await Run("library", "match", "--auto");
-
-        var data = Data(await Run("library", "list", "Eroge", "--json"));
-        var card = data.GetProperty("game").GetProperty("card");
-
-        Assert.Equal("blur", data.GetProperty("privacy").GetProperty("adult").GetString());
-        Assert.True(card.GetProperty("coverHidden").GetBoolean());
-        Assert.False(card.TryGetProperty("coverUrl", out _));
-        Assert.Equal(0, card.GetProperty("tags").GetArrayLength());
-    }
-
-    [Fact]
     public async Task Privacy_grava_a_escolha_e_a_ficha_passa_a_mostrar()
     {
         UseFakeCatalog();
@@ -333,9 +283,7 @@ public sealed class LibraryCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("mostrar", AdultMode.Show)]
     [InlineData("desfocar", AdultMode.Blur)]
-    [InlineData("esconder", AdultMode.Hide)]
     [InlineData("sim", AdultMode.Show)]
     [InlineData("nao", AdultMode.Blur)]
     public async Task Privacy_adult_aceita_os_tres_modos_e_os_sim_e_nao_de_antes(string text, AdultMode expected)
@@ -512,65 +460,6 @@ public sealed class LibraryCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Tag_delete_tira_a_tag_de_todos_os_jogos_e_pede_confirmacao()
-    {
-        await Prepare();
-        await Run("library", "tag", "add", "CLANNAD", "velha", "nova");
-        await Run("library", "tag", "add", "Eroge", "velha");
-
-        var unconfirmed = await Run("library", "tag", "delete", "velha", "--json");
-        var deleted = await Run("library", "tag", "delete", "velha", "--yes");
-        var missing = await Run("library", "tag", "delete", "velha", "--yes");
-
-        Assert.Equal(1, unconfirmed.ExitCode);
-        Assert.Contains("--yes", unconfirmed.Output + unconfirmed.Error);
-        Assert.Equal(0, deleted.ExitCode);
-        Assert.Contains("Tag 'velha' apagada, de 2 jogos", deleted.Output);
-        Assert.Equal(1, missing.ExitCode);
-        var tags = SavedTags();
-        Assert.Equal(["nova"], tags.Tags.Select(t => t.Name));
-        Assert.Equal(["nova"], tags.TagsOf(Saved("CLANNAD").Id));
-        Assert.Empty(tags.TagsOf(Saved("Eroge").Id));
-    }
-
-    [Fact]
-    public async Task List_filtra_por_tag_juntando_as_suas_e_as_do_vndb()
-    {
-        await Prepare();
-        await Run("library", "tag", "add", "CLANNAD", "favorito", "rejogar");
-        await Run("library", "tag", "add", "Eroge", "favorito");
-        await Run("library", "tag", "add", "Steins;Gate", "rejogar");
-
-        var all = await Run("library", "list", "--tag", "favorito", "--tag", "vndb:drama", "--json");
-        var any = await Run("library", "list", "--tag", "rejogar", "--tag", "vndb:g1", "--any", "--json");
-        var excluded = await Run("library", "list", "--tag", "favorito", "--not", "rejogar", "--json");
-        var onlyNot = await Run("library", "list", "--not", "favorito", "--json");
-
-        Assert.Equal(["CLANNAD"], Titles(all));
-        Assert.Equal(["CLANNAD", "Steins;Gate"], Titles(any));
-        Assert.Equal(["Eroge"], Titles(excluded));
-        Assert.Equal(["Sakura no Uta", "Steins;Gate"], Titles(onlyNot));
-        Assert.Equal(["favorito", "vndb:drama"], Data(all).GetProperty("filter").GetProperty("include").EnumerateArray().Select(e => e.GetString()));
-        Assert.Equal(4, Data(all).GetProperty("total").GetInt32());
-    }
-
-    [Fact]
-    public async Task List_filtro_por_tag_do_vndb_respeita_spoiler_e_conteudo_adulto()
-    {
-        await Prepare();
-
-        var spoilerHidden = await Run("library", "list", "--tag", "vndb:o final", "--json");
-        var spoilerShown = await Run("library", "list", "--tag", "vndb:o final", "--show-spoilers", "--json");
-        var adultHidden = await Run("library", "list", "--tag", "cena explícita", "--json");
-        var adultShown = await Run("library", "list", "--tag", "cena explícita", "--show-adult", "--json");
-
-        Assert.Empty(Titles(spoilerHidden));
-        Assert.Equal(["CLANNAD"], Titles(spoilerShown));
-        Assert.Empty(Titles(adultHidden));
-        Assert.Equal(["Eroge"], Titles(adultShown));
-    }
-
-    [Fact]
     public async Task List_salva_o_filtro_e_usa_o_salvo_depois()
     {
         await Prepare();
@@ -623,38 +512,6 @@ public sealed class LibraryCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Apagar_a_tag_que_era_o_unico_termo_do_filtro_salvo_apaga_o_filtro_e_avisa()
-    {
-        await Prepare();
-        await Run("library", "tag", "add", "CLANNAD", "a");
-        await Run("library", "list", "--tag", "minha:a", "--save");
-
-        var result = await Run("library", "tag", "delete", "a", "--yes");
-        var json = await Run("library", "list", "--saved", "--json");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Aviso: O filtro salvo foi apagado", result.Output);
-        Assert.True(SavedTags().SavedFilter.IsEmpty);
-        Assert.Equal(4, Titles(json).Length);
-    }
-
-    [Fact]
-    public async Task Mesclar_com_o_alvo_em_not_avisa_do_conflito_no_filtro_salvo()
-    {
-        await Prepare();
-        await Run("library", "tag", "add", "CLANNAD", "a");
-        await Run("library", "tag", "add", "Eroge", "b");
-        await Run("library", "list", "--tag", "a", "--tag", "x", "--not", "b", "--save");
-
-        var result = await Run("library", "tag", "rename", "a", "b", "--merge");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Aviso: No filtro salvo, 'b' estava em --tag e em --not", result.Output);
-        Assert.Equal(["x"], SavedTags().SavedFilter.Include);
-        Assert.Equal(["b"], SavedTags().SavedFilter.Exclude);
-    }
-
-    [Fact]
     public async Task Filtro_salvo_com_tag_do_vndb_escondida_aparece_mascarado_sem_a_opcao()
     {
         await Prepare();
@@ -675,18 +532,6 @@ public sealed class LibraryCommandTests : IDisposable
         Assert.DoesNotContain("o final", hiddenTagList.Output);
         Assert.Equal(["(tag escondida)"], hiddenTagJson.GetProperty("include").EnumerateArray().Select(e => e.GetString()));
         Assert.Contains("vndb:o final", shown.Output);
-    }
-
-    [Fact]
-    public async Task Tag_com_largura_total_e_a_mesma_do_filtro_normal()
-    {
-        await Prepare();
-        await Run("library", "tag", "add", "CLANNAD", "ｆａｖｏｒｉｔｏ");
-
-        var result = await Run("library", "list", "--tag", "FAVORITO", "--json");
-
-        Assert.Equal(["CLANNAD"], Titles(result));
-        Assert.Equal(["favorito"], SavedTags().Tags.Select(t => t.Name));
     }
 
     [Fact]

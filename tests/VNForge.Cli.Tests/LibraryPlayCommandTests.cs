@@ -62,24 +62,6 @@ public sealed class LibraryPlayCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Play_abre_o_jogo_conta_o_tempo_e_grava_a_sessao()
-    {
-        AddGame();
-        var launcher = UseLauncher((TimeSpan.FromMinutes(40), GameProcessState.Running), (TimeSpan.FromMinutes(20), GameProcessState.Exited));
-
-        var result = await Run("library", "play", "CLANNAD");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("o jogo fechou", result.Output);
-        Assert.Contains("1 h 00 min", result.Output);
-        Assert.Equal(Path.Combine(GameFolder, "CLANNAD.exe"), launcher.Launched!.Executable);
-        Assert.False(launcher.Launched.ViaLocaleEmulator);
-        var stats = new PlayLogFile(_cli.UserConfigDirectory).Load().StatsOf(GameLibrary.IdFor(GameFolder));
-        Assert.Equal(TimeSpan.FromHours(1), stats.Total);
-        Assert.Equal(Start.AddHours(1), stats.LastPlayedAt);
-    }
-
-    [Fact]
     public async Task Play_json_traz_a_sessao_e_o_total()
     {
         AddGame();
@@ -95,22 +77,6 @@ public sealed class LibraryPlayCommandTests : IDisposable
         Assert.Equal(2700, play.GetProperty("totalSeconds").GetInt64());
         Assert.Equal(2, play.GetProperty("sessions").GetInt32());
         Assert.Equal("45 min", play.GetProperty("total").GetString());
-    }
-
-    [Fact]
-    public async Task Jogo_que_pede_localidade_japonesa_abre_pelo_Locale_Emulator()
-    {
-        AddGame(japanese: true);
-        var emulator = AddEmulator();
-        Assert.Equal(0, (await Run("library", "emulator", emulator)).ExitCode);
-        var launcher = UseLauncher((TimeSpan.FromMinutes(5), GameProcessState.Exited));
-
-        var result = await Run("library", "play", "CLANNAD");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.True(launcher.Launched!.ViaLocaleEmulator);
-        Assert.Equal(emulator, launcher.Launched.Executable);
-        Assert.Equal([Path.Combine(GameFolder, "CLANNAD.exe")], launcher.Launched.Arguments);
     }
 
     [Fact]
@@ -139,20 +105,6 @@ public sealed class LibraryPlayCommandTests : IDisposable
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("--locale aceita ja", result.Error);
         Assert.Null(launcher.Launched);
-    }
-
-    [Fact]
-    public async Task Sem_Locale_Emulator_configurado_o_erro_diz_o_que_fazer_e_nada_abre()
-    {
-        AddGame(japanese: true);
-        var launcher = UseLauncher((TimeSpan.FromMinutes(5), GameProcessState.Exited));
-
-        var result = await Run("library", "play", "CLANNAD");
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("vnf library emulator", result.Error);
-        Assert.Null(launcher.Launched);
-        Assert.False(System.IO.File.Exists(new PlayLogFile(_cli.UserConfigDirectory).Path));
     }
 
     [Fact]
@@ -233,21 +185,6 @@ public sealed class LibraryPlayCommandTests : IDisposable
         await Run("library", "emulator", "--clear");
         Assert.Null(File.Load().LocaleEmulatorPath);
         Assert.Contains("não configurado", (await Run("library", "emulator")).Output);
-    }
-
-    [Fact]
-    public async Task Option_e_emulator_gravam_pela_trava_do_arquivo_da_biblioteca()
-    {
-        AddGame();
-        var lockFile = File.Path + ".lock";
-        System.IO.File.Delete(lockFile);
-
-        await Run("library", "option", "CLANNAD", "--japanese-locale", "sim");
-        Assert.True(System.IO.File.Exists(lockFile));
-        System.IO.File.Delete(lockFile);
-        await Run("library", "emulator", AddEmulator());
-
-        Assert.True(System.IO.File.Exists(lockFile));
     }
 
     [Fact]

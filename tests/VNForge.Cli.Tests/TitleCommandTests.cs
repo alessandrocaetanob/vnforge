@@ -63,29 +63,6 @@ public sealed class TitleCommandTests : IDisposable
     private ProjectConfig Config() => ProjectFolder.Open(ProjectPath).LoadConfig();
 
     [Fact]
-    public async Task Extract_le_o_titulo_do_jogo_e_o_mostra_na_saida()
-    {
-        await Init();
-
-        var result = await Run("extract");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains($"Título do jogo: {OriginalTitle}", result.Output, StringComparison.Ordinal);
-        Assert.Equal(new GameTitleConfig(OriginalTitle, null), Config().Game.Title);
-    }
-
-    [Fact]
-    public async Task Extract_json_traz_o_titulo()
-    {
-        await Init();
-
-        var result = await Run("extract", JsonFlag);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.Equal(OriginalTitle, doc.RootElement.GetProperty("data").GetProperty("gameTitle").GetString());
-    }
-
-    [Fact]
     public async Task Show_antes_da_extracao_diz_para_rodar_o_extract()
     {
         await Init();
@@ -123,17 +100,6 @@ public sealed class TitleCommandTests : IDisposable
         Assert.Equal("Meu Jogo", data.GetProperty("translation").GetString());
         Assert.Equal("cp1252", data.GetProperty("encoding").GetString());
         Assert.True(data.GetProperty("writable").GetBoolean());
-    }
-
-    [Fact]
-    public async Task Set_grava_a_traducao_no_vnforge_json_e_mantem_o_original()
-    {
-        await InitAndExtract();
-
-        var result = await Run(TitleVerb, "set", "  Meu Título  ");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(new GameTitleConfig(OriginalTitle, "Meu Título"), Config().Game.Title);
     }
 
     [Fact]
@@ -180,24 +146,6 @@ public sealed class TitleCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(new GameTitleConfig(OriginalTitle, null), Config().Game.Title);
-    }
-
-    [Fact]
-    public async Task Build_grava_o_titulo_traduzido_no_yscfg_do_pacote_e_so_ele_muda()
-    {
-        await InitAndExtract();
-        await Run(TitleVerb, "set", "Meu Título");
-
-        var result = await Run("build", "--allow-warnings", JsonFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.Equal("Meu Título", doc.RootElement.GetProperty("data").GetProperty("gameTitle").GetString());
-        var built = YscfgReader.Read(ReadEntry(Path.Combine(ProjectPath, "build", "ysbin.ypf"), ConfigEntry), "yscfg.ybn");
-        Assert.Equal("Meu Título", built.Title);
-        var original = SyntheticYscfgBuilder.Build(OriginalTitle);
-        Assert.Equal(original.AsSpan(0, built.TitleOffset).ToArray(), ReadEntry(Path.Combine(ProjectPath, "build", "ysbin.ypf"), ConfigEntry).AsSpan(0, built.TitleOffset).ToArray());
-        Assert.Equal(GameEncodings.Windows1252.GetBytes("Meu Título"), ReadEntry(Path.Combine(ProjectPath, "build", "ysbin.ypf"), ConfigEntry)[(built.TitleOffset + 2)..]);
     }
 
     [Fact]

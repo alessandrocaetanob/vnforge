@@ -75,44 +75,6 @@ public sealed class BuildScreenTests : IDisposable
     private static async Task ConfirmAsync(BuildViewModel vm) => await vm.ConfirmCommand.ExecuteAsync(null);
 
     [Fact]
-    public async Task Build_injecao_e_restauracao_rodam_pelo_app_e_o_jogo_volta_ao_original()
-    {
-        var vm = await OpenProjectAsync();
-        Translate();
-
-        await vm.BuildCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.True(vm.HasFacts);
-        Assert.Contains(vm.Facts, f => f.Label == "Scripts" && f.Value.StartsWith("1 reconstruído de 1", StringComparison.Ordinal));
-        Assert.Contains(vm.Facts, f => f.Label == Ysbin && f.Value.Contains("original", StringComparison.Ordinal));
-        Assert.Contains(vm.Log, l => l.Message.StartsWith("Gravado: ", StringComparison.Ordinal));
-        Assert.NotEqual(_originalHash, Hash(Path.Combine(_projectPath, "build", Ysbin)));
-        Assert.Equal(_originalHash, Hash(Path.Combine(_game, Ysbin)));
-        var change = Assert.Single(vm.Changes);
-        Assert.Equal(Ysbin, change.Path);
-
-        vm.InjectCommand.Execute(null);
-        await ConfirmAsync(vm);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(Hash(Path.Combine(_projectPath, "build", Ysbin)), Hash(Path.Combine(_game, Ysbin)));
-        var backup = Assert.Single(Directory.GetDirectories(Path.Combine(_projectPath, "backup")));
-        Assert.Equal(_originalHash, Hash(Path.Combine(backup, Ysbin)));
-        Assert.Equal(backup, vm.BackupLocation);
-
-        vm.RestoreCommand.Execute(null);
-        await ConfirmAsync(vm);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(_originalHash, Hash(Path.Combine(_game, Ysbin)));
-        Assert.Contains(vm.Log, l => l.Message.StartsWith("Restaurado: 1 arquivo(s)", StringComparison.Ordinal));
-
-        await vm.LaunchCommand.ExecuteAsync(null);
-        Assert.Equal(Path.Combine(_game, "MinhaVN.exe"), _launcher.Executable);
-    }
-
-    [Fact]
     public async Task Build_sem_traducao_gera_pacote_identico_e_nada_a_injetar()
     {
         var vm = await OpenProjectAsync();

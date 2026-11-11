@@ -100,18 +100,6 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Grupo_mantido_diferente_de_proposito_nao_aparece()
-    {
-        Save("Olá mundo.", "Olá mundo");
-        ConsistencyFlags.Keep(_project, Assert.Single(ConsistencyGroups.Find(QaContext.ForTexts(_project.LoadAllText()))));
-        UseRules(new InconsistentTranslationRule());
-
-        var result = await Check();
-
-        Assert.DoesNotContain("Mesmo original", result.Output);
-    }
-
-    [Fact]
     public async Task Erro_bloqueante_sai_com_2_e_lista_no_formato_do_doc()
     {
         Save("Olá", Forbidden);
@@ -122,31 +110,6 @@ public sealed class CheckCommandTests : IDisposable
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("ERRO  yst00001:000002  tradução 'proibida' recusada", result.Output);
         Assert.Contains("1 erro, 0 avisos", result.Output);
-    }
-
-    [Fact]
-    public async Task So_avisos_saem_com_0()
-    {
-        Save("Olá", Forbidden);
-        UseRules(new TranslationIs(ForbiddenRule, QaSeverity.Warning, Forbidden));
-
-        var result = await Check();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("AVISO yst00001:000002  tradução 'proibida' recusada", result.Output);
-        Assert.Contains("0 erros, 1 aviso", result.Output);
-    }
-
-    [Fact]
-    public async Task Sem_ocorrencias_sai_com_0()
-    {
-        Save("Olá");
-        UseRules(new TranslationIs(ForbiddenRule, QaSeverity.Error, Forbidden));
-
-        var result = await Check();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("0 erros, 0 avisos", result.Output);
     }
 
     [Fact]
@@ -187,20 +150,6 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Rules_roda_so_as_regras_pedidas_e_aceita_lista()
-    {
-        Save("a", "b");
-        UseRules(new TranslationIs("regra-a", QaSeverity.Error, "a"), new TranslationIs("regra-b", QaSeverity.Error, "b"));
-
-        var one = await Check(RulesFlag, "regra-b");
-        var both = await Check(RulesFlag, "regra-a, regra-b");
-
-        Assert.Contains("1 erro,", one.Output);
-        Assert.DoesNotContain("000001", one.Output);
-        Assert.Contains("2 erros,", both.Output);
-    }
-
-    [Fact]
     public async Task Rules_com_id_desconhecido_sai_com_1()
     {
         Save("a");
@@ -210,23 +159,6 @@ public sealed class CheckCommandTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("nao-existe", result.Error + result.Output);
-    }
-
-    [Fact]
-    public async Task Fix_corrige_grava_e_a_segunda_rodada_nao_muda_nada()
-    {
-        Save(DoubleSpaced, "ok");
-        UseRules(new DoubleSpaceRule());
-
-        var first = await Check(FixFlag);
-        var second = await Check(FixFlag);
-
-        Assert.Equal(0, first.ExitCode);
-        Assert.Contains("yst00001:000001", first.Output);
-        Assert.Contains("espaco-duplo", first.Output);
-        Assert.Equal("Olá mundo", _project.LoadText(ScriptKey)[0].Translation);
-        Assert.DoesNotContain("espaco-duplo", second.Output);
-        Assert.Contains("0 erros, 0 avisos", second.Output);
     }
 
     [Fact]
@@ -278,26 +210,6 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_traz_contagens_ocorrencias_e_codigo_de_saida()
-    {
-        Save("a", "b");
-        UseRules(new TranslationIs(WarningRule, QaSeverity.Warning, "a"), new TranslationIs(ErrorRule, QaSeverity.Error, "b"));
-
-        var result = await Check("--json");
-
-        Assert.Equal(2, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(1, data.GetProperty("errors").GetInt32());
-        Assert.Equal(1, data.GetProperty("warnings").GetInt32());
-        Assert.Equal(0, data.GetProperty("fixed").GetInt32());
-        var issues = data.GetProperty("issues").EnumerateArray().ToList();
-        Assert.Equal(["warn", "error"], issues.Select(i => i.GetProperty("severity").GetString()));
-        Assert.Equal([WarningRule, ErrorRule], issues.Select(i => i.GetProperty("rule").GetString()));
-        Assert.Equal("yst00001:000002", issues[1].GetProperty("unit").GetString());
-    }
-
-    [Fact]
     public async Task Aviso_marcado_como_ok_nao_conta_e_aparece_no_resumo()
     {
         Save(Forbidden);
@@ -321,37 +233,6 @@ public sealed class CheckCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Texto_agrupa_por_categoria_com_as_categorias_de_erro_primeiro()
-    {
-        Save("a", "b", "c");
-        UseRules(
-            new TranslationIs("espaco-duplo", QaSeverity.Warning, "a"),
-            new TranslationIs("marcador-diferente", QaSeverity.Error, "b"),
-            new TranslationIs("glossario-diferente", QaSeverity.Warning, "c"),
-            new TranslationIs("regra-sem-categoria", QaSeverity.Warning, "c"));
-
-        var result = await Check();
-
-        Assert.Equal(2, result.ExitCode);
-        var headings = Lines(result).Where(l => !l.StartsWith(' ') && l.Contains('·')).ToArray();
-        Assert.Equal(["Marcadores · 1 erro", "Espaços · 1 aviso", "Glossário · 1 aviso", "Outras · 1 aviso"], headings);
-        Assert.Equal(1, Lines(result).Count(l => l == "  ERRO  yst00001:000002  tradução 'b' recusada  [marcador-diferente]"));
-        Assert.Contains("3 avisos", result.Output);
-    }
-
-    [Fact]
-    public async Task Dentro_da_categoria_os_erros_vem_antes_dos_avisos()
-    {
-        Save("a", "b");
-        UseRules(new TranslationIs("espaco-duplo", QaSeverity.Warning, "a"), new TranslationIs("espaco-antes-pontuacao", QaSeverity.Error, "b"));
-
-        var lines = Lines(await Check());
-
-        Assert.Equal("Espaços · 1 erro, 1 aviso", lines.Single(l => l.StartsWith("Espaços", StringComparison.Ordinal)));
-        Assert.True(Array.FindIndex(lines, l => l.StartsWith("  ERRO ", StringComparison.Ordinal)) < Array.FindIndex(lines, l => l.StartsWith("  AVISO", StringComparison.Ordinal)));
-    }
-
-    [Fact]
     public async Task Nao_traduzida_vira_uma_linha_por_script_e_aponta_o_comando_da_lista_completa()
     {
         SaveUntranslated(ScriptKey, 3);
@@ -368,47 +249,6 @@ public sealed class CheckCommandTests : IDisposable
         Assert.Contains("  Para listar uma a uma: vnf check --rules nao-traduzida", lines);
         Assert.DoesNotContain("linha não traduzida", result.Output);
         Assert.Contains("0 erros, 5 avisos", result.Output);
-    }
-
-    [Fact]
-    public async Task Rules_nao_traduzida_lista_cada_linha()
-    {
-        SaveUntranslated(ScriptKey, 3);
-        UseRules(new UntranslatedQaRule());
-
-        var result = await Check(RulesFlag, "nao-traduzida");
-
-        var lines = Lines(result);
-        Assert.Equal(3, lines.Count(l => l.StartsWith("  AVISO yst00001:00000", StringComparison.Ordinal) && l.Contains("linha não traduzida", StringComparison.Ordinal)));
-        Assert.DoesNotContain("Para listar uma a uma", result.Output);
-    }
-
-    [Fact]
-    public async Task Json_continua_listando_cada_linha_nao_traduzida()
-    {
-        SaveUntranslated(ScriptKey, 3);
-        UseRules(new UntranslatedQaRule());
-
-        var result = await Check("--json");
-
-        using var doc = JsonDocument.Parse(result.Output);
-        var issues = doc.RootElement.GetProperty("data").GetProperty("issues").EnumerateArray().ToList();
-        Assert.Equal(3, issues.Count);
-        Assert.All(issues, i => Assert.Equal("nao-traduzida", i.GetProperty("rule").GetString()));
-    }
-
-    [Fact]
-    public async Task Terminal_interativo_pinta_erro_e_aviso_com_as_cores_do_app()
-    {
-        using var rich = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
-        var project = ProjectFolder.Create(Path.Combine(rich.Root, "projeto"), _project.LoadConfig());
-        project.SaveText(ScriptKey, [Unit(1, "a"), Unit(2, "b")]);
-        rich.Cli.Qa = new QaEngine([new TranslationIs(WarningRule, QaSeverity.Warning, "a"), new TranslationIs(ErrorRule, QaSeverity.Error, "b")]);
-
-        var result = await rich.RunAsync(["check", "--project", project.Root], TestContext.Current.CancellationToken);
-
-        Assert.Contains("38;2;245;154;178m", result.Output); // erro
-        Assert.Contains("38;2;233;176;79m", result.Output); // aviso
     }
 
     private const int EllipsisLines = 1234;

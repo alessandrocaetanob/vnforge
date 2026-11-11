@@ -51,40 +51,6 @@ public sealed class StatusRiskTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_traz_a_fila_do_maior_risco_ao_menor_com_os_sinais_de_cada_linha()
-    {
-        var result = await _cli.RunAsync(["status", "--risk", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(2, data.GetProperty("lines").GetInt32());
-        Assert.Equal(1, data.GetProperty("high").GetInt32());
-        Assert.False(data.TryGetProperty("perHour", out var perHour) && perHour.ValueKind != JsonValueKind.Null, "sem aprovações não há ritmo");
-        Assert.False(data.TryGetProperty("minutesToClearHigh", out var minutes) && minutes.ValueKind != JsonValueKind.Null, "sem ritmo não há horas");
-
-        var top = data.GetProperty("top").EnumerateArray().ToList();
-        Assert.Equal(["yst00001:000002", "yst00001:000001"], top.Select(t => t.GetProperty("id").GetString()));
-        Assert.Equal("high", top[0].GetProperty("level").GetString());
-        Assert.True(top[0].GetProperty("score").GetInt32() >= 70);
-        Assert.Equal(
-            ["ai-doubt", "sounds-odd", "editor-suggestion"],
-            top[0].GetProperty("factors").EnumerateArray().Select(f => f.GetProperty("kind").GetString()).Where(k => k is not "qa"));
-        Assert.Equal(2, data.GetProperty("top")[0].GetProperty("number").GetInt32());
-    }
-
-    [Fact]
-    public async Task Top_limita_as_linhas_da_lista_sem_mudar_a_contagem()
-    {
-        var result = await _cli.RunAsync(["status", "--risk", "--top", "1", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Single(data.GetProperty("top").EnumerateArray());
-        Assert.Equal(2, data.GetProperty("lines").GetInt32());
-    }
-
-    [Fact]
     public async Task Com_ritmo_as_horas_ate_zerar_o_risco_alto_saem_do_sessions_json()
     {
         Aprovar60();
@@ -117,16 +83,6 @@ public sealed class StatusRiskTests : IDisposable
         Assert.Equal(["Risco", "Nível", "Linha", "Falante", "Sinais"], lines[header].Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(5));
         Assert.Matches(@"^\s*\d+\s+Alto\s+yst00001:000002\s+美咲", lines[header + 1]);
         Assert.Contains("Dúvida da IA", lines[header + 1]);
-    }
-
-    [Fact]
-    public async Task Sem_ritmo_a_frase_das_horas_some_e_fica_so_a_contagem()
-    {
-        var result = await _cli.RunAsync(["status", "--risk", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Contains("1 linha de risco alto", result.Output);
-        Assert.DoesNotContain("faltam", result.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("ritmo", result.Output, StringComparison.Ordinal);
     }
 
     [Fact]

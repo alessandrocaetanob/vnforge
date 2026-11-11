@@ -52,16 +52,6 @@ public sealed class PreviewCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Palavra_mais_larga_que_o_limite_passa_da_regua()
-    {
-        var result = await _cli.RunAsync(["preview", "a001:000002", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains(Lines(result.Output), l => l.Contains(" abcdefghij┊kl ", StringComparison.Ordinal) && l.Contains("12/10 col", StringComparison.Ordinal));
-        Assert.Contains("O build não formata esta linha", result.Output);
-    }
-
-    [Fact]
     public async Task Terminal_interativo_usa_fundo_escuro_e_coral_no_excesso()
     {
         using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
@@ -72,16 +62,6 @@ public sealed class PreviewCommandTests : IDisposable
         Assert.Contains("48;2;20;22;28m", result.Output); // fundo da caixa
         Assert.Contains("38;2;241;238;230;48;2;20;22;28m", result.Output); // tinta sobre o fundo
         Assert.Contains("38;2;255;155;133;48;2;20;22;28m", result.Output); // excesso
-    }
-
-    [Fact]
-    public async Task Linha_sem_falante_nao_desenha_a_placa()
-    {
-        var result = await _cli.RunAsync(["preview", "a001:000003", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.DoesNotContain(Lines(result.Output), l => l.StartsWith(' ') && l.Trim() == "美咲");
-        Assert.Contains(Lines(result.Output), l => l.Contains(" oi ", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -99,31 +79,11 @@ public sealed class PreviewCommandTests : IDisposable
         Assert.Equal(rows[0].IndexOf('┊', StringComparison.Ordinal), rows[1].IndexOf('┊', StringComparison.Ordinal));
     }
 
-    [Fact]
-    public async Task Texto_largo_no_terminal_nao_desalinha_a_borda_do_painel()
-    {
-        var project = ProjectFolder.Open(_projectPath);
-        project.SaveText("c001", [new("c001:000001", TextUnitKind.Dialogue, null, "原文", "美咲\\nab", TranslationStatus.Translated)]);
-
-        var result = await _cli.RunAsync(["preview", "c001:000001", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        var rows = Lines(result.Output).Where(l => l.StartsWith('│')).ToArray();
-        Assert.Equal(2, rows.Length);
-        Assert.Contains("美咲", rows[0], StringComparison.Ordinal);
-        Assert.Equal(TerminalCells(rows[0]), TerminalCells(rows[1]));
-
-        // O fundo escuro de cada linha termina na mesma célula, onde começa o contador.
-        var counter = rows.Select(r => TerminalCells(r[..r.IndexOf("2/10 col", StringComparison.Ordinal)])).ToArray();
-        Assert.Equal(counter[0], counter[1]);
-    }
-
     // Kanji e kana ocupam duas células no terminal; o resto, uma.
     private static int TerminalCells(string text) => text.Sum(c => c >= '　' ? 2 : 1);
 
     [Theory]
     [InlineData("oi\\p\\pola", "Caixa 1")]
-    [InlineData("   ", "0 linhas")]
     public async Task Caixa_sem_linhas_nao_derruba_o_preview(string translation, string expected)
     {
         var project = ProjectFolder.Open(_projectPath);

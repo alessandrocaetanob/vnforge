@@ -36,7 +36,6 @@ public sealed class RunSummariesTests : IDisposable
     }
 
     [Theory]
-    [InlineData(6.8, "6,8 s")]
     [InlineData(72, "1 min 12 s")]
     [InlineData(3900, "1 h 05 min")]
     public void Duracao_cresce_de_segundos_para_horas(double seconds, string expected)

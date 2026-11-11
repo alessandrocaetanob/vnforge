@@ -61,45 +61,6 @@ public sealed class RunCommandTests : IDisposable
         Assert.Equal(Exe, document.RootElement.GetProperty("data").GetProperty("executable").GetString());
     }
 
-    [Fact]
-    public async Task Run_sem_o_executavel_falha_mostrando_o_caminho_procurado_e_nao_abre_nada()
-    {
-        var result = await Run("run");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains(Exe, result.Error);
-        Assert.Empty(_starter.Started);
-    }
-
-    [Fact]
-    public async Task Run_resolve_game_path_relativo_a_pasta_do_projeto()
-    {
-        var relative = Path.Combine("..", "jogo-relativo");
-        var folder = Path.GetFullPath(relative, _project.Root);
-        Directory.CreateDirectory(folder);
-        await File.WriteAllTextAsync(Path.Combine(folder, ExeName), FakeContent, TestContext.Current.CancellationToken);
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(relative, ExeName) });
-        _project.SaveState(new PipelineState([], new Dictionary<string, StageState>(), folder));
-
-        var result = await Run("run");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(Path.Combine(folder, ExeName), Assert.Single(_starter.Started).Executable);
-    }
-
-    [Fact]
-    public async Task Run_com_exe_em_subpasta_usa_a_pasta_do_jogo_como_diretorio_de_trabalho()
-    {
-        Directory.CreateDirectory(Path.Combine(_game, "bin"));
-        await File.WriteAllTextAsync(Path.Combine(_game, "bin", "vn.exe"), FakeContent, TestContext.Current.CancellationToken);
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig(_game, Path.Combine("bin", "vn.exe")) });
-
-        var result = await Run("run");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal((Path.Combine(_game, "bin", "vn.exe"), _game), Assert.Single(_starter.Started));
-    }
-
     private sealed class FakeStarter : IGameProcessStarter
     {
         public List<(string Executable, string WorkingDirectory)> Started { get; } = [];

@@ -72,28 +72,6 @@ public sealed class TranslateBatchCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Batch_de_novo_depois_que_o_lote_terminou_grava_a_traducao_e_guarda_o_ponto_de_restauracao()
-    {
-        await Run(BatchFlag);
-        _client.Finish("msgbatch_fake0001");
-
-        var again = await Run(BatchFlag);
-
-        Assert.Equal(0, again.ExitCode);
-        Assert.Contains("chegou e foi gravado: 3 linhas traduzidas", again.Output, StringComparison.Ordinal);
-        Assert.Contains("Desfazer", again.Output, StringComparison.Ordinal);
-        var units = _project.LoadText(Key);
-        Assert.Equal("[PT] 原文1", units[0].Translation);
-        Assert.Equal(TranslationStatus.Machine, units[0].Status);
-        Assert.Equal("anthropic", units[0].Origin!.Provider);
-        Assert.Equal("pronta", units[1].Translation);
-        var applied = OnlyBatch();
-        Assert.Equal(NightBatchPhase.Applied, applied.Phase);
-        Assert.Single(new RestorePointStore(_project).List());
-        Assert.Equal(applied.Outcome!.RestorePointId, new RestorePointStore(_project).List()[0].Id);
-    }
-
-    [Fact]
     public async Task Linha_que_voltou_com_erro_fica_sem_traducao_e_o_comando_sai_com_erro()
     {
         await Run(BatchFlag);

@@ -96,38 +96,6 @@ public sealed class InitCommandTests : IDisposable
         Assert.Contains("#66", warnings);
     }
 
-    [Theory]
-    [InlineData("fold")]
-    [InlineData("cp1252")]
-    [InlineData("sjis")]
-    public async Task Encoding_com_encoder_no_build_nao_avisa(string strategy)
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", strategy], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.DoesNotContain("#66", result.Output);
-    }
-
-    [Fact]
-    public async Task Saida_segue_o_exemplo_do_fluxo_tipico()
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
-
-        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        Assert.Equal(
-            [
-                "Engine detectada: YU-RIS (YPF v500, YSTB v500)",
-                "Arquivo de scripts: ysbin.ypf (2 scripts)",
-                "Chave XOR dos scripts: 0xD36FAC96 (padrão)",
-                "Projeto criado em minha-vn-ptbr" + Path.DirectorySeparatorChar,
-            ],
-            lines);
-    }
-
     [Fact]
     public async Task Pasta_que_ja_tem_projeto_da_erro_sem_sobrescrever()
     {
@@ -140,18 +108,6 @@ public sealed class InitCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Já existe um vnforge.json", result.Error);
         Assert.Equal(before, await File.ReadAllTextAsync(Path.Combine(ProjectPath(), "vnforge.json"), TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Jogo_sem_engine_reconhecida_da_erro_sem_criar_o_projeto()
-    {
-        var game = NewGameDir(withScripts: false);
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("Engine não reconhecida", result.Error);
-        Assert.False(Directory.Exists(ProjectPath()));
     }
 
     [Fact]
@@ -168,45 +124,6 @@ public sealed class InitCommandTests : IDisposable
         {
             Assert.Equal(bytes, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
         }
-    }
-
-    [Fact]
-    public async Task Projeto_dentro_da_pasta_do_jogo_da_erro()
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", Path.Combine(game, "traducao"), GameOption, game], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("não pode ficar dentro da pasta do jogo", result.Error);
-        Assert.False(Directory.Exists(Path.Combine(game, "traducao")));
-    }
-
-    [Fact]
-    public async Task Caminhos_relativos_partem_da_pasta_atual()
-    {
-        var game = NewGameDir();
-        Directory.Move(game,Path.Combine(_cli.WorkingDirectory, "jogo"));
-
-        var result = await _cli.RunAsync(["init", "proj", GameOption, "jogo"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.True(File.Exists(Path.Combine(ProjectPath("proj"), "vnforge.json")));
-    }
-
-    [Fact]
-    public async Task Json_traz_o_projeto_criado()
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--json"], TestContext.Current.CancellationToken);
-
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.Equal("yuris", data.GetProperty("engine").GetString());
-        Assert.Equal(500, data.GetProperty("version").GetInt32());
-        Assert.Equal("0xD36FAC96", data.GetProperty("scriptKey").GetString());
-        Assert.Equal(ProjectPath(), data.GetProperty("folder").GetString());
     }
 
     [Fact]

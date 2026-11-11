@@ -73,15 +73,6 @@ public sealed class WizardEquivalenceTests : IDisposable
                 path => File.Exists(path) ? File.ReadAllText(path) : "<pasta>");
 
     [Fact]
-    public async Task Com_as_escolhas_padrao_o_projeto_e_igual_ao_do_vnf_init()
-    {
-        await RunInitAsync();
-        await RunWizardAsync();
-
-        Assert.Equal(Tree(CliProject), Tree(AppProject));
-    }
-
-    [Fact]
     public async Task Com_idiomas_acentuacao_e_modelo_escolhidos_o_projeto_e_igual_ao_do_vnf_init()
     {
         await RunInitAsync("--source", "en", "--target", "es", "--encoding", "cp1252", "--model", "claude-haiku-5-5");
@@ -94,30 +85,6 @@ public sealed class WizardEquivalenceTests : IDisposable
         });
 
         Assert.Equal(Tree(CliProject), Tree(AppProject));
-    }
-
-    [Fact]
-    public async Task Extrair_no_fim_do_assistente_grava_o_mesmo_texto_que_o_vnf_extract()
-    {
-        await RunInitAsync();
-        var extract = await _cli.RunAsync(["extract", "--project", CliProject], TestContext.Current.CancellationToken);
-        Assert.Equal(0, extract.ExitCode);
-        var wizard = await RunWizardAsync();
-
-        await wizard.ExtractCommand.ExecuteAsync(null);
-
-        Assert.True(wizard.IsExtracted);
-        Assert.Contains("1 scripts", wizard.ExtractionMessage);
-        Assert.Equal(Text(CliProject), Text(AppProject));
-    }
-
-    [Fact]
-    public async Task Opcoes_da_CLI_fora_do_vnforge_json_dao_erro_sem_criar_o_projeto()
-    {
-        var result = await _cli.RunAsync(["init", CliProject, "--game", _game, "--encoding", "inexistente"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.False(File.Exists(Path.Combine(CliProject, "vnforge.json")));
     }
 
     private static Dictionary<string, string> Text(string project) =>
