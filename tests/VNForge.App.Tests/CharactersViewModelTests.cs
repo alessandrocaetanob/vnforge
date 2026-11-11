@@ -274,11 +274,17 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.False(vm.Page!.Portrait.Revealed);
         Assert.True(vm.Page.Portrait.IsBlurred);
         Assert.True(vm.Page.Games.Single(g => g.Title == "Star Garden").Revealed);
+        Assert.Contains(vm.Page.Tags, c => c.IsHidden);
+        Assert.DoesNotContain(vm.TraitFacets, f => f.Label == "Nude");
 
         vm.RevealPortraitCommand.Execute(vm.Page.Portrait.RevealKey);
 
         Assert.True(reveals.IsRevealed(CharactersSamples.Moon));
         Assert.True(vm.Page!.Portrait.Revealed);
         Assert.False(vm.Page.Portrait.IsBlurred);
+        Assert.DoesNotContain(vm.Page.Tags, c => c.IsHidden);
+        Assert.DoesNotContain(vm.Page.Groups, g => g.Chips.Any(c => c.IsHidden));
+        Assert.Contains(vm.Page.Groups, g => g.Chips.Any(c => c.Text == "Nude"));
+        Assert.Contains(vm.TraitFacets, f => f.Label == "Nude");
     }
 }

@@ -19,6 +19,8 @@ internal static class CharactersSamples
 
     internal static VndbTrait LongHair => new("i1", "Long Hair", "i10", "Hair", 0, false, Sexual: false);
 
+    internal static VndbTrait Nude => new("i3", "Nude", "i40", "Sexual Content", 0, false, Sexual: true);
+
     internal static VndbTrait Ghost => new("i2", "Ghost", "i20", "Personality", 2, false, Sexual: false);
 
     internal static VndbVisualNovel Game(string id, string title) =>
@@ -32,11 +34,11 @@ internal static class CharactersSamples
 
     internal static FakeVndbCatalog Catalog() => Catalog(manyTraits: false);
 
-    /// <summary>Com <paramref name="adultPortrait"/>, o retrato da Hana é sexual no VNDB (nota 2 de 2).</summary>
+    /// <summary>Com <paramref name="adultPortrait"/>, o retrato da Hana é sexual no VNDB (nota 2 de 2) e ela ganha o traço sexual Nude.</summary>
     internal static FakeVndbCatalog Catalog(bool manyTraits, bool adultPortrait = false) => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
         [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : []]) with { Image = adultPortrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 2, 0) : null },
+            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = adultPortrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 2, 0) : null },
             Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
             Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
             Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),

@@ -306,12 +306,12 @@ public sealed partial class CharactersViewModel : ObservableObject
     {
         var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.Adult);
         var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
-        var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy);
+        var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, isRevealed: Reveals.IsRevealed);
         LibraryCharacterList basis, shown;
         try
         {
-            basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text));
-            shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]));
+            basis = text is null ? all : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text), Reveals.IsRevealed);
+            shown = selectedTraits.Count == 0 ? basis : LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, new LibraryCharacterFilter(text, [.. selectedTraits]), Reveals.IsRevealed);
         }
         catch (LibraryException)
         {
@@ -417,7 +417,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     private CharacterPage? BuildPage(Snapshot data, LibraryPrivacy privacy, string id)
     {
-        var lookup = LibraryCharacters.Find(data.Library, data.Characters, data.Terms, data.Editions, privacy, id);
+        var lookup = LibraryCharacters.Find(data.Library, data.Characters, data.Terms, data.Editions, privacy, id, Reveals.IsRevealed);
         if (lookup.Card is not { } card)
         {
             openId = null;
@@ -446,7 +446,8 @@ public sealed partial class CharactersViewModel : ObservableObject
         var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
         var known = extras is { } read && string.Equals(read.Id, id, StringComparison.OrdinalIgnoreCase) ? read : null;
         var games = card.AppearsIn.Select(a => GameRow(data, privacy, card, a, known?.Counts.GetValueOrDefault(a.GameId), Reveals.IsRevealed(a.VisualNovelId))).ToList();
-        var hiddenTraits = raw.Traits.Where(t => SheetViewer.IsTraitHidden(t, privacy)).ToList();
+        var seen = privacy.Adult == AdultMode.Blur && Reveals.IsRevealed(card.AppearsIn[0].VisualNovelId) ? privacy with { Adult = AdultMode.Show } : privacy;
+        var hiddenTraits = raw.Traits.Where(t => SheetViewer.IsTraitHidden(t, seen)).ToList();
         return new CharacterPage(
             card.Id,
             card.Name,

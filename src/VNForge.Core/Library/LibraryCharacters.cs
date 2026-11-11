@@ -60,10 +60,13 @@ public sealed record LibraryCharacterFilter(string? Text = null, IReadOnlyList<s
 /// </remarks>
 public static class LibraryCharacters
 {
-    /// <summary>A lista de personagens da biblioteca com a privacidade aplicada, em ordem de nome e filtrada por <paramref name="filter"/>.</summary>
+    /// <summary>
+    /// A lista de personagens da biblioteca com a privacidade aplicada, em ordem de nome e filtrada por <paramref name="filter"/>. <paramref name="isRevealed"/> diz se a pessoa revelou
+    /// um jogo do VNDB nesta sessão: no <see cref="AdultMode.Blur"/>, o personagem cujo jogo mais importante foi revelado vale como <see cref="AdultMode.Show"/> (traços e retrato).
+    /// </summary>
     /// <exception cref="LibraryException">O filtro tem um texto ou um traço sem letras nem números.</exception>
     public static LibraryCharacterList List(
-        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, LibraryCharacterFilter? filter = null)
+        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, LibraryCharacterFilter? filter = null, Func<string, bool>? isRevealed = null)
     {
         ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(characters);
@@ -71,16 +74,16 @@ public static class LibraryCharacters
         ArgumentNullException.ThrowIfNull(editions);
         ArgumentNullException.ThrowIfNull(privacy);
         var query = Query.From(filter);
-        var all = Build(library, characters, terms, editions, privacy, query, out var hidden);
+        var all = Build(library, characters, terms, editions, privacy, query, isRevealed, out var hidden);
         return new LibraryCharacterList(all, hidden);
     }
 
     /// <summary>O personagem com esse id. <see cref="LibraryCharacterLookup.Card"/> é nulo se ele não está em nenhum jogo da biblioteca ou se os jogos dele estão escondidos.</summary>
     public static LibraryCharacterLookup Find(
-        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, string id)
+        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, string id, Func<string, bool>? isRevealed = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        var visible = Build(library, characters.Where(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)), terms, editions, privacy, Query.From(null), out var hidden);
+        var visible = Build(library, characters.Where(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)), terms, editions, privacy, Query.From(null), isRevealed, out var hidden);
         return new LibraryCharacterLookup(visible.FirstOrDefault(), hidden > 0);
     }
 
@@ -117,7 +120,7 @@ public static class LibraryCharacters
     }
 
     private static List<LibraryCharacterCard> Build(
-        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, Query query, out int hidden)
+        GameLibrary library, IEnumerable<CharacterSheet> characters, SheetTerms terms, GameEditions editions, LibraryPrivacy privacy, Query query, Func<string, bool>? isRevealed, out int hidden)
     {
         var max = SheetViewer.MaxSpoilerLevel(privacy);
         var byVisualNovel = library.Games.Where(g => g.VndbId is not null && !privacy.Hides(g)).ToLookup(g => g.VndbId!, StringComparer.Ordinal);
@@ -136,11 +139,11 @@ public static class LibraryCharacters
             {
                 // O cartão só serve para ver se o filtro o pegaria: o contador de escondidos é o do resultado, não o da biblioteca. Com busca de texto não se conta nada,
                 // porque "1 escondido" depois de uma busca pelo nome revelaria que o personagem existe.
-                hidden += query.Text is null && query.Matches(Card(character, appearances, 0, terms, privacy)) ? 1 : 0;
+                hidden += query.Text is null && query.Matches(Card(character, appearances, 0, terms, privacy, isRevealed)) ? 1 : 0;
                 continue;
             }
 
-            var card = Card(character, visible, appearances.Count - visible.Count, terms, privacy);
+            var card = Card(character, visible, appearances.Count - visible.Count, terms, privacy, isRevealed);
             if (query.Matches(card))
             {
                 cards.Add(card);
@@ -168,8 +171,10 @@ public static class LibraryCharacters
             .ThenBy(a => a.GameId, StringComparer.Ordinal)];
     }
 
-    private static LibraryCharacterCard Card(CharacterSheet character, List<LibraryCharacterAppearance> visible, int hiddenAppearances, SheetTerms terms, LibraryPrivacy privacy)
+    private static LibraryCharacterCard Card(
+        CharacterSheet character, List<LibraryCharacterAppearance> visible, int hiddenAppearances, SheetTerms terms, LibraryPrivacy shared, Func<string, bool>? isRevealed)
     {
+        var privacy = shared.Adult == AdultMode.Blur && isRevealed?.Invoke(visible[0].VisualNovelId) == true ? shared with { Adult = AdultMode.Show } : shared;
         var imageHidden = character.Image is { } image && VndbImageVisibility.IsHidden(image, privacy);
         var traits = character.Traits.Where(t => !SheetViewer.IsTraitHidden(t, privacy)).Select(t => SheetViewer.TraitCard(t, terms)).ToList();
         var visibleGender = character.Gender?.Visible;
