@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using VNForge.AI.Claude;
@@ -166,6 +167,9 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
         Assert.Empty(ClippedTextHeadlessTests.FindClipped(control));
     }
 
+    private static Color TextColor(Window window, string key, ThemeVariant theme) =>
+        window.TryFindResource(key, theme, out var resource) && resource is ISolidColorBrush brush ? brush.Color : throw new InvalidOperationException($"{key} não é um pincel sólido.");
+
     private static void AssertButtons(EditorSuggestionCardView card)
     {
         foreach (var name in new[] { "AcceptButton", "IgnoreButton", "OtherButton" })
@@ -204,6 +208,34 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
                 Assert.Equal(inspector.Bounds.Width, inspector.FindControl<Control>("WideStack")!.Bounds.Width);
             }
             Save(window, "editor-passada", theme, width);
+            if (!inspector.Classes.Contains("tabbed"))
+            {
+                // Quadro (#580): caixa do Original de 84 px com o japonês em 19, cartão da passada 9 px abaixo dela e "Entender o japonês" com contorno.
+                var box = inspector.FindControl<Control>("OriginalBox")!;
+                Assert.Equal(19, inspector.FindControl<TextBlock>("SourceText")!.FontSize);
+                Assert.Equal(84, box.Bounds.Height, 0.5);
+                var gap = (card.TranslatePoint(default, window) ?? default).Y - (box.TranslatePoint(new Point(0, box.Bounds.Height), window) ?? default).Y;
+                Assert.Equal(9, gap, 0.5);
+                var pair = inspector.GetVisualDescendants().OfType<SelectableTextBlock>().First(t => t.IsEffectivelyVisible && t.Text == "美咲 → Misaki");
+                Assert.Equal(TextColor(window, "Vnf.TextSecondary", theme), ((ISolidColorBrush)pair.Foreground!).Color);
+                Assert.Equal(FontWeight.Normal, pair.FontWeight);
+                var explain = Assert.Single(inspector.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.Detail!.ToggleExplainCommand);
+                Assert.DoesNotContain("subtle", explain.Classes);
+                Assert.NotEqual(0, ((ISolidColorBrush)explain.BorderBrush!).Color.A);
+                Assert.All(inspector.GetVisualDescendants().OfType<OverlineText>().Where(o => o.IsEffectivelyVisible && o.Text is "Original" or "Tradução"), o => Assert.Equal(FontWeight.Normal, o.FontWeight));
+
+                // Uma fala de uma linha só (「うん、まあね」) não encolhe a caixa: o piso é de duas linhas.
+                await vm.Editor.GoToLineAsync("yst00001", "yst00001:000003");
+                ScreenRenderer.Settle(window);
+                Assert.Single(inspector.FindControl<TextBlock>("SourceText")!.TextLayout.TextLines);
+                Assert.Equal(84, inspector.FindControl<Control>("OriginalBox")!.Bounds.Height, 0.5);
+            }
+
+            // O Roteiro e o Buscar do cabeçalho são subtle: sem contorno e em semibold.
+            var script = window.GetVisualDescendants().OfType<ToggleButton>().Single(b => b.Name == "DensityToggle" && b.IsEffectivelyVisible);
+            var search = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SearchButton" && b.IsEffectivelyVisible);
+            Assert.All(new TemplatedControl[] { script, search }, b => Assert.Equal(0, ((ISolidColorBrush)b.BorderBrush!).Color.A));
+            Assert.All(new TemplatedControl[] { script, search }, b => Assert.Equal(FontWeight.SemiBold, b.FontWeight));
         });
     }
 
@@ -265,6 +297,20 @@ public sealed class EditorPassRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.False(review.FindControl<Control>("LineChecks")!.IsEffectivelyVisible);
             Assert.DoesNotContain(review.GetVisualDescendants().OfType<RewriteBar>(), b => b.IsEffectivelyVisible);
             Save(window, "revisao-passada", theme, width);
+            // Quadro (#580): o bloco das colunas começa 14 px abaixo do topo, e os dois botões do cartão têm contorno de 1 px, como os outros secundários.
+            var topBar = review.FindControl<Control>("TopBar")!;
+            var body = review.FindControl<Control>("Body")!;
+            Assert.Equal(14, (body.TranslatePoint(default, window) ?? default).Y - (topBar.TranslatePoint(new Point(0, topBar.Bounds.Height), window) ?? default).Y, 0.5);
+            var another = Assert.Single(review.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.Editor.Review.Detail!.SuggestCommand);
+            foreach (var outlined in new[] { explain, another })
+            {
+                Assert.DoesNotContain("subtle", outlined.Classes);
+                Assert.NotEqual(0, ((ISolidColorBrush)outlined.BorderBrush!).Color.A);
+            }
+            // O quadro desenha "Outra sugestão" em texto primário e "Entender o japonês" em secundário.
+            Assert.Equal(TextColor(window, "Vnf.TextPrimary", theme), ((ISolidColorBrush)another.Foreground!).Color);
+            Assert.Equal(TextColor(window, "Vnf.TextSecondary", theme), ((ISolidColorBrush)explain.Foreground!).Color);
+            Assert.All(review.GetVisualDescendants().OfType<OverlineText>().Where(o => o.IsEffectivelyVisible && o.Text is "Original" or "Tradução"), o => Assert.Equal(FontWeight.Normal, o.FontWeight));
         });
     }
 

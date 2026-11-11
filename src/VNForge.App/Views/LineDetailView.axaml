@@ -111,22 +111,26 @@
           <!-- Original em fundo rebaixado, com os marcadores como chips. -->
           <StackPanel x:Name="OriginalFragment" Spacing="4">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-              <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
-              <Button Grid.Column="1" Classes="subtle sm" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding IsCompactInspector}"
+              <c:OverlineText Classes="overline" FontWeight="Normal" Text="Original" VerticalAlignment="Center"/>
+              <Button Grid.Column="1" Classes="sm" Foreground="{DynamicResource Vnf.TextSecondary}" HorizontalAlignment="Right" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}" IsVisible="{Binding IsCompactInspector}"
                       ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução." AutomationProperties.Name="Entender o japonês">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
                   <TextBlock Text="Entender o japonês" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
-              <SelectableTextBlock Grid.Column="2" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" Classes="secondary" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
+              <SelectableTextBlock Grid.Column="2" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="{DynamicResource Vnf.FontSize.Caption}" LineHeight="{DynamicResource Vnf.LineHeight.Caption}" FontWeight="Normal" Foreground="{DynamicResource Vnf.TextSecondary}" Text="{Binding SpeakerPair}" TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" c:SpeakerMenu.Original="{Binding Speaker}" c:SpeakerMenu.Translation="{Binding SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding ReviewSpeakerCommand}" AutomationProperties.Name="Falante"/>
             </Grid>
-            <Border x:Name="OriginalBox" Classes="original">
+            <!-- Quadro da passada (#580): caixa de 84 px com duas linhas, o japonês em 19 px (.v3-org) (InspectorSource segue o tamanho do texto dos Ajustes). -->
+            <Border x:Name="OriginalBox" Classes="original" Padding="10">
               <Panel>
+                <!-- Piso de duas linhas do mesmo corpo do original (84 px a 100%): uma fala curta não encolhe a caixa nem o espaço dos cartões abaixo, e o piso acompanha o tamanho do texto dos Ajustes. -->
+                <TextBlock x:Name="SourceFloor" Classes="jp-body" FontSize="{DynamicResource Vnf.FontSize.InspectorSource}" LineHeight="{DynamicResource Vnf.LineHeight.InspectorSource}"
+                           Text="&#10;" Opacity="0" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw"/>
                 <!-- Dicionário offline (#538): o realce da palavra sob o mouse fica atrás do texto, e a entrada abre num Popup embaixo do original, sem mexer no layout do inspetor. -->
                 <c:WordHighlight x:Name="SourceHighlight" Target="{Binding #SourceText}" Start="{Binding WordStart}" Length="{Binding WordLength}"/>
-                <TextBlock x:Name="SourceText" Classes="jp-body" LineHeight="NaN" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
+                <TextBlock x:Name="SourceText" Classes="jp-body" FontSize="{DynamicResource Vnf.FontSize.InspectorSource}" LineHeight="{DynamicResource Vnf.LineHeight.InspectorSource}" TextWrapping="Wrap" AutomationProperties.Name="Texto original"/>
                 <Popup x:Name="WordPopup" PlacementTarget="{Binding #OriginalBox}" Placement="BottomEdgeAlignedLeft" IsLightDismissEnabled="False"
                        PlacementConstraintAdjustment="SlideX, FlipY" VerticalOffset="6" IsOpen="{Binding ShowWordCard, Mode=OneWay}">
                   <!-- O cartão acompanha o conteúdo entre 360 e 372 px (os dois quadros do .pop), e nunca passa do original: por ligação, vale com o mouse e em qualquer outro caminho que abra o cartão. -->
@@ -138,7 +142,8 @@
           </StackPanel>
 
           <!-- Entender o japonês: fechado por padrão; só o clique pede a explicação e gasta. -->
-          <StackPanel x:Name="ExplainFragment" Spacing="6">
+          <!-- No inspetor compacto o botão mora na linha do Original; sem explicação aberta o bloco fica fora da pilha, para não somar dois vãos de 10 px entre o original e o cartão seguinte. -->
+          <StackPanel x:Name="ExplainFragment" Spacing="6" IsVisible="{Binding ShowExplainBlock}">
             <!-- Quadro do #546: botão sm com contorno em text-secondary e o preço ao lado, fora do botão, em 12/18. -->
             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsCompactInspector}">
               <Button Classes="sm" HorizontalAlignment="Left" Foreground="{DynamicResource Vnf.TextSecondary}" Command="{Binding ToggleExplainCommand}" IsEnabled="{Binding CanExplain}"
@@ -160,10 +165,11 @@
           </StackPanel>
 
           <!-- A sugestão da passada de editor (#532), no alto do inspetor, logo abaixo do original e acima de "Na cena" e da tradução, como no quadro: nada grava até "Aceitar". -->
-          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment"/>
+          <!-- Quadro: os dois cartões (passada e memória) ficam 9 px abaixo do que vem antes (.insp.tight; a pilha dá 10). Sem sugestão o bloco sai da pilha, senão somaria mais um vão. -->
+          <v:EditorSuggestionCardView x:Name="EditorSuggestionFragment" Margin="0,-1,0,0" IsVisible="{Binding HasEditorSuggestion}"/>
 
           <!-- Memória de tradução (#537): o que já foi aprovado em outros projetos para esta fala ou uma parecida. "Usar" põe o texto no campo; nada grava sozinho. -->
-          <Border x:Name="MemoryFragment" Classes="memory" IsVisible="{Binding ShowMemoryCard}" AutomationProperties.Name="Memória de tradução">
+          <Border x:Name="MemoryFragment" Classes="memory" Margin="0,-1,0,0" IsVisible="{Binding ShowMemoryCard}" AutomationProperties.Name="Memória de tradução">
             <StackPanel Spacing="2">
               <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -226,7 +232,7 @@
           <!-- Tradução: borda de destaque em volta do campo, medidas e estado dos marcadores. -->
           <StackPanel x:Name="TranslationFragment" Spacing="4">
             <Grid ColumnDefinitions="*,Auto">
-              <c:OverlineText Classes="overline" Text="Tradução"/>
+              <c:OverlineText Classes="overline" FontWeight="Normal" Text="Tradução"/>
               <TextBlock Grid.Column="1" Classes="meta" Text="{Binding CharsText}" IsVisible="{Binding IsCompactInspector}"/>
             </Grid>
             <Border Classes="field">

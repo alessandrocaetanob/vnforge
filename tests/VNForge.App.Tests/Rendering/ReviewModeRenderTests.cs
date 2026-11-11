@@ -344,7 +344,7 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     [Fact]
-    public async Task A_1440_por_1000_o_bloco_das_colunas_fica_centrado_entre_o_topo_e_a_barra_e_o_palco_passa_de_60_por_cento()
+    public async Task A_1440_por_1000_o_bloco_das_colunas_sobe_ate_14_px_abaixo_do_topo_e_o_palco_passa_de_60_por_cento()
     {
         using var temp = new TempFolder();
         var root = CreateProject(temp.SubFolder("projeto"));
@@ -355,9 +355,10 @@ public sealed class ReviewModeRenderTests(HeadlessFixture fixture) : IClassFixtu
             var top = Frame(window, view.FindControl<Grid>("TopBar")!);
             var body = Frame(window, view.FindControl<Grid>("Body")!);
             var bar = Frame(window, view.FindControl<Border>("ActionBar")!);
+            // Quadro: as colunas começam logo sob o topo e o vão que sobra fica embaixo; centradas, desciam 38 px.
             var above = body.Top - top.Bottom;
-            var below = bar.Top - body.Bottom;
-            Assert.True(Math.Abs(above - below) <= 24, $"o vazio se divide em cima ({above}) e embaixo ({below})");
+            Assert.Equal(14, above, 0.5);
+            Assert.True(bar.Top >= body.Bottom, "o bloco termina antes da barra de ações");
 
             var stage = Frame(window, Assert.Single(view.GetVisualDescendants().OfType<ReviewStage>()));
             var script = Frame(window, view.FindControl<ScrollViewer>("Script")!);

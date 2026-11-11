@@ -49,6 +49,41 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
+    public async Task O_bloco_do_inspetor_compacto_so_aparece_com_algo_a_mostrar()
+    {
+        using var largo = Abrir(new ServicoFalso(Resposta));
+        Assert.True(largo.ShowExplainBlock, "no inspetor largo o bloco leva o botão e o preço");
+
+        using var vm = Abrir(new ServicoFalso(new LineExplanation([], ClaudeModels.Haiku, FromCache: false)));
+        var avisados = new List<string?>();
+        vm.PropertyChanged += (_, e) => avisados.Add(e.PropertyName);
+        vm.ShowEditorSuggestion(new EditorSuggestion("yst00001", "yst00001:000000", EditorSuggestionKind.Fluency, "Hoje chove.\\p", "Hoje está chovendo.\\p", "Soa melhor.", relogio.GetUtcNow()));
+        Assert.True(vm.IsCompactInspector);
+        Assert.Contains(nameof(LineDetailViewModel.ShowExplainBlock), avisados);
+        Assert.False(vm.ShowExplainBlock, "compacto e fechado: o botão mora na linha do Original e o bloco fica fora da pilha");
+
+        // Aberto, sem partes e com o aviso de que não há japonês: há o que mostrar.
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+        Assert.True(vm.IsExplainOpen);
+        Assert.Empty(vm.ExplainParts);
+        Assert.True(vm.HasExplainNotice);
+        Assert.True(vm.ShowExplainBlock);
+
+        // Fechar limpa o aviso e o bloco sai de novo.
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+        Assert.False(vm.IsExplainOpen);
+        Assert.False(vm.ShowExplainBlock);
+
+        // Uma falha também aparece; "aberto sem partes" sem pedido, erro nem aviso não tem filho visível e fica oculto.
+        var falho = new ServicoFalso(erro: new InvalidOperationException("sem rede"));
+        using var comErro = Abrir(falho);
+        comErro.ShowEditorSuggestion(new EditorSuggestion("yst00001", "yst00001:000000", EditorSuggestionKind.Fluency, "Hoje chove.\\p", "Hoje está chovendo.\\p", "Soa melhor.", relogio.GetUtcNow()));
+        await comErro.ToggleExplainCommand.ExecuteAsync(null);
+        Assert.True(comErro.HasExplainError);
+        Assert.True(comErro.ShowExplainBlock);
+    }
+
+    [Fact]
     public async Task Abrir_pede_a_explicacao_e_mostra_as_partes_do_original()
     {
         var servico = new ServicoFalso(Resposta);
