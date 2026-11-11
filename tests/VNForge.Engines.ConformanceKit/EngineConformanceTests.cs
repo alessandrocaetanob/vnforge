@@ -153,7 +153,7 @@ public abstract class EngineConformanceTests : IDisposable
             Assert.False(string.IsNullOrWhiteSpace(format.Id));
             Assert.Equal(format.Id.ToLowerInvariant(), format.Id);
             Assert.NotEmpty(format.FileExtensions);
-            Assert.All(format.FileExtensions, e => Assert.True(e.Length > 1 && e[0] == '.' && e == e.ToLowerInvariant(), $"Extensão '{e}' do formato '{format.Id}' deve ter ponto e minúsculas."));
+            Assert.All(format.FileExtensions, e => Assert.True(e.Length > 1 && e[0] == '.' && string.Equals(e, e.ToLowerInvariant(), StringComparison.Ordinal), $"Extensão '{e}' do formato '{format.Id}' deve ter ponto e minúsculas."));
         }
     }
 
