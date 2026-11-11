@@ -203,7 +203,7 @@ internal static class LibraryListCommands
         if (plan.PushCount > 0
             && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de {CliFormat.Count(plan.PushCount, "jogo", "jogos")} para a lista de {plan.Account.Username} no VNDB?"))
         {
-            output.WriteLine("Operação cancelada. Nada foi enviado nem gravado.");
+            await output.WriteLineAsync("Operação cancelada. Nada foi enviado nem gravado.");
             return ErrorHandler.CancelledExitCode;
         }
 
@@ -264,7 +264,7 @@ internal static class LibraryListCommands
 
             if (plan.PushCount > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de '{game.Title}' para a lista de {plan.Account.Username} no VNDB?"))
             {
-                output.WriteLine("Operação cancelada. Nada foi enviado; a edição ficou gravada aqui.");
+                await output.WriteLineAsync("Operação cancelada. Nada foi enviado; a edição ficou gravada aqui.");
                 return ErrorHandler.CancelledExitCode;
             }
 
@@ -279,7 +279,7 @@ internal static class LibraryListCommands
         var warning = edited ? LabelWarning(game) : null;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     game = new { id = game.Id, title = game.Title, vndbId = game.VndbId },
@@ -292,11 +292,11 @@ internal static class LibraryListCommands
             return exitCode;
         }
 
-        output.WriteLine($"{game.Title} ({game.VndbId})");
+        await output.WriteLineAsync($"{game.Title} ({game.VndbId})");
         WriteLines(output, game);
         if (warning is not null)
         {
-            output.WriteLine("Aviso: " + warning);
+            await output.WriteLineAsync("Aviso: " + warning);
         }
 
         if (sent is not null)
@@ -305,7 +305,7 @@ internal static class LibraryListCommands
         }
         else if (edited && game.CurrentList is { Pending: true })
         {
-            output.WriteLine("Gravado só aqui. Para enviar ao VNDB: vnf library sync --push (ou repita este comando com --push).");
+            await output.WriteLineAsync("Gravado só aqui. Para enviar ao VNDB: vnf library sync --push (ou repita este comando com --push).");
         }
 
         return exitCode;

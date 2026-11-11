@@ -96,7 +96,7 @@ internal static partial class LibraryCommand
                 : $"Gravar a tradução na pasta de {game.Title}, depois de guardar os originais?";
             if (!ConfirmationPrompt.Confirm(parseResult, cli, question))
             {
-                output.WriteLine("Operação cancelada. Nada foi gravado.");
+                await output.WriteLineAsync("Operação cancelada. Nada foi gravado.");
                 return ErrorHandler.CancelledExitCode;
             }
         }
@@ -115,7 +115,7 @@ internal static partial class LibraryCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 game = new { id = game.Id, title = game.Title },
                 action = ActionName(result.Action),
@@ -125,7 +125,7 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine(result.Action switch
+        await output.WriteLineAsync(result.Action switch
         {
             LibraryTranslationAction.Unchanged => $"{game.Title}: já está como pedido ({DescribeTranslation(result.After)}). Nada foi gravado.",
             LibraryTranslationAction.ReturnedToOriginal => $"{game.Title}: devolvido ao original. A tradução continua no projeto.",

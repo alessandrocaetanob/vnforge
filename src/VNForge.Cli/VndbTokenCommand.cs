@@ -49,11 +49,11 @@ internal static class VndbTokenCommand
         var json = parseResult.GetValue(cli.Options.Json);
         if (!json)
         {
-            parseResult.InvocationConfiguration.Error.Write("Token do VNDB: ");
-            parseResult.InvocationConfiguration.Error.Flush();
+            await parseResult.InvocationConfiguration.Error.WriteAsync("Token do VNDB: ");
+            await parseResult.InvocationConfiguration.Error.FlushAsync();
         }
 
-        var token = cli.Input.ReadLine()?.Trim();
+        var token = (await cli.Input.ReadLineAsync(cancellationToken))?.Trim();
         if (string.IsNullOrEmpty(token) || token.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
         {
             throw new UsageException("O token do VNDB veio vazio ou com espaços. Envie o token na entrada padrão, em uma linha. Gere um em vndb.org/u/tokens.");
@@ -66,15 +66,15 @@ internal static class VndbTokenCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new { saved = true, account = AccountData(account), source = SourceName(inUse) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new { saved = true, account = AccountData(account), source = SourceName(inUse) }));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Token guardado no cofre do Windows (DPAPI). Conta: {account.Username} ({account.UserId}).");
+        await output.WriteLineAsync($"Token guardado no cofre do Windows (DPAPI). Conta: {account.Username} ({account.UserId}).");
         WritePermissions(output, account);
         if (inUse == VndbTokenSource.Environment)
         {
-            output.WriteLine($"A variável de ambiente {VndbTokenResolver.EnvironmentVariable} está definida e tem prioridade sobre o cofre.");
+            await output.WriteLineAsync($"A variável de ambiente {VndbTokenResolver.EnvironmentVariable} está definida e tem prioridade sobre o cofre.");
         }
 
         return ErrorHandler.OkExitCode;
@@ -112,11 +112,11 @@ internal static class VndbTokenCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { valid = true, source = SourceName(resolved.Source), account = AccountData(account) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new { valid = true, source = SourceName(resolved.Source), account = AccountData(account) }));
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Token válido ({(resolved.Source == VndbTokenSource.Environment ? "variável de ambiente " + VndbTokenResolver.EnvironmentVariable : "cofre do Windows (DPAPI)")}). Conta: {account.Username} ({account.UserId}).");
+        await output.WriteLineAsync($"Token válido ({(resolved.Source == VndbTokenSource.Environment ? "variável de ambiente " + VndbTokenResolver.EnvironmentVariable : "cofre do Windows (DPAPI)")}). Conta: {account.Username} ({account.UserId}).");
         WritePermissions(output, account);
         return ErrorHandler.OkExitCode;
     }

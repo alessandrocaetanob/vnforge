@@ -100,7 +100,7 @@ internal static class ImagesCommand
 
         if (!json)
         {
-            error.WriteLine("Lendo os pacotes do jogo...");
+            await error.WriteLineAsync("Lendo os pacotes do jogo...");
         }
 
         var listing = ImageLister.List(gameDirectory, engine.Archives, options, token);

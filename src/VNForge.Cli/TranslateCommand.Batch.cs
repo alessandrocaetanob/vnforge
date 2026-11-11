@@ -137,7 +137,7 @@ internal static partial class TranslateCommand
         var exitCode = anyFailed ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = checks.Select(c => BatchJson(c.State, c.Info)) }, exitCode));
+            await output.WriteLineAsync(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = checks.Select(c => BatchJson(c.State, c.Info)) }, exitCode));
             return exitCode;
         }
 
@@ -197,19 +197,19 @@ internal static partial class TranslateCommand
 
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = canceled.Select(s => BatchJson(s)) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new Dictionary<string, object?> { ["batches"] = canceled.Select(s => BatchJson(s)) }));
             return ErrorHandler.OkExitCode;
         }
 
         if (canceled.Count == 0)
         {
-            output.WriteLine("Nenhum lote em aberto neste projeto.");
+            await output.WriteLineAsync("Nenhum lote em aberto neste projeto.");
             return ErrorHandler.OkExitCode;
         }
 
         foreach (var state in canceled)
         {
-            output.WriteLine($"Cancelamento pedido para o lote {state.Id} ({state.Title}). O que já tinha voltado é gravado quando a API encerrar o lote: rode 'vnf translate --batch' mais tarde.");
+            await output.WriteLineAsync($"Cancelamento pedido para o lote {state.Id} ({state.Title}). O que já tinha voltado é gravado quando a API encerrar o lote: rode 'vnf translate --batch' mais tarde.");
         }
 
         return ErrorHandler.OkExitCode;
