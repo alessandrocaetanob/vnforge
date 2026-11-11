@@ -34,15 +34,15 @@ public sealed class BibleChapterPlannerTests : IDisposable
     }
 
     [Fact]
-    public void Cena_sem_texto_nao_entra_e_os_personagens_vao_junto()
+    public void A_cena_leva_o_nome_do_usuario_ou_o_da_engine_e_nunca_o_da_biblia_anterior()
     {
         var project = ProjectWithTwoChapters();
-        project.SaveText("yst2", [Line("yst2", 0, "  ", "美咲")]);
+        project.SaveBible(VNForge.Core.Bible.GameBible.From([new VNForge.Core.Bible.BibleScene("yst1") { Name = "Nome antigo da IA" }]));
 
-        var chapters = BibleChapterPlanner.Plan(project);
+        var scenes = BibleChapterPlanner.Plan(project).SelectMany(c => c.Scenes).ToDictionary(s => s.Key, s => s.Label);
 
-        Assert.Equal(["yst1"], chapters[0].Scenes.Select(s => s.Key));
-        Assert.Equal(new BibleCharacterName("美咲", "Misaki"), Assert.Single(chapters[0].Characters));
+        Assert.Equal("manha", scenes["yst1"]);
+        Assert.Equal("Volta para casa", scenes["yst2"]);
     }
 
     [Fact]

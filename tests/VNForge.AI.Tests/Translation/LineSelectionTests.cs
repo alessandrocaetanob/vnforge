@@ -47,6 +47,21 @@ public sealed class LineSelectionTests : IDisposable
     }
 
     [Fact]
+    public void Linha_traduzida_a_mao_depois_da_selecao_nao_e_sobrescrita_e_conta_como_pulada()
+    {
+        var selection = Select();
+        new LineEditor(_project, TimeProvider.System).SetTranslation(Key, Id(1), "à mão");
+
+        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "zero"), new TranslationResult(Id(1), "um")], Machine);
+
+        var units = _project.LoadText(Key);
+        Assert.Equal(1, saved.Skipped);
+        Assert.Equal("zero", units[0].Translation);
+        Assert.Equal("à mão", units[1].Translation);
+        Assert.Equal(TranslationStatus.Translated, units[1].Status);
+    }
+
+    [Fact]
     public void Edicao_de_outra_linha_e_as_notas_da_linha_gravada_sobrevivem()
     {
         var selection = Select();
@@ -60,25 +75,6 @@ public sealed class LineSelectionTests : IDisposable
         Assert.Equal("outra", units[3].Translation);
         Assert.Equal("cuidado", units[0].Notes);
         Assert.Equal("zero", units[0].Translation);
-    }
-
-    [Fact]
-    public void Retraducao_de_linha_de_maquina_so_vale_se_ela_nao_mudou()
-    {
-        var units = _project.LoadText(Key).ToList();
-        units[0] = units[0] with { Translation = "antiga", Status = TranslationStatus.Machine };
-        units[1] = units[1] with { Translation = "antiga", Status = TranslationStatus.Machine };
-        _project.SaveText(Key, units);
-        var selection = Select(u => u.Status == TranslationStatus.Machine);
-        new LineEditor(_project, TimeProvider.System).Approve(Key, Id(1));
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "nova"), new TranslationResult(Id(1), "nova")], Machine);
-
-        var after = _project.LoadText(Key);
-        Assert.Equal(1, saved.Skipped);
-        Assert.Equal("nova", after[0].Translation);
-        Assert.Equal(TranslationStatus.Approved, after[1].Status);
-        Assert.Equal("antiga", after[1].Translation);
     }
 
     [Fact]

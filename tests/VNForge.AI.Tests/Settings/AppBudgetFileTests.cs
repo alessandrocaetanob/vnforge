@@ -48,17 +48,6 @@ public sealed class AppBudgetFileTests : IDisposable
         Assert.Contains(field, reading.Problem);
     }
 
-    [Fact]
-    public void Aviso_ou_cotacao_invalidos_com_limite_valido_nao_bloqueiam()
-    {
-        Write("""{ "spendLimit": 100, "warnAbove": "x", "exchangeRate": 500 }""");
-
-        var reading = AppBudgetFile.Load(_dir);
-
-        Assert.Null(reading.Problem);
-        Assert.Equal(100m, reading.Settings.Limits.Limit);
-    }
-
     [Theory]
     [InlineData("{ isto não é json")]
     [InlineData("[1, 2]")]

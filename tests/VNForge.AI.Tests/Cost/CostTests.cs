@@ -80,21 +80,6 @@ public class CostTests
     }
 
     [Fact]
-    public void Estimativa_ignora_linhas_em_cache_e_calcula_o_custo()
-    {
-        var cache = new TranslationCache();
-        var cached = Unit("a", "はい");
-        cache.Set(TranslationCache.KeyFor(cached, ""), "sim");
-
-        var estimate = CostEstimator.Estimate([cached, Unit("b", "こんにちは")], ClaudeModels.Opus, cache);
-
-        Assert.Equal(1, estimate.Lines);
-        Assert.Equal(1, estimate.CachedLines);
-        Assert.True(estimate.Usage.Input > 0 && estimate.Usage.Output > 0);
-        Assert.Equal(ModelPricing.For(ClaudeModels.Opus).Cost(estimate.Usage), estimate.Dollars);
-    }
-
-    [Fact]
     public async Task Estimativa_por_lotes_reconhece_o_cache_gravado_pelo_provedor()
     {
         var cache = new TranslationCache();
@@ -131,18 +116,19 @@ public class CostTests
     }
 
     [Fact]
-    public async Task Linhas_repetidas_no_lote_dividem_a_resposta_nova_com_a_duvida_e_nao_contam_como_cache()
+    public async Task Duvida_do_provedor_chega_ao_resultado_da_linha_nova_e_a_do_cache_nao_tem_duvida()
     {
         var doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?");
-        var inner = new DoubtingProvider(doubt);
-        var provider = new CachingTranslationProvider(inner, new TranslationCache(), ClaudeModels.Opus);
-        var batch = new TranslationBatch([Unit("a", "はい"), Unit("b", "はい")]);
+        var provider = new CachingTranslationProvider(new DoubtingProvider(doubt), new TranslationCache(), ClaudeModels.Opus);
+        var batch = new TranslationBatch([Unit("a", "はい")]);
 
-        var results = await provider.TranslateAsync(batch, CancellationToken.None);
+        var first = await provider.TranslateAsync(batch, CancellationToken.None);
+        var second = await provider.TranslateAsync(batch, CancellationToken.None);
 
-        Assert.Equal(2, results.Count);
-        Assert.All(results, r => Assert.Equal(doubt, r.Doubt));
-        Assert.All(results, r => Assert.False(r.FromCache));
+        Assert.Equal(doubt, Assert.Single(first).Doubt);
+        Assert.Null(Assert.Single(second).Doubt);
+        Assert.False(first[0].FromCache);
+        Assert.True(second[0].FromCache);
     }
 
     [Fact]

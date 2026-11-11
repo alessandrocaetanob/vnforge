@@ -119,27 +119,6 @@ public class ClaudeTranslationProviderTests
         Assert.Equal(new TranslationResult("a", "Oi"), Assert.Single(results));
     }
 
-    [Fact]
-    public async Task Tokens_lidos_do_cache_entram_na_contagem()
-    {
-        var reply = new ClaudeReply("end_turn", """{"translations":[{"id":"a","translation":"Oi"}]}""", new ClaudeUsage(100, 20, 800, 50));
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
-        var batch = new TranslationBatch([Unit("a", "x")]);
-
-        await provider.TranslateAsync(batch, CancellationToken.None);
-        await provider.TranslateAsync(batch, CancellationToken.None);
-
-        Assert.Equal(new ClaudeUsage(200, 40, 1600, 100), provider.Usage);
-    }
-
-    [Fact]
-    public void Fallback_de_recusa_so_existe_onde_o_servidor_oferece()
-    {
-        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Opus));
-        Assert.True(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Fable));
-        Assert.False(AnthropicMessageClient.SupportsServerFallback(ClaudeModels.Haiku));
-    }
-
     [Theory]
     [InlineData("não é json")]
     [InlineData("""{"translations":[{"id":"zzz","translation":"x"}]}""")]

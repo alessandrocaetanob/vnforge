@@ -9,6 +9,13 @@ public class ClaudeErrorMessagesTests
     private static readonly HttpRequestException Rede = new("connection reset");
 
     [Fact]
+    public void Chave_recusada_manda_conferir_os_ajustes()
+    {
+        Assert.Contains("chave", ClaudeErrorMessages.Describe(new AnthropicUnauthorizedException(Rede) { StatusCode = HttpStatusCode.BadRequest, ResponseBody = "" }));
+        Assert.Contains("Ajustes", ClaudeErrorMessages.Describe(new AnthropicForbiddenException(Rede) { StatusCode = HttpStatusCode.BadRequest, ResponseBody = "" }));
+    }
+
+    [Fact]
     public void Limite_de_uso_pede_para_tentar_de_novo()
     {
         Assert.Contains("limite", ClaudeErrorMessages.Describe(new AnthropicRateLimitException(Rede) { StatusCode = HttpStatusCode.BadRequest, ResponseBody = "" }));

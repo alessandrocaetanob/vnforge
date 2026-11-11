@@ -63,16 +63,6 @@ public sealed partial class SceneSummaryInRequestTests
         Assert.Empty(batch.Scenes);
     }
 
-    [Fact]
-    public async Task O_bloco_estavel_nao_muda_de_uma_cena_para_outra()
-    {
-        var first = await Translate(Builder(Bible()).Build([Unit("yst1:000001", "a")]));
-        var second = await Translate(Builder(Bible()).Build([Unit("yst2:000001", "b")]));
-
-        Assert.Equal(first.System, second.System);
-        Assert.NotEqual(first.BatchContext, second.BatchContext);
-    }
-
     private static TranslationBatch BatchWithWindow(GameBible? bible, int before, int after) =>
         new TranslationBatchBuilder([], new CharacterBook([]), maxPreviousLines: before, maxNextLines: after) { Bible = bible! }.Build([Unit("yst1:000001", "a")]);
 

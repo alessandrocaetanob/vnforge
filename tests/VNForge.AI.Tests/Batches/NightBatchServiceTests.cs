@@ -101,6 +101,22 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Gravar_de_novo_um_lote_ja_gravado_nao_chama_a_API_nem_muda_nada()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+        await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+        var gets = _client.Gets;
+
+        var again = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.False(again.JustApplied);
+        Assert.Null(again.Info);
+        Assert.Equal(gets, _client.Gets);
+        Assert.Equal(44, again.State.Outcome!.Translated);
+    }
+
+    [Fact]
     public async Task A_gravacao_deixa_um_ponto_de_restauracao_e_o_Desfazer_devolve_as_linhas()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
@@ -254,20 +270,6 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.NotNull(saved.Outcome.RestorePointId);
         Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
         Assert.Single(new RestorePointStore(_project, _clock).List());
-    }
-
-    [Fact]
-    public async Task Estado_ja_gravado_por_outro_depois_da_trava_nao_e_regravado()
-    {
-        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
-        _client.Finish(state!.Id);
-        var first = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-        var again = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
-
-        Assert.False(again.JustApplied);
-        Assert.Equal(first.State.Outcome!.RestorePointId, new NightBatchStore(_project).Find(state.Id)!.Outcome!.RestorePointId);
-        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
     }
 
     [Fact]

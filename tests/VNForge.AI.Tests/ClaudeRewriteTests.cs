@@ -78,6 +78,17 @@ public class ClaudeRewriteTests
     }
 
     [Fact]
+    public async Task Tokens_da_reescrita_entram_na_contagem()
+    {
+        var reply = new ClaudeReply("end_turn", """{"rewrites":[{"id":"a","optionA":"A","optionB":"B"}]}""", new ClaudeUsage(100, 20, 800, 50));
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => reply));
+
+        await provider.RewriteAsync(new TranslationBatch([Unit("a", "x")]), new RewriteRequest(RewriteDirection.Shorter, "t"), CancellationToken.None);
+
+        Assert.Equal(new ClaudeUsage(100, 20, 800, 50), provider.Usage);
+    }
+
+    [Fact]
     public async Task Provedor_falso_devolve_duas_opcoes_e_guarda_o_pedido()
     {
         var fake = new FakeTranslationProvider();

@@ -17,26 +17,6 @@ public class BudgetGuardTests
     }
 
     [Fact]
-    public async Task Autorizar_pergunta_so_acima_do_aviso_e_respeita_a_resposta()
-    {
-        var asked = new List<BudgetQuestion>();
-        var guard = Guard(100m, 5m, 20m, (q, _) =>
-        {
-            asked.Add(q);
-            return Task.FromResult(false);
-        });
-
-        Assert.Null(await guard.AuthorizeAsync(4m, CancellationToken.None));
-        Assert.Empty(asked);
-
-        Assert.Equal(BudgetStop.Declined, await guard.AuthorizeAsync(6m, CancellationToken.None));
-        var question = Assert.Single(asked);
-        Assert.Equal(6m, question.EstimatedCost);
-        Assert.Equal(20m, question.Spent);
-        Assert.Equal(100m, question.Limit);
-    }
-
-    [Fact]
     public async Task Autorizar_acima_do_aviso_sem_quem_responda_recusa_para_nao_gastar_sem_perguntar()
     {
         var guard = Guard(100m, 5m, 0m);

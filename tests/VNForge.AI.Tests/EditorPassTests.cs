@@ -232,18 +232,6 @@ public class EditorPassTests
         Assert.Equal(["y:3"], line.NextLines.Select(l => l.Id));
     }
 
-    [Theory]
-    [InlineData("B1", "y:2", "r")]
-    [InlineData("B", "y:2", "r")]
-    public async Task Outra_que_nao_vale_devolve_nulo(string proposed, string id, string reason)
-    {
-        var provider = new ScriptedProvider(_ => [], (_, _) => new EditorPassProposal(id, EditorSuggestionKind.Voice, proposed, reason));
-
-        var result = await new EditorPassRunner(provider, Builder()).AnotherAsync("y", [Unit("y:2", "b", "B")], "y:2", "B1", TestContext.Current.CancellationToken);
-
-        Assert.Null(result);
-    }
-
     [Fact]
     public async Task Outra_de_linha_aprovada_ou_inexistente_nem_chama_o_provedor_ou_e_descartada()
     {

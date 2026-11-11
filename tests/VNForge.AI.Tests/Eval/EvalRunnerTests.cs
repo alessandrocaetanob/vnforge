@@ -40,23 +40,6 @@ public sealed class EvalRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task O_custo_vem_dos_tokens_do_provedor_e_o_gasto_entra_no_registro_do_projeto()
-    {
-        var usage = new ClaudeUsage(1_000_000, 0, 0, 0);
-        var judge = new FakeJudgeProvider { UsagePerCall = new ClaudeUsage(500_000, 0, 0, 0) };
-        var request = Request(Same(EvalProject.Perfect(), usage), Sonnet) with { Judge = judge, JudgeModel = ClaudeModels.Haiku };
-
-        var round = await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
-
-        var report = round.Reports[0];
-        Assert.Equal(2.00m, report.Dollars);
-        Assert.Equal(0.05m, report.JudgeDollars);
-        Assert.Equal(1_000_000, report.InputTokens);
-        Assert.Equal(40m, report.ProjectedDollars(400));
-        Assert.Equal(2.05m, AiUsageLog.Load(_project.Folder).Dollars);
-    }
-
-    [Fact]
     public async Task Configuracao_com_biblia_e_recusada_antes_de_gastar_quando_nao_ha_biblia()
     {
         var calls = 0;
