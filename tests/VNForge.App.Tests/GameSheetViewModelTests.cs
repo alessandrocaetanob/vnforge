@@ -220,6 +220,77 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal(0, vm.SpoilerLevel);
     }
 
+    /// <summary>A mesma ficha com uma tag erótica e o retrato do primeiro personagem marcado como sexual, no modo adulto da Biblioteca.</summary>
+    private async Task<GameSheetViewModel> AdultAsync(AdultMode mode, AdultReveal? reveals = null)
+    {
+        var game = GameSheetSamples.Game() with { Tags = [.. GameSheetSamples.Game().Tags, new VndbTag("g9", "Nudity", "ero", 2.5, 0, false)] };
+        var characters = GameSheetSamples.Characters();
+        characters[0] = characters[0] with { Image = new VndbImage("https://t.vndb.org/ch/1.jpg", null, 100, 140, 2, 0) };
+        await SheetFetcher.FetchAsync(new FakeVndbCatalog([game], characters), Store, GameSheetSamples.Id, new FixedClock(GameSheetSamples.Now), Ct);
+        new LibraryFile(_config.Path).Save(new GameLibrary([new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id }], new LibraryPrivacy(Adult: mode)));
+        var vm = Create();
+        if (reveals is not null)
+        {
+            vm.Reveals = reveals;
+        }
+
+        vm.Open(GameSheetSamples.Id, "Amaoto");
+        await vm.Loading;
+        return vm;
+    }
+
+    [Fact]
+    public async Task No_mostrar_a_ficha_traz_a_tag_erotica_e_o_retrato_sem_borrao()
+    {
+        var blurred = await AdultAsync(AdultMode.Blur);
+        var vm = await AdultAsync(AdultMode.Show);
+
+        Assert.Equal(blurred.Tags.Count(t => !t.IsHidden) + 1, vm.Tags.Count(t => !t.IsHidden));
+        Assert.DoesNotContain(vm.Tags, t => t.IsHidden && t.Text.Contains("adulto", StringComparison.Ordinal));
+        Assert.Equal(TileKind.Portrait, vm.CharacterTiles[0].Kind);
+        Assert.False(vm.CharacterTiles[0].ShowsImageBlurred);
+    }
+
+    [Fact]
+    public async Task No_desfocar_o_retrato_adulto_vem_borrado_e_as_tags_ficam_escondidas_com_o_mostrar()
+    {
+        var vm = await AdultAsync(AdultMode.Blur);
+
+        var hiddenTags = vm.Tags.Single(t => t.IsHidden && t.Text.Contains("adulto", StringComparison.Ordinal));
+        Assert.True(hiddenTags.CanReveal);
+        Assert.Equal(TileKind.ImageBlurred, vm.CharacterTiles[0].Kind);
+        Assert.True(vm.CharacterTiles[0].ShowsPortrait);
+        Assert.True(vm.CharacterTiles[0].ShowsImageBlurred);
+        Assert.NotNull(vm.CharacterTiles[0].Image);
+    }
+
+    [Fact]
+    public async Task Revelar_na_ficha_libera_o_jogo_inteiro_e_vale_tambem_para_o_registro_da_Biblioteca()
+    {
+        var reveals = new AdultReveal();
+        var vm = await AdultAsync(AdultMode.Blur, reveals);
+
+        vm.RevealAdultCommand.Execute(null);
+
+        Assert.True(reveals.IsRevealed(GameSheetSamples.Id));
+        Assert.DoesNotContain(vm.Tags, t => t.IsHidden && t.Text.Contains("adulto", StringComparison.Ordinal));
+        Assert.Equal(TileKind.Portrait, vm.CharacterTiles[0].Kind);
+        Assert.True(vm.CharacterTiles[0].Revealed);
+        Assert.False(vm.CharacterTiles[0].ShowsImageBlurred);
+    }
+
+    [Fact]
+    public async Task No_esconder_o_retrato_adulto_volta_ao_quadro_tracejado_e_o_cartao_do_personagem_fica()
+    {
+        var vm = await AdultAsync(AdultMode.Hide);
+
+        Assert.Equal(TileKind.ImageHidden, vm.CharacterTiles[0].Kind);
+        Assert.False(vm.CharacterTiles[0].ShowsPortrait);
+        Assert.Equal("Imagem de conteúdo adulto escondida", vm.CharacterTiles[0].Caption);
+        Assert.Equal(6, vm.CharacterTiles.Count);
+        Assert.DoesNotContain(vm.Tags, t => t is { IsHidden: true, CanReveal: true });
+    }
+
     [Fact]
     public async Task O_nivel_inicial_vem_da_privacidade_da_Biblioteca_e_as_tags_suas_aparecem()
     {
