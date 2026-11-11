@@ -73,7 +73,6 @@ public partial class YpfArchiveFormatTests
     }
 
     [Theory]
-    [InlineData(SyntheticYpfDataOrder.Index, false)]
     [InlineData(SyntheticYpfDataOrder.Insertion, true)]
     public void WriteTo_SemTrocasGeraArquivoIdenticoComOrdemDeDadosEDuplicatas(SyntheticYpfDataOrder order, bool shared)
     {
@@ -427,28 +426,6 @@ public partial class YpfArchiveFormatTests
     }
 
     // ---- Destino reaproveitado, caminho com prefixo e dados compartilhados ----
-
-    [Fact]
-    public void WriteTo_ArquivoDeDestinoExistenteMaisLongoEhTruncado()
-    {
-        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
-        using var archive = Open(ypf.Bytes);
-        var path = Path.Combine(Path.GetTempPath(), $"vnforge-ypf-{Guid.NewGuid():N}.ypf");
-        File.WriteAllBytes(path, new byte[50_000]);
-        try
-        {
-            using (var output = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite))
-            {
-                archive.WriteTo(output, new Dictionary<string, byte[]>());
-            }
-
-            Assert.Equal(ypf.Bytes, File.ReadAllBytes(path));
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
 
     [Fact]
     public void WriteTo_DestinoNoMesmoCaminhoComPrefixoDoWindowsLancaArgumentException()

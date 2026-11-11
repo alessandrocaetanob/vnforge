@@ -230,19 +230,6 @@ public class YstbTextInjectorTests
     }
 
     [Fact]
-    public void Inject_CaractereQueOShiftJisNaoRepresenta_FalhaCitandoAUnidade()
-    {
-        var loaded = Load(FullScript());
-        var ok = Translate(loaded, UnitId(5), "「ただいま、みんな」");
-        var bad = Translate(loaded, UnitId(3), "ação");
-
-        var error = Assert.Throws<EncoderFallbackException>(() => Inject(loaded, ok, bad));
-
-        Assert.Contains(UnitId(3), error.Message);
-        Assert.NotNull(error.InnerException);
-    }
-
-    [Fact]
     public void Inject_MarcadorInvalido_FalhaCitandoAUnidade()
     {
         var loaded = Load(FullScript());

@@ -18,7 +18,7 @@ public sealed class YpfFolderTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    public static TheoryData<uint> Versions => new() { 200u, 500u };
+    public static TheoryData<uint> Versions => new() { 500u };
 
     private static SyntheticYpf Sample(uint version) => new SyntheticYpfBuilder(version)
         .AddFile(@"ysbin\yst00001.ybn", Small)

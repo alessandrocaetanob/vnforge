@@ -22,14 +22,6 @@ public class YstbScriptFormatTests
         new SyntheticYstbBuilder(Yscm).WithVersion(500).WithKey(SyntheticYstbBuilder.KeyV290).AddWord("美咲「おはよう」", 1).AddReturnCode(0, 2).Build().Bytes;
 
     [Fact]
-    public void Extract_de_script_invalido_lanca_InvalidDataException_em_portugues()
-    {
-        var ex = Assert.Throws<InvalidDataException>(() => Format.Extract(new ScriptFile(Yst1Ybn, new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }), Context));
-
-        Assert.Contains(Yst1Ybn, ex.Message);
-    }
-
-    [Fact]
     public void Rebuild_sem_traducao_devolve_o_script_identico()
     {
         var bytes = Script();

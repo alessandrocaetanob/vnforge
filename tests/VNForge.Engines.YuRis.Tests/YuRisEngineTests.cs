@@ -205,6 +205,13 @@ public sealed class YuRisEngineTests : IDisposable
         }
     }
 
+    private List<string> Snapshot() => Directory.EnumerateFileSystemEntries(_root, "*", SearchOption.AllDirectories)
+        .Order(StringComparer.Ordinal)
+        .Select(p => File.Exists(p)
+            ? $"{p}|{File.GetLastWriteTimeUtc(p).Ticks}|{Convert.ToHexString(File.ReadAllBytes(p))}"
+            : p)
+        .ToList();
+
     [Fact]
     public void Detect_nao_grava_nada_na_pasta()
     {
@@ -216,11 +223,4 @@ public sealed class YuRisEngineTests : IDisposable
 
         Assert.Equal(before, Snapshot());
     }
-
-    private List<string> Snapshot() => Directory.EnumerateFileSystemEntries(_root, "*", SearchOption.AllDirectories)
-        .Order(StringComparer.Ordinal)
-        .Select(p => File.Exists(p)
-            ? $"{p}|{File.GetLastWriteTimeUtc(p).Ticks}|{Convert.ToHexString(File.ReadAllBytes(p))}"
-            : p)
-        .ToList();
 }
