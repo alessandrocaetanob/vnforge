@@ -91,9 +91,11 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     public async Task O_campo_Versao_do_jogo_divide_a_celula_do_numero_e_nao_move_os_outros_campos()
     {
         using var withField = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro(), ReleaseViewModelTests.QuadroCounts);
+        using var filled = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro() with { ReferenceVersion = "1.00" }, ReleaseViewModelTests.QuadroCounts);
         using var withoutField = await ReleaseViewModelTestsHost.OpenAsync(ReleaseViewModelTests.ReadyLikeQuadro() with { GameVersion = "1.00" }, ReleaseViewModelTests.QuadroCounts);
 
         var shown = await fixture.Session.Dispatch(() => Render(withField, "lancar-pronto-com-campo-versao", ThemeVariant.Dark), TestContext.Current.CancellationToken);
+        var shownFilled = await fixture.Session.Dispatch(() => Render(filled, "lancar-pronto-com-versao-do-jogo", ThemeVariant.Dark), TestContext.Current.CancellationToken);
         var hidden = await fixture.Session.Dispatch(() => Render(withoutField, "lancar-pronto-sem-campo-versao", ThemeVariant.Dark), TestContext.Current.CancellationToken);
 
         Assert.True(shown.Shows("Versão do jogo"));
@@ -104,10 +106,21 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
         Assert.Equal(hidden.Positions["Número da versão"].Y, shown.Positions["Número da versão"].Y);
         Assert.True(shown.Positions["Versão do jogo"].X > shown.Positions["Número da versão"].X);
         Assert.Equal(shown.Positions["Número da versão"].Y, shown.Positions["Versão do jogo"].Y);
+
+        // As legendas do quadro: "Opcional" com o campo vazio, "Jogo de referência" preenchido, ao lado de "Patch anterior" e sem mudar a altura do cartão.
+        Assert.Equal("Ex.: 1.00", shown.Placeholders["Versão do jogo"]);
+        Assert.True(shown.Shows("Opcional"));
+        Assert.False(shown.Shows("Jogo de referência"));
+        Assert.True(shown.Shows("Patch anterior: 1.1.0, de 02/10"));
+        Assert.True(shownFilled.Shows("Jogo de referência"));
+        Assert.False(shownFilled.Shows("Opcional"));
+        Assert.False(hidden.Shows("Opcional"));
+        Assert.Equal(hidden.CardHeight, shown.CardHeight);
+        Assert.Equal(hidden.CardHeight, shownFilled.CardHeight);
     }
 
     /// <summary>O que a tela mostrou: onde cada campo caiu e se um nome apareceu.</summary>
-    private sealed record Inspection(Dictionary<string, Point> Positions, HashSet<string> Names)
+    private sealed record Inspection(Dictionary<string, Point> Positions, HashSet<string> Names, Dictionary<string, string?> Placeholders, double CardHeight)
     {
         public bool Shows(string name) => Names.Contains(name);
     }
@@ -116,6 +129,8 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
     {
         var positions = new Dictionary<string, Point>();
         var names = new HashSet<string>();
+        var placeholders = new Dictionary<string, string?>();
+        var cardHeight = 0.0;
         Render(host, screen, theme, window =>
         {
             foreach (var control in window.GetVisualDescendants().OfType<TextBox>().Where(c => c.IsEffectivelyVisible && c.Bounds.Height > 0))
@@ -123,13 +138,15 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                 if (control.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) is { } name && control.TranslatePoint(default, window) is { } point)
                 {
                     positions[name] = point;
+                    placeholders[name] = control.PlaceholderText;
                     names.Add(name);
                 }
             }
 
+            cardHeight = window.GetVisualDescendants().OfType<Control>().First(c => c.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "A versão").Bounds.Height;
             names.UnionWith(window.GetVisualDescendants().OfType<TextBlock>().Where(c => c.IsEffectivelyVisible && c.Text is not null).Select(c => c.Text!));
         });
-        return new Inspection(positions, names);
+        return new Inspection(positions, names, placeholders, cardHeight);
     }
 
     [Theory]

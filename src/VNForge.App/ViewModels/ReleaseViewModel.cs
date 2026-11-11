@@ -241,7 +241,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
 
     /// <summary>A versão do jogo de referência que o jogador digita (<c>1.00</c>); o Core a grava no projeto ao gerar. Vazia, o patch segue sem versão.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GameVersionError), nameof(HasGameVersionError), nameof(GameVersionHelp))]
+    [NotifyPropertyChangedFor(nameof(GameVersionError), nameof(HasGameVersionError), nameof(GameVersionHelp), nameof(GameVersionLegend))]
     public partial string GameVersion { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -380,6 +380,9 @@ public sealed partial class ReleaseViewModel : ObservableObject
         : readiness?.ReferenceVersion is { Length: > 0 } saved
             ? $"Vazio: vale a versão guardada no projeto ({saved})."
             : "Vazio: o patch segue sem versão do jogo.";
+
+    /// <summary>A legenda sob o campo, como no quadro: "Jogo de referência" com a versão preenchida e "Opcional" vazio.</summary>
+    public string GameVersionLegend => string.IsNullOrWhiteSpace(GameVersion) ? "Opcional" : "Jogo de referência";
 
     public bool HasGameVersionError => GameVersionError is not null;
 

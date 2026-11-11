@@ -278,6 +278,18 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
+    public async Task A_legenda_do_campo_e_Opcional_vazio_e_Jogo_de_referencia_preenchido()
+    {
+        var (vm, _, temp, _) = await OpenAsync();
+        using var _t = temp;
+        Assert.Equal("Opcional", vm.GameVersionLegend);
+
+        vm.GameVersion = "1.00";
+
+        Assert.Equal("Jogo de referência", vm.GameVersionLegend);
+    }
+
+    [Fact]
     public async Task Sem_versao_guardada_o_campo_vazio_diz_que_o_patch_segue_sem_versao()
     {
         var (vm, _, temp, _) = await OpenAsync(Ready());
