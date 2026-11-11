@@ -15,17 +15,6 @@ public partial class YpfArchiveFormatTests
         return buffer.ToArray();
     }
 
-    private static void AssertExtractsEverything(SyntheticYpf ypf, YpfArchive archive)
-    {
-        Assert.Equal(ypf.Entries.Count, archive.Entries.Count);
-        for (var i = 0; i < ypf.Entries.Count; i++)
-        {
-            using var stream = archive.OpenEntry(archive.Entries[i]);
-
-            Assert.Equal(ypf.Entries[i].Content, ReadAll(stream));
-        }
-    }
-
     // ---- Hash e tamanho ----
 
     [Theory]

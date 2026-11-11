@@ -123,35 +123,6 @@ public partial class YpfArchiveFormatTests
         Assert.Equal(bytes, Write(archive));
     }
 
-    private static byte[] Deflate(byte[] content, CompressionLevel level)
-    {
-        using var buffer = new MemoryStream();
-        using (var zlib = new ZLibStream(buffer, level, leaveOpen: true))
-        {
-            zlib.Write(content);
-        }
-
-        return buffer.ToArray();
-    }
-
-    /// <summary>Troca os bytes armazenados do último bloco de dados e acerta <c>size_stored</c>, <c>data_hash</c> e o offset de entradas vazias no fim.</summary>
-    private static byte[] WithStoredBytes(SyntheticYpf ypf, SyntheticYpfEntry entry, byte[] stored)
-    {
-        var bytes = ypf.Bytes[..(int)entry.Offset].Concat(stored).ToArray();
-        var offsetBytes = ypf.OffsetSize == SyntheticYpfOffsetSize.Bits64 ? 8 : 4;
-        var offsetPosition = OffsetFieldPosition(ypf, entry);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(offsetPosition - 4), (uint)stored.Length);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
-            bytes.AsSpan(offsetPosition + offsetBytes),
-            YpfHash.Compute(Map(ypf.DataHashAlgorithm), stored));
-        foreach (var empty in ypf.Entries.Where(e => e.SizeStored == 0 && e.Offset == (ulong)ypf.Bytes.Length))
-        {
-            bytes = WithOffset(ypf, bytes, empty, (ulong)bytes.Length);
-        }
-
-        return bytes;
-    }
-
     // ---- Troca de uma entrada ----
 
     [Theory]
@@ -397,17 +368,6 @@ public partial class YpfArchiveFormatTests
         Assert.Equal(0, output.Length);
     }
 
-    private static byte[] WithEveryDataHashWrong(SyntheticYpf ypf)
-    {
-        var bytes = (byte[])ypf.Bytes.Clone();
-        foreach (var entry in ypf.Entries)
-        {
-            bytes[entry.IndexPosition + entry.IndexEntrySize - 4] ^= 0x01;
-        }
-
-        return bytes;
-    }
-
     [Fact]
     public void WriteTo_DadosSobrepostosSemTrocaCopiamOArquivoETrocaRecusa()
     {
@@ -448,16 +408,6 @@ public partial class YpfArchiveFormatTests
             File.Delete(path);
         }
     }
-
-    private static SyntheticYpfBuilder SharedSample(SyntheticYpfDataOrder order, byte[]? script2) =>
-        new SyntheticYpfBuilder(300)
-            .WithDataOrder(order)
-            .WithSharedDuplicateData()
-            .AddFile(SyntheticYpfSamples.Script1, SyntheticYpfSamples.SmallBinary)
-            .AddFile(SyntheticYpfSamples.Image, SyntheticYpfSamples.Repetitive, SyntheticYpfFileType.Png, compress: true)
-            .AddFile(SyntheticYpfSamples.Script2, script2 ?? SyntheticYpfSamples.Repetitive, compress: true)
-            .AddFile(SyntheticYpfSamples.Sound, [1, 2, 3, 4, 5, 6, 7, 8, 9], SyntheticYpfFileType.Ogg)
-            .AddFile(SyntheticYpfSamples.Empty, []);
 
     private sealed class NonSeekableStream : MemoryStream
     {

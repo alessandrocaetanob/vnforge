@@ -80,10 +80,6 @@ public sealed class YuRisUnpackerTests : IDisposable
         Write("Jogo.exe", [0x4D, 0x5A]);
     }
 
-    private static Dictionary<string, string> HashTree(string directory) =>
-        Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
-            .ToDictionary(f => Path.GetRelativePath(directory, f), f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));
-
     [Fact]
     public void Unpack_acha_o_pacote_na_subpasta_pac_e_usa_o_caminho_relativo()
     {
@@ -113,15 +109,6 @@ public sealed class YuRisUnpackerTests : IDisposable
 
         Assert.Contains("A pasta do jogo não existe", ex.Message);
     }
-
-    private ScriptNames NamesOfOpenedGame() =>
-        ScriptNames.Empty.WithDetected(_engine.Open(_cache).Scripts.ToDictionary(
-            s => Path.GetFileNameWithoutExtension(s.Name),
-            s => new DetectedScript(s.DisplayName, s.Folder),
-            StringComparer.Ordinal));
-
-    private static IReadOnlyList<FileStatus> OneLineEach(params string[] keys) =>
-        [.. keys.Select(k => new FileStatus(k, new StatusCounts(1, 0, 0, 0, 0)))];
 
     [Fact]
     public void Open_com_yst_list_ilegivel_avisa_e_segue()

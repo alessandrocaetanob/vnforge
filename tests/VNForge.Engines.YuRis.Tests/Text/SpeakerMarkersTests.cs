@@ -21,7 +21,6 @@ public class SpeakerMarkersTests
 
     private static readonly ITextEncoder Cp1252Guillemets = TextEncoderRegistry.Default.Create("cp1252", SpeakerDelimiterStyle.Guillemets);
 
-    private static readonly ITextEncoder Fold = TextEncoderRegistry.Default.Create("fold");
 
     private static readonly ShiftJisTextEncoder ShiftJis = new();
 

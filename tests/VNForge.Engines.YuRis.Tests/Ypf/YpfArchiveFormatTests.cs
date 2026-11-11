@@ -106,25 +106,6 @@ public partial class YpfArchiveFormatTests
         Assert.Equal((byte)0x2B, archive.Parameters.NameKey);
     }
 
-    // Um nome de cada tamanho que as tabelas tratam de forma diferente: 3, 6, 10, 12, 17, 20, 24, 28, 46, 53, 72.
-    private static readonly int[] DiscriminatingLengths = [3, 6, 10, 12, 17, 20, 24, 28, 46, 53, 72];
-
-    private static SyntheticYpfBuilder DiscriminatingNames(uint version, SyntheticYpfSwapTable table)
-    {
-        var builder = new SyntheticYpfBuilder(version).WithSwapTable(table);
-        for (var i = 0; i < DiscriminatingLengths.Length; i++)
-        {
-            var length = DiscriminatingLengths[i];
-            var name = length >= 5
-                ? (char)('a' + i) + new string('n', length - 5) + ".ybn"
-                : "a.b"[..length];
-            Assert.Equal(length, name.Length);
-            builder.AddFile(name, [(byte)i]);
-        }
-
-        return builder;
-    }
-
     [Theory]
     [InlineData(200u, true)]
     [InlineData(300u, false)]

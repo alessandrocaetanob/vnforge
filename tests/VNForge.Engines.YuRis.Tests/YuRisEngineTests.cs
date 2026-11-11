@@ -7,7 +7,6 @@ namespace VNForge.Engines.YuRis.Tests;
 
 public sealed class YuRisEngineTests : IDisposable
 {
-    private const string ScriptKeyHex = "0xD36FAC96";
     private const string ScriptsArchiveKey = "scriptsArchive";
     private const string YstbVersionKey = "ystbVersion";
     private const string ScriptKeyDetail = "scriptKey";

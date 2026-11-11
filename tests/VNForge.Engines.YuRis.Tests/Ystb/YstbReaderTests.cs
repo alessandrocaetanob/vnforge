@@ -43,9 +43,6 @@ public class YstbReaderTests
         .AddReturnCode(7, 12)
         .Build();
 
-    private static void SetUInt32(byte[] bytes, int offset, uint value) =>
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(offset), value);
-
     [Fact]
     public void Read_ArgumentoDeReturnCodeComOffsetForaDosRecursos_Aceita()
     {

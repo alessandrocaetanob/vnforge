@@ -55,14 +55,6 @@ public sealed class YuRisFontPatchTests : IDisposable
 
     private void Write(byte[] bytes) => File.WriteAllBytes(ExePath, bytes);
 
-    private static byte[] Patched(byte[] original)
-    {
-        var copy = (byte[])original.Clone();
-        Array.Clear(copy, NameOffset, JapaneseName.Length);
-        Gothic.CopyTo(copy, NameOffset);
-        return copy;
-    }
-
     [Fact]
     public void Descreve_o_patch_e_o_arquivo_que_altera()
     {

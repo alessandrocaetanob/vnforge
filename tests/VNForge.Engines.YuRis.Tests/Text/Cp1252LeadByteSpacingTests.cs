@@ -11,8 +11,6 @@ public class Cp1252LeadByteSpacingTests
 {
     private static readonly ITextEncoder Cp1252 = new Cp1252TextEncoder();
 
-    private static byte[] Cp(string text) => GameEncodings.Windows1252.GetBytes(text);
-
     private static byte[] ToBytes(string text) => ControlMarkers.ToBytes(text, Cp1252);
 
     [Fact]

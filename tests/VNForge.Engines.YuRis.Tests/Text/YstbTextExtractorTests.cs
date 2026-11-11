@@ -11,7 +11,6 @@ namespace VNForge.Engines.YuRis.Tests.Text;
 
 public class YstbTextExtractorTests
 {
-    private const string PartsKey = "parts";
     private const string SelSetCommand = "ES.SEL.SET";
     private const string GosubCommand = "GOSUB";
 
@@ -34,8 +33,6 @@ public class YstbTextExtractorTests
     }
 
     private static string Id(int instruction, int argument = 0) => $"yst00001:{(instruction * 256) + argument:D6}";
-
-    private static JsonElement Property(JsonElement? locator, string name) => Assert.NotNull(locator).GetProperty(name);
 
     private static SyntheticYstbBuilder FullScript()
     {
@@ -61,17 +58,6 @@ public class YstbTextExtractorTests
         b.AddCommand("IF", 19, b.StringExpression("日本語"), new SyntheticYstbArgument(0, 1, 0, 99, 12345), new SyntheticYstbArgument(0, 1, 0, 98, 54321));
         b.AddCommand("WAIT", 20, b.StringExpression("He said \"あ\"", '`'));
         return b;
-    }
-
-    private static void AssertUnit(TextUnit unit, string id, TextUnitKind kind, string? speaker, string source)
-    {
-        Assert.Equal(id, unit.Id);
-        Assert.Equal(kind, unit.Kind);
-        Assert.Equal(speaker, unit.Speaker);
-        Assert.Equal(source, unit.Source);
-        Assert.Null(unit.Translation);
-        Assert.Equal(TranslationStatus.Untranslated, unit.Status);
-        Assert.NotNull(unit.Locator);
     }
 
     [Theory]
