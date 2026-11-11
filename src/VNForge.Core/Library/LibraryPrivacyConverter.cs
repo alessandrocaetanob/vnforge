@@ -29,7 +29,7 @@ public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
             }
             else if (name.Equals("adult", StringComparison.OrdinalIgnoreCase))
             {
-                adult = JsonSerializer.Deserialize<AdultMode>(ref reader, options);
+                adult = ReadMode(ref reader);
             }
             else if (name.Equals("showAdult", StringComparison.OrdinalIgnoreCase))
             {
@@ -48,8 +48,18 @@ public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
     {
         writer.WriteStartObject();
         writer.WriteBoolean(options.PropertyNamingPolicy?.ConvertName("ShowSpoilers") ?? "ShowSpoilers", value.ShowSpoilers);
-        writer.WritePropertyName(options.PropertyNamingPolicy?.ConvertName("Adult") ?? "Adult");
-        JsonSerializer.Serialize(writer, value.Adult, options);
+        // O nome do modo vai como texto em qualquer serializador (o da CLI não tem o conversor de enum do arquivo).
+        writer.WriteString(options.PropertyNamingPolicy?.ConvertName("Adult") ?? "Adult", JsonNamingPolicy.CamelCase.ConvertName(value.Adult.ToString()));
         writer.WriteEndObject();
+    }
+
+    private static AdultMode ReadMode(ref Utf8JsonReader reader)
+    {
+        if (reader.TokenType == JsonTokenType.String && Enum.TryParse<AdultMode>(reader.GetString(), ignoreCase: true, out var mode) && Enum.IsDefined(mode))
+        {
+            return mode;
+        }
+
+        throw new JsonException("O modo do conteúdo adulto deveria ser show, blur ou hide.");
     }
 }
