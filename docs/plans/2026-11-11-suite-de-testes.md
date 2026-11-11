@@ -33,7 +33,7 @@ Cada tarefa é uma issue filha da #620 com o rótulo `infra`, aberta pelo `/mara
   - Issue: #655 (`infra`, `docs`)
   - Prova: `bash .circleci/run-tests.sh` local no Linux do CI (ou o job `linux`) com o resumo por projeto
   - Pronto: `docs/04-testes.md` com as regras acima; `docs/testes/base-2026-11-11.md` com, por projeto, a contagem, o tempo, a memória e a cobertura de linhas e de ramos sobre o código de produção, mais as 30 classes mais lentas do App; o script `tools/cobertura.sh <projeto>` que mede a cobertura do mesmo jeito em toda tarefa. A medição usa as mesmas exclusões do Sonar no `.circleci/config.yml` (`sonar.coverage.exclusions`: `tools/**`, `App.axaml.cs`, `Program.cs`, `Views/**`, `Controls/**`, `AvaloniaFolderPicker.cs`), decidido pelo Alessandro em 11/11.
-- [ ] **T2 · App: render vira smoke por tela e as capturas saem da suíte**
+- [x] **T2 · App: render vira smoke por tela e as capturas saem da suíte**
   - Issue: #656 (`infra`)
   - Prova: `dotnet test tests/VNForge.App.Tests` e a ferramenta de capturas gerando os PNG das telas em `.tmp/capturas`
   - Pronto: a pasta `tests/VNForge.App.Tests/Rendering` some, com o `PixelProbe` e as asserções de medida. Um `ScreenSmokeTests` cobre cada tela num tema, sem exceção e sem texto cortado. As capturas viram um comando à parte (projeto de ferramenta ou opção da Cli) que o designer roda, fora do CI. O processo do App fica abaixo de 600 MB de memória.
@@ -80,6 +80,8 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
+
+- T2 (#656): a pasta `Rendering` saiu; o `ScreenSmokeTests` abre as telas do catálogo e `tools/VNForge.Capturas` grava os PNG (`docs/04-testes.md`). App: 3.118 para 2.714 testes; linhas 94,08% (19.840 de 21.088) e ramos 84,88% (10.776 de 12.696) em processo único, abaixo da base medida na mesma main (linhas 94,26%, 19.878; ramos no mínimo 84,93%). Faltam uns 38 linhas e de 50 a 100 ramos, em estados de erro e de corrida; memória do processo ainda em 2,2 GB.
 
 ## Fora da corrida
 
