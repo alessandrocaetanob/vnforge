@@ -53,7 +53,7 @@ internal static class ReleaseCommand
 
     private static readonly Option<string?> GameVersionOption = new("--versao-do-jogo")
     {
-        Description = "Versão do jogo de referência, como 1.00, que a janela de versão errada do instalador cita (padrão: a versão do executável do jogo, quando ele a traz).",
+        Description = "Versão do jogo de referência, como 1.00, que a janela de versão errada do instalador cita (padrão: a versão do executável do jogo, quando ele a traz, e depois a que o projeto guarda). A versão usada fica gravada no vnforge.json (game.version).",
         HelpName = "versão",
     };
 

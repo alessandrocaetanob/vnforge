@@ -17,7 +17,7 @@ namespace VNForge.Core.Publishing;
 /// <param name="InstallerName">Nome do instalador sem a extensão; o padrão é <c>&lt;jogo&gt;-&lt;idioma&gt;-&lt;versão&gt;</c>.</param>
 /// <param name="InstallerStub">O executável do instalador (<c>vnf-instalador</c>) que recebe o patch; o padrão é o que está ao lado do <c>vnf</c>.</param>
 /// <param name="CoverPath">Imagem da capa (PNG, JPEG ou WebP, até 4 MB) que o instalador mostra; passar o arquivo é a escolha explícita de usá-la. Sem ela o instalador desenha uma capa com o nome do jogo.</param>
-/// <param name="GameVersion">Versão do jogo de referência (<c>1.00</c>); o padrão é a versão do executável do jogo, quando ele tem.</param>
+/// <param name="GameVersion">Versão do jogo de referência (<c>1.00</c>); o padrão é a versão do executável do jogo, quando ele tem, e depois a que o projeto guarda (<c>game.version</c> do <c>vnforge.json</c>). A versão usada fica gravada no projeto.</param>
 public sealed record ReleaseOptions(
     string Version,
     string? OutputDirectory = null,
@@ -124,7 +124,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         var cover = ReadCover(options.CoverPath);
         using var projectLock = ProjectLock.Acquire(project);
         var config = project.LoadConfig();
-        var gameVersion = string.IsNullOrWhiteSpace(options.GameVersion) ? DetectGameVersion(project.Root, config) : options.GameVersion.Trim();
+        var gameVersion = ResolveGameVersion(options.GameVersion, DetectGameVersion(project.Root, config), config.Game.Version);
         var previous = LoadRecords(project).Where(r => !string.Equals(r.Version, version, StringComparison.Ordinal)).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
         var output = Path.GetFullPath(options.OutputDirectory ?? Path.Combine(project.Root, FolderName, version));
         if (IsInside(output, Path.GetFullPath(config.Game.Path, project.Root)))
@@ -173,7 +173,9 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
                 .ToList();
             steps?.Report(new ReleaseProgress(ReleaseStep.Diff, Detail: $"{sources.Count} {(sources.Count == 1 ? "arquivo" : "arquivos")}"));
 
-            return Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, texts, new PatchExtras(gameVersion, cover), steps, cancellationToken);
+            var result = Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, texts, new PatchExtras(gameVersion, cover), steps, cancellationToken);
+            RememberGameVersion(project, config, gameVersion);
+            return result;
         }
         catch (PatchException ex)
         {
@@ -183,6 +185,38 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         {
             patches.ForEach(GameInjector.DiscardPatch);
         }
+    }
+
+    /// <summary>
+    /// A versão do jogo de referência, a única regra que o patch e a tela Lançar seguem: a digitada (<paramref name="typed"/>) vale mais, depois a do executável
+    /// (<paramref name="detected"/>) e por fim a que o projeto já guarda (<paramref name="saved"/>). Todas passam por <see cref="GameConfig.NormalizeVersion"/>:
+    /// a do executável ou do projeto que não vale é ignorada como se não existisse. Sem nenhuma, o patch não leva versão e o instalador fala de "outra versão"
+    /// sem número.
+    /// </summary>
+    /// <exception cref="VNForgeException"><paramref name="typed"/> foi dada e não é uma versão válida.</exception>
+    public static string? ResolveGameVersion(string? typed, string? detected, string? saved)
+    {
+        if (!string.IsNullOrWhiteSpace(typed))
+        {
+            return GameConfig.NormalizeVersion(typed)
+                ?? throw new VNForgeException($"Versão do jogo inválida: '{typed}'. Use de 1 a {GameConfig.MaxVersionLength} caracteres, sem quebra de linha.");
+        }
+
+        return GameConfig.NormalizeVersion(detected) ?? GameConfig.NormalizeVersion(saved);
+    }
+
+    /// <summary>
+    /// Grava no <c>vnforge.json</c> a versão do jogo com que o patch foi lançado, para a tela e a CLI a lerem na próxima vez. Roda só depois de o
+    /// <see cref="Package"/> terminar: um lançamento que falha ou é cancelado não muda o projeto, e uma pasta de outra versão nunca chega aqui.
+    /// </summary>
+    private static void RememberGameVersion(ProjectFolder project, ProjectConfig config, string? gameVersion)
+    {
+        if (gameVersion is null || gameVersion == config.Game.Version)
+        {
+            return;
+        }
+
+        project.SaveConfig(config with { Game = config.Game with { Version = gameVersion } });
     }
 
     /// <summary>O que o patch leva além dos arquivos: a versão do jogo de referência e a capa, ambas opcionais.</summary>
@@ -218,8 +252,8 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         return known ? bytes : throw new VNForgeException($"A capa '{Path.GetFileName(file)}' não é PNG, JPEG nem WebP.");
     }
 
-    /// <summary>A versão do executável do jogo (<c>1.00</c>), quando ele a traz; vírgulas de "1, 0, 0, 0" viram pontos. Nula se não houver.</summary>
-    internal static string? DetectGameVersion(string projectRoot, ProjectConfig config)
+    /// <summary>A versão do executável do jogo (<c>1.00</c>), quando ele a traz; vírgulas de "1, 0, 0, 0" viram pontos. Nula se não houver ou se não for uma versão válida (longa demais, com caractere de controle).</summary>
+    public static string? DetectGameVersion(string projectRoot, ProjectConfig config)
     {
         try
         {
@@ -231,8 +265,8 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
 
             var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(exe);
             var raw = !string.IsNullOrWhiteSpace(info.FileVersion) ? info.FileVersion : info.ProductVersion;
-            var version = raw?.Replace(", ", ".", StringComparison.Ordinal).Replace(",", ".", StringComparison.Ordinal).Trim();
-            return string.IsNullOrEmpty(version) || version is "0.0.0.0" or "0.0.0" ? null : version;
+            var version = GameConfig.NormalizeVersion(raw?.Replace(", ", ".", StringComparison.Ordinal).Replace(",", ".", StringComparison.Ordinal));
+            return version is null or "0.0.0.0" or "0.0.0" ? null : version;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {

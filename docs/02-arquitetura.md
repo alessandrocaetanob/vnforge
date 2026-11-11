@@ -453,7 +453,8 @@ minha-vn-ptbr/
 {
   "name": "Minha VN — PT-BR",
   // title é opcional: o `vnf extract` grava o original lido do jogo; translation é a tradução que o build grava (vazia deixa o original)
-  "game": { "path": "D:/Jogos/MinhaVN", "exe": "MinhaVN.exe", "title": { "original": "原題", "translation": "Meu título" } },
+  // version é opcional: a versão do jogo de referência (1.00), que o `vnf release` e a tela Lançar gravam; o executável sem versão a recebe do que o usuário digita
+  "game": { "path": "D:/Jogos/MinhaVN", "exe": "MinhaVN.exe", "version": "1.00", "title": { "original": "原題", "translation": "Meu título" } },
   "engine": { "id": "yuris", "version": 500, "scriptKey": "0xD36FAC96" },
   "languages": { "source": "ja", "target": "pt-BR" },
   "encoding": { "strategy": "fold" },

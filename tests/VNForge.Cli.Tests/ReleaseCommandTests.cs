@@ -2,6 +2,7 @@ using System.Text.Json;
 using VNForge.Core.Projects;
 using VNForge.Core.Publishing;
 using VNForge.Core.Text;
+using VNForge.Engines.YuRis;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ystb.Synthetic;
@@ -193,6 +194,116 @@ public sealed class ReleaseCommandTests : IDisposable
         var manifest = ManifestOf("1.0.0");
         Assert.Null(manifest.Cover);
         Assert.Null(manifest.GameVersion);
+    }
+
+    [Fact]
+    public async Task A_versao_do_jogo_da_opcao_fica_gravada_no_projeto()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        var result = await Release("1.0.0", "--versao-do-jogo", " 1.00 ");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.00", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+        Assert.Contains("\"version\": \"1.00\"", await File.ReadAllTextAsync(Path.Combine(ProjectPath, ProjectFolder.ConfigFileName), Token), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sem_a_opcao_a_versao_do_jogo_vem_do_projeto()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "1.07" } });
+
+        var result = await Release("1.0.0");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.07", ManifestOf("1.0.0").GameVersion);
+        Assert.Equal("1.07", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+    }
+
+    [Fact]
+    public async Task A_opcao_troca_a_versao_que_o_projeto_guardava()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "1.07" } });
+
+        var result = await Release("1.0.0", "--versao-do-jogo", "1.08");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.Equal("1.08", ManifestOf("1.0.0").GameVersion);
+        Assert.Equal("1.08", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+    }
+
+    [Fact]
+    public async Task A_versao_do_executavel_vale_mais_que_a_do_projeto_no_patch_e_na_tela()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var exe = Path.Combine(_game, "MinhaVN.exe");
+        File.Copy(typeof(ReleaseCommandTests).Assembly.Location, exe, overwrite: true);
+        var fromExe = System.Diagnostics.FileVersionInfo.GetVersionInfo(exe).FileVersion!;
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "0.99" } });
+
+        var result = await Release("1.0.0");
+
+        Assert.True(result.ExitCode == 0, result.Error + result.Output);
+        Assert.NotEqual("0.99", fromExe);
+        Assert.Equal(fromExe, ManifestOf("1.0.0").GameVersion);
+        Assert.Equal(fromExe, ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+        Assert.Equal(fromExe, ReleaseService.ResolveGameVersion(null, ReleaseService.DetectGameVersion(ProjectPath, config), "0.99"));
+    }
+
+    [Fact]
+    public async Task Lancamento_que_falha_ou_e_cancelado_depois_do_checksum_nao_muda_a_versao_guardada()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+        var project = ProjectFolder.Open(ProjectPath);
+        var config = project.LoadConfig();
+        project.SaveConfig(config with { Game = config.Game with { Version = "1.07" } });
+        var options = new ReleaseOptions("1.0.0", InstallerStub: _stub, GameVersion: "1.08");
+        var failing = new InlineProgress<ReleaseProgress>(p =>
+        {
+            if (p.Step == ReleaseStep.Package)
+            {
+                throw new IOException("falha simulada ao montar o instalador");
+            }
+        });
+
+        Assert.Throws<IOException>(() => new ReleaseService([new YuRisEngine()]).Create(project, options, failing, Token));
+        var cancelling = new InlineProgress<ReleaseProgress>(p =>
+        {
+            if (p.Step == ReleaseStep.Package)
+            {
+                throw new OperationCanceledException();
+            }
+        });
+        Assert.Throws<OperationCanceledException>(() => new ReleaseService([new YuRisEngine()]).Create(project, options, cancelling, Token));
+
+        Assert.Equal("1.07", ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+    }
+
+    [Fact]
+    public async Task Versao_do_jogo_invalida_e_recusada_e_nada_e_gravado()
+    {
+        await InitAndExtract();
+        Translate(Yst1, "Traduzido");
+
+        var result = await Release("1.0.0", "--versao-do-jogo", new string('9', GameConfig.MaxVersionLength + 1));
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Versão do jogo inválida", result.Error);
+        Assert.Null(ProjectFolder.Open(ProjectPath).LoadConfig().Game.Version);
+        Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
     }
 
     [Theory]
