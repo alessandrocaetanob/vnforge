@@ -9,11 +9,15 @@ namespace VNForge.Core.Library;
 /// </summary>
 public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
 {
+    public override bool HandleNull => true;
+
     public override LibraryPrivacy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        // Um valor que não é objeto (null, texto) não derruba o library.json inteiro: vale o padrão, que esconde o conteúdo adulto.
         if (reader.TokenType != JsonTokenType.StartObject)
         {
-            throw new JsonException("A privacidade da biblioteca deveria ser um objeto.");
+            reader.Skip();
+            return new LibraryPrivacy();
         }
 
         var showSpoilers = false;
@@ -23,7 +27,7 @@ public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
         {
             var name = reader.GetString() ?? string.Empty;
             reader.Read();
-            if (name.Equals("showSpoilers", StringComparison.OrdinalIgnoreCase))
+            if (name.Equals("showSpoilers", StringComparison.OrdinalIgnoreCase) && reader.TokenType is JsonTokenType.True or JsonTokenType.False)
             {
                 showSpoilers = reader.GetBoolean();
             }
@@ -31,7 +35,7 @@ public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
             {
                 adult = ReadMode(ref reader);
             }
-            else if (name.Equals("showAdult", StringComparison.OrdinalIgnoreCase))
+            else if (name.Equals("showAdult", StringComparison.OrdinalIgnoreCase) && reader.TokenType is JsonTokenType.True or JsonTokenType.False)
             {
                 legacyShowAdult = reader.GetBoolean();
             }
@@ -53,13 +57,15 @@ public sealed class LibraryPrivacyConverter : JsonConverter<LibraryPrivacy>
         writer.WriteEndObject();
     }
 
-    private static AdultMode ReadMode(ref Utf8JsonReader reader)
+    private static AdultMode? ReadMode(ref Utf8JsonReader reader)
     {
-        if (reader.TokenType == JsonTokenType.String && Enum.TryParse<AdultMode>(reader.GetString(), ignoreCase: true, out var mode) && Enum.IsDefined(mode))
+        // Um modo que este programa não conhece (um arquivo de outra versão) vale como ausente.
+        if (reader.TokenType != JsonTokenType.String)
         {
-            return mode;
+            reader.Skip();
+            return null;
         }
 
-        throw new JsonException("O modo do conteúdo adulto deveria ser show, blur ou hide.");
+        return Enum.TryParse<AdultMode>(reader.GetString(), ignoreCase: true, out var mode) && Enum.IsDefined(mode) ? mode : null;
     }
 }

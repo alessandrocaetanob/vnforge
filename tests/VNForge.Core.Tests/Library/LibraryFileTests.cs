@@ -108,6 +108,22 @@ public sealed class LibraryFileTests : IDisposable
         Assert.Equal(expected, privacy.Adult);
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"texto\"")]
+    [InlineData("{\"adult\":\"borrar\"}")]
+    [InlineData("{\"adult\":3}")]
+    [InlineData("{\"adult\":{\"x\":[1]},\"showSpoilers\":true}")]
+    [InlineData("{\"showAdult\":\"sim\"}")]
+    [InlineData("{\"showAdult\":null,\"showSpoilers\":\"sim\"}")]
+    public void Uma_privacidade_estranha_vale_o_padrao_e_nao_derruba_o_arquivo(string privacyJson)
+    {
+        var library = LibraryFile.Parse("{\"version\":1,\"privacy\":" + privacyJson + ",\"games\":[]}");
+
+        Assert.Equal(AdultMode.Blur, library.Privacy.Adult);
+        Assert.Empty(library.Games);
+    }
+
     [Fact]
     public void O_modo_adulto_e_gravado_como_adult_e_sem_showAdult()
     {

@@ -251,7 +251,7 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, sheet = card }));
+            output.WriteLine(JsonEnvelope.Result(new { game = new { id = game.Id, title = game.Title }, sheet = card with { Characters = [.. card.Characters.Select(c => c.ImageHidden ? c with { Image = null } : c)] } }));
             return ErrorHandler.OkExitCode;
         }
 
