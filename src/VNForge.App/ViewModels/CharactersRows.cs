@@ -23,8 +23,14 @@ public sealed partial class CharacterFacet(string key, string label, int count) 
     public partial bool IsSelected { get; set; }
 }
 
+/// <summary>
+/// O retrato de conteúdo adulto no modo Desfocar. <paramref name="RevealKey"/> é o jogo do VNDB que o olho revela (o do papel mais importante do personagem); <paramref name="Revealed"/>
+/// vale quando qualquer jogo dele foi revelado nesta sessão; <paramref name="IsBlurred"/> é o retrato borrado que ainda mostra o olho.
+/// </summary>
+public sealed record CharacterPortraitReveal(string RevealKey, bool Revealed, bool IsBlurred);
+
 /// <summary>Um personagem da grade: retrato, nome, original, o papel mais importante dele e em quantos jogos da Biblioteca está.</summary>
-public sealed record CharacterListItem(string Id, string Name, string? Original, VndbImageRef? Image, SheetPill Role, string GamesText)
+public sealed record CharacterListItem(string Id, string Name, string? Original, VndbImageRef? Image, SheetPill Role, string GamesText, CharacterPortraitReveal Portrait)
 {
     public bool HasOriginal => !string.IsNullOrEmpty(Original);
 
@@ -32,7 +38,7 @@ public sealed record CharacterListItem(string Id, string Name, string? Original,
 }
 
 /// <summary>Um jogo da Biblioteca em que o personagem aparece: a capa, o título, o papel nele e de onde saiu esse papel.</summary>
-public sealed record CharacterGameRow(string GameId, string Title, VndbImageRef? Cover, string Subtitle, double Progress, SheetPill Role, string Detail)
+public sealed record CharacterGameRow(string GameId, string Title, VndbImageRef? Cover, string Subtitle, double Progress, SheetPill Role, string Detail, bool Revealed = false)
 {
     public bool HasCover => Cover is not null;
 
@@ -62,6 +68,7 @@ public sealed record CharacterPage(
     IReadOnlyList<CharacterGameRow> Games,
     string GamesCount,
     string? Note,
+    CharacterPortraitReveal Portrait,
     CharacterTranslation? Translation = null)
 {
     public bool HasNames => NamesLine is not null;

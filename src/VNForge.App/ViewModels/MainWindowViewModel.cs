@@ -203,6 +203,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet"), Reveals = Library.Reveal };
         Characters.Notify = (text, kind) => Toasts.Show(text, kind, key: "characters");
+        Characters.Reveals = Library.Reveal;
         Sheet.CharacterRequested += (_, request) =>
         {
             Characters.Open(request.Id, request.RevealSpoilers);
@@ -580,9 +581,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     DashboardRefresh = Dashboard.ReloadAsync();
                 }
 
-                if (value.Key is not (NavKey.Start or NavKey.Sheet))
+                if (value.Key is not (NavKey.Start or NavKey.Sheet or NavKey.Characters))
                 {
-                    // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca e da Ficha.
+                    // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca, da Ficha e dos Personagens.
                     Library.Reveal.Clear();
                 }
 

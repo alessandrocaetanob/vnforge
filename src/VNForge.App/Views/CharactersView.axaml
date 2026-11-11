@@ -93,7 +93,18 @@
       <Button Classes="libcard" Width="{Binding $parent[v:CharactersView].CardSide}" Margin="0,0,0,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
               CommandParameter="{Binding}" AutomationProperties.Name="{Binding AutomationName}">
         <StackPanel Spacing="8">
-          <c:Portrait Size="Lg" FixedSide="{Binding $parent[v:CharactersView].CardSide}" Image="{Binding Image}" Seed="{Binding Name}" LoadOnlyInViewport="True" HorizontalAlignment="Left"/>
+          <Panel HorizontalAlignment="Left">
+            <c:Portrait Size="Lg" FixedSide="{Binding $parent[v:CharactersView].CardSide}" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}" LoadOnlyInViewport="True"/>
+            <Border Classes="bveil" CornerRadius="{DynamicResource Vnf.RadiusLg}" IsVisible="{Binding Portrait.IsBlurred}">
+              <Button Classes="rvb sm" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RevealPortraitCommand}" CommandParameter="{Binding Portrait.RevealKey}"
+                      AutomationProperties.Name="{Binding Name, StringFormat='Mostrar o retrato de {0}'}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Eye}"/>
+                  <TextBlock Text="Mostrar"/>
+                </StackPanel>
+              </Button>
+            </Border>
+          </Panel>
           <StackPanel Spacing="2">
             <TextBlock Classes="lib-ct" Text="{Binding Name}"/>
             <TextBlock Classes="jp-row secondary" FontSize="12" FontWeight="Normal" Text="{Binding Original}" IsVisible="{Binding HasOriginal}" TextTrimming="CharacterEllipsis"/>
@@ -123,7 +134,7 @@
             <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}" VerticalAlignment="Center" Width="44" Height="58">
               <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Background="{DynamicResource Vnf.BgInset}">
                 <Panel>
-                  <c:Cover Width="44" Image="{Binding Cover}" Seed="{Binding Title}" IsVisible="{Binding HasCover}"/>
+                  <c:Cover Width="44" Image="{Binding Cover}" Revealed="{Binding Revealed}" Seed="{Binding Title}" IsVisible="{Binding HasCover}"/>
                   <c:FractionBar Height="4" VerticalAlignment="Bottom" Value="{Binding Progress}" IsVisible="{Binding HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
                 </Panel>
               </Border>
@@ -253,7 +264,18 @@
 
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="32">
           <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" VerticalAlignment="Top">
-            <c:Portrait Size="Lg" FixedSide="220" Image="{Binding Image}" Seed="{Binding Name}"/>
+            <Panel>
+              <c:Portrait Size="Lg" FixedSide="220" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}"/>
+              <Border Classes="bveil" CornerRadius="{DynamicResource Vnf.RadiusLg}" IsVisible="{Binding Portrait.IsBlurred}">
+                <Button Classes="rvb" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RevealPortraitCommand}" CommandParameter="{Binding Portrait.RevealKey}"
+                        AutomationProperties.Name="{Binding Name, StringFormat='Mostrar o retrato de {0}'}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
+                    <TextBlock Text="Mostrar"/>
+                  </StackPanel>
+                </Button>
+              </Border>
+            </Panel>
           </Border>
           <StackPanel Grid.Column="1" Spacing="16">
             <StackPanel Spacing="2">

@@ -303,6 +303,61 @@ public sealed class AdultRenderTests(HeadlessFixture fixture, DemoFolderFixture 
         });
     }
 
+    [Fact]
+    public async Task Nos_Personagens_o_retrato_borrado_da_lista_e_da_pagina_mostra_o_olho_e_o_clique_revela_o_jogo()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var config = new TempFolder();
+                var previous = VndbImages.Source;
+                VndbImages.Source = new LibrarySamples.Images(new LibraryPrivacy(Adult: AdultMode.Blur));
+                await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, TestContext.Current.CancellationToken, adultPortrait: true);
+                var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(config.Path), new FixedClock(CharactersSamples.Now));
+                var vm = new MainWindowViewModel(start);
+                vm.Characters.ConfigDirectory = config.Path;
+                var window = new MainWindow { Width = ScreenRenderer.Width, Height = ScreenRenderer.Height, DataContext = vm };
+                try
+                {
+                    window.Show();
+                    vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Characters);
+                    await vm.Characters.Loading;
+                    ScreenRenderer.Settle(window);
+
+                    var view = window.GetVisualDescendants().OfType<CharactersView>().Single(v => v.IsEffectivelyVisible);
+                    Assert.True(view.GetVisualDescendants().OfType<Portrait>().First(p => p.IsEffectivelyVisible && p.Seed == "Hana Tsukino").IsBlurred);
+                    var eye = view.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("rvb") && b.IsEffectivelyVisible);
+                    Assert.Equal("Mostrar o retrato de Hana Tsukino", Avalonia.Automation.AutomationProperties.GetName(eye));
+                    eye.Command!.Execute(eye.CommandParameter);
+                    ScreenRenderer.Settle(window);
+
+                    Assert.True(vm.Library.Reveal.IsRevealed(CharactersSamples.Moon));
+                    Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("rvb") && b.IsEffectivelyVisible);
+                    Assert.False(view.GetVisualDescendants().OfType<Portrait>().First(p => p.IsEffectivelyVisible && p.Seed == "Hana Tsukino").IsBlurred);
+
+                    vm.Library.Reveal.Clear();
+                    vm.Characters.OpenCharacterCommand.Execute(vm.Characters.Items.Single(i => i.Name == "Hana Tsukino"));
+                    ScreenRenderer.Settle(window);
+
+                    Assert.True(view.GetVisualDescendants().OfType<Portrait>().Single(p => p.IsEffectivelyVisible && p.Seed == "Hana Tsukino").IsBlurred);
+                    eye = view.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("rvb") && b.IsEffectivelyVisible);
+                    eye.Command!.Execute(eye.CommandParameter);
+                    ScreenRenderer.Settle(window);
+
+                    Assert.False(view.GetVisualDescendants().OfType<Portrait>().Single(p => p.IsEffectivelyVisible && p.Seed == "Hana Tsukino").IsBlurred);
+                    Assert.True(vm.Library.Reveal.IsRevealed(CharactersSamples.Moon));
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = previous;
+                }
+
+                return 0;
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private async Task Ficha(ThemeVariant theme, AdultMode mode, Func<MainWindow, MainWindowViewModel, Task> verificar)
     {
         await fixture.Session.Dispatch<int>(
