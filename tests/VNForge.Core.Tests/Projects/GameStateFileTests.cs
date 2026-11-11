@@ -71,6 +71,53 @@ public sealed class GameStateFileTests : IDisposable
         Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
     }
 
+    // A faixa de "Testar no jogo", o Painel e o Editor leem este arquivo em segundo plano; a troca por rename falha no Windows enquanto uma leitura o segura.
+    [Fact]
+    public void Save_espera_a_leitura_em_andamento_e_conclui_quando_a_nova_tentativa_solta_o_arquivo()
+    {
+        GameStateFile.Save(_project, Sample());
+        var aberto = new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var esperas = new List<int>();
+
+        try
+        {
+            GameStateFile.Save(_project, GameStateFile.Empty, milissegundos =>
+            {
+                esperas.Add(milissegundos);
+                aberto.Dispose();
+            });
+        }
+        finally
+        {
+            aberto.Dispose();
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal([5], esperas);
+        }
+
+        Assert.Equal(GameStateFile.Empty, GameStateFile.Load(_project));
+        Assert.Empty(Directory.GetFiles(_project.CacheDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public void Save_que_esgota_as_tentativas_sobe_o_erro_e_nao_deixa_temporario()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS o rename troca o arquivo mesmo aberto.");
+        GameStateFile.Save(_project, Sample());
+
+        using (new FileStream(GameStateFile.PathFor(_project), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var erro = Record.Exception(() => GameStateFile.Save(_project, GameStateFile.Empty, _ => { }));
+
+            Assert.True(erro is UnauthorizedAccessException or IOException, $"Esperava falha de acesso ao arquivo, veio {erro?.GetType().Name ?? "nenhuma"}.");
+        }
+
+        Assert.Equal(Sample().InGame, GameStateFile.Load(_project).InGame);
+        Assert.Empty(Directory.GetFiles(_project.CacheDirectory, "*.tmp"));
+    }
+
     [Fact]
     public void Retrato_das_traducoes_vai_e_volta_no_json_so_com_hashes()
     {
