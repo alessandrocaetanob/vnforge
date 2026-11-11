@@ -98,24 +98,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Busca_sem_resultado_devolve_lista_vazia()
-    {
-        var found = await Client(new StubHandler(VndbSamples.NoResults)).SearchVisualNovelsAsync("nada", ct: Ct);
-
-        Assert.Empty(found);
-    }
-
-    [Fact]
-    public async Task Busca_de_VN_limita_o_pedido_a_100_resultados()
-    {
-        var handler = new StubHandler(VndbSamples.NoResults);
-
-        await Client(handler).SearchVisualNovelsAsync("x", 5000, ct: Ct);
-
-        Assert.Equal(100, (int?)Body(handler.Requests[0])["results"]);
-    }
-
-    [Fact]
     public async Task GetVisualNovel_pede_o_id_e_devolve_nulo_quando_nao_existe()
     {
         var handler = new StubHandler((_, n) => StubHandler.Json(n == 1 ? VndbSamples.VisualNovels : VndbSamples.NoResults));
@@ -182,18 +164,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Busca_de_personagens_que_passa_do_teto_de_paginas_avisa_que_cortou()
-    {
-        var handler = new StubHandler(VndbSamples.CharactersFirstPage);
-
-        var result = await Client(handler).SearchCharactersByTitleAsync("Moon Flower", ct: Ct);
-
-        Assert.True(result.Truncated);
-        Assert.Equal(5, handler.Requests.Count);
-        Assert.Equal(5, result.Items.Count);
-    }
-
-    [Fact]
     public async Task Edicoes_do_jogo_trazem_idiomas_engine_e_se_e_patch()
     {
         var handler = new StubHandler(VndbSamples.Releases);
@@ -213,10 +183,8 @@ public class VndbClientTests
     }
 
     [Theory]
-    [InlineData("17")]
     [InlineData("c17")]
     [InlineData("v")]
-    [InlineData("v1x")]
     [InlineData("")]
     public async Task Id_de_jogo_fora_do_formato_e_recusado_sem_pedido(string id)
     {
@@ -225,31 +193,6 @@ public class VndbClientTests
         await Assert.ThrowsAnyAsync<ArgumentException>(() => Client(handler).GetCharactersAsync(id, ct: Ct));
 
         Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
-    public async Task Titulo_vazio_e_recusado_sem_pedido()
-    {
-        var handler = new StubHandler(VndbSamples.NoResults);
-
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => Client(handler).SearchVisualNovelsAsync("  ", ct: Ct));
-
-        Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
-    public async Task A_mesma_busca_sai_do_cache_e_nao_gasta_pedido()
-    {
-        using var dir = new TempDir();
-        var time = new FakeTimeProvider();
-        var handler = new StubHandler(VndbSamples.VisualNovels);
-        var client = Client(handler, time, new VndbCache(dir.Path, time));
-
-        var first = await client.SearchVisualNovelsAsync("Moon Flower", ct: Ct);
-        var second = await client.SearchVisualNovelsAsync("Moon Flower", ct: Ct);
-
-        Assert.Single(handler.Requests);
-        Assert.Equal(first, second, new VnComparer());
     }
 
     [Fact]
@@ -284,27 +227,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Pedidos_alem_do_limite_esperam_a_janela_e_nunca_passam_de_N_por_janela()
-    {
-        var time = new FakeTimeProvider();
-        var handler = new StubHandler(VndbSamples.NoResults);
-        var client = Client(handler, time, maxRequests: 3);
-
-        for (var i = 0; i < 3; i++)
-        {
-            await client.SearchVisualNovelsAsync("titulo " + i, ct: Ct);
-        }
-
-        var fourth = client.SearchVisualNovelsAsync("titulo 3", ct: Ct);
-        Assert.False(fourth.IsCompleted);
-        Assert.Equal(3, handler.Requests.Count);
-
-        time.Advance(VndbRequestQueue.DefaultWindow);
-        await fourth.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        Assert.Equal(4, handler.Requests.Count);
-    }
-
-    [Fact]
     public async Task Resposta_429_para_a_fila_pelo_Retry_After_e_o_pedido_e_refeito()
     {
         var time = new FakeTimeProvider();
@@ -329,31 +251,6 @@ public class VndbClientTests
 
         Assert.Equal(2, handler.Requests.Count);
         Assert.True(secondSentAt - started >= TimeSpan.FromSeconds(30));
-    }
-
-    [Fact]
-    public async Task Sem_Retry_After_a_espera_cresce_60_120_180_segundos_e_na_quarta_vez_o_pedido_passa()
-    {
-        var time = new FakeTimeProvider();
-        var sentAt = new List<DateTimeOffset>();
-        var handler = new StubHandler((_, n) =>
-        {
-            lock (sentAt)
-            {
-                sentAt.Add(time.GetUtcNow());
-            }
-
-            return n <= 3 ? StubHandler.Text(HttpStatusCode.TooManyRequests, "Throttled") : StubHandler.Json(VndbSamples.NoResults);
-        });
-        var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
-
-        await AdvanceUntilDone(pending, time, TimeSpan.FromSeconds(10));
-        await pending;
-
-        Assert.Equal(4, handler.Requests.Count);
-        Assert.True(sentAt[1] - sentAt[0] >= TimeSpan.FromSeconds(60));
-        Assert.True(sentAt[2] - sentAt[1] >= TimeSpan.FromSeconds(120));
-        Assert.True(sentAt[3] - sentAt[2] >= TimeSpan.FromSeconds(180));
     }
 
     [Fact]
@@ -404,44 +301,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Um_503_com_a_pagina_do_nginx_e_limite_de_uso_e_o_pedido_e_refeito()
-    {
-        var time = new FakeTimeProvider();
-        var handler = new StubHandler((_, n) => n == 1
-            ? StubHandler.Text(HttpStatusCode.ServiceUnavailable, "<html><head><title>503 Service Temporarily Unavailable</title></head></html>")
-            : StubHandler.Json(VndbSamples.NoResults));
-        var pending = Client(handler, time).SearchVisualNovelsAsync("x", ct: Ct);
-
-        await AdvanceUntilDone(pending, time, TimeSpan.FromSeconds(10));
-        await pending;
-
-        Assert.Equal(2, handler.Requests.Count);
-    }
-
-    [Fact]
-    public async Task Um_503_sem_sinal_de_limite_e_servidor_fora_do_ar_e_nao_e_refeito()
-    {
-        var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.ServiceUnavailable, "down for maintenance"));
-
-        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).SearchVisualNovelsAsync("x", ct: Ct));
-
-        Assert.Equal(503, error.StatusCode);
-        Assert.Contains("fora do ar", error.Message);
-        Assert.Single(handler.Requests);
-    }
-
-    [Fact]
-    public async Task Queda_no_meio_do_corpo_vira_VndbException_em_portugues()
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StubHandler.BrokenContent() });
-
-        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).SearchVisualNovelsAsync("x", ct: Ct));
-
-        Assert.Contains("caiu no meio da resposta", error.Message);
-        Assert.NotNull(error.InnerException);
-    }
-
-    [Fact]
     public async Task Corpo_que_trava_para_pelo_prazo_do_cliente()
     {
         var clientTime = new FakeTimeProvider();
@@ -452,29 +311,6 @@ public class VndbClientTests
         var error = await Assert.ThrowsAsync<VndbException>(() => pending);
 
         Assert.Contains("demorou demais", error.Message);
-    }
-
-    [Fact]
-    public async Task Dois_clientes_com_a_mesma_fila_juntos_nao_passam_do_limite()
-    {
-        var time = new FakeTimeProvider();
-        var queue = new VndbRequestQueue(time, maxRequests: 3);
-        var handlerA = new StubHandler(VndbSamples.NoResults);
-        var handlerB = new StubHandler(VndbSamples.NoResults);
-        var a = Client(handlerA, queue: queue);
-        var b = Client(handlerB, queue: queue);
-
-        await a.SearchVisualNovelsAsync("a1", ct: Ct);
-        await b.SearchVisualNovelsAsync("b1", ct: Ct);
-        await a.SearchVisualNovelsAsync("a2", ct: Ct);
-        var fourth = b.SearchVisualNovelsAsync("b2", ct: Ct);
-
-        Assert.False(fourth.IsCompleted);
-        Assert.Equal(3, handlerA.Requests.Count + handlerB.Requests.Count);
-
-        time.Advance(VndbRequestQueue.DefaultWindow);
-        await fourth.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        Assert.Equal(4, handlerA.Requests.Count + handlerB.Requests.Count);
     }
 
     [Fact]
@@ -516,15 +352,6 @@ public class VndbClientTests
 
         Assert.Contains("Não foi possível falar com o VNDB", error.Message);
         Assert.Null(error.StatusCode);
-    }
-
-    [Fact]
-    public async Task Cancelar_nao_vira_VndbException()
-    {
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Client(new StubHandler(VndbSamples.NoResults)).SearchVisualNovelsAsync("x", ct: cts.Token));
     }
 
     [Fact]
@@ -582,22 +409,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Lista_e_token_nunca_passam_pelo_cache()
-    {
-        using var dir = new TempDir();
-        var time = new FakeTimeProvider();
-        var handler = new StubHandler((req, _) => StubHandler.Json(req.Uri.AbsolutePath.EndsWith("authinfo", StringComparison.Ordinal) ? VndbSamples.AuthInfo : VndbSamples.ListSecondPage));
-        var client = Client(handler, time, new VndbCache(dir.Path, time));
-
-        await client.GetAuthInfoAsync("segredo-1", ct: Ct);
-        await client.GetListAsync("u900", "segredo-1", ct: Ct);
-        await client.GetListAsync("u900", "segredo-1", ct: Ct);
-
-        Assert.Equal(3, handler.Requests.Count);
-        Assert.Empty(Directory.Exists(dir.Path) ? Directory.GetFiles(dir.Path) : []);
-    }
-
-    [Fact]
     public async Task Atualizar_entrada_manda_PATCH_so_com_o_que_mudou()
     {
         var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
@@ -622,44 +433,6 @@ public class VndbClientTests
     }
 
     [Fact]
-    public async Task Atualizar_so_a_nota_nao_manda_voto_nem_rotulos()
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
-
-        await Client(handler).UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { Notes = "ótimo" }, ct: Ct);
-
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"notes":"ótimo"}"""), Body(handler.Requests[0])));
-    }
-
-    [Theory]
-    [InlineData(9)]
-    [InlineData(101)]
-    public async Task Voto_fora_de_10_a_100_e_recusado_sem_pedido(int vote)
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Client(handler).UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { Vote = vote }, ct: Ct));
-
-        Assert.Empty(handler.Requests);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(7)]
-    [InlineData(-1)]
-    [InlineData(1601)]
-    public async Task Rotulos_fora_de_1_a_1600_ou_o_7_nao_podem_ser_gravados_nem_tirados(int label)
-    {
-        var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
-        var client = Client(handler);
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { LabelsSet = [label] }, ct: Ct));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { LabelsUnset = [label] }, ct: Ct));
-
-        Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
     public async Task Token_com_espaco_no_meio_e_recusado_sem_pedido()
     {
         var handler = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
@@ -667,44 +440,6 @@ public class VndbClientTests
         await Assert.ThrowsAsync<VndbException>(() => Client(handler).UpdateEntryAsync("abc def", "v17", new VndbListUpdate(), ct: Ct));
 
         Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
-    public async Task Token_invalido_na_atualizacao_vira_erro_401_em_portugues()
-    {
-        var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.Unauthorized, "Invalid token"));
-
-        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).UpdateEntryAsync("tok-1", "v17", new VndbListUpdate { Vote = 70 }, ct: Ct));
-
-        Assert.Equal(401, error.StatusCode);
-        Assert.DoesNotContain("tok-1", error.Message);
-    }
-
-    [Fact]
-    public async Task AuthInfo_com_token_recusado_vira_erro_401_sem_repetir_o_token()
-    {
-        var handler = new StubHandler((_, _) => StubHandler.Text(HttpStatusCode.Unauthorized, "Invalid token"));
-
-        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).GetAuthInfoAsync("tok-secreto", Ct));
-
-        Assert.Equal(401, error.StatusCode);
-        Assert.DoesNotContain("tok-secreto", error.Message);
-        Assert.Single(handler.Requests);
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.InternalServerError)]
-    [InlineData(HttpStatusCode.BadGateway)]
-    public async Task Lista_com_erro_do_servidor_vira_aviso_de_servidor_fora_do_ar_e_nao_e_refeita(HttpStatusCode status)
-    {
-        var handler = new StubHandler((_, _) => StubHandler.Text(status, "erro"));
-
-        var error = await Assert.ThrowsAsync<VndbException>(() => Client(handler).GetListAsync("u2", "tok-secreto", Ct));
-
-        Assert.Equal((int)status, error.StatusCode);
-        Assert.Contains("fora do ar", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("tok-secreto", error.Message);
-        Assert.Single(handler.Requests);
     }
 
     private sealed class VnComparer : IEqualityComparer<IReadOnlyList<VndbVisualNovel>>

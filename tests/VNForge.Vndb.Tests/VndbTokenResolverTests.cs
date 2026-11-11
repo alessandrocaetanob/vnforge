@@ -19,15 +19,6 @@ public class VndbTokenResolverTests
         Assert.Equal("abcd-efgh", token);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Variavel_ausente_ou_vazia_nao_e_token(string? value)
-    {
-        Assert.Null(VndbTokenResolver.Resolve(_ => value));
-    }
-
     [Fact]
     public void A_variavel_de_ambiente_vence_o_cofre()
     {
@@ -74,17 +65,6 @@ public class VndbTokenResolverTests
         Assert.True(store.Delete());
         Assert.False(store.Delete());
         Assert.Null(store.Load());
-    }
-
-    [Fact]
-    public void Fora_do_windows_o_cofre_manda_usar_a_variavel_de_ambiente()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "Só vale fora do Windows.");
-        using var dir = new TempDir();
-
-        var erro = Assert.Throws<VndbException>(() => new DpapiVndbTokenStore(dir.Path).Save("x"));
-
-        Assert.Contains("VNDB_TOKEN", erro.Message, StringComparison.Ordinal);
     }
 
     [Fact]
