@@ -272,4 +272,52 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Empty(vm.PostRules);
         Assert.Null(vm.SelectedRule);
     }
+
+    [Fact]
+    public void Sem_projeto_os_comandos_das_regras_nao_abrem_dialogo_nem_falham()
+    {
+        var vm = new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(temp.SubFolder("config")), _ => null, _ => new NoopClient());
+        vm.Load(null);
+
+        vm.AddPreRuleCommand.Execute(null);
+        vm.AddPostRuleCommand.Execute(null);
+        vm.EditSelectedRuleCommand.Execute(null);
+        vm.DeleteSelectedRuleCommand.Execute(null);
+        vm.IsEditorOpen = false;
+
+        Assert.Null(vm.Editor);
+        Assert.False(vm.IsEditorOpen);
+        Assert.False(vm.HasSelectedRule);
+        Assert.Equal("Escolha uma regra para ver onde ela troca.", vm.PreviewEmpty);
+        vm.Dispose();
+    }
+
+    [Fact]
+    public async Task Regra_cujo_texto_nao_aparece_em_linha_nenhuma_diz_isso_na_previa()
+    {
+        var (vm, _) = await Opened(new DictionaryRules([new DictionaryRule("ありがとー", "ありがとう")], []));
+
+        Assert.True(vm.HasSelectedRule);
+        Assert.False(vm.HasApplied);
+        Assert.False(vm.HasBlocked);
+        Assert.Equal("Nenhuma linha do projeto tem este texto.", vm.PreviewEmpty);
+        Assert.True(vm.HasPreviewEmpty);
+        Assert.Equal("0 linhas", Assert.Single(vm.PreRules).LinesText);
+    }
+
+    [Fact]
+    public async Task Fechar_o_dialogo_pelo_interruptor_descarta_a_edicao_e_abrir_por_ele_nao_faz_nada()
+    {
+        var (vm, folder) = await Opened(Sample());
+        vm.AddPreRuleCommand.Execute(null);
+        vm.Editor!.Pattern = "x";
+
+        vm.IsEditorOpen = true;
+        Assert.True(vm.IsEditorOpen);
+        vm.IsEditorOpen = false;
+
+        Assert.Null(vm.Editor);
+        Assert.Equal(2, folder.LoadFormatting().Dictionary.Pre.Count);
+        vm.Dispose();
+    }
 }

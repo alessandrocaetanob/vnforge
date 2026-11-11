@@ -448,4 +448,134 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.True(vm.IsFailedCard);
         Assert.Contains("jmdict.vnfdict", vm.InstallProblem);
     }
+
+    [Fact]
+    public async Task Passar_o_mouse_por_outra_letra_da_mesma_palavra_mantem_o_cartao_sem_buscar_de_novo()
+    {
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario);
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+        var buscas = dicionario.LookupCount;
+
+        vm.HoverSource(Em(Frase, "遅刻", 1));
+
+        Assert.True(vm.IsEntryCard);
+        Assert.Equal("遅刻", vm.WordText);
+        Assert.Equal(buscas, dicionario.LookupCount);
+    }
+
+    [Fact]
+    public async Task O_mouse_saindo_do_cartao_da_entrada_fecha_o_cartao()
+    {
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario));
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        vm.LeaveWordCard();
+
+        Assert.False(vm.ShowWordCard);
+        Assert.Equal(-1, vm.WordStart);
+    }
+
+    [Fact]
+    public void Sem_dicionario_os_comandos_do_cartao_nao_fazem_nada_e_o_estado_de_instalacao_e_o_de_montagem()
+    {
+        using var vm = Abrir(null);
+
+        vm.ExpandWordCommand.Execute(null);
+        vm.InstallDictionaryCommand.Execute(null);
+        vm.CancelDictionaryInstallCommand.Execute(null);
+        vm.DismissDictionaryOfferCommand.Execute(null);
+
+        Assert.False(vm.ShowWordCard);
+        Assert.False(vm.IsWordExpanded);
+        Assert.Equal("Montando o dicionário...", vm.InstallStatusText);
+        Assert.Equal(0, vm.InstallProgress);
+        Assert.True(vm.InstallIsIndeterminate);
+        Assert.Null(vm.InstallProblem);
+        Assert.False(vm.WordNeedsUpdate);
+    }
+
+    [Fact]
+    public async Task Durante_o_download_o_cartao_mostra_a_fracao_baixada_e_o_mouse_em_outra_palavra_nao_o_troca()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.StalledServer()));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        var baixando = vm.InstallDictionaryCommand.ExecuteAsync(null);
+        await Wait.UntilAsync(() => vm.InstallProgress > 0, "a primeira fração do download");
+
+        Assert.True(vm.IsInstallingCard);
+        Assert.Matches(@"^Baixando o dicionário · \d+%$", vm.InstallStatusText);
+        Assert.InRange(vm.InstallProgress, 1, 99);
+        Assert.False(vm.InstallIsIndeterminate);
+        vm.HoverSource(Em(Frase, "二人"));
+        Assert.True(vm.IsInstallingCard);
+
+        vm.CancelDictionaryInstallCommand.Execute(null);
+        await baixando;
+        Assert.False(vm.ShowWordCard);
+    }
+
+    [Fact]
+    public async Task Com_o_cartao_de_erro_aberto_o_mouse_em_outra_palavra_deixa_o_erro_onde_esta()
+    {
+        var dicionario = SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(new SyntheticDictionary.TimeoutServer()));
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+        await vm.InstallDictionaryCommand.ExecuteAsync(null);
+        Assert.True(vm.IsFailedCard);
+
+        vm.HoverSource(Em(Frase, "二人"));
+
+        Assert.True(vm.IsFailedCard);
+        Assert.NotEmpty(vm.InstallProblem!);
+    }
+
+    [Fact]
+    public async Task Atualizar_com_o_cartao_fechado_nao_abre_cartao_nenhum()
+    {
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(new SyntheticDictionary.Server()));
+        using var vm = Abrir(dicionario);
+
+        await dicionario.InstallAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(vm.ShowWordCard);
+        Assert.False(vm.WordNeedsUpdate);
+        Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
+    }
+
+    [Fact]
+    public void O_download_so_e_oferecido_sobre_letra_japonesa_dentro_do_texto()
+    {
+        const string texto = "A㐀豈ｱあア";
+        using var vm = Abrir(SyntheticDictionary.NotInstalled(Dicionario), texto);
+
+        var oferecido = new List<bool>();
+        for (var i = 0; i <= texto.Length; i++)
+        {
+            vm.HoverSource(i);
+            oferecido.Add(vm.IsOfferCard);
+            vm.CloseWordCard();
+        }
+
+        Assert.Equal([false, true, true, true, true, true, false], oferecido);
+    }
+
+    [Fact]
+    public async Task Entrada_com_um_sentido_escondido_e_outra_so_em_kana_resume_o_que_falta_no_cartao()
+    {
+        const string extras = """
+            <entry><ent_seq>10</ent_seq><k_ele><keb>選択</keb><ke_pri>news1</ke_pri></k_ele><r_ele><reb>せんたく</reb></r_ele>
+            <sense><gloss>choice</gloss></sense><sense><gloss>selection</gloss></sense><sense><gloss>option</gloss></sense><sense><gloss>pick</gloss></sense><sense><gloss>alternative</gloss></sense></entry>
+            <entry><ent_seq>11</ent_seq><r_ele><reb>せんたく</reb></r_ele><sense><gloss>laundry</gloss></sense></entry>
+            """;
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario, extraEntries: extras), "せんたく");
+
+        vm.HoverSource(0);
+
+        Assert.Equal("Mais 1 sentido · 1 outra entrada", vm.WordMore);
+        var outra = Assert.Single(vm.WordOthers);
+        Assert.Equal("せんたく", outra.Title);
+    }
 }

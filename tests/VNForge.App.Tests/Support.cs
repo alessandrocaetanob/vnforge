@@ -139,3 +139,17 @@ internal sealed class ReescritaFixa(bool refused, params string[] opcoes) : VNFo
     public Task<VNForge.AI.Translation.RewriteResult> RewriteAsync(VNForge.AI.Translation.TranslationBatch batch, VNForge.AI.Translation.RewriteRequest request, CancellationToken ct) =>
         Task.FromResult(new VNForge.AI.Translation.RewriteResult(batch.Lines[0].Id, opcoes, refused));
 }
+
+/// <summary>Espera por condição com prazo, no lugar de dormir um tempo fixo: o teste segue assim que o que ele espera acontece e falha com a descrição se não vier.</summary>
+internal static class Wait
+{
+    public static async Task UntilAsync(Func<bool> condition, string description, int timeoutMs = 10_000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (!condition())
+        {
+            Assert.True(Environment.TickCount64 < deadline, $"A condição não chegou a tempo: {description}.");
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+}
