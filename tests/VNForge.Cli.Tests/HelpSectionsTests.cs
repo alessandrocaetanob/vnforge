@@ -90,34 +90,44 @@ public sealed class HelpSectionsTests : IDisposable
         }
     }
 
-    public static TheoryData<string> LeafPaths()
+    [Fact]
+    public async Task Todo_comando_tem_um_exemplo_na_ajuda_que_o_parser_aceita()
     {
-        using var harness = new CliHarness();
-        var data = new TheoryData<string>();
-        foreach (var path in Walk(harness.Cli.Root, []).Where(p => p.Length > 0 && !Subcommands(harness.Cli.Root, p)))
+        var problems = new List<string>();
+        foreach (var path in Leaves())
         {
-            data.Add(string.Join(' ', path));
+            var result = await _cli.RunAsync([.. path.Split(' '), "--help"], Token);
+
+            var lines = result.Output.ReplaceLineEndings("\n").Split('\n');
+            if (!lines.Contains("Exemplos:"))
+            {
+                problems.Add($"'{path}': a ajuda não tem a seção 'Exemplos:'.");
+                continue;
+            }
+
+            var exampleLines = lines.SkipWhile(l => l != "Exemplos:").Skip(1).TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal)).Select(l => l.Trim()).ToList();
+            if (exampleLines.Count == 0)
+            {
+                problems.Add($"'{path}': a seção 'Exemplos:' está vazia.");
+            }
+
+            foreach (var example in exampleLines)
+            {
+                if (!example.StartsWith($"vnf {path}", StringComparison.Ordinal))
+                {
+                    problems.Add($"'{path}': o exemplo '{example}' é de outro comando.");
+                    continue;
+                }
+
+                var parsed = _cli.Cli.Root.Parse(example["vnf ".Length..].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                if (parsed.Errors.Count > 0)
+                {
+                    problems.Add($"'{example}': {string.Join("; ", parsed.Errors.Select(e => e.Message))}");
+                }
+            }
         }
 
-        return data;
-    }
-
-    [Theory]
-    [MemberData(nameof(LeafPaths))]
-    public async Task Todo_comando_tem_um_exemplo_na_ajuda_que_o_parser_aceita(string path)
-    {
-        var result = await _cli.RunAsync([.. path.Split(' '), "--help"], Token);
-
-        var lines = result.Output.ReplaceLineEndings("\n").Split('\n');
-        var examples = CommandsUnder(lines, "Exemplos:");
-        Assert.NotEmpty(examples);
-        var exampleLines = lines.SkipWhile(l => l != "Exemplos:").Skip(1).TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal)).Select(l => l.Trim());
-        foreach (var example in exampleLines)
-        {
-            Assert.StartsWith($"vnf {path}", example, StringComparison.Ordinal);
-            var parsed = _cli.Cli.Root.Parse(example["vnf ".Length..].Split(' ', StringSplitOptions.RemoveEmptyEntries));
-            Assert.True(parsed.Errors.Count == 0, $"'{example}': {string.Join("; ", parsed.Errors.Select(e => e.Message))}");
-        }
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
     [Fact]
