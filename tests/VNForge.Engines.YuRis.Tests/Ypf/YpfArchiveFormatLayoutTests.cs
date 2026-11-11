@@ -147,4 +147,25 @@ public partial class YpfArchiveFormatTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 #pragma warning restore S3218
     }
+
+    [Fact]
+    public void Open_HeaderSizeGiganteCaiNaLeituraPelaContagemEDizOQueEsperava()
+    {
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
+
+        AssertInvalid(ypf.WithHeaderSize(0xFFFFFFF0), "header_size gravado é 4294967280");
+    }
+
+    [Fact]
+    public void Open_SegundoByteShiftJisIgualABarraInvertidaNaoViraSeparador()
+    {
+        var ypf = new SyntheticYpfBuilder(300)
+            .AddFile("表.ybn", [1])
+            .AddFile("x/表.ybn", [2])
+            .Build();
+
+        using var archive = Open(ypf.Bytes);
+
+        Assert.Equal(["x/表.ybn", "表.ybn"], archive.Entries.Select(e => e.Path).Order(StringComparer.Ordinal));
+    }
 }

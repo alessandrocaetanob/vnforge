@@ -80,10 +80,10 @@ Ondas: T1; depois T2, T3 e T4; depois T5, T6 e T7; por fim T8. No máximo 3 jobs
 ## Progresso
 
 - T1 (#655): regras em `docs/04-testes.md`, base em `docs/testes/base-2026-11-11.md` (9.729 testes) e `tools/cobertura.sh`. A base do App é de um processo único: linhas 94,18%, ramos 85,35%.
+- T4 (#658): Engines.YuRis de 1.011 para 277 testes, 27 acima do alvo de 250. Dos 277, 29 são herdados do kit de conformidade (tests/VNForge.Engines.ConformanceKit, compartilhado) e ficaram. O resto acima do alvo são os oráculos independentes que a cobertura não vê e que a revisão pediu de volta: vetores de ouro do YPF e dos leitores, vetores de resposta conhecida de Adler32, Crc32 e MurmurHash2, as regras de extração de texto com valor esperado explícito, o header_size gigante e o nome Shift-JIS com 0x5C. Tempo 3,2 s para 2,1 s. Cobertura igual à base, medida com `bash tools/cobertura.sh Engines.YuRis`: linhas 95,90% (2.481 de 2.587) e ramos 93,36% (1.462 de 1.566). Os testes do gerador sintético de YPF saíram (a classe virou `SyntheticYpfSamples`, só os exemplos); cada formato com escrita manteve a ida e volta byte a byte e um teste por campo.
 
 ## Fora da corrida
 
 - A #112 (o jogo inteiro no VNForge) e as issues de validação no jogo: dependem do Alessandro com o jogo.
 - A parte 2 da #330 (S3776 e as issues dos arquivos que estavam em PR): vem depois da T8, porque o corte muda boa parte dos arquivos de teste que ela tocaria.
 - Teste de interface com pixel ou medida: decidido em 11/11 que não volta.
-- T4 (#658): Engines.YuRis de 1.011 para 249 testes (29 deles herdados do kit de conformidade), 3,2 s para 2,1 s, linhas 95,90% (2.481 de 2.587) e ramos 93,36% (1.462 de 1.566), iguais à base. Os testes do gerador sintético de YPF saíram (a classe virou `SyntheticYpfSamples`, só os exemplos), cada formato com escrita manteve a ida e volta e um teste por campo, e os vetores de ouro dos leitores ficaram.

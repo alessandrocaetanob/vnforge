@@ -11,6 +11,7 @@ namespace VNForge.Engines.YuRis.Tests.Text;
 
 public class YstbTextExtractorTests
 {
+    private const string PartsKey = "parts";
     private const string SelSetCommand = "ES.SEL.SET";
     private const string GosubCommand = "GOSUB";
 
@@ -140,4 +141,155 @@ public class YstbTextExtractorTests
         var warning = Assert.Single(extraction.Warnings);
         Assert.Contains("instrução 1", warning, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Extract_CadaTipoSaiComOKindCerto()
+    {
+        var extraction = Extract(FullScript());
+
+        Assert.Empty(extraction.Warnings);
+        Assert.Collection(
+            extraction.Units,
+            u => AssertUnit(u, Id(0), TextUnitKind.Dialogue, "美咲", "今日は、いい天気だね。"),
+            u => AssertUnit(u, Id(3), TextUnitKind.Narration, null, "風が吹いた。\\p次"),
+            u => AssertUnit(u, Id(5), TextUnitKind.Dialogue, null, "「ただいま」"),
+            u => AssertUnit(u, Id(7), TextUnitKind.Narration, null, "彼は言った。「やあ」"),
+            u => AssertUnit(u, Id(9), TextUnitKind.Dialogue, "美咲", "（疲れたな）"),
+            u => AssertUnit(u, Id(10, 1), TextUnitKind.Choice, null, "はい"),
+            u => AssertUnit(u, Id(10, 2), TextUnitKind.Choice, null, "いいえ"),
+            u => AssertUnit(u, Id(11, 1), TextUnitKind.Name, null, "美咲"),
+            u => AssertUnit(u, Id(13), TextUnitKind.Other, null, "一行目\\n二行目"),
+            u => AssertUnit(u, Id(19), TextUnitKind.Other, null, "He said \"あ\""));
+    }
+
+    [Fact]
+    public void Extract_DoisWordSeguidosFormamUmaMensagem_ESoUmaUnidade()
+    {
+        var extraction = Extract(NewBuilder().AddWord("一行目", 1).AddWord("二行目", 2).AddWord("三行目", 3));
+
+        var unit = Assert.Single(extraction.Units);
+        Assert.Equal("一行目二行目三行目", unit.Source);
+        Assert.Equal(Id(0), unit.Id);
+        Assert.Equal(3, Property(unit.Locator, PartsKey).GetArrayLength());
+    }
+
+    [Fact]
+    public void Extract_LocatorDeWordTemInstrucoesArgumentosEFalante()
+    {
+        var script = FullScript().Build();
+        var unit = Extract(script.Bytes).Units[0];
+
+        Assert.Equal(1, Property(unit.Locator, "version").GetInt32());
+        Assert.Equal("WORD", Property(unit.Locator, "command").GetString());
+        var parts = Property(unit.Locator, PartsKey).EnumerateArray().ToArray();
+        Assert.Equal(2, parts.Length);
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var argument = script.Instructions[i].Arguments[0];
+            Assert.Equal(i, parts[i].GetProperty("instruction").GetInt32());
+            Assert.Equal(0, parts[i].GetProperty("argument").GetInt32());
+            Assert.Equal(argument.Size, parts[i].GetProperty("size").GetUInt32());
+            Assert.Equal(argument.Offset, parts[i].GetProperty("offset").GetUInt32());
+        }
+
+        var speaker = Property(unit.Locator, "speaker");
+        Assert.Equal("美咲", speaker.GetProperty("name").GetString());
+        Assert.Equal("「", speaker.GetProperty("open").GetString());
+        Assert.Equal("」", speaker.GetProperty("close").GetString());
+    }
+
+    [Fact]
+    public void Extract_FalanteDividoEmDoisWord_FechaOColcheteNoUltimo()
+    {
+        var extraction = Extract(NewBuilder().AddWord("美咲『こんにちは", 1).AddWord("\u3000世界』", 2));
+
+        var unit = Assert.Single(extraction.Units);
+        Assert.Equal(TextUnitKind.Dialogue, unit.Kind);
+        Assert.Equal("美咲", unit.Speaker);
+        Assert.Equal("こんにちは\u3000世界", unit.Source);
+    }
+
+    [Fact]
+    public void Extract_OsIdsUsamAChaveDoArquivo()
+    {
+        var bytes = NewBuilder().AddWord("あ", 1).Build().Bytes;
+        var script = YstbReader.Read(bytes, "yst00042.ybn", Commands);
+
+        var unit = Assert.Single(YstbTextExtractor.Extract(new ScriptFile("yst00042.ybn", bytes), script, Commands).Units);
+
+        Assert.Equal("yst00042:000000", unit.Id);
+    }
+
+    [Fact]
+    public void Extract_OIdNaoMudaQuandoOutraUnidadeApareceDepois()
+    {
+        var shorter = Extract(NewBuilder().AddWord("あ", 1).AddReturnCode(0, 2).AddWord("い", 3)).Units;
+        var longer = Extract(NewBuilder().AddWord("あ", 1).AddReturnCode(0, 2).AddWord("い", 3).AddReturnCode(0, 4).AddWord("う", 5)).Units;
+
+        Assert.Equal(shorter.Select(u => u.Id), longer.Take(2).Select(u => u.Id));
+    }
+
+    [Theory]
+    [InlineData("\"")]
+    [InlineData("'")]
+    [InlineData("`")]
+    public void Extract_AceitaAsTresAspasDoYuRis(string quote)
+    {
+        var b = NewBuilder();
+        b.AddCommand("WAIT", 1, b.StringExpression("日本語", quote[0]));
+
+        Assert.Equal("日本語", Assert.Single(Extract(b).Units).Source);
+    }
+
+    [Fact]
+    public void Extract_EscapesDeCDaExpressaoViramMarcadoresOuTexto()
+    {
+        var b = NewBuilder();
+        b.AddCommand("WAIT", 1, b.StringExpression("あ\\\\い\\nう\\tえ{x}"));
+
+        var unit = Assert.Single(Extract(b).Units);
+
+        Assert.Equal("あ\\\\い\\nう\tえ\\{x}", unit.Source);
+    }
+
+    [Fact]
+    public void Extract_FalanteComMarcadorNoNomeNaoESeparado()
+    {
+        var unit = Assert.Single(Extract(NewBuilder().AddWordBytes([.. Sjis("前"), 0xEF, 0xF0, .. Sjis("名前「あ」")], 1)).Units);
+
+        Assert.Null(unit.Speaker);
+        Assert.Equal("前\\n名前「あ」", unit.Source);
+    }
+
+    [Fact]
+    public void Extract_FalanteDesconhecidoFeitoSoDeInterrogacoesESeparado()
+    {
+        var unit = Assert.Single(Extract(NewBuilder().AddWord("？？？「誰だ」", 1)).Units);
+
+        Assert.Equal("？？？", unit.Speaker);
+        Assert.Equal("誰だ", unit.Source);
+    }
+
+    [Fact]
+    public void Extract_LocatorDePensamentoNaoAcrescentaColchetes()
+    {
+        var speaker = Property(Extract(FullScript()).Units[4].Locator, "speaker");
+
+        Assert.Equal("美咲", speaker.GetProperty("name").GetString());
+        Assert.Equal(string.Empty, speaker.GetProperty("open").GetString());
+        Assert.Equal(string.Empty, speaker.GetProperty("close").GetString());
+    }
+
+    private static void AssertUnit(TextUnit unit, string id, TextUnitKind kind, string? speaker, string source)
+    {
+        Assert.Equal(id, unit.Id);
+        Assert.Equal(kind, unit.Kind);
+        Assert.Equal(speaker, unit.Speaker);
+        Assert.Equal(source, unit.Source);
+        Assert.Null(unit.Translation);
+        Assert.Equal(TranslationStatus.Untranslated, unit.Status);
+        Assert.NotNull(unit.Locator);
+    }
+
+    private static JsonElement Property(JsonElement? locator, string name) => Assert.NotNull(locator).GetProperty(name);
 }

@@ -120,4 +120,15 @@ public partial class YpfArchiveFormatTests
         AssertMatches(ypf, archive);
         Assert.Equal(includesHeader, archive.Parameters.HeaderSizeIncludesHeader);
     }
+
+    [Fact]
+    public void Open_NomeEmShiftJisEhDecodificado()
+    {
+        var ypf = new SyntheticYpfBuilder(300).AddFile(@"ysbin\第一章\表.ybn", [1]).Build();
+
+        using var archive = Open(ypf.Bytes);
+
+        AssertMatches(ypf, archive);
+        Assert.Equal("ysbin/第一章/表.ybn", archive.Entries.Single().Path);
+    }
 }

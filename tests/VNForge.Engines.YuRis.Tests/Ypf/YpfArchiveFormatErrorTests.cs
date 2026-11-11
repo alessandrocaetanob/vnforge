@@ -27,7 +27,14 @@ public partial class YpfArchiveFormatTests
 
     private static void AssertGolden(string hex, GoldenVector golden)
     {
+        // O gerador e o escritor produzem os bytes montados a mão: um erro de hash ou de layout não pode estar igual nos dois lados.
+        var built = new SyntheticYpfBuilder(golden.Version)
+            .AddFile(@"bg\scene_0001.png", "ABC"u8.ToArray(), SyntheticYpfFileType.Png)
+            .Build();
+        Assert.Equal(hex, Convert.ToHexStringLower(built.Bytes));
+
         using var archive = Open(Convert.FromHexString(hex));
+        Assert.Equal(Convert.FromHexString(hex), Write(archive));
 
         var entry = Assert.Single(archive.Entries);
         Assert.Equal("bg/scene_0001.png", entry.Path);
@@ -48,7 +55,7 @@ public partial class YpfArchiveFormatTests
     }
 
     [Fact]
-    public void Open_le_os_vetores_de_ouro_montados_a_mao_em_v200_v300_e_v500()
+    public void Vetores_de_ouro_montados_a_mao_em_v200_v300_e_v500_batem_com_o_leitor_o_gerador_e_o_escritor()
     {
         AssertGolden(
             SyntheticYpfSamples.GoldenV200,

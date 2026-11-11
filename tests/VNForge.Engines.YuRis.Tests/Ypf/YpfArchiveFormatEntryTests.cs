@@ -104,4 +104,20 @@ public partial class YpfArchiveFormatTests
 
         Assert.Throws<NotSupportedException>(() => archive.OpenEntry(archive.Entries[0]));
     }
+
+    [Fact]
+    public void OpenEntry_HashDosDadosDivergenteComAlgoritmoConfirmadoLancaEmVezDeDevolverDados()
+    {
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
+        using var archive = Open(ypf.WithWrongDataHash(SyntheticYpfSamples.Script1));
+        var entry = archive.Entries.Single(e => e.Path == SyntheticYpfSamples.Script1.Replace('\\', '/'));
+
+        Assert.True(archive.Parameters.DataHashVerified);
+        var ex = Assert.Throws<InvalidDataException>(() => archive.OpenEntry(entry));
+
+        var expected = ypf.Entries.Single(e => e.Name == SyntheticYpfSamples.Script1);
+        Assert.Contains("ysbin/yst00001.ybn", ex.Message);
+        Assert.Contains($"0x{expected.DataHash:X8}", ex.Message);
+        Assert.Contains($"0x{expected.DataHash ^ 1:X8}", ex.Message);
+    }
 }
