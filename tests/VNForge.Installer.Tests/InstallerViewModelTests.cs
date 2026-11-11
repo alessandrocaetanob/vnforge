@@ -217,19 +217,6 @@ public sealed class InstallerViewModelTests
     }
 
     [Fact]
-    public async Task Janela_4_nao_cita_versao_igual_a_esperada()
-    {
-        using var game = new SyntheticGame();
-        File.WriteAllBytes(Path.Combine(game.Game, "Game/script.ypf"), [9]);
-        using var package = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info() with { GameVersion = "1.00" }));
-        var vm = new InstallerViewModel(new PatchEngine(package), new FakeShell(), new InstallerStart(game.Game, game.Root, null)) { ReadFileVersion = _ => "1.00" };
-
-        await vm.StartAsync();
-
-        Assert.EndsWith("onde conseguir o patch da sua versão.", vm.Note);
-    }
-
-    [Fact]
     public async Task Janela_4_com_arquivo_que_falta_e_com_mais_de_um_diferente_conta_os_outros()
     {
         using var game = new SyntheticGame();

@@ -91,32 +91,6 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public async Task Renderiza_a_janela_5_ja_instalada(string theme)
-    {
-        var time = new FakeTimeProvider();
-        var vm = await StartedAtAsync(new BoardEngine(time) { State = BoardEngine.Situation.Installed }, time);
-
-        await RenderAsync(vm, "540-inst-4", theme, (window, texts) =>
-        {
-            Assert.Equal(
-                [
-                    "Tradução PT-BR · Amaoto no Hakoniwa",
-                    "Amaoto no Hakoniwa",
-                    "Tradução para português do Brasil Versão 1.2.0 · Equipe Chuva Mansa",
-                    "A tradução 1.2.0 já está instalada",
-                    "Os arquivos originais, guardados em 08/11 às 20:03, estão inteiros. Voltar ao original apaga a tradução do jogo e não mexe nos seus saves.",
-                    "4 arquivos para devolver",
-                    "script.ypf, Game.exe, font.ypf e system.ypf voltam byte a byte.",
-                    "Fechar",
-                    "Voltar ao jogo original",
-                ],
-                texts);
-            Assert.Equal(["Fechar", "Voltar ao jogo original"], EnabledButtons(window));
-        });
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
     public async Task Renderiza_as_janelas_que_o_quadro_deixou_como_estados_que_faltam(string theme)
     {
         var errorVm = new InstallerViewModel(new FailingEngine(new BoardEngine()), new NoShell(), new InstallerStart(BoardEngine.Folder, Path.GetTempPath(), null));

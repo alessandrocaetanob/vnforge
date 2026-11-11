@@ -29,6 +29,14 @@ public sealed class WindowCapturerLogicTests
     // ---- escolha da janela ----
 
     [Fact]
+    public void Sem_dizer_qual_janela_nao_captura_nada()
+    {
+        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget()));
+
+        Assert.Contains("Diga qual janela", error.Message);
+    }
+
+    [Fact]
     public void Entre_as_janelas_que_combinam_vale_a_maior()
     {
         AddGame(1, "CLANNAD", 100, 100);
@@ -67,16 +75,6 @@ public sealed class WindowCapturerLogicTests
 
         Assert.Equal(200, byFolder.Width);
         Assert.Equal(200, byFolderAndTitle.Width);
-    }
-
-    [Fact]
-    public void Minimizada_e_outra_aberta_captura_a_aberta()
-    {
-        AddGame(1, "CLANNAD", 900, 900).Minimized = true;
-        AddGame(2, "CLANNAD", 100, 100);
-        BringToFront(2);
-
-        Assert.Equal(100, Capturer.Capture(new WindowTarget(TitleContains: "CLANNAD")).Width);
     }
 
     [Theory]

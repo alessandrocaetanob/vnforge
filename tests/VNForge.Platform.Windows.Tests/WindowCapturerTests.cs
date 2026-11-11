@@ -59,12 +59,4 @@ public sealed class WindowCapturerTests
 
         Assert.Contains("Traga o jogo para a frente", error.Message);
     }
-
-    [Fact]
-    public void Sem_dizer_qual_janela_nao_captura_nada()
-    {
-        RequireWindows();
-
-        Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget()));
-    }
 }
