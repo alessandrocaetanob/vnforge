@@ -50,7 +50,7 @@ internal static class VndbTokenCommand
         if (!json)
         {
             await parseResult.InvocationConfiguration.Error.WriteAsync("Token do VNDB: ");
-            await parseResult.InvocationConfiguration.Error.FlushAsync();
+            await parseResult.InvocationConfiguration.Error.FlushAsync(cancellationToken);
         }
 
         var token = (await cli.Input.ReadLineAsync(cancellationToken))?.Trim();
