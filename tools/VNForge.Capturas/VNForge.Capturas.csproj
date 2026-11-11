@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <!-- Skia de verdade, como nos testes do App: o libSkiaSharp padrão do Linux exige libfontconfig.so.1, a variante sem dependências não. -->
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
@@ -21,6 +22,7 @@
     <Compile Include="..\..\tests\VNForge.App.Tests\Support.cs" Link="Telas\Support.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\LibrarySamples.cs" Link="Telas\LibrarySamples.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\CharactersSamples.cs" Link="Telas\CharactersSamples.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\GameSheetSamples.cs" Link="Telas\GameSheetSamples.cs" />
   </ItemGroup>
 
 </Project>

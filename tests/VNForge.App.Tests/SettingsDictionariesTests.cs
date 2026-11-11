@@ -59,6 +59,7 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal(["Falante: Ren"], post.Chips);
         Assert.Equal("2 linhas", post.LinesText);
         Assert.Equal(["Sempre"], vm.PreRules[0].Chips);
+        Assert.Equal(vm.PreRules[0].Rule.With, vm.PreRules[0].With);
         Assert.False(vm.PreRules[1].Enabled);
     }
 
@@ -119,6 +120,7 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Null(editor.Problem);
         Assert.Equal("Aplica em 2 linhas", editor.ImpactTitle);
         Assert.Equal("1 linha de outro falante não muda", editor.ImpactDetail);
+        Assert.True(editor.HasImpactDetail);
 
         editor.SaveCommand.Execute(null);
         await vm.DictionaryCounting;

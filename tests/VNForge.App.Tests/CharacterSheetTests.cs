@@ -235,6 +235,7 @@ public class CharacterSheetTests
         row.Source = "健太";
 
         Assert.Equal(["遅いぞ"], vm.Sheet!.Lines.Select(l => l.Source));
+        Assert.Equal("1 fala", vm.Sheet.UsesText);
         Assert.Equal(0, vm.Sheet.AwaitingReview);
         Assert.False(vm.Sheet.ReviewCommand.CanExecute(null));
 

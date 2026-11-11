@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using VNForge.AI.Bible;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
@@ -47,7 +48,7 @@ internal sealed class ScreenHost : IDisposable
     {
         var config = new TempFolder();
         var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(Now));
-        var vm = create?.Invoke(start) ?? new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
+        var vm = create?.Invoke(start) ?? new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label), BibleProviderFactory = (_, _) => new FakeBibleProvider() };
         var host = Show(vm, theme, config);
         try
         {
@@ -105,6 +106,9 @@ internal sealed class ScreenHost : IDisposable
 
         Settle();
     }
+
+    /// <summary>Passa a posse de um recurso para a janela: ele é descartado junto com ela.</summary>
+    public void Own(IDisposable resource) => owned.Add(resource);
 
     public void Settle() => Settle(Window);
 

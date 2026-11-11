@@ -1,4 +1,5 @@
 using VNForge.App.ViewModels;
+using VNForge.App.Services;
 using VNForge.Core.Glossary;
 
 namespace VNForge.App.Tests;
@@ -39,6 +40,35 @@ public class ViewModelStatesTests
         Assert.Equal("Leve", new SpoilerOption(1, "Leve").ToString());
         Assert.Equal("Só IA", new SheetFilterOption(SheetReviewFilter.Machine, "Só IA").ToString());
     }
+
+    [Fact]
+    public void A_Conferencia_pede_o_teste_no_jogo_e_so_aplica_um_ajuste_com_cartao()
+    {
+        var vm = new ConferenceViewModel();
+        var requested = 0;
+        vm.TestRequested += (_, _) => requested++;
+
+        vm.TestCommand.Execute(null);
+
+        Assert.Equal(1, requested);
+        Assert.False(vm.ApplySettingCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void O_tom_da_cena_que_cita_um_personagem_e_so_apoio()
+    {
+        Assert.True(new BibleToneChip("cômico leve", IsSupport: false).IsMain);
+        Assert.False(new BibleToneChip("seco na fala de Misaki", IsSupport: true).IsMain);
+    }
+
+    [Theory]
+    [InlineData("cp1252", "ajuste no jogo")]
+    [InlineData("sjis", "forma antiga")]
+    [InlineData("fold", "sem acentos")]
+    [InlineData("remap", "fonte modificada")]
+    [InlineData("outra", "outra")]
+    public void A_estrategia_de_acentos_tem_o_nome_curto_da_barra_de_estado(string strategy, string expected) =>
+        Assert.Equal(expected, ProjectLabels.EncodingShort(strategy));
 
     [Theory]
     [InlineData("main", CharacterGender.Male, "Protagonista")]

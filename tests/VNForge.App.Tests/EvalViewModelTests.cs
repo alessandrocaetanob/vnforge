@@ -225,6 +225,19 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Voltar_da_rodada_as_cegas_mostra_o_relatorio_de_novo()
+    {
+        var vm = await RunRound(Vm(), Project());
+        vm.BlindStartCommand.Execute(null);
+        Assert.True(vm.IsBlind);
+
+        vm.BlindBackCommand.Execute(null);
+
+        Assert.False(vm.IsBlind);
+        Assert.All(vm.Rows, r => Assert.Equal(!string.IsNullOrEmpty(r.Note), r.HasNote));
+    }
+
+    [Fact]
     public async Task A_rodada_as_cegas_mostra_o_original_e_dois_textos_sem_dizer_a_configuracao()
     {
         var vm = await RunRound(Vm(), Project());
@@ -234,6 +247,7 @@ public sealed class EvalViewModelTests : IDisposable
         vm.BlindStartCommand.Execute(null);
 
         Assert.True(vm.IsBlind);
+        Assert.True(vm.HasPairs);
         Assert.False(vm.ShowReport);
         Assert.Equal("Par 1 de 12", vm.PairTitle);
         Assert.StartsWith("原文", vm.OriginalText);

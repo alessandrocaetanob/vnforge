@@ -1,4 +1,5 @@
 using Avalonia.Styling;
+using Microsoft.Extensions.Time.Testing;
 using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
@@ -8,6 +9,7 @@ using VNForge.Core.Demo;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
+using VNForge.Vndb;
 
 namespace VNForge.App.Tests.Screens;
 
@@ -94,6 +96,17 @@ internal static class ScreenCatalog
         new("personagem", Characters("Hana Tsukino", manyTraits: true)),
         new("personagem-mika", Characters("Mika Aoba")),
         new("editor-busca", OpenEditorSearch),
+        new("jogar-tempo", Play(playing: false)),
+        new("jogar-em-curso", Play(playing: true)),
+        new("ajustes-estilo", SettingsTab(1)),
+        new("ajustes-formatacao", SettingsTab(2)),
+        new("ajustes-acentos", SettingsTab(3)),
+        new("ajustes-dicionarios", SettingsTab(SettingsViewModel.DictionariesTab)),
+        new("ajustes-aparencia", SettingsTab(5)),
+        new("ajustes-privacidade", SettingsTab(SettingsViewModel.PrivacyTab)),
+        new("ajustes-vndb", SettingsTab(8, vndb: true)),
+        new("ficha-vndb", Sheet(review: false)),
+        new("ficha-revisao", Sheet(review: true)),
         new("revisao", OpenReview),
         new("leitura", OpenReading),
         new("paleta", OpenPalette),
@@ -283,6 +296,153 @@ internal static class ScreenCatalog
         AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 0.8m, 1));
     }
 
+    /// <summary>
+    /// A aba Jogar do projeto de demonstração ligado a um jogo da Biblioteca, com o histórico de sessões e o Locale Emulator. Com <paramref name="playing"/>
+    /// a partida abre pelo botão e fica em curso (o processo falso nunca sai), para a aba mostrar "Jogando agora" e o relógio.
+    /// </summary>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Play(bool playing) => async (root, theme) =>
+    {
+        var config = new TempFolder();
+        var data = new TempFolder();
+        var now = DateTimeOffset.Now;
+        var gameFolder = data.SubFolder("jogo");
+        File.WriteAllText(Path.Combine(gameFolder, "Game.exe"), "x");
+        var emulator = data.SubFolder("LocaleEmulator");
+        File.WriteAllText(Path.Combine(emulator, "LEProc.exe"), "x");
+        var game = new LibraryGame("g1a2b3c4d", GameLibrary.NormalizeFolder(gameFolder), "Game.exe", new LibraryEngine("yuris", "Yu-RIS", LibraryEngineSource.Engine), "Amaoto no Hakoniwa", "雨音の箱庭", now)
+        {
+            ProjectPath = GameLibrary.NormalizeFolder(root),
+            RequiresJapaneseLocale = true,
+        };
+        var folder = config.SubFolder("biblioteca");
+        var playLog = new PlayLogFile(folder);
+        foreach (var (daysAgo, hour, minute, minutes) in new[] { (0, 21, 14, 112), (1, 20, 2, 130), (4, 22, 40, 48), (6, 19, 30, 185), (12, 20, 0, 90), (20, 18, 30, 150), (33, 21, 0, 60), (47, 20, 15, 120), (61, 19, 0, 45) })
+        {
+            if (playing && daysAgo == 0)
+            {
+                continue;
+            }
+
+            var started = new DateTimeOffset(now.Date.AddDays(-daysAgo).AddHours(hour).AddMinutes(minute));
+            playLog.Record(game.Id, new PlaySession(PlaySession.NewId(), started, started.AddMinutes(minutes), TimeSpan.FromMinutes(minutes), ViaLocaleEmulator: true));
+        }
+
+        var file = LibrarySamples.Save(folder, new GameLibrary([game], localeEmulatorPath: emulator));
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow - new TimeSpan(0, 42, 18));
+        var options = new PlayTrackingOptions(TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2), TimeSpan.FromSeconds(10));
+        var library = new LibraryViewModel(
+            file, new FakeFolderPicker(null), action => action(), clock: playing ? clock : new FixedClock(now), readTranslation: _ => null,
+            player: playing ? new GamePlayer(new StillRunningLauncher(), playLog, clock, options) : null, playLog: playLog);
+        await library.LoadAsync();
+        var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(now));
+        var vm = new MainWindowViewModel(start, library: library) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
+        var host = ScreenHost.Show(vm, theme, config, data);
+        await Prepare(host, async () =>
+        {
+            await start.OpenFolderCommand.ExecuteAsync(null);
+            await vm.ProjectOpening;
+            vm.SelectedGameTab = vm.GameTabs.Single(t => t.Tab == GameTab.Play);
+            if (playing)
+            {
+                _ = library.PlayCommand.ExecuteAsync(library.Cards.Single());
+                var deadline = Environment.TickCount64 + 10_000;
+                while (library.PlayingId is null && library.ErrorMessage is null && Environment.TickCount64 < deadline)
+                {
+                    await Task.Delay(10);
+                }
+
+                vm.Play.Session?.Tick();
+                clock.Advance(TimeSpan.FromMinutes(2));
+                vm.Play.Session?.Tick();
+            }
+
+            host.Settle();
+        });
+        return host;
+    };
+
+    private sealed class StillRunningLauncher : IGameLauncher
+    {
+        public IGameProcess Start(GameLaunch launch) => new Running();
+
+        private sealed class Running : IGameProcess
+        {
+            public GameProcessState Poll() => GameProcessState.Running;
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+
+    /// <summary>Uma aba dos Ajustes. A do VNDB precisa do serviço da lista, que o app monta e a captura troca pelo catálogo falso com um token válido.</summary>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> SettingsTab(int tab, bool vndb = false) => async (root, theme) =>
+    {
+        var host = await ScreenHost.OpenProjectAsync(root, theme);
+        await Prepare(host, async () =>
+        {
+            await host.GoToAsync(NavKey.Settings);
+            if (vndb)
+            {
+                var config = new TempFolder();
+                var store = new MemoryVndbTokenStore();
+                store.Save(FakeVndbCatalog.ValidToken);
+                var service = new VndbListService(store, new FakeVndbCatalog(time: new FixedClock(ScreenHost.Now)), LibrarySamples.Save(config.Path, LibrarySamples.Library()), new FixedClock(ScreenHost.Now), _ => null);
+                var connection = new VndbConnectionViewModel(service, new FixedClock(ScreenHost.Now));
+                host.Vm.Settings.Vndb = connection;
+                await connection.RefreshAsync();
+                host.Own(config);
+            }
+
+            host.Vm.Settings.SelectedTab = tab;
+            host.Settle();
+        });
+        return host;
+    };
+
+    /// <summary>
+    /// A aba Ficha com o projeto de demonstração ligado ao VNDB e a ficha inventada de <see cref="GameSheetSamples"/> (sinopse, tags, personagens, dados), ou a
+    /// revisão dela bloco a bloco. O vínculo é gravado na pasta do projeto e tirado quando a janela fecha, para as outras telas verem o projeto como era.
+    /// </summary>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Sheet(bool review) => async (root, theme) =>
+    {
+        var config = new TempFolder();
+        await GameSheetSamples.SeedAsync(config.Path);
+        var held = new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto no Hakoniwa", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id };
+        new LibraryFile(config.Path).Save(new GameLibrary([held]));
+        new UserTagsFile(config.Path).Update(tags => tags.Add("g1", "favorito"));
+        var folder = ProjectFolder.Open(root);
+        folder.SaveVndbLink(new VndbLink(GameSheetSamples.Id, "Amaoto no Hakoniwa", "雨音の箱庭", null, []));
+        var host = await ScreenHost.OpenProjectAsync(root, theme, start =>
+        {
+            var vm = new MainWindowViewModel(start) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
+            vm.Sheet.ConfigDirectory = config.Path;
+            vm.Sheet.CatalogFactory = GameSheetSamples.Catalog;
+            vm.Sheet.TranslatorFactory = GameSheetSamples.Translator;
+            return vm;
+        });
+        host.Own(config);
+        host.Own(new Cleanup(() => File.Delete(folder.VndbPath)));
+        await Prepare(host, async () =>
+        {
+            await host.Vm.Sheet.Loading;
+            await host.GoToAsync(NavKey.Sheet);
+            await host.Vm.Dashboard.ReloadAsync();
+            if (review)
+            {
+                host.Vm.Sheet.StartReviewCommand.Execute(null);
+            }
+
+            host.Settle();
+        });
+        return host;
+    };
+
+    private sealed class Cleanup(Action action) : IDisposable
+    {
+        public void Dispose() => action();
+    }
+
     private static async Task<ScreenHost> OpenEditorSearch(string root, ThemeVariant theme)
     {
         var host = await ScreenHost.OpenProjectAsync(root, theme);
@@ -426,7 +586,7 @@ internal static class ScreenCatalog
     {
         var main = new VndbVisualNovel(
             "v31201", "Amaoto no Hakoniwa", "雨音の箱庭", [], ["Amaoto jogo"], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 10,
-            "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.", []);
+            "Numa cidade onde chove quase o ano inteiro, Kenta volta à escola em que o irmão mais velho estudou e encontra uma caixa de música que só toca quando alguém mente.", [], Rating: 79);
         var disc = main with { Id = "v31202", Title = "Amaoto no Hakoniwa: Fan Disc", AltTitle = "雨音の箱庭 ファンディスク", Aliases = [], Released = "2020-03-01", Length = 2, LengthMinutes = 180 };
         VndbCharacter Character(string id, string name, string original, string? gender, string role, params string[] aliases) =>
             new(id, name, original, aliases, null, null, gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance("v31201", role, 0, null)], []);
@@ -439,6 +599,22 @@ internal static class ScreenCatalog
                 Character("c4", "Misaki Todo", "藤堂 美咲", "f", "side", "Todo-sensei"),
                 Character("c5", "Coadjuvante", "名無し", null, "appears"),
             ]);
+    }
+
+    private sealed class MemoryVndbTokenStore : IVndbTokenStore
+    {
+        private string? token;
+
+        public string? Load() => token;
+
+        public void Save(string value) => token = value;
+
+        public bool Delete()
+        {
+            var had = token is not null;
+            token = null;
+            return had;
+        }
     }
 
     /// <summary>Devolve a fonte de imagens do VNDB quando a janela da Biblioteca fecha.</summary>
