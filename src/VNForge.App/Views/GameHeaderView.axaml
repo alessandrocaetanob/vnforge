@@ -115,7 +115,7 @@
                 </Border>
               </StackPanel>
             </StackPanel>
-            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar", desabilitado até a #549. -->
+            <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar" (que vira "Jogando", desabilitado, durante a partida). -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
               <Panel IsVisible="{Binding ShowNextStepButton}">
                 <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
@@ -125,11 +125,10 @@
                   </StackPanel>
                 </Button>
               </Panel>
-              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" IsEnabled="False" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar"
-                      ToolTip.Tip="Abrir o jogo por aqui chega com a página Jogar." ToolTip.ShowOnDisabled="True">
+              <Button Name="PlayButton" Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Play.Session.PlayCommand}" IsVisible="{Binding ShowPlayButton}" AutomationProperties.Name="Jogar">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Play}"/>
-                  <TextBlock Text="Jogar"/>
+                  <TextBlock Text="{Binding Play.Session.PlayLabel}"/>
                 </StackPanel>
               </Button>
             </Panel>

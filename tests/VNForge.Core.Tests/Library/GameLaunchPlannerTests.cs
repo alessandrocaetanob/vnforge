@@ -41,6 +41,15 @@ public sealed class GameLaunchPlannerTests : IDisposable
     }
 
     [Fact]
+    public void Jogo_que_abre_um_lancador_leva_a_pasta_dele_para_achar_o_processo_do_jogo()
+    {
+        var launch = GameLaunchPlanner.Plan(new GameLibrary(), Game() with { OpensLauncher = true });
+
+        Assert.True(launch.OpensLauncher);
+        Assert.Equal(Folder, launch.GameFolder);
+    }
+
+    [Fact]
     public void Jogo_que_pede_localidade_japonesa_abre_pelo_LEProc_com_o_executavel_como_argumento()
     {
         var le = Touch("LE", "LEProc.exe");

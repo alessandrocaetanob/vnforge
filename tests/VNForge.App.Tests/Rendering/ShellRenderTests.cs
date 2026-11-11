@@ -99,9 +99,9 @@ public sealed class ShellRenderTests(HeadlessFixture fixture, DemoFolderFixture 
             Assert.Equal(GameTab.Sheet, Assert.IsType<GameTabItem>(tabs.SelectedItem).Tab);
             Assert.False(Assert.Single(header.GetVisualDescendants().OfType<ListBox>(), l => l.Classes.Contains("sections")).IsEffectivelyVisible);
 
-            // O botão principal do quadro na Ficha é "Jogar", desabilitado até a #549, e o próximo passo do Painel não aparece.
+            // O botão principal do quadro na Ficha é "Jogar", sem efeito porque o projeto de amostra não está na Biblioteca, e o próximo passo do Painel não aparece.
             var play = Assert.Single(header.GetVisualDescendants().OfType<Button>(), b => b.Name == "PlayButton" && b.IsEffectivelyVisible);
-            Assert.False(play.IsEnabled);
+            Assert.False(play.IsEffectivelyEnabled);
             Assert.Contains(play.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Jogar");
             Assert.DoesNotContain(header.GetVisualDescendants().OfType<Button>(), b => b.Command == vm.Dashboard.OpenNextStepCommand && b.IsEffectivelyVisible);
 
