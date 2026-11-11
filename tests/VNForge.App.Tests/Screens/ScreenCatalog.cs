@@ -1,5 +1,4 @@
 using Avalonia.Styling;
-using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
@@ -37,10 +36,9 @@ internal static class ScreenCatalog
         ("jogar", NavKey.Play),
     ];
 
-    /// <summary>As telas que não são só uma página do projeto: o Início, a Biblioteca, um modo ou painel aberto sobre o Editor, um diálogo ou o assistente.</summary>
+    /// <summary>As telas que não são só uma página do projeto: a Biblioteca, os Personagens, um modo ou painel aberto sobre o Editor, um diálogo ou o assistente.</summary>
     public static IReadOnlyList<ScreenDef> Standalone { get; } =
     [
-        new("inicio", OpenStart),
         new("biblioteca", OpenLibrary),
         new("personagens", OpenCharacters),
         new("editor-busca", OpenEditorSearch),
@@ -83,22 +81,6 @@ internal static class ScreenCatalog
             host.Dispose();
             throw;
         }
-    }
-
-    private static async Task<ScreenHost> OpenStart(string root, ThemeVariant theme)
-    {
-        var config = new TempFolder();
-        var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(ScreenHost.Now));
-        var vm = new MainWindowViewModel(start, new ResolvedApiKey("sk-teste", ApiKeySource.Vault)) { CurrentPage = start };
-        start.Detail.Context = () => new DashboardContext(new ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new BudgetLimits(300m, 50m), true);
-        var host = ScreenHost.Show(vm, theme, config);
-        await Prepare(host, async () =>
-        {
-            await start.OpenAsync(root);
-            await start.DetailLoading;
-            host.Settle();
-        });
-        return host;
     }
 
     private static async Task<ScreenHost> OpenLibrary(string root, ThemeVariant theme)

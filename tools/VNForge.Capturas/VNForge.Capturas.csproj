@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>VNForge.Capturas</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+    <!-- Skia de verdade, como nos testes do App: o libSkiaSharp padrão do Linux exige libfontconfig.so.1, a variante sem dependências não. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- O catálogo de telas é o mesmo do ScreenSmokeTests: compilado dos dois lados, sem xUnit nos arquivos. -->
+    <Compile Include="..\..\tests\VNForge.App.Tests\Screens\ScreenCatalog.cs" Link="Telas\ScreenCatalog.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\Screens\ScreenHost.cs" Link="Telas\ScreenHost.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\Support.cs" Link="Telas\Support.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\LibrarySamples.cs" Link="Telas\LibrarySamples.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\CharactersSamples.cs" Link="Telas\CharactersSamples.cs" />
+  </ItemGroup>
+
+</Project>
