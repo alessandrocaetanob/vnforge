@@ -777,18 +777,10 @@ public sealed partial class LibraryViewModel : ObservableObject
             return null;
         }
 
-        try
-        {
-            var confirmed = await editor.ConfirmAsync(gameId, vndbId, CancellationToken.None);
-            await LoadCoreAsync();
-            Select(Cards.FirstOrDefault(c => c.Id == gameId));
-            return confirmed;
-        }
-        catch (LibraryException e)
-        {
-            ErrorMessage = e.Message;
-            return null;
-        }
+        var confirmed = await editor.ConfirmAsync(gameId, vndbId, CancellationToken.None);
+        await LoadCoreAsync();
+        Select(Cards.FirstOrDefault(c => c.Id == gameId));
+        return confirmed;
     }
 
     internal async Task DismissCandidatesAsync(string gameId)
@@ -807,17 +799,9 @@ public sealed partial class LibraryViewModel : ObservableObject
             return null;
         }
 
-        try
-        {
-            var searched = await editor.SearchAgainAsync(gameId, CancellationToken.None);
-            await LoadCoreAsync();
-            return searched;
-        }
-        catch (LibraryException e)
-        {
-            ErrorMessage = e.Message;
-            return null;
-        }
+        var searched = await editor.SearchAgainAsync(gameId, CancellationToken.None);
+        await LoadCoreAsync();
+        return searched;
     }
 
     /// <summary>Depois de confirmar um jogo, abre o diálogo do próximo que espera confirmação, na ordem da grade; sem outro, não faz nada.</summary>

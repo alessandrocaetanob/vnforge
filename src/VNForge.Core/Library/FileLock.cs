@@ -13,19 +13,19 @@ internal static class FileLock
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                cancellationToken.ThrowIfCancellationRequested();
                 if (System.Diagnostics.Stopwatch.GetElapsedTime(started) > timeout)
                 {
                     throw new LibraryException(busyMessage, e);
                 }
 
-                Thread.Sleep(20);
+                cancellationToken.WaitHandle.WaitOne(20);
             }
         }
     }

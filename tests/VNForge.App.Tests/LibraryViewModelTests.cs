@@ -342,7 +342,7 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmar_um_jogo_que_sumiu_da_biblioteca_vira_aviso_na_tela()
+    public async Task Confirmar_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
     {
         var vm = await Loaded();
         vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
@@ -350,11 +350,12 @@ public sealed class LibraryViewModelTests : IDisposable
 
         await vm.Match.ConfirmCommand.ExecuteAsync(null);
 
-        Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
+        Assert.True(vm.Match.IsOpen);
+        Assert.Contains("Não foi possível confirmar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Buscar_de_novo_um_jogo_que_sumiu_da_biblioteca_vira_aviso_na_tela()
+    public async Task Buscar_de_novo_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
     {
         var vm = await Loaded();
         vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
@@ -362,7 +363,8 @@ public sealed class LibraryViewModelTests : IDisposable
 
         await vm.Match.SearchCommand.ExecuteAsync(null);
 
-        Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
+        Assert.True(vm.Match.IsOpen);
+        Assert.Contains("Não foi possível procurar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
