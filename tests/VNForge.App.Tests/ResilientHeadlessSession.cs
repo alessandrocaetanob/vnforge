@@ -1,4 +1,5 @@
 using Avalonia.Headless;
+using SkiaSharp;
 
 namespace VNForge.App.Tests;
 
@@ -12,18 +13,57 @@ namespace VNForge.App.Tests;
 /// </summary>
 public sealed class ResilientHeadlessSession(HeadlessUnitTestSession session)
 {
-    public Task Dispatch(Action action, CancellationToken cancellationToken) =>
-        RunWithRetry(async () =>
+    public async Task Dispatch(Action action, CancellationToken cancellationToken)
+    {
+        try
         {
-            await session.Dispatch(action, cancellationToken);
-            return 0;
-        });
+            await RunWithRetry(async () =>
+            {
+                await session.Dispatch(action, cancellationToken);
+                return 0;
+            });
+        }
+        finally
+        {
+            ReleaseSkiaCaches();
+        }
+    }
 
-    public Task<TResult> Dispatch<TResult>(Func<TResult> action, CancellationToken cancellationToken) =>
-        RunWithRetry(() => session.Dispatch(action, cancellationToken));
+    public async Task<TResult> Dispatch<TResult>(Func<TResult> action, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await RunWithRetry(() => session.Dispatch(action, cancellationToken));
+        }
+        finally
+        {
+            ReleaseSkiaCaches();
+        }
+    }
 
-    public Task<TResult> Dispatch<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
-        RunWithRetry(() => session.Dispatch(action, cancellationToken));
+    public async Task<TResult> Dispatch<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await RunWithRetry(() => session.Dispatch(action, cancellationToken));
+        }
+        finally
+        {
+            ReleaseSkiaCaches();
+        }
+    }
+
+    /// <summary>
+    /// Cada Dispatch sobe um aplicativo isolado e carrega de novo as fontes embutidas; o Skia guarda os tipos de letra e os glifos de todas as janelas já
+    /// fechadas em um cache global que só se esvazia sob pedido (medido: cerca de 17 MB por janela principal aberta, 2 GB no processo do App). Sem esta chamada
+    /// a memória só cresce, mesmo com o coletor do .NET rodando.
+    /// </summary>
+    private static void ReleaseSkiaCaches()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        SKGraphics.PurgeFontCache();
+    }
 
     /// <summary>Só a falha de preparação conta: a pilha passa por <c>EnsureIsolatedApplication</c>, antes de qualquer código do teste.</summary>
     internal static bool IsSetupRace(Exception exception) =>
