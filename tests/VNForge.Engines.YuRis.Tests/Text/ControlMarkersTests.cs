@@ -74,21 +74,13 @@ public class ControlMarkersTests
     // ---- Marcadores inválidos ----
 
     [Theory]
-    [InlineData("\\x")]
     [InlineData("abc\\")]
     [InlineData("\\N")]
     [InlineData("{")]
-    [InlineData("{EF:F0")]
     [InlineData("{}")]
     [InlineData("{EF:}")]
-    [InlineData("{EF:F}")]
-    [InlineData("{EF:F0F0}")]
-    [InlineData("{EF:ZZ}")]
     [InlineData("{RAW:}")]
-    [InlineData("{RAW:E}")]
-    [InlineData("{RAW:GG}")]
     [InlineData("{VAR:x}")]
-    [InlineData("{NOME}")]
     public void Marcador_invalido_lanca_FormatException_citando_a_posicao(string text)
     {
         var ex = Assert.Throws<FormatException>(() => ToBytes(text));

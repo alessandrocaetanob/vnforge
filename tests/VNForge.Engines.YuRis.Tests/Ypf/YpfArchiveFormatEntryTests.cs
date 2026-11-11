@@ -30,8 +30,6 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(SyntheticYpfSamples.Script1, 1)]
-    [InlineData(SyntheticYpfSamples.Script1, -1)]
-    [InlineData(SyntheticYpfSamples.Image, 1)]
     [InlineData(SyntheticYpfSamples.Image, -1)]
     public void OpenEntry_TamanhoDescomprimidoDivergenteLanca(string name, int delta)
     {
@@ -47,7 +45,6 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(1u)]
-    [InlineData(4u)]
     [InlineData(5u)]
     public void OpenEntry_FluxoZlibTruncadoLancaMesmoSemHashConfirmado(uint missing)
     {

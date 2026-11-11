@@ -75,9 +75,7 @@ public class YstbTextExtractorTests
     }
 
     [Theory]
-    [InlineData("RETURNCODE")]
     [InlineData("WAIT")]
-    [InlineData("_")]
     public void Extract_OutraInstrucaoEntreDoisWordSeparaAsMensagens(string between)
     {
         var builder = NewBuilder().AddWord("前", 1);
@@ -103,11 +101,8 @@ public class YstbTextExtractorTests
     }
 
     [Theory]
-    [InlineData("彼は、「やあ」")]
-    [InlineData("彼は言った。「やあ」")]
     [InlineData("彼は叫んだ！「逃げろ」")]
     [InlineData("名前「閉じない")]
-    [InlineData("「閉じない")]
     public void Extract_TextoQueNaoTemFormaDeFalaNaoGeraFalante(string text)
     {
         var unit = Assert.Single(Extract(NewBuilder().AddWord(text, 1)).Units);

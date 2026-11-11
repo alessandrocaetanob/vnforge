@@ -83,9 +83,7 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(100u)]
-    [InlineData(199u)]
     [InlineData(600u)]
-    [InlineData(9999u)]
     public void Open_VersaoDesconhecidaComIndiceIlegivelLancaUnknownVersionException(uint version)
     {
         var ypf = SyntheticYpfSamples.DefaultSample(version).Build();

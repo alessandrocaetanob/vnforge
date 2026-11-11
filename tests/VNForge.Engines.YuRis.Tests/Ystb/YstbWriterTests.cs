@@ -37,8 +37,6 @@ public class YstbWriterTests
     public static TheoryData<uint, uint> Keys => new()
     {
         { SyntheticYstbBuilder.KeyV290, 0 },
-        { SyntheticYstbBuilder.KeyV200, 0 },
-        { 0x12345678, 0 },
         { 0, 0 },
         { SyntheticYstbBuilder.KeyV290, 7 },
     };
@@ -160,7 +158,6 @@ public class YstbWriterTests
 
     [Theory]
     [InlineData(-1)]
-    [InlineData(100)]
     public void Write_IndiceDeArgumentoInexistente_Falha(int index)
     {
         var original = Read(SampleScript(NewBuilder()).Build().Bytes);

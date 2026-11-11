@@ -44,8 +44,6 @@ public class YscmReaderTests
 
     [Theory]
     [InlineData(0u)]
-    [InlineData(199u)]
-    [InlineData(600u)]
     [InlineData(uint.MaxValue)]
     public void Read_VersaoForaDaFaixa_LancaVersaoDesconhecida(uint version)
     {

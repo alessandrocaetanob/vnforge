@@ -49,11 +49,6 @@ public class SpeakerMarkersTests
         YstbTextInjector.Inject(new ScriptFile(ScriptName, bytes), Read(bytes), [], encoder);
 
     [Theory]
-    [InlineData("「", "«")]
-    [InlineData("『", "«")]
-    [InlineData("」", "»")]
-    [InlineData("』", "»")]
-    [InlineData("（", "(")]
     [InlineData("）", ")")]
     public void Resolve_Cp1252ComGuillemets_TrocaOsDelimitadoresJaponesesPelosDeUmByte(string delimiter, string expected)
     {

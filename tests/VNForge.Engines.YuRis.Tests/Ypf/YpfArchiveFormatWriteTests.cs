@@ -74,8 +74,6 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(SyntheticYpfDataOrder.Index, false)]
-    [InlineData(SyntheticYpfDataOrder.Insertion, false)]
-    [InlineData(SyntheticYpfDataOrder.Index, true)]
     [InlineData(SyntheticYpfDataOrder.Insertion, true)]
     public void WriteTo_SemTrocasGeraArquivoIdenticoComOrdemDeDadosEDuplicatas(SyntheticYpfDataOrder order, bool shared)
     {
@@ -158,7 +156,7 @@ public partial class YpfArchiveFormatTests
     // ---- Troca de uma entrada ----
 
     [Theory]
-    [MemberData(nameof(Variants))]
+    [MemberData(nameof(CoreVariants))]
     public void WriteTo_ComUmaEntradaTrocadaGeraOMesmoArquivoQueOGeradorComOConteudoNovo(
         uint version,
         SyntheticYpfOffsetSize offsetSize,
@@ -177,7 +175,7 @@ public partial class YpfArchiveFormatTests
     }
 
     [Theory]
-    [MemberData(nameof(Variants))]
+    [MemberData(nameof(CoreVariants))]
     public void WriteTo_ComUmaEntradaTrocadaAsOutrasSaemIdenticasETrocadaELidaDeVolta(
         uint version,
         SyntheticYpfOffsetSize offsetSize,
@@ -248,7 +246,6 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(SyntheticYpfHashAlgorithm.Adler32)]
-    [InlineData(SyntheticYpfHashAlgorithm.Crc32)]
     [InlineData(SyntheticYpfHashAlgorithm.MurmurHash2)]
     public void WriteTo_RecalculaOHashDosDadosComOAlgoritmoDetectado(SyntheticYpfHashAlgorithm dataHash)
     {

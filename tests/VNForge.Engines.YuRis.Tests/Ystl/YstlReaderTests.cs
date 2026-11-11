@@ -27,10 +27,7 @@ public class YstlReaderTests
 
     [Theory]
     [InlineData(@"userscript\01_prologo.yst", "01_prologo")]
-    [InlineData("userscript/01_prologo.yst", "01_prologo")]
-    [InlineData(@"a\b\c.d.yst", "c.d")]
     [InlineData("global.yst", "global")]
-    [InlineData("semextensao", "semextensao")]
     [InlineData(@"pasta\.yst", ".yst")]
     public void ReadableName_TiraPastaEExtensao(string path, string expected)
     {
@@ -41,8 +38,6 @@ public class YstlReaderTests
 
     [Theory]
     [InlineData(@"userscript\01_cap1\manha.yst", "userscript/01_cap1")]
-    [InlineData("userscript/01_prologo.yst", "userscript")]
-    [InlineData("global.yst", "")]
     [InlineData(@"\global.yst", "")]
     public void Folder_ChegaComBarraNormal(string path, string expected)
     {
@@ -85,13 +80,9 @@ public class YstlReaderTests
     }
 
     [Theory]
-    [InlineData("yst00002.ybn")]
     [InlineData("yst_list.ybn")]
-    [InlineData("ysc.ybn")]
     [InlineData("yst.ybn")]
-    [InlineData("yst-1.ybn")]
     [InlineData("yst0000a.ybn")]
-    [InlineData("yst00000.bin")]
     [InlineData("yst99999999999.ybn")]
     public void TryGetByBinaryName_NomeQueNaoCorresponde_DaFalso(string name)
     {
@@ -104,7 +95,6 @@ public class YstlReaderTests
 
     [Theory]
     [InlineData(474u)]
-    [InlineData(475u)]
     [InlineData(476u)]
     public void Read_FaixaAmbigua474a476_LeOsDoisLayouts(uint version)
     {

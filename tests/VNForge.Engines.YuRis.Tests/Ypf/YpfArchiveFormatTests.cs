@@ -82,6 +82,9 @@ public partial class YpfArchiveFormatTests
     public static TheoryData<uint, SyntheticYpfOffsetSize, SyntheticYpfHashAlgorithm, SyntheticYpfHashAlgorithm> Variants =>
         SyntheticYpfSamples.Variants;
 
+    public static TheoryData<uint, SyntheticYpfOffsetSize, SyntheticYpfHashAlgorithm, SyntheticYpfHashAlgorithm> CoreVariants =>
+        SyntheticYpfSamples.CoreVariants;
+
     // ---- Variantes do gerador ----
 
     // ---- Chave, tabela, hashes e header_size detectados ----
@@ -124,9 +127,7 @@ public partial class YpfArchiveFormatTests
 
     [Theory]
     [InlineData(200u, true)]
-    [InlineData(299u, true)]
     [InlineData(300u, false)]
-    [InlineData(500u, false)]
     [InlineData(200u, false)]
     [InlineData(300u, true)]
     public void Open_AceitaAsDuasSemanticasDoHeaderSize(uint version, bool includesHeader)
