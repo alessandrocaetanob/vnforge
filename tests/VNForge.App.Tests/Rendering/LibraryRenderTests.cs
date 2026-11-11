@@ -40,11 +40,11 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Contains("Varrer de novo", texts);
             Assert.Contains("Adicionar pasta", texts);
             Assert.Contains(window.GetVisualDescendants().OfType<TextBox>(), t => t.PlaceholderText == "Buscar por título, original ou tag");
-            Assert.Equal(["Grade", "Lista"], window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Classes.Contains("libseg")).GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            Assert.Equal(["Grade", "Lista"], window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LayoutSwitch").GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
 
             var chips = window.GetVisualDescendants().OfType<FilterChip>().ToList();
-            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte"], chips.Select(c => c.Label));
-            Assert.Equal([12, 2, 9, 5], chips.Select(c => c.Count));
+            Assert.Equal(["Todos", "Em tradução", "Sem português", "Sem suporte", "Engine suportada"], chips.Select(c => c.Label));
+            Assert.Equal([12, 2, 9, 5, 6], chips.Select(c => c.Count));
             Assert.True(chips[0].IsChecked);
 
             foreach (var expected in new[] { "Yu-RIS", "Siglus · sem suporte", "KiriKiri · sem suporte", "Ren'Py · sem suporte", "Engine não reconhecida", "Conteúdo adulto escondido", "18+" })
@@ -269,6 +269,53 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public Task Lista_mostra_a_fila_de_traducao_com_o_portugues_a_engine_o_texto_e_a_acao(string themeName) => MostrarFila(themeName, gaveta: false);
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public Task Fila_com_a_gaveta_aberta_cabe_sem_reticencias_nas_colunas_de_texto_e_duracao(string themeName) => MostrarFila(themeName, gaveta: true);
+
+    private async Task MostrarFila(string themeName, bool gaveta)
+    {
+        var theme = ThemeOf(themeName);
+        var checkedAt = LibrarySamples.Now.AddHours(-1);
+        LibraryGame Checked(LibraryGame g, PortugueseStatus status) => g with { Portuguese = new LibraryPortuguese(g.VndbId!, status, checkedAt, []) };
+        var games = LibrarySamples.Games()
+            .Select(g => g.ProjectPath is null && g.IsConfirmed ? Checked(g, g.Title == "Akatsuki no Kōro" ? PortugueseStatus.Partial : PortugueseStatus.None) : g)
+            .ToList();
+        await Abrir(theme, library =>
+        {
+            library.SelectFilter(LibraryFilter.NoPortuguese);
+            library.SelectedSort = library.Sorts[0];
+            library.SelectedLayout = library.Layouts[1];
+            if (gaveta)
+            {
+                library.Select(library.Cards.Single(c => c.Title == "Nanairo Ressha"));
+            }
+        }, (window, vm) =>
+        {
+            var texts = Texts(window);
+            foreach (var expected in new[]
+                     {
+                         "Ordenar por", "Fila", "Título", "Duração", "Jogo", "Português no VNDB", "Engine", "Texto", "Não há", "Parcial", "Yu-RIS · traduz", "Siglus · sem suporte",
+                         "≈ 10 mil linhas", "Curta · 5 h", "Traduzir este jogo", "Sem suporte ainda", "Traduzir este jogo cria o projeto já preenchido",
+                         "Personagens, gêneros e sinopse vêm do VNDB. Você só confirma o jogo e escolhe os idiomas.",
+                     })
+            {
+                Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
+            }
+
+            var rows = window.GetVisualDescendants().OfType<Border>().Where(b => b.IsEffectivelyVisible && b.Classes.Contains("qrow")).ToList();
+            Assert.Equal(gaveta ? 1 : 0, rows.Count(r => r.Classes.Contains("sel")));
+            Assert.Equal(3, window.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Classes.Contains("accent") && b.Classes.Contains("sm")));
+
+            ScreenRenderer.Settle(window);
+            ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName(gaveta ? "biblioteca-fila-gaveta" : "biblioteca-fila", theme)));
+        }, games: games);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Filtro_por_tag_junta_a_sua_e_a_do_VNDB_com_o_popover_das_tags(string themeName)
     {
         var theme = ThemeOf(themeName);
@@ -344,7 +391,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
         });
     }
 
-    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false)
+    private async Task Abrir(ThemeVariant theme, Action<LibraryViewModel> montar, Action<MainWindow, MainWindowViewModel> verificar, bool empty = false, bool played = false, IEnumerable<LibraryGame>? games = null)
     {
         await fixture.Session.Dispatch<int>(
             async () =>
@@ -352,7 +399,7 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 using var config = new TempFolder();
                 var previous = VndbImages.Source;
                 VndbImages.Source = new LibrarySamples.Images();
-                var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library());
+                var file = LibrarySamples.Save(config.Path, empty ? new GameLibrary() : LibrarySamples.Library(games));
                 var playLog = new PlayLogFile(config.Path);
                 if (played)
                 {

@@ -67,6 +67,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly ILibrarySheetSource? sheets;
     private readonly UserTagsFile? tagsFile;
     private readonly Action<string> openFolder;
+    private readonly Func<PortugueseTranslationChecker>? portugueseChecker;
     private readonly GamePlayer? player;
     private readonly PlayLogFile? playLog;
     private readonly Action<Action> post;
@@ -102,7 +103,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         GamePlayer? player = null,
         PlayLogFile? playLog = null,
         LibraryTranslationSwitcher? switcher = null,
-        IReadOnlyList<IEngine>? engines = null)
+        IReadOnlyList<IEngine>? engines = null,
+        Func<PortugueseTranslationChecker>? portugueseChecker = null)
     {
         this.file = file;
         this.picker = picker;
@@ -118,6 +120,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         this.engines = engines ?? [];
         this.player = player;
         this.playLog = playLog;
+        this.portugueseChecker = portugueseChecker;
         this.post = post;
         Filters =
         [
@@ -125,6 +128,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             new LibraryFilterChipViewModel(LibraryFilter.InTranslation, "Em tradução"),
             new LibraryFilterChipViewModel(LibraryFilter.NoPortuguese, "Sem português"),
             new LibraryFilterChipViewModel(LibraryFilter.Unsupported, "Sem suporte"),
+            new LibraryFilterChipViewModel(LibraryFilter.Supported, "Engine suportada"),
         ];
         Match = new LibraryMatchViewModel(this);
         Tags = new LibraryTagsViewModel(this);
@@ -221,7 +225,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     [ObservableProperty]
     public partial LibraryCardViewModel? Selected { get; private set; }
 
-    /// <summary>"12 jogos em 2 pastas · varredura há 2 horas".</summary>
+    /// <summary>"12 jogos em 2 pastas · varredura há 2 horas"; na lista, ordenada pela fila, diz o que é a fila.</summary>
     [ObservableProperty]
     public partial string Subtitle { get; private set; } = string.Empty;
 
@@ -275,7 +279,12 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => Refilter();
 
-    partial void OnLayoutChanged(LibraryLayout value) => OnPropertyChanged(nameof(SelectedLayout));
+    partial void OnLayoutChanged(LibraryLayout value)
+    {
+        OnPropertyChanged(nameof(SelectedLayout));
+        RebuildRows();
+        Subtitle = SubtitleText();
+    }
 
     /// <summary>Escolhe o chip de filtro; os outros desmarcam.</summary>
     public void SelectFilter(LibraryFilter filter)
@@ -523,11 +532,13 @@ public sealed partial class LibraryViewModel : ObservableObject
         var shown = Tags.Filter.Apply(LibraryListing.Filter(games, SelectedFilter, SearchText, PercentOf, userTags, library.Privacy), userTags, library.Privacy);
         var selectedId = Selected?.Id;
         Cards.Clear();
-        foreach (var game in shown)
+        var entries = Arrange(shown);
+        foreach (var entry in entries)
         {
-            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, library.Privacy, translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game)) { IsPlaying = game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(entry.Game, LibraryCards.Describe(entry.Game, library.Privacy, translations.GetValueOrDefault(entry.Game.Id)), versions.GetValueOrDefault(entry.Game.Id), Tags.CardChips(entry.Game)) { IsPlaying = entry.Game.Id == PlayingId });
         }
 
+        RebuildRows(entries);
         Subtitle = SubtitleText();
         RedrawContinue(shown);
         HasNoResults = games.Count > 0 && Cards.Count == 0;
@@ -542,6 +553,11 @@ public sealed partial class LibraryViewModel : ObservableObject
             var names = Tags.Active.Select(t => t.Text).ToList();
             var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
             return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {games.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
+        }
+
+        if (IsList && Sort == LibrarySort.Queue)
+        {
+            return "Fila de tradução · o que você tem e ainda não existe em português";
         }
 
         var folders = library.Roots.Count;
@@ -895,6 +911,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             await loadRecents();
             await LoadAsync();
             await RescanOnOpenAsync();
+            StartPortugueseCheck();
         }
         catch (Exception e)
         {
@@ -923,6 +940,8 @@ public sealed partial class LibraryViewModel : ObservableObject
             {
                 ErrorMessage = $"A varredura parou antes de chegar em {string.Join(", ", waitingFolders)}. Escolha a pasta de novo para varrer.";
             }
+
+            StartPortugueseCheck();
         }
         finally
         {
