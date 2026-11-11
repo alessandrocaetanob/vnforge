@@ -472,6 +472,8 @@ public sealed class LibraryRenderTests(HeadlessFixture fixture) : IClassFixture<
                 Assert.True(texts.Contains(expected), $"falta '{expected}' em: {string.Join(" | ", texts)}");
             }
 
+            // O popover leva a sombra dos flutuantes, como o das tags.
+            Assert.All(window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("lib-pop") && b.IsEffectivelyVisible), b => Assert.True(b.BoxShadow.Count > 0, "o popover perdeu a sombra dos flutuantes"));
             var rows = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("adult-row")).ToList();
             Assert.Equal(["Mostrar", "Desfocar", "Esconder"], rows.Select(r => Avalonia.Automation.AutomationProperties.GetName(r)));
             Assert.Equal([false, true, false], rows.Select(r => r.Classes.Contains("on")));

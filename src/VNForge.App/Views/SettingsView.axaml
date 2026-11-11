@@ -878,6 +878,12 @@
           <StackPanel Margin="0,16,0,0" Spacing="8" DataContext="{Binding Privacy}" x:DataType="vm:PrivacySettingsViewModel">
             <TextBlock Classes="secondary" TextWrapping="Wrap" Margin="0,4,0,0"
                        Text="Escolha o que o VNForge faz com jogo de conteúdo adulto: a capa, as tags, os traços e as imagens de personagem. O jogo é adulto quando o VNDB marca a capa ou as tags."/>
+            <Border Name="PrivacyError" Classes="infobar error" IsVisible="{Binding HasError}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Error}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+              </Grid>
+            </Border>
             <c:OverlineText Classes="overline" Margin="0,12,0,0" Text="Conteúdo adulto"/>
             <ItemsControl Name="AdultModeCards" ItemsSource="{Binding Modes}" AutomationProperties.Name="Conteúdo adulto">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>

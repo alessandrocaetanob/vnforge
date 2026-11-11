@@ -14,9 +14,9 @@ public sealed class AdultPrivacyTests : IDisposable
 
     private LibraryFile File => new(_config.Path);
 
-    private async Task<(MainWindowViewModel Shell, LibraryViewModel Library)> ShellAsync()
+    private async Task<(MainWindowViewModel Shell, LibraryViewModel Library)> ShellAsync(IEnumerable<LibraryGame>? games = null)
     {
-        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
+        LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
         var library = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, sheets: new LibrarySamples.Sheets());
         var start = new StartViewModel(new RecentProjectsFile(_config.Path), new FakeFolderPicker(null), new FixedClock(LibrarySamples.Now));
         var shell = new MainWindowViewModel(start, library: library);
@@ -182,6 +182,25 @@ public sealed class AdultPrivacyTests : IDisposable
         shell.SelectedNav = shell.Nav.Single(n => n.Key == NavKey.Settings);
         Assert.False(library.Reveal.IsRevealed(card.Game.VndbId));
         Assert.True(library.Cards.Single(c => c.Title == "Kuroneko Archive").IsBlurred);
+    }
+
+    [Fact]
+    public async Task A_capa_adulta_de_um_candidato_borra_com_o_mostrar_e_o_mostrar_a_revela()
+    {
+        var korin = LibrarySamples.Games().Single(g => g.Title == "Kōrin no Mori");
+        var adultCover = korin.Candidates[0] with { Image = new VNForge.Core.Vndb.VndbImageRef("https://t.vndb.org/cv/korin_no_mori.jpg", 2) };
+        var games = LibrarySamples.Games().Select(g => g.Title == "Kōrin no Mori" ? g with { Candidates = [adultCover, .. g.Candidates.Skip(1)] } : g).ToList();
+        var (_, library) = await ShellAsync(games);
+        var card = library.Cards.Single(c => c.Title == "Kōrin no Mori");
+
+        Assert.True(card.IsAdult);
+        Assert.True(card.IsBlurred);
+
+        library.RevealGameCommand.Execute(card);
+
+        var revealed = library.Cards.Single(c => c.Title == "Kōrin no Mori");
+        Assert.False(revealed.IsBlurred);
+        Assert.True(revealed.CanConceal);
     }
 
     [Fact]
