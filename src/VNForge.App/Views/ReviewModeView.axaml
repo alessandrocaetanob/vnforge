@@ -180,8 +180,8 @@
       </StackPanel>
     </Grid>
 
-    <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo, com até 64% da largura. As duas colunas alinham pelo topo e o bloco fica centrado na altura que sobra entre o topo e a barra. -->
-    <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="32" VerticalAlignment="Center" IsVisible="{Binding IsActive}">
+    <!-- Uma fala por vez: à esquerda o roteiro (anterior, atual, seguinte), que rola sozinho; à direita o palco, a tela do jogo, com até 64% da largura. As duas colunas alinham pelo topo e o bloco sobe até 14 px abaixo da barra do topo, como no quadro: centrado, o vão que sobra o empurrava 38 px para baixo. -->
+    <Grid x:Name="Body" Grid.Row="1" ColumnDefinitions="36*,64*" ColumnSpacing="32" VerticalAlignment="Top" IsVisible="{Binding IsActive}">
 
       <ScrollViewer x:Name="Script" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Roteiro">
         <StackPanel x:Name="ScriptStack" Spacing="12" Margin="0,0,12,4">
@@ -229,7 +229,7 @@
           <Border Classes="card current">
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <c:OverlineText Classes="overline" Text="Original" VerticalAlignment="Center"/>
+                <c:OverlineText Classes="overline" FontWeight="Normal" Text="Original" VerticalAlignment="Center"/>
                 <SelectableTextBlock x:Name="SpeakerLine" Grid.Column="1" Classes="caption secondary" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Right"
                                      c:SpeakerMenu.Original="{Binding Detail.Speaker}" c:SpeakerMenu.Translation="{Binding Detail.SpeakerTarget}" c:SpeakerMenu.ReviewCommand="{Binding Detail.ReviewSpeakerCommand}" AutomationProperties.Name="Quem fala"/>
               </Grid>
@@ -237,7 +237,7 @@
               <!-- Fileira sob o original: os marcadores do fim do texto (virar a página) e "Entender o japonês", lado a lado como no quadro. -->
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <StackPanel x:Name="SourceMarkers" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
-                <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
+                <Button Classes="sm" Foreground="{DynamicResource Vnf.TextSecondary}" HorizontalAlignment="Left" Command="{Binding Detail.ToggleExplainCommand}" IsEnabled="{Binding Detail.CanExplain}"
                         ToolTip.Tip="Mostra o original quebrado em partes, com o significado de cada uma. Só para você ler, não entra na tradução.">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>
@@ -258,9 +258,9 @@
           <!-- A tradução em destaque, com "Outra sugestão" e o preço. -->
           <Border x:Name="TranslationCard" Classes="card translation current">
             <StackPanel Spacing="12">
-              <c:OverlineText Classes="overline" Text="Tradução"/>
+              <c:OverlineText Classes="overline" FontWeight="Normal" Text="Tradução"/>
               <TextBlock FontSize="{DynamicResource Vnf.FontSize.ReviewTranslation}" LineHeight="{DynamicResource Vnf.LineHeight.ReviewTranslation}" TextWrapping="Wrap" Text="{Binding Detail.FieldText}" AutomationProperties.Name="Tradução"/>
-              <Button Classes="subtle sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
+              <Button Classes="sm" HorizontalAlignment="Left" Command="{Binding Detail.SuggestCommand}"
                       ToolTip.Tip="Pede à IA outra tradução para esta fala. A atual só muda se você usar a sugestão.">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Sparkle}"/>

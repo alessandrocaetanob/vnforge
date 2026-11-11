@@ -96,5 +96,5 @@ public static class LibraryCharacterSync
 
     /// <summary>A ficha está guardada e todas as aparições dos personagens nela já trazem as edições (as gravadas antes disso só têm o resumo, com o spoiler mais baixo, e precisam ser buscadas de novo).</summary>
     private static bool HasEditions(SheetStore store, string visualNovelId) =>
-        store.LoadGame(visualNovelId) is { } sheet && store.LoadCharacters(sheet.CharacterIds).All(c => c.In(visualNovelId)?.Editions is { Count: > 0 });
+        store.LoadGame(visualNovelId) is { } sheet && store.LoadCharacters(sheet.CharacterIds).All(c => c.In(visualNovelId)?.Editions is { Count: > 0 } && c.AgeFetched);
 }

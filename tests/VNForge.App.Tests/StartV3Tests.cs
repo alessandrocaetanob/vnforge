@@ -293,8 +293,8 @@ public class StartV3Tests
         using var temp = new TempFolder();
         var vm = new MainWindowViewModel(Create(temp));
 
-        Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Settings)), n => Assert.False(n.IsEnabled));
+        Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Characters or NavKey.Settings)), n => Assert.False(n.IsEnabled));
         await vm.Start.OpenAsync(Project(temp));
-        Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Settings or NavKey.Glossary)), n => Assert.True(n.IsEnabled));
+        Assert.All(vm.Nav.Where(n => n.Key is not (NavKey.Start or NavKey.Characters or NavKey.Settings or NavKey.Glossary)), n => Assert.True(n.IsEnabled));
     }
 }

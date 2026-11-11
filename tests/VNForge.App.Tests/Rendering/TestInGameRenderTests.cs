@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -89,11 +90,17 @@ public sealed class TestInGameRenderTests(HeadlessFixture fixture) : IClassFixtu
                         await build.TestCommand.ExecuteAsync(null);
 
                         // O andamento volta à janela pelo Dispatcher, então o último passo chega depois do fim do comando.
-                        for (var i = 0; i < 100 && (build.LastTestSteps.Count == 0 || build.LastTestSteps[^1].State != TestStepState.Failed); i++)
+                        // O prazo é em tempo, não em voltas: no Linux carregado cada volta demora mais que o Task.Delay pede.
+                        var deadline = Stopwatch.StartNew();
+                        while ((build.LastTestSteps.Count == 0 || build.LastTestSteps[^1].State != TestStepState.Failed) && deadline.Elapsed < TimeSpan.FromSeconds(15))
                         {
                             await Task.Delay(50, TestContext.Current.CancellationToken);
                             ScreenRenderer.Settle(window);
                         }
+
+                        Assert.True(
+                            build.LastTestSteps.Count > 0 && build.LastTestSteps[^1].State == TestStepState.Failed,
+                            $"O último passo do teste não chegou a Failed em 15 s: [{string.Join(", ", build.LastTestSteps.Select(s => s.State))}]");
                     }
 
                     ScreenRenderer.Settle(window);

@@ -53,10 +53,18 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
     private static bool ClippedByAncestor(Control block)
     {
         var width = block.Bounds.Width;
+        var clips = false;
         for (var parent = block.GetVisualParent(); parent is not null; parent = parent.GetVisualParent())
         {
+            clips |= parent is Control { ClipToBounds: true };
             if (parent is Button or ListBoxItem && parent is Control c)
             {
+                // Um item do trilho sem recorte deixa o rótulo passar do fundo (como o quadro faz com "Personagens"): a letra aparece inteira.
+                if (c is ListBoxItem && !clips)
+                {
+                    return false;
+                }
+
                 var origin = block.TranslatePoint(default, c);
                 return origin is { } p && (p.X < -Tolerance || p.X + width > c.Bounds.Width + Tolerance);
             }

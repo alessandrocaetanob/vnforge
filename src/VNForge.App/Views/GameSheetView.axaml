@@ -123,7 +123,11 @@
                             </Panel>
                           </Panel>
                           <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Top">
-                            <TextBlock FontWeight="Bold" FontSize="14" LineHeight="20" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock FontWeight="Bold" FontSize="14" LineHeight="20" Text="{Binding Name}" TextTrimming="CharacterEllipsis" IsVisible="{Binding ShowsHidden}"/>
+                            <Button Classes="libcard" HorizontalAlignment="Left" IsVisible="{Binding !ShowsHidden}" Command="{Binding $parent[UserControl].((vm:GameSheetViewModel)DataContext).OpenCharacterCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="Abrir a página do personagem" AutomationProperties.Name="{Binding Name, StringFormat='Abrir a página de {0}'}">
+                              <TextBlock FontWeight="Bold" FontSize="14" LineHeight="20" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                            </Button>
                             <TextBlock Classes="secondary" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="12" Text="{Binding Original}" IsVisible="{Binding HasOriginal}"/>
                             <TextBlock Classes="secondary" FontSize="12" LineHeight="20" Text="{Binding Caption}" IsVisible="{Binding HasCaption}"/>
                             <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0" IsVisible="{Binding HasPills}">

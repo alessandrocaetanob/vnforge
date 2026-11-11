@@ -41,6 +41,7 @@ public static class TextAppearance
         ("ColumnHeader", 12, 16),
         ("Overline", 11, 16),
         ("JpBody", 19, 30),
+        ("InspectorSource", 19, 32),
         ("JpRow", 13, 18),
         ("BodyLoose", 14, 22),
         ("ReviewSource", 19, 27),
