@@ -354,12 +354,12 @@ public sealed partial class LibraryTagsViewModel(LibraryViewModel library) : Obs
 
     private void RebuildOptions()
     {
-        var present = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
+        var present = library.ListedGames.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
         var query = UserTagName.Collapse(Search);
         var ownAll = library.UserTags.Tags.Select(t => (t.Name, Count: library.UserTags.GamesWith(t.Name).Count(present.Contains))).ToList();
 
         var perName = new Dictionary<string, (string Display, int Count)>(StringComparer.Ordinal);
-        foreach (var game in library.Games)
+        foreach (var game in library.ListedGames)
         {
             foreach (var tag in LibraryVisibility.VisibleTags(game, library.Privacy).DistinctBy(t => UserTagName.Collapse(t.Name)))
             {
@@ -404,7 +404,7 @@ public sealed partial class LibraryTagsViewModel(LibraryViewModel library) : Obs
 
     private void RebuildRows()
     {
-        var present = library.Games.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
+        var present = library.ListedGames.Select(g => g.Id).ToHashSet(StringComparer.Ordinal);
         Rows.Clear();
         foreach (var tag in library.UserTags.Tags)
         {

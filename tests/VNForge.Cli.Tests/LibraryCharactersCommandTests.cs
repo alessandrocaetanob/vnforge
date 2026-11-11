@@ -82,6 +82,29 @@ public sealed class LibraryCharactersCommandTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(AdultMode.Blur, false)]
+    [InlineData(AdultMode.Show, true)]
+    public async Task Json_nao_traz_o_endereco_do_retrato_adulto_fora_do_Mostrar(AdultMode mode, bool exposed)
+    {
+        var face = new VndbImage("https://t.vndb.org/ch/5.jpg", null, 100, 140, 2, 0);
+        var character = new VndbCharacter("c5", "Adult Face", null, [], "Texto.", face, null, [new VndbCharacterAppearance("v4", "main", 0, null)], []);
+        new LibraryFile(_cli.UserConfigDirectory).Save(new GameLibrary(
+            [new LibraryGame("g1", "C:\\Jogos\\CLANNAD", null, LibraryEngine.Unknown, "CLANNAD", null, T0) { VndbId = "v4", Confirmation = LibraryConfirmation.Manual }],
+            new LibraryPrivacy(Adult: mode)));
+        _cli.Cli.VndbCatalogFactory = () => new FakeVndbCatalog([Game("v4", "CLANNAD")], [character], []);
+        await Run("library", "characters", "sync");
+        await Run("library", "sheet", "fetch", "CLANNAD");
+
+        var list = await Run("library", "characters", "list", "--json");
+        var show = await Run("library", "characters", "show", "c5", "--json");
+        var sheet = await Run("library", "sheet", "show", "CLANNAD", "--json");
+
+        foreach (var output in new[] { list.Output, show.Output, sheet.Output })
+        {
+            Assert.Equal(exposed, output.Contains("t.vndb.org/ch/5.jpg", StringComparison.Ordinal));
+        }
+    }
     [Fact]
     public async Task Sync_traz_os_personagens_dos_jogos_da_biblioteca_e_casa_as_edicoes()
     {

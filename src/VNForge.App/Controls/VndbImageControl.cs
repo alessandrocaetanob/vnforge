@@ -9,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VNForge.App.Services;
+using VNForge.Core.Library;
 using VNForge.Core.Vndb;
 
 namespace VNForge.App.Controls;
@@ -22,10 +23,13 @@ public abstract class VndbImageControl : Control
     public static readonly StyledProperty<VndbImageRef?> ImageProperty = AvaloniaProperty.Register<VndbImageControl, VndbImageRef?>(nameof(Image));
     public static readonly StyledProperty<string?> SeedProperty = AvaloniaProperty.Register<VndbImageControl, string?>(nameof(Seed));
 
+    public static readonly StyledProperty<bool> RevealedProperty = AvaloniaProperty.Register<VndbImageControl, bool>(nameof(Revealed));
+
     public static readonly StyledProperty<bool> LoadOnlyInViewportProperty = AvaloniaProperty.Register<VndbImageControl, bool>(nameof(LoadOnlyInViewport));
 
     private bool inViewport = true;
     private BitmapLease? lease;
+    private Bitmap? blurred;
     private CancellationTokenSource? loading;
     private IVndbImageSource? watching;
 
@@ -36,6 +40,7 @@ public abstract class VndbImageControl : Control
         HorizontalAlignmentProperty.OverrideDefaultValue<VndbImageControl>(Avalonia.Layout.HorizontalAlignment.Left);
         VerticalAlignmentProperty.OverrideDefaultValue<VndbImageControl>(Avalonia.Layout.VerticalAlignment.Top);
         ImageProperty.Changed.AddClassHandler<VndbImageControl>((control, _) => control.Reload());
+        RevealedProperty.Changed.AddClassHandler<VndbImageControl>((control, _) => control.RefreshBlur());
     }
 
     protected VndbImageControl()
@@ -58,6 +63,16 @@ public abstract class VndbImageControl : Control
     }
 
     /// <summary>
+    /// A pessoa pediu para ver este jogo sem o borrão (só nesta sessão). No <see cref="AdultMode.Blur"/> toda imagem adulta é borrada, onde quer que apareça; quem deixa revelar
+    /// (a grade, a gaveta, a Ficha) liga isto no jogo revelado.
+    /// </summary>
+    public bool Revealed
+    {
+        get => GetValue(RevealedProperty);
+        set => SetValue(RevealedProperty, value);
+    }
+
+    /// <summary>
     /// Só baixa e segura o bitmap enquanto o controle está perto da área visível (a da rolagem que o contém, com uma tela de folga). A grade da Biblioteca liga: com centenas de jogos, só as
     /// capas à vista ocupam memória, e as que saem de vista devolvem o bitmap.
     /// </summary>
@@ -70,8 +85,11 @@ public abstract class VndbImageControl : Control
     /// <summary>A imagem do VNDB está na tela; falso quando o controle mostra o marcador.</summary>
     public bool HasImage => lease is not null;
 
-    /// <summary>O bitmap já carregado; nulo mostra o marcador.</summary>
-    protected Bitmap? LoadedBitmap => lease?.Bitmap;
+    /// <summary>O bitmap já carregado, ou a versão borrada dele quando a imagem é adulta e o modo é <see cref="AdultMode.Blur"/>; nulo mostra o marcador.</summary>
+    protected Bitmap? LoadedBitmap => blurred ?? lease?.Bitmap;
+
+    /// <summary>A imagem na tela está borrada: o bitmap original nunca chega a ser desenhado.</summary>
+    public bool IsBlurred => blurred is not null;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -113,6 +131,32 @@ public abstract class VndbImageControl : Control
     // A privacidade pode mudar em qualquer thread (a CLI trocou o ajuste): a tela relê a imagem na UI e a esconde se for o caso.
     private void OnPrivacyChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(Reload);
 
+    /// <summary>
+    /// Troca o bitmap por uma versão borrada: encolhe a imagem até uma miniatura e a tela a estica de volta suavizada. Quase nada da imagem sobra, e a conta não depende do que a
+    /// plataforma sabe de efeitos nem deixa borda transparente. O lado maior da miniatura é <see cref="BlurThumbnail"/>.
+    /// </summary>
+    private void RefreshBlur()
+    {
+        var previous = blurred;
+        blurred = null;
+        if (lease is { } held && Image is { } image && !Revealed && VndbImages.Source is { } source && VndbImageVisibility.IsBlurred(image, source.Privacy))
+        {
+            var size = held.Bitmap.PixelSize;
+            var scale = BlurThumbnail / Math.Max(size.Width, size.Height);
+            blurred = held.Bitmap.CreateScaledBitmap(new PixelSize(Math.Max(1, (int)Math.Round(size.Width * scale)), Math.Max(1, (int)Math.Round(size.Height * scale))), BitmapInterpolationMode.HighQuality);
+        }
+
+        if (previous is not null || blurred is not null)
+        {
+            InvalidateVisual();
+        }
+
+        previous?.Dispose();
+    }
+
+    /// <summary>O lado maior, em pixels, da miniatura de onde sai o borrão.</summary>
+    protected virtual double BlurThumbnail => 14;
+
     private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)
     {
         var view = e.EffectiveViewport;
@@ -152,6 +196,7 @@ public abstract class VndbImageControl : Control
     {
         var previous = lease;
         lease = next;
+        RefreshBlur();
         if (previous is not null || next is not null)
         {
             InvalidateVisual();

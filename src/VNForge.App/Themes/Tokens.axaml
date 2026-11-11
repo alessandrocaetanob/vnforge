@@ -99,8 +99,8 @@
       <SolidColorBrush x:Key="Vnf.CoverChipInk" Color="#FFFFFF"/>
       <Color x:Key="Vnf.CoverChipWarnColor">#E7C37A</Color>
       <SolidColorBrush x:Key="Vnf.CoverChipWarn" Color="#E7C37A"/>
-      <Color x:Key="Vnf.CoverVeilBgColor">#222827</Color>
-      <SolidColorBrush x:Key="Vnf.CoverVeilBg" Color="#222827"/>
+      <Color x:Key="Vnf.BlurScrimColor">#61101312</Color>
+      <SolidColorBrush x:Key="Vnf.BlurScrim" Color="#61101312"/>
       <Color x:Key="Vnf.CoverScrimColor">#9E000000</Color>
       <SolidColorBrush x:Key="Vnf.CoverScrim" Color="#9E000000"/>
       <Color x:Key="Vnf.Speaker1Color">#81DABC</Color>
@@ -258,8 +258,8 @@
       <SolidColorBrush x:Key="Vnf.CoverChipInk" Color="#FFFFFF"/>
       <Color x:Key="Vnf.CoverChipWarnColor">#E7C37A</Color>
       <SolidColorBrush x:Key="Vnf.CoverChipWarn" Color="#E7C37A"/>
-      <Color x:Key="Vnf.CoverVeilBgColor">#E4E7E4</Color>
-      <SolidColorBrush x:Key="Vnf.CoverVeilBg" Color="#E4E7E4"/>
+      <Color x:Key="Vnf.BlurScrimColor">#61F1F2F0</Color>
+      <SolidColorBrush x:Key="Vnf.BlurScrim" Color="#61F1F2F0"/>
       <Color x:Key="Vnf.CoverScrimColor">#9E000000</Color>
       <SolidColorBrush x:Key="Vnf.CoverScrim" Color="#9E000000"/>
       <Color x:Key="Vnf.Speaker1Color">#22765B</Color>

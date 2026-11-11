@@ -62,6 +62,8 @@ public sealed class Portrait : VndbImageControl
         set => SetValue(TintProperty, value);
     }
 
+    protected override double BlurThumbnail => 8;
+
     protected override string DefaultAutomationName => IsNarrator ? "Narração" : Seed is { Length: > 0 } name ? $"Retrato de {name}" : "Retrato";
 
     /// <summary>O lado do retrato, do token do tamanho.</summary>

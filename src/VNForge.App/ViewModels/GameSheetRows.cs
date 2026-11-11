@@ -44,7 +44,7 @@ public sealed record SheetPill(string Text, SheetTone Tone)
 }
 
 /// <summary>Uma etiqueta (.v3-tag): tag do VNDB, tag sua (<paramref name="IsMine"/>), ou o aviso tracejado das que a privacidade escondeu (<paramref name="IsHidden"/>).</summary>
-public sealed record SheetChip(string Text, bool IsMine = false, bool IsHidden = false, bool IsWarning = false)
+public sealed record SheetChip(string Text, bool IsMine = false, bool IsHidden = false, bool IsWarning = false, bool CanReveal = false)
 {
     public bool IsPlain => !IsMine && !IsHidden && !IsWarning;
 }
@@ -58,8 +58,11 @@ public enum TileKind
     /// <summary>O VNDB não tem imagem do personagem.</summary>
     NoImage,
 
-    /// <summary>Há imagem, escondida por ser de conteúdo adulto.</summary>
+    /// <summary>Há imagem, escondida por ser de conteúdo adulto (modo Esconder): o quadro tracejado com o olho riscado.</summary>
     ImageHidden,
+
+    /// <summary>Há imagem de conteúdo adulto e o modo é Desfocar: o retrato aparece borrado, com um olho que revela.</summary>
+    ImageBlurred,
 
     /// <summary>O personagem inteiro está escondido por spoiler: o cartão fica sem nome e tem o "Mostrar".</summary>
     Hidden,
@@ -76,9 +79,13 @@ public sealed record CharacterTile(
     SheetPill? Status,
     string Line,
     string Caption,
-    int HiddenLevel)
+    int HiddenLevel,
+    bool Revealed = false)
 {
-    public bool ShowsPortrait => Kind == TileKind.Portrait;
+    public bool ShowsPortrait => Kind is TileKind.Portrait or TileKind.ImageBlurred;
+
+    /// <summary>O retrato está borrado e o olho no centro o revela.</summary>
+    public bool ShowsImageBlurred => Kind == TileKind.ImageBlurred;
 
     public bool ShowsPlaceholder => Kind == TileKind.NoImage;
 

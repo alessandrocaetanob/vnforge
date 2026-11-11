@@ -41,7 +41,7 @@ internal static class LibrarySamples
             {
                 VndbId = "v31201",
                 Confirmation = LibraryConfirmation.Auto,
-                Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, Tags(), adult),
+                Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, adult ? [.. Tags(), new("g11", "Nudez", "ero", 2.4, 0)] : Tags(), adult),
             }
             : game;
     }
@@ -104,8 +104,10 @@ internal static class LibrarySamples
     }
 
     /// <summary>Uma fonte de imagens que pinta um degradê por endereço, para a capa aparecer sem rede.</summary>
-    public sealed class Images : IVndbImageSource
+    public sealed class Images(LibraryPrivacy? privacy = null) : IVndbImageSource
     {
+        public LibraryPrivacy Privacy => privacy ?? new LibraryPrivacy();
+
         public event EventHandler? PrivacyChanged
         {
             add { }
@@ -120,12 +122,12 @@ internal static class LibrarySamples
 
         public Task<BitmapLease?> LoadAsync(VndbImageRef image, CancellationToken cancellationToken) => Task.FromResult<BitmapLease?>(BitmapLease.Own(Png(image.Url)));
 
-        private static WriteableBitmap Png(string url)
+        private static Bitmap Png(string url)
         {
             var hue = Math.Abs(url.Aggregate(7, (h, c) => (h * 31) + c) % 360);
             const int width = 240;
             const int height = 320;
-            var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            using var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
             using var frame = bitmap.Lock();
             var pixels = new byte[frame.RowBytes * height];
             for (var y = 0; y < height; y++)
@@ -142,7 +144,12 @@ internal static class LibrarySamples
             }
 
             Marshal.Copy(pixels, 0, frame.Address, pixels.Length);
-            return bitmap;
+
+            // O Skia só redimensiona (o borrão do Desfocar) um bitmap decodificado, como o do cache; o gravável não.
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, PngBitmapEncoderOptions.Default);
+            stream.Position = 0;
+            return new Bitmap(stream);
         }
     }
 }

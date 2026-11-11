@@ -128,7 +128,7 @@ public sealed class LibraryCatalogTests
     [Fact]
     public void Jogo_sem_tempo_de_jogo_nem_projeto_nao_inventa_linhas()
     {
-        var result = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));
+        var result = Render([Adult()], new LibraryCatalogOptions(new LibraryPrivacy(Adult: AdultMode.Show)));
 
         Assert.DoesNotContain("Jogado", result.Html, StringComparison.Ordinal);
         Assert.DoesNotContain("Tradução", result.Html, StringComparison.Ordinal);
@@ -178,7 +178,7 @@ public sealed class LibraryCatalogTests
     public void O_jogo_adulto_nem_entra_na_pagina_ate_a_privacidade_liberar()
     {
         var hidden = Render([Clannad(), Adult()]);
-        var shown = Render([Clannad(), Adult()], new LibraryCatalogOptions(new LibraryPrivacy(ShowAdult: true)));
+        var shown = Render([Clannad(), Adult()], new LibraryCatalogOptions(new LibraryPrivacy(Adult: AdultMode.Show)));
 
         Assert.Equal(1, hidden.Games);
         Assert.Equal(1, hidden.Adult);
@@ -205,7 +205,7 @@ public sealed class LibraryCatalogTests
     [Fact]
     public void Com_a_privacidade_liberada_spoiler_e_tags_aparecem()
     {
-        var html = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(ShowSpoilers: true, ShowAdult: true))).Html;
+        var html = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(ShowSpoilers: true, Adult: AdultMode.Show))).Html;
 
         Assert.Contains("Ela morre no fim", html, StringComparison.Ordinal);
         Assert.Contains("Final triste", html, StringComparison.Ordinal);
@@ -316,7 +316,7 @@ public sealed class LibraryCatalogTests
             new Dictionary<string, string>()));
 
         var hidden = Render([Clannad()], sheets: sheets).Html;
-        var shown = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, true)), sheets).Html;
+        var shown = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, AdultMode.Show)), sheets).Html;
 
         Assert.DoesNotContain("Segredo", hidden, StringComparison.Ordinal);
         Assert.DoesNotContain("0001.jpg", hidden, StringComparison.Ordinal);
@@ -349,8 +349,8 @@ public sealed class LibraryCatalogTests
             new Dictionary<string, string>()));
 
         var hidden = Render([Clannad()], sheets: sheets).Html;
-        var adult = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(false, true)), sheets).Html;
-        var spoilers = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, false)), sheets).Html;
+        var adult = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(false, AdultMode.Show)), sheets).Html;
+        var spoilers = Render([Clannad()], new LibraryCatalogOptions(new LibraryPrivacy(true, AdultMode.Blur)), sheets).Html;
 
         Assert.Contains("Tímida", hidden, StringComparison.Ordinal);
         Assert.DoesNotContain("Traço picante", hidden, StringComparison.Ordinal);
@@ -430,7 +430,7 @@ public sealed class LibraryCatalogTests
             [new LibrarySheetCharacter("Ana", null, "Principal", "Descrição", true, [new LibrarySheetTrait("Alta", 0, false, false)], new VndbImageRef("https://t.vndb.org/ch/12/3456.jpg"), 0)],
             new Dictionary<string, string>()));
 
-        var html = Render([game, Adult(), Unmatched()], new LibraryCatalogOptions(new LibraryPrivacy(true, true), true), sheets, Played(game), _ => Counts(1, 1, 2)).Html;
+        var html = Render([game, Adult(), Unmatched()], new LibraryCatalogOptions(new LibraryPrivacy(true, AdultMode.Show), true), sheets, Played(game), _ => Counts(1, 1, 2)).Html;
 
         var document = Parse(html);
         Assert.Equal("html", document.Root!.Name.LocalName);

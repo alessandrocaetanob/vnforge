@@ -84,11 +84,13 @@
 
       <StackPanel Spacing="2">
         <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                   Text="Valem só para este projeto. A chave do Claude fica guardada no Windows."/>
+                   Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding !IsPrivacyTab}"/>
+        <TextBlock Name="PrivacyCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsPrivacyTab}"
+                   Text="Vale para toda a Biblioteca, em qualquer projeto. Fica guardado com a sua lista de jogos."/>
         <TextBlock Classes="title-xl" Text="Ajustes"/>
       </StackPanel>
 
-      <Border Classes="infobar" IsVisible="{Binding !HasProject}">
+      <Border Classes="infobar" IsVisible="{Binding !HasProject}" x:Name="NoProjectBar">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
           <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
@@ -868,6 +870,78 @@
             <ListBox Classes="seg" ItemsSource="{Binding JapaneseFonts}" SelectedItem="{Binding SelectedJapaneseFont}"
                      DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="Fonte do japonês"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="Para o texto original. As fontes do Windows só valem se estiverem instaladas; senão o app usa a Noto Sans JP."/>
+          </StackPanel>
+        </TabItem>
+
+        <!-- Privacidade: o modo do conteúdo adulto, para toda a Biblioteca (fica no library.json, não no projeto; #631). -->
+        <TabItem Header="Privacidade" IsVisible="{Binding HasPrivacy}">
+          <StackPanel Margin="0,16,0,0" Spacing="8" DataContext="{Binding Privacy}" x:DataType="vm:PrivacySettingsViewModel">
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="Escolha o que o VNForge faz com jogo de conteúdo adulto: a capa, as tags, os traços e as imagens de personagem. O jogo é adulto quando o VNDB marca a capa ou as tags."/>
+            <Border Name="PrivacyError" Classes="infobar error" IsVisible="{Binding HasError}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Error}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ErrorMessage}"/>
+              </Grid>
+            </Border>
+            <c:OverlineText Classes="overline" Margin="0,12,0,0" Text="Conteúdo adulto"/>
+            <ItemsControl Name="AdultModeCards" Margin="0,0,-12,0" ItemsSource="{Binding Modes}" AutomationProperties.Name="Conteúdo adulto">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AdultModeItem">
+                  <RadioButton Classes="option" GroupName="AdultMode" Margin="0,0,12,0" VerticalAlignment="Stretch" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                               AutomationProperties.Name="{Binding Name}">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                        <Border Classes="radio-mark"/>
+                        <TextBlock Grid.Column="1" Classes="body-strong" VerticalAlignment="Center" Text="{Binding Name}"/>
+                        <Border Grid.Column="2" HorizontalAlignment="Right" Padding="8,2" VerticalAlignment="Center" CornerRadius="{DynamicResource Vnf.RadiusSm}"
+                                Background="{DynamicResource Vnf.StatusApprovedBg}" IsVisible="{Binding IsDefault}">
+                          <TextBlock Classes="caption" Foreground="{DynamicResource Vnf.StatusApprovedFg}" Text="Padrão"/>
+                        </Border>
+                      </Grid>
+                      <TextBlock Classes="secondary" FontSize="13" LineHeight="18" MinHeight="54" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                      <Grid ColumnDefinitions="96,*" ColumnSpacing="12" Margin="0,8,0,0" MinHeight="128">
+                        <Panel Width="96" Height="128" VerticalAlignment="Top" IsVisible="{Binding !IsHideMode}">
+                          <c:AdultSampleArt Blurred="{Binding IsBlurMode}"/>
+                          <Border Classes="bveil" CornerRadius="{DynamicResource Vnf.RadiusMd}" IsVisible="{Binding IsBlurMode}">
+                            <Border Width="28" Height="28" CornerRadius="14" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Vnf.BgCard}"
+                                    BorderBrush="{DynamicResource Vnf.StrokeControl}" BorderThickness="1">
+                              <PathIcon Width="14" Height="14" Foreground="{DynamicResource Vnf.TextPrimary}" Data="{StaticResource Icon.Eye}"/>
+                            </Border>
+                          </Border>
+                          <Border Classes="cadult" Height="18" Padding="7,0" Margin="6"><TextBlock FontSize="10" LineHeight="18" Text="18+"/></Border>
+                        </Panel>
+                        <Panel Width="96" Height="128" VerticalAlignment="Top" IsVisible="{Binding IsHideMode}">
+                          <Rectangle RadiusX="8" RadiusY="8" Fill="Transparent" Stroke="{DynamicResource Vnf.StrokeControl}" StrokeThickness="1.5" StrokeDashArray="3,3"/>
+                          <TextBlock Classes="secondary" FontSize="12" LineHeight="16" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Text="Sem o jogo"/>
+                        </Panel>
+                        <WrapPanel Grid.Column="1" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Top" IsVisible="{Binding IsShowMode}">
+                          <Border Classes="rule-chip"><TextBlock Text="Escola"/></Border>
+                          <Border Classes="rule-chip"><TextBlock Text="Nudez"/></Border>
+                          <Border Classes="rule-chip"><TextBlock Text="Conteúdo sexual"/></Border>
+                        </WrapPanel>
+                        <WrapPanel Grid.Column="1" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Top" IsVisible="{Binding IsBlurMode}">
+                          <Border Classes="rule-chip"><TextBlock Text="Escola"/></Border>
+                          <Border Classes="rule-chip">
+                            <StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Width="14" Height="14" Data="{StaticResource Icon.EyeOff}"/><TextBlock Text="Adulto"/></StackPanel>
+                          </Border>
+                        </WrapPanel>
+                        <TextBlock Grid.Column="1" Classes="secondary" FontSize="12" LineHeight="16" TextWrapping="Wrap" VerticalAlignment="Top" IsVisible="{Binding IsHideMode}"
+                                   Text="Some da grade, da lista e da busca."/>
+                      </Grid>
+                    </StackPanel>
+                  </RadioButton>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Name="CommandCard" Margin="0,12,0,0" Padding="16,14" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeControl}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="body-strong" Text="Pela linha de comando"/>
+                <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="A CLI lê e grava a mesma escolha, então os dois lados sempre concordam."/>
+                <Border Classes="rule-sample"><TextBlock Classes="mono" Text="{Binding CommandText}"/></Border>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </TabItem>
 

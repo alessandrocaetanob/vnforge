@@ -147,6 +147,72 @@
   <Style Selector="Border.cstate.warn PathIcon">
     <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipWarn}"/>
   </Style>
+  <!-- Conteúdo adulto (#631). ".v3-cadult": o selo 18+ no canto de cima da capa, em todo modo em que a capa aparece. -->
+  <Style Selector="Border.cadult">
+    <Setter Property="Height" Value="22"/>
+    <Setter Property="Padding" Value="9,0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.CoverChipBg}"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+    <Setter Property="Margin" Value="8"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+  </Style>
+  <Style Selector="Border.cadult > TextBlock">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="LineHeight" Value="22"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipInk}"/>
+  </Style>
+  <!-- ".bveil": o escurecimento de 38% sobre a imagem borrada; ".rvb" é o botão "Mostrar" no centro dele. -->
+  <Style Selector="Border.bveil">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BlurScrim}"/>
+  </Style>
+  <Style Selector="Button.rvb">
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusPill}"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.rvb.sm">
+    <Setter Property="Height" Value="28"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="FontSize" Value="12"/>
+  </Style>
+  <Style Selector="Button.rvb:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.rvb:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.TextPrimary}"/>
+  </Style>
+  <!-- O olho no canto da capa revelada, no lugar do círculo do casamento: borra o jogo de novo. -->
+  <Style Selector="Button.creblur">
+    <Setter Property="Width" Value="{DynamicResource Vnf.CoverStateSize}"/>
+    <Setter Property="Height" Value="{DynamicResource Vnf.CoverStateSize}"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Background" Value="{DynamicResource Vnf.CoverChipBg}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+    <Setter Property="Margin" Value="8"/>
+  </Style>
+  <Style Selector="Button.creblur:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.creblur:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.CoverChipBg}"/>
+  </Style>
+  <Style Selector="Button.creblur PathIcon">
+    <Setter Property="Width" Value="14"/>
+    <Setter Property="Height" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.CoverChipInk}"/>
+  </Style>
 
   <!-- ".v3-tag": 24 de altura, 12/16, bg-inset com borda stroke-subtle; ".mine" é a tag da pessoa. -->
   <Style Selector="Border.lib-tag">
@@ -208,6 +274,48 @@
     <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
     <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+  </Style>
+  <Style Selector="Button.lib-tagbtn.ic">
+    <Setter Property="Width" Value="{DynamicResource Vnf.ControlMd}"/>
+    <Setter Property="Padding" Value="0"/>
+  </Style>
+  <!-- O texto do modo no botão "Adulto" (accent, em negrito) e as linhas do popover dos três modos: o botão de rádio, o nome e a frase. -->
+  <Style Selector="TextBlock.lib-adultmode">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+  </Style>
+  <Style Selector="Button.adult-row">
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Padding" Value="8"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="Button.adult-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgCardHover}"/>
+  </Style>
+  <Style Selector="Button.adult-row.on /template/ ContentPresenter#PART_ContentPresenter, Button.adult-row.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+  </Style>
+  <Style Selector="Border.adult-radio">
+    <Setter Property="Width" Value="16"/>
+    <Setter Property="Height" Value="16"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="BorderThickness" Value="1.5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+    <Setter Property="Margin" Value="0,2,0,0"/>
+  </Style>
+  <Style Selector="Border.adult-radio.on">
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+  </Style>
+  <Style Selector="Border.adult-radio > Ellipse">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="Border.adult-radio.on > Ellipse">
+    <Setter Property="IsVisible" Value="True"/>
   </Style>
   <Style Selector="Button.lib-active">
     <Setter Property="Padding" Value="14,0,10,0"/>

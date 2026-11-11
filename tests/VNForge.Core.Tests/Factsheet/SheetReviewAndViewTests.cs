@@ -183,11 +183,14 @@ public sealed class SheetReviewAndViewTests : IDisposable
     {
         await Translated();
 
-        var hidden = Card();
-        var shown = Card(new LibraryPrivacy(ShowAdult: true, ShowSpoilers: true));
+        var hidden = Card(new LibraryPrivacy(Adult: AdultMode.Hide));
+        var blurred = Card();
+        var shown = Card(new LibraryPrivacy(Adult: AdultMode.Show, ShowSpoilers: true));
 
         var aoi = hidden.Characters[1];
         Assert.Equal((null, true), (aoi.Image, aoi.ImageHidden));
+        Assert.NotNull(blurred.Characters[1].Image);
+        Assert.True(blurred.Characters[1].ImageHidden);
         Assert.NotNull(hidden.Characters[0].Image);
         Assert.DoesNotContain(hidden.Tags, t => t.Category == "ero");
         Assert.DoesNotContain(hidden.Characters[0].Traits, t => t.Id == Adult.Id);
@@ -201,12 +204,12 @@ public sealed class SheetReviewAndViewTests : IDisposable
     {
         var sexualInOtherGroup = new VndbTrait("i528", "Sitting Sex", "i1625", "Subject of (Sexual)", 0, false, Sexual: true);
         var namedLikeAdultButNot = new VndbTrait("i9", "Anything", "i1", "Sexual Content", 0, false, Sexual: false);
-        var hiding = new LibraryPrivacy(ShowAdult: false);
+        var hiding = new LibraryPrivacy(Adult: AdultMode.Blur);
 
         Assert.True(SheetViewer.IsTraitHidden(sexualInOtherGroup, hiding));
         Assert.True(SheetViewer.IsTraitHidden(Adult, hiding));
         Assert.False(SheetViewer.IsTraitHidden(namedLikeAdultButNot, hiding));
-        Assert.False(SheetViewer.IsTraitHidden(sexualInOtherGroup, new LibraryPrivacy(ShowAdult: true)));
+        Assert.False(SheetViewer.IsTraitHidden(sexualInOtherGroup, new LibraryPrivacy(Adult: AdultMode.Show)));
     }
 
     [Fact]
@@ -217,7 +220,7 @@ public sealed class SheetReviewAndViewTests : IDisposable
         Store.SaveCharacter(kenta with { Traits = [.. kenta.Traits.Select(t => t with { Sexual = null })] });
 
         var hidden = Card();
-        var shown = Card(new LibraryPrivacy(ShowAdult: true, ShowSpoilers: true));
+        var shown = Card(new LibraryPrivacy(Adult: AdultMode.Show, ShowSpoilers: true));
 
         Assert.Empty(hidden.Characters[0].Traits);
         Assert.Equal(4, shown.Characters[0].Traits.Count);

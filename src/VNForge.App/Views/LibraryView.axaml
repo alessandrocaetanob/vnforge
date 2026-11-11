@@ -13,7 +13,7 @@
       <Panel>
         <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
           <Panel>
-            <c:Cover FillWidth="True" LoadOnlyInViewport="True" HorizontalAlignment="Stretch" Image="{Binding Image}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
+            <c:Cover FillWidth="True" LoadOnlyInViewport="True" HorizontalAlignment="Stretch" Image="{Binding Image}" Revealed="{Binding Revealed}" Seed="{Binding Title}" IsVisible="{Binding HasImage}"/>
             <Border IsVisible="{Binding HasNoArt}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
               <Border.Background>
                 <LinearGradientBrush StartPoint="25%,0%" EndPoint="75%,100%">
@@ -26,18 +26,24 @@
                 <TextBlock Classes="jp-row secondary" FontSize="12" LineHeight="16" Text="{Binding OriginalTitle}" IsVisible="{Binding HasOriginalTitle}"/>
               </StackPanel>
             </Border>
-            <Border IsVisible="{Binding IsAdultVeil}" Background="{DynamicResource Vnf.CoverVeilBg}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1"
-                    CornerRadius="{DynamicResource Vnf.RadiusLg}" Padding="16">
-              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
-                <PathIcon Width="28" Height="28" HorizontalAlignment="Center" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.EyeOff}"/>
-                <TextBlock Classes="lib-h2" FontSize="24" LineHeight="30" HorizontalAlignment="Center" Text="18+"/>
-                <TextBlock FontSize="12" LineHeight="16" FontWeight="SemiBold" TextAlignment="Center" Classes="lib-dim" Text="Conteúdo adulto escondido"/>
-              </StackPanel>
+            <Border Classes="bveil" IsVisible="{Binding IsBlurred}">
+              <Button Classes="rvb" Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).RevealGameCommand}" CommandParameter="{Binding}"
+                      AutomationProperties.Name="{Binding Title, StringFormat='Mostrar a capa de {0}'}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Eye}"/>
+                  <TextBlock Text="Mostrar"/>
+                </StackPanel>
+              </Button>
             </Border>
+            <Border Classes="cadult" IsVisible="{Binding IsAdult}"><TextBlock Text="18+"/></Border>
             <Border Classes="cchip" Classes.warn="{Binding ChipWarn}"><TextBlock Text="{Binding Chip}" VerticalAlignment="Center"/></Border>
             <Border Classes="cstate" Classes.warn="{Binding StateIsWarning}" IsVisible="{Binding HasState}" ToolTip.Tip="{Binding StateText}">
               <PathIcon HorizontalAlignment="Center" VerticalAlignment="Center" Data="{Binding StateIcon, Converter={x:Static c:IconKeyConverter.Instance}}"/>
             </Border>
+            <Button Classes="creblur" IsVisible="{Binding CanConceal}" ToolTip.Tip="Desfocar de novo" AutomationProperties.Name="{Binding Title, StringFormat='Desfocar de novo a capa de {0}'}"
+                    Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).ConcealGameCommand}" CommandParameter="{Binding}">
+              <PathIcon Data="{StaticResource Icon.EyeOff}"/>
+            </Button>
             <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Progress}" IsVisible="{Binding HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
           </Panel>
         </Border>
@@ -91,7 +97,14 @@
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="16">
             <StackPanel>
               <TextBlock Classes="lib-h1" Text="Biblioteca"/>
-              <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Name="Subtitle" Classes="lib-sub" Text="{Binding Subtitle}"/>
+                <StackPanel Name="HiddenAdult" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasHiddenAdult}">
+                  <TextBlock Classes="lib-sub" Foreground="{DynamicResource Vnf.TextTertiary}" Text=" · "/>
+                  <PathIcon Width="14" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource Vnf.TextTertiary}" Data="{StaticResource Icon.EyeOff}"/>
+                  <TextBlock Name="HiddenAdultText" Classes="lib-sub" Foreground="{DynamicResource Vnf.TextTertiary}" Text="{Binding HiddenAdultText}"/>
+                </StackPanel>
+              </StackPanel>
             </StackPanel>
             <Button Grid.Column="1" Name="ExportButton" Command="{Binding Export.OpenCommand}" VerticalAlignment="Top">
               <StackPanel Orientation="Horizontal" Spacing="8">
@@ -125,7 +138,7 @@
                   <Border Classes="lib-card" Padding="10" Margin="8,0">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                       <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" VerticalAlignment="Center" Width="44" Height="58" Background="{DynamicResource Vnf.BgInset}">
-                        <c:Cover Width="44" Image="{Binding Card.Image}" Seed="{Binding Title}" IsVisible="{Binding Card.HasImage}"/>
+                        <c:Cover Width="44" Image="{Binding Card.Image}" Revealed="{Binding Card.Revealed}" Seed="{Binding Title}" IsVisible="{Binding Card.HasImage}"/>
                       </Border>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock Classes="lib-ct" Text="{Binding Title}"/>
@@ -194,6 +207,46 @@
                 <TextBlock Text="Tags"/>
               </StackPanel>
             </Button>
+            <Button Name="AdultButton" Classes="lib-tagbtn" Classes.ic="{Binding HasDrawer}" Command="{Binding ToggleAdultPopoverCommand}"
+                    AutomationProperties.Name="{Binding AdultModeName, StringFormat='Conteúdo adulto: {0}'}" ToolTip.Tip="{Binding AdultModeName, StringFormat='Conteúdo adulto: {0}'}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.EyeOff}"/>
+                <TextBlock Text="Adulto" IsVisible="{Binding !HasDrawer}"/>
+                <TextBlock Classes="lib-adultmode" Text="{Binding AdultModeName}" IsVisible="{Binding !HasDrawer}"/>
+              </StackPanel>
+            </Button>
+            <!-- O popover "Adulto": os três modos do conteúdo adulto; vale para toda a Biblioteca e é o mesmo ajuste da aba Privacidade. -->
+            <Popup Name="AdultPopup" IsOpen="{Binding IsAdultPopoverOpen, Mode=TwoWay}" PlacementTarget="{Binding #AdultButton}"
+                   Placement="BottomEdgeAlignedLeft" VerticalOffset="8" IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #AdultButton}">
+              <Border Classes="lib-pop" Width="344" Padding="12">
+                <StackPanel Spacing="4">
+                  <c:OverlineText Classes="overline" Margin="8,4,8,8" Text="Conteúdo adulto"/>
+                  <ItemsControl Name="AdultModes" ItemsSource="{Binding AdultModes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:AdultModeItem">
+                        <Button Classes="adult-row" Classes.on="{Binding IsSelected}" AutomationProperties.Name="{Binding Name}"
+                                Command="{Binding $parent[v:LibraryView].((vm:LibraryViewModel)DataContext).SetAdultModeCommand}" CommandParameter="{Binding}">
+                          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Classes="adult-radio" Classes.on="{Binding IsSelected}">
+                              <Ellipse Width="8" Height="8" Fill="{DynamicResource Vnf.Accent}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                              <TextBlock FontSize="14" LineHeight="20" FontWeight="SemiBold" Text="{Binding Name}"/>
+                              <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                            </StackPanel>
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Border Classes="lib-hr" Margin="0,4,0,0"/>
+                  <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Margin="8,8,8,4">
+                    <Run Text="Vale para toda a Biblioteca. Mais em"/>
+                    <Run FontWeight="SemiBold" Foreground="{DynamicResource Vnf.AccentText}" Text="Ajustes · Privacidade"/><Run Text="."/>
+                  </TextBlock>
+                </StackPanel>
+              </Border>
+            </Popup>
           </StackPanel>
           <WrapPanel Name="SortBar" Classes="sortbar" Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
             <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="Ordenar por"/>
@@ -263,7 +316,20 @@
                 <Panel VerticalAlignment="Top">
                   <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" Background="{DynamicResource Vnf.BgInset}" ClipToBounds="True">
                     <Panel>
-                      <c:Cover FillWidth="True" HorizontalAlignment="Stretch" Image="{Binding Card.Image}" Seed="{Binding Title}"/>
+                      <c:Cover FillWidth="True" HorizontalAlignment="Stretch" Image="{Binding Card.Image}" Revealed="{Binding Card.Revealed}" Seed="{Binding Title}"/>
+                      <Border Classes="bveil" IsVisible="{Binding Card.IsBlurred}">
+                        <Button Name="DrawerReveal" Classes="rvb sm" Command="{Binding Library.RevealGameCommand}" CommandParameter="{Binding Card}" AutomationProperties.Name="Mostrar a capa">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Eye}"/>
+                            <TextBlock Text="Mostrar"/>
+                          </StackPanel>
+                        </Button>
+                      </Border>
+                      <Border Classes="cadult" IsVisible="{Binding Card.IsAdult}"><TextBlock Text="18+"/></Border>
+                      <Button Name="DrawerConceal" Classes="creblur" IsVisible="{Binding Card.CanConceal}" ToolTip.Tip="Desfocar de novo" AutomationProperties.Name="Desfocar de novo a capa"
+                              Command="{Binding Library.ConcealGameCommand}" CommandParameter="{Binding Card}">
+                        <PathIcon Data="{StaticResource Icon.EyeOff}"/>
+                      </Button>
                       <c:FractionBar Height="5" VerticalAlignment="Bottom" Value="{Binding Card.Progress}" IsVisible="{Binding Card.HasProgress}" Track="{DynamicResource Vnf.CoverChipBg}"/>
                     </Panel>
                   </Border>
@@ -402,6 +468,8 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <TextBlock Name="RevealNote" Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Margin="0,6,0,0" IsVisible="{Binding Card.IsBlurred}"
+                           Text="Mostrar libera a capa, as tags e os traços deste jogo até você sair da Biblioteca."/>
                 <!-- O escolhedor do "+ tag": as suas tags com a caixa marcada nas que o jogo tem, e o campo que cria uma tag nova já posta no jogo. -->
                 <Popup Name="GameTagsPopup" IsOpen="{Binding IsPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding #TagsPanel}" Placement="BottomEdgeAlignedLeft" VerticalOffset="4"
                        IsLightDismissEnabled="True" OverlayInputPassThroughElement="{Binding #TagsPanel}">

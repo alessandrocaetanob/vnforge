@@ -304,7 +304,7 @@ public sealed class LibraryCommandTests : IDisposable
         var data = Data(await Run("library", "list", "Eroge", "--json"));
         var card = data.GetProperty("game").GetProperty("card");
 
-        Assert.False(data.GetProperty("privacy").GetProperty("showAdult").GetBoolean());
+        Assert.Equal("blur", data.GetProperty("privacy").GetProperty("adult").GetString());
         Assert.True(card.GetProperty("coverHidden").GetBoolean());
         Assert.False(card.TryGetProperty("coverUrl", out _));
         Assert.Equal(0, card.GetProperty("tags").GetArrayLength());
@@ -318,18 +318,65 @@ public sealed class LibraryCommandTests : IDisposable
         await Run("library", "match", "--auto");
 
         var show = await Run("library", "privacy");
-        var set = await Run("library", "privacy", "--spoilers", "sim", "--adult", "sim");
+        var set = await Run("library", "privacy", "--spoilers", "sim", "--adult", "mostrar");
         var sheet = await Run("library", "list", "CLANNAD");
         var bad = await Run("library", "privacy", "--spoilers", "talvez");
 
-        Assert.Contains("Spoilers: escondidos. Conteúdo adulto: escondido.", show.Output);
-        Assert.Contains("Spoilers: visíveis. Conteúdo adulto: visível. Gravado.", set.Output);
+        Assert.Contains("Spoilers: escondidos. Conteúdo adulto: desfocar", show.Output);
+        Assert.Contains("Spoilers: visíveis. Conteúdo adulto: mostrar (capa, tags e imagens visíveis). Gravado.", set.Output);
         Assert.Contains("O final", sheet.Output);
         var privacy = new LibraryFile(_cli.UserConfigDirectory).Load().Privacy;
         Assert.True(privacy.ShowSpoilers);
-        Assert.True(privacy.ShowAdult);
+        Assert.Equal(AdultMode.Show, privacy.Adult);
         Assert.Equal(1, bad.ExitCode);
         Assert.Contains("sim ou nao", bad.Error);
+    }
+
+    [Theory]
+    [InlineData("mostrar", AdultMode.Show)]
+    [InlineData("desfocar", AdultMode.Blur)]
+    [InlineData("esconder", AdultMode.Hide)]
+    [InlineData("sim", AdultMode.Show)]
+    [InlineData("nao", AdultMode.Blur)]
+    public async Task Privacy_adult_aceita_os_tres_modos_e_os_sim_e_nao_de_antes(string text, AdultMode expected)
+    {
+        var set = await Run("library", "privacy", "--adult", text);
+
+        Assert.Equal(0, set.ExitCode);
+        Assert.Equal(expected, new LibraryFile(_cli.UserConfigDirectory).Load().Privacy.Adult);
+    }
+
+    [Fact]
+    public async Task Privacy_adult_recusa_um_modo_que_nao_existe_e_nao_grava()
+    {
+        var bad = await Run("library", "privacy", "--adult", "borrar");
+
+        Assert.Equal(1, bad.ExitCode);
+        Assert.Contains("mostrar, desfocar ou esconder", bad.Error);
+        Assert.Equal(AdultMode.Blur, new LibraryFile(_cli.UserConfigDirectory).Load().Privacy.Adult);
+    }
+
+    [Fact]
+    public async Task No_esconder_o_jogo_adulto_sai_da_lista_e_da_busca_e_o_show_adult_o_traz_so_nesta_chamada()
+    {
+        UseFakeCatalog();
+        await Run("library", "scan", Collection);
+        await Run("library", "match", "--auto");
+        var before = Data(await Run("library", "list", "--json")).GetProperty("total").GetInt32();
+        await Run("library", "privacy", "--adult", "esconder");
+
+        var list = await Run("library", "list");
+        var json = Data(await Run("library", "list", "--json"));
+        var byName = await Run("library", "list", "Eroge");
+        var shown = await Run("library", "list", "--show-adult");
+
+        Assert.DoesNotContain("Eroge", list.Output);
+        Assert.Contains("1 jogo adulto escondido", list.Output);
+        Assert.Equal(before - 1, json.GetProperty("total").GetInt32());
+        Assert.Equal(1, byName.ExitCode);
+        Assert.Contains("conteúdo adulto", byName.Error);
+        Assert.Contains("Eroge", shown.Output);
+        Assert.Equal(AdultMode.Hide, new LibraryFile(_cli.UserConfigDirectory).Load().Privacy.Adult);
     }
 
     [Fact]
@@ -705,7 +752,7 @@ public sealed class LibraryCommandTests : IDisposable
             {
                 file.Update(l =>
                 {
-                    l.Privacy = new LibraryPrivacy(ShowAdult: true);
+                    l.Privacy = new LibraryPrivacy(Adult: AdultMode.Show);
                     l.Merge([intruder], _cli.Root);
                 });
             }
