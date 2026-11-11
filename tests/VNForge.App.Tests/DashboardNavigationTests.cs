@@ -88,6 +88,8 @@ public class DashboardNavigationTests
         Assert.Equal(NavKey.Glossary, main.SelectedNav!.Key);
 
         main.SelectedNav = main.Nav.Single(n => n.Key == NavKey.Dashboard);
+        // Voltar ao Painel relê a pasta, e a leitura refaz a lista de capítulos fora da thread do teste: sem esperar, o Single() pode pegar a lista vazia.
+        await main.DashboardRefresh;
         main.Dashboard.OpenChapterCommand.Execute(main.Dashboard.Chapters.Single());
         Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
         Assert.Equal("yst00002", main.Editor.SelectedScript?.Key);
