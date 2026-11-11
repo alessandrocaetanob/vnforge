@@ -47,7 +47,7 @@ public sealed class ImagesRenderTests(HeadlessFixture fixture) : IClassFixture<H
         return composer.Render(new RasterPicture(Width, Height, bgra), edit);
     }
 
-    private static async Task<(ImagesViewModel Vm, TempFolder Temp)> Open(AvaloniaImageComposer composer)
+    internal static async Task<(ImagesViewModel Vm, TempFolder Temp)> Open(AvaloniaImageComposer composer)
     {
         var temp = new TempFolder();
         var game = temp.SubFolder("jogo");

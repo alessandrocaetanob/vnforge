@@ -219,6 +219,16 @@
       </Button>
     </StackPanel>
 
+    <!-- Imagens: Abrir inventário na linha do seletor de seções, em cinza de apoio, como no quadro do #587. -->
+    <StackPanel Name="ImagesActions" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,1" IsVisible="False">
+      <Button Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding Images.OpenInventoryCommand}" IsEnabled="{Binding Images.CanOpenInventory}" AutomationProperties.Name="Abrir inventário">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Folder}"/>
+          <TextBlock Text="Abrir inventário" TextWrapping="NoWrap"/>
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
     <ListBox Name="Sections" Classes="sections" IsVisible="{Binding ShowSections}" ItemsSource="{Binding Sections}"
              ItemTemplate="{StaticResource SectionItem}" SelectedItem="{Binding SelectedSection}" AutomationProperties.Name="Seções da tradução"/>
   </Grid>

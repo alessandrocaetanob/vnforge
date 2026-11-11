@@ -14,6 +14,7 @@ public sealed partial class GameHeaderView : UserControl
 {
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsCompact));
     public static readonly StyledProperty<bool> IsEditorProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsEditor));
+    public static readonly StyledProperty<bool> IsImagesProperty = AvaloniaProperty.Register<GameHeaderView, bool>(nameof(IsImages));
 
     /// <summary>A largura da capa, em pixels.</summary>
     public const double CoverWidth = 56;
@@ -56,6 +57,10 @@ public sealed partial class GameHeaderView : UserControl
             Classes.Set("editor", IsEditor);
             UpdateHeaderLayout();
         }
+        else if (change.Property == IsImagesProperty)
+        {
+            ImagesActions.IsVisible = IsImages;
+        }
     }
 
     /// <summary>Qual das três faces do topo aparece: a do Editor (o quadro do #546, com as ações da grade), a compacta ou a completa das outras páginas.</summary>
@@ -81,6 +86,13 @@ public sealed partial class GameHeaderView : UserControl
     {
         get => GetValue(IsEditorProperty);
         set => SetValue(IsEditorProperty, value);
+    }
+
+    /// <summary>A página aberta é Imagens: "Abrir inventário" fica na linha do seletor de seções, à direita, como no quadro do #587.</summary>
+    public bool IsImages
+    {
+        get => GetValue(IsImagesProperty);
+        set => SetValue(IsImagesProperty, value);
     }
 
     /// <summary>
