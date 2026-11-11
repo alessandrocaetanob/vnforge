@@ -58,6 +58,7 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Equal(["Protagonista", "Secundária"], page.Games.Select(g => g.Role.Text));
         Assert.Equal("2 jogos da sua Biblioteca", page.GamesCount);
         Assert.Contains("1 jogo do VNDB que não está na sua Biblioteca", page.Note, StringComparison.Ordinal);
+        Assert.EndsWith("Ele não entra na lista.", page.Note, StringComparison.Ordinal);
         Assert.Contains(page.Tags, c => c is { IsHidden: true } && c.Text.StartsWith("1 traço com spoiler", StringComparison.Ordinal));
         Assert.Equal("Hana Tsukino", vm.OpenName);
         Assert.Contains(page.Tags, c => c.Text == "17 anos");

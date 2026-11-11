@@ -12,6 +12,7 @@ public sealed class FilterChip : ToggleButton
 {
     public static readonly StyledProperty<string?> LabelProperty = AvaloniaProperty.Register<FilterChip, string?>(nameof(Label));
     public static readonly StyledProperty<int?> CountProperty = AvaloniaProperty.Register<FilterChip, int?>(nameof(Count));
+    public static readonly StyledProperty<bool> RemovableProperty = AvaloniaProperty.Register<FilterChip, bool>(nameof(Removable));
 
     public static readonly DirectProperty<FilterChip, string?> CountTextProperty =
         AvaloniaProperty.RegisterDirect<FilterChip, string?>(nameof(CountText), o => o.CountText);
@@ -29,6 +30,13 @@ public sealed class FilterChip : ToggleButton
     {
         get => GetValue(CountProperty);
         set => SetValue(CountProperty, value);
+    }
+
+    /// <summary>Mostra o X depois do rótulo: o chip marcado que sai do filtro ao ser clicado (o traço escolhido de Personagens).</summary>
+    public bool Removable
+    {
+        get => GetValue(RemovableProperty);
+        set => SetValue(RemovableProperty, value);
     }
 
     /// <summary>A contagem no formato pt-BR (<c>18.320</c>); vazia quando não há contagem.</summary>

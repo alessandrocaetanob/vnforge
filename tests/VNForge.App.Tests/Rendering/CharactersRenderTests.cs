@@ -63,6 +63,12 @@ public sealed class CharactersRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.Contains("4 de 4 · só os dos jogos da sua Biblioteca", texts);
             Assert.Contains("Mostrar spoiler", texts);
             Assert.Equal(4, page.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("libcard") && b.IsEffectivelyVisible));
+            var facet = vm.Characters.TraitFacets[0];
+            facet.IsSelected = true;
+            ScreenRenderer.Settle(window);
+            var chip = Assert.Single(page.GetVisualDescendants().OfType<VNForge.App.Controls.FilterChip>(), c => c.IsEffectivelyVisible && c.Removable);
+            Assert.Equal(32, chip.Bounds.Height, 0.5);
+            Assert.True(chip.IsChecked);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-lista", theme)));
             return Task.CompletedTask;
         });
@@ -86,6 +92,9 @@ public sealed class CharactersRenderTests(HeadlessFixture fixture) : IClassFixtu
             Assert.Equal("Personagens › Hana Tsukino", vm.Breadcrumb);
             Assert.Contains("Aparência", texts);
             Assert.Contains("Personalidade", texts);
+            var traits = Page(window).GetVisualDescendants().OfType<Border>().Single(b => b.Name == "TraitsCard");
+            // A coluna da direita é fixa em 540 mesmo sem o cartão Na tradução (que só existe com projeto): o Traços fica com o resto, 740.
+            Assert.Equal(740, traits.Bounds.Width, 1.5);
             ScreenRenderer.Save(window, RenderOutput.PathFor(ScreenRenderer.FileName("personagens-pagina", theme)));
 
             vm.Characters.ShowSpoilers = false;

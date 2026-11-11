@@ -406,7 +406,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
         if (outside > 0)
         {
-            notes.Add($"{card.Name} também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Esse jogo fica fora da lista" : "Esses jogos ficam fora da lista")}.");
+            notes.Add($"{card.Name} também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Ele não entra na lista" : "Eles não entram na lista")}.");
         }
 
         var description = card.Description;

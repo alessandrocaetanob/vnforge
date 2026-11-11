@@ -19,7 +19,7 @@
           <Border Background="Transparent">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
               <Border Name="Box" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="{DynamicResource Vnf.StrokeControl}" VerticalAlignment="Center">
-                <PathIcon Name="Tick" Width="12" Height="12" Data="{StaticResource Icon.Checkmark}" Foreground="{DynamicResource Vnf.OnAccent}" IsVisible="False"/>
+                <PathIcon Name="Tick" Width="14" Height="14" Data="{StaticResource Icon.Check}" Foreground="{DynamicResource Vnf.OnAccent}" IsVisible="False"/>
               </Border>
               <ContentPresenter Name="PART_ContentPresenter" Grid.Column="1" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
                                 VerticalAlignment="Center" HorizontalContentAlignment="Stretch" Foreground="{TemplateBinding Foreground}"/>
@@ -31,6 +31,11 @@
     <Style Selector="CheckBox.facet:checked /template/ Border#Box">
       <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
+    </Style>
+    <!-- "Ver os N traços" do quadro: accent, regular e rente à coluna do filtro. -->
+    <Style Selector="Button.more-traits">
+      <Setter Property="FontWeight" Value="Normal"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
     </Style>
     <Style Selector="CheckBox.facet:checked /template/ PathIcon#Tick">
       <Setter Property="IsVisible" Value="True"/>
@@ -89,11 +94,11 @@
           <c:Portrait Size="Lg" FixedSide="{Binding $parent[v:CharactersView].CardSide}" Image="{Binding Image}" Seed="{Binding Name}" LoadOnlyInViewport="True" HorizontalAlignment="Left"/>
           <StackPanel Spacing="2">
             <TextBlock Classes="lib-ct" Text="{Binding Name}"/>
-            <TextBlock Classes="jp-row secondary" FontSize="12" Text="{Binding Original}" IsVisible="{Binding HasOriginal}" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Classes="jp-row secondary" FontSize="12" FontWeight="Normal" Text="{Binding Original}" IsVisible="{Binding HasOriginal}" TextTrimming="CharacterEllipsis"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="6">
             <ContentControl Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
-            <TextBlock Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="{Binding GamesText}"/>
+            <TextBlock Classes="lib-dim" FontSize="12" FontWeight="Normal" VerticalAlignment="Center" Text="{Binding GamesText}"/>
           </StackPanel>
         </StackPanel>
       </Button>
@@ -101,13 +106,8 @@
 
     <!-- O traço marcado (.v3-chip.on): clicar o tira do filtro. -->
     <DataTemplate x:Key="ActiveTrait" x:DataType="vm:CharacterFacet">
-      <Button Classes="subtle sm" Margin="0,0,8,0" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RemoveTraitCommand}"
-              CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label, StringFormat='Tirar o traço {0} do filtro'}">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="{Binding Label}"/>
-          <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Dismiss}"/>
-        </StackPanel>
-      </Button>
+      <c:FilterChip Margin="0,0,8,0" Label="{Binding Label}" Removable="True" IsChecked="True" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RemoveTraitCommand}"
+                    CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label, StringFormat='Tirar o traço {0} do filtro'}"/>
     </DataTemplate>
 
     <!-- Um jogo da Biblioteca em que o personagem aparece: a capa, o título, o papel nele e de onde o papel saiu. -->
@@ -171,7 +171,7 @@
             <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitFacets}" ItemTemplate="{StaticResource Facet}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             </ItemsControl>
-            <Button Name="MoreTraits" Classes="subtle sm sheet-link" HorizontalAlignment="Left" Command="{Binding ToggleAllTraitsCommand}"
+            <Button Name="MoreTraits" Classes="subtle sm more-traits" HorizontalAlignment="Left" Padding="0" Command="{Binding ToggleAllTraitsCommand}"
                     IsVisible="{Binding CanShowAllTraits}" Content="{Binding ShowAllTraitsText}"/>
           </StackPanel>
           <Border Height="1" Background="{DynamicResource Vnf.StrokeSubtle}"/>
@@ -282,7 +282,7 @@
               </StackPanel>
             </Border>
 
-            <Grid ColumnDefinitions="1.4*,*" ColumnSpacing="16">
+            <Grid ColumnDefinitions="*,540" ColumnSpacing="16">
               <Border Name="TraitsCard" Classes="sheet-card" IsVisible="{Binding HasGroups}">
                 <StackPanel Spacing="12">
                   <TextBlock Classes="sheet-h3" Text="Traços"/>
