@@ -153,7 +153,7 @@ public class CommandPaletteTests
         vm.OpenPaletteCommand.Execute(null);
 
         Assert.True(vm.Palette.IsOpen);
-        Assert.Equal(["Biblioteca", "Ajustes"], vm.Palette.Results.Select(r => r.Title));
+        Assert.Equal(["Biblioteca", "Personagens", "Ajustes"], vm.Palette.Results.Select(r => r.Title));
     }
 
     [Fact]

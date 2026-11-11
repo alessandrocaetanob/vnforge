@@ -27,6 +27,8 @@
                        FontWeight="{TemplateBinding FontWeight}" LineHeight="18" VerticalAlignment="Center"/>
             <TextBlock Name="PART_Count" Text="{TemplateBinding CountText}" Foreground="{DynamicResource Vnf.TextPrimary}" FontWeight="SemiBold" LineHeight="18"
                        IsVisible="{TemplateBinding CountText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+            <PathIcon Name="PART_Remove" Width="10" Height="10" Data="{DynamicResource Icon.Dismiss}" Foreground="{TemplateBinding Foreground}"
+                      IsVisible="{TemplateBinding Removable}" VerticalAlignment="Center"/>
           </StackPanel>
         </Border>
       </ControlTemplate>
