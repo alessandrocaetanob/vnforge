@@ -254,6 +254,79 @@ public sealed class CharactersViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_com_a_pasta_ausente_avisa_e_nao_impede_o_andamento_e_o_cartao_dos_outros()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        var root = SampleProjects.Create(Path.Combine(_config.Path, "projeto"), "Star Garden", TranslationStatus.Approved, TranslationStatus.Untranslated);
+        var project = ProjectFolder.Open(root);
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "花" })]);
+        project.SaveCharacters([new CharacterEntry("花", "Hana", CharacterGender.Female, VndbId: "c101")]);
+        new LibraryFile(_config.Path).Update(l =>
+        {
+            l.Replace(l.Find("g1") with { ProjectPath = Path.Combine(_config.Path, "sumiu") });
+            l.Replace(l.Find("g2") with { ProjectPath = root });
+        });
+        var notices = new List<(string Text, ToastKind Kind)>();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Notify = (text, kind) => notices.Add((text, kind)) };
+
+        vm.Open("c101");
+        await vm.LoadAsync();
+
+        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Star Garden"), vm.Page!.Translation);
+        Assert.Equal(0.5, vm.Page.Games.Single(g => g.GameId == "g2").Progress);
+        var notice = Assert.Single(notices);
+        Assert.Equal(ToastKind.Warning, notice.Kind);
+        Assert.Contains("Moon Flower", notice.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Personagem_escondido_por_spoiler_nao_dispara_a_leitura_dos_projetos()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g2") with { ProjectPath = Path.Combine(_config.Path, "sumiu") }));
+        var notices = new List<(string Text, ToastKind Kind)>();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Notify = (text, kind) => notices.Add((text, kind)) };
+        await vm.LoadAsync();
+        vm.ShowSpoilers = true;
+        var ghost = vm.Items.Single(i => i.Name == "Fantasma");
+        vm.ShowSpoilers = false;
+
+        var before = vm.ExtrasLoading;
+
+        vm.OpenCharacterCommand.Execute(ghost);
+        await vm.ExtrasLoading;
+
+        Assert.Same(before, vm.ExtrasLoading);
+
+        Assert.Null(vm.Page);
+        Assert.Contains("spoiler escondido", vm.Notice, StringComparison.Ordinal);
+        Assert.Empty(notices);
+    }
+
+    [Fact]
+    public async Task Caminho_de_projeto_invalido_vira_aviso_uma_vez_so_e_nao_deixa_a_pagina_muda()
+    {
+        await CharactersSamples.SeedAsync(_config.Path, ct: Ct);
+        new LibraryFile(_config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = "projeto\0ruim" }));
+        var notices = new List<(string Text, ToastKind Kind)>();
+        var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Notify = (text, kind) => notices.Add((text, kind)) };
+
+        vm.Open("c101");
+        await vm.LoadAsync();
+
+        Assert.NotNull(vm.Page);
+        Assert.Contains("Moon Flower", Assert.Single(notices).Text, StringComparison.Ordinal);
+
+        vm.Open("c101");
+        await vm.LoadAsync();
+        vm.BackCommand.Execute(null);
+        vm.OpenCharacterCommand.Execute(vm.Items.Single(i => i.Name == "Hana Tsukino"));
+        await vm.ExtrasLoading;
+
+        Assert.Single(notices);
+    }
+
+    [Fact]
     public async Task O_retrato_adulto_tem_uma_chave_so_na_lista_e_na_pagina_e_so_o_jogo_dela_o_revela()
     {
         await CharactersSamples.SeedAsync(_config.Path, matched: true, showSpoilers: true, Ct, adultPortrait: true);
