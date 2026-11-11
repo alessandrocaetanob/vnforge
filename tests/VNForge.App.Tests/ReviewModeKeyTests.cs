@@ -219,4 +219,17 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             Assert.Equal(1, review.ApprovedCount);
         });
     }
+
+    [Fact]
+    public async Task Soltar_a_tecla_libera_a_proxima_batida()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, [(Key.Enter, PhysicalKey.Enter, true), (Key.Enter, PhysicalKey.Enter, false), (Key.Enter, PhysicalKey.Enter, false)], (vm, review) =>
+        {
+            Assert.Equal(2, review.Position);
+            Assert.Equal(2, review.ApprovedCount);
+        });
+    }
 }

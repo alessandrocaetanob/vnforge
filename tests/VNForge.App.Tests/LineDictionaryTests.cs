@@ -454,4 +454,18 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.Equal(Em(original, "行こう"), vm.WordStart);
         Assert.Equal(3, vm.WordLength);
     }
+
+    [Fact]
+    public async Task Palavra_fora_do_glossario_oferece_adicionar_e_leva_o_trecho_do_original()
+    {
+        var pedidos = new List<string>();
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), glossario: pedidos.Add, termos: [new GlossaryTerm("傘", "guarda-chuva")]);
+
+        vm.HoverSource(Em(Frase, "五分"));
+        Assert.False(vm.InGlossary);
+        Assert.True(vm.CanAddWordToGlossary);
+        vm.AddWordToGlossaryCommand.Execute(null);
+
+        Assert.Equal(["五分"], pedidos);
+    }
 }

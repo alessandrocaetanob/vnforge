@@ -122,4 +122,37 @@ public class CommandPaletteTests
         Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
         Assert.Equal("yst00001", vm.Editor.SelectedScript?.Key);
     }
+
+    [Fact]
+    public async Task Acha_script_por_id_e_lista_os_comandos_do_projeto()
+    {
+        using var temp = new TempFolder();
+        var vm = await Opened(temp, null, TranslationStatus.Untranslated);
+        vm.Palette.Open();
+
+        vm.Palette.Query = "yst0000";
+        Assert.Equal("yst00001", Assert.Single(vm.Palette.Results).Title);
+
+        vm.Palette.Query = "";
+        var titles = vm.Palette.Results.Select(r => r.Title).ToList();
+        Assert.Contains("Traduzir pendentes", titles);
+        Assert.Contains("Novo build", titles);
+        Assert.Contains("Abrir pasta do projeto", titles);
+        Assert.Contains("Painel", titles);
+    }
+
+    [Fact]
+    public void Enter_executa_o_destacado_e_fecha()
+    {
+        var executed = new List<string>();
+        var palette = Palette(executed);
+        palette.Open();
+        palette.SelectNext();
+
+        palette.ExecuteSelected();
+
+        Assert.Equal(["traduzir"], executed);
+        Assert.False(palette.IsOpen);
+        Assert.Equal(string.Empty, palette.Query);
+    }
 }

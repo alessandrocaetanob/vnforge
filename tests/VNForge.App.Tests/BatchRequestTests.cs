@@ -420,4 +420,15 @@ public sealed class BatchRequestTests : IDisposable
         Assert.True(vm.IsSearchOpen);
         Assert.NotNull(vm.Search.RequestPlan);
     }
+
+    [Fact]
+    public async Task Pedido_sem_filtro_avisa_que_a_IA_vai_ler_tudo()
+    {
+        var (vm, _, _) = Build();
+
+        await vm.BeginRequestAsync("deixar as falas mais naturais");
+
+        Assert.Contains("não cita personagem, cena nem palavra", vm.Summary);
+        Assert.Equal(4, vm.RequestPlan!.Candidates.Count);
+    }
 }

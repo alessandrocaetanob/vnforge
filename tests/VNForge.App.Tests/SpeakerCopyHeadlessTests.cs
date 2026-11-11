@@ -162,4 +162,34 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
         folder.SaveText("yst00001", units);
         return folder;
     }
+
+    [Fact]
+    public async Task Conferencia_mostra_quem_fala_com_o_nome_exato_e_o_botao_cadastra_o_personagem()
+    {
+        using var temp = new TempFolder();
+        var folder = CreateCp1252Project(temp, new TextUnit("yst00001:000000", TextUnitKind.Dialogue, Wide, "原文", "Bom dia!", TranslationStatus.Translated));
+        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root) };
+        await vm.RefreshAsync();
+        string? requested = null;
+        vm.CharacterRegistrationRequested += (_, name) => requested = name;
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new ConferenceView { DataContext = vm });
+
+                var speaker = Assert.Single(window.GetVisualDescendants().OfType<SelectableTextBlock>(), b => b.IsEffectivelyVisible && AutomationProperties.GetName(b) == "Quem fala");
+                Assert.Equal(Wide, speaker.Text);
+                AssertCopyMenu(speaker);
+
+                var register = Assert.Single(window.GetVisualDescendants().OfType<Button>(), b => b.IsEffectivelyVisible && b.Command == vm.RegisterCharacterCommand);
+                Assert.Equal("Cadastrar personagem", AutomationProperties.GetName(register));
+                register.Command!.Execute(register.CommandParameter);
+                Assert.Equal(Wide, requested);
+                window.Close();
+            },
+            CancellationToken.None);
+    }
+
+    private const string Wide = "Ｃ氏";
 }

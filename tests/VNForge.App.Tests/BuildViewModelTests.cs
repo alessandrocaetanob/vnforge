@@ -681,4 +681,14 @@ public sealed class BuildViewModelTests : IDisposable
             return current;
         }
     }
+
+    [Fact]
+    public async Task O_log_lista_os_scripts_reconstruidos_com_a_contagem_de_textos()
+    {
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Contains(vm.Log, l => l.Message == "a001.fake reconstruído · 1 texto");
+    }
 }

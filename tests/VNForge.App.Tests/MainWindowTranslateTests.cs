@@ -340,4 +340,24 @@ public sealed class MainWindowTranslateTests : IDisposable
 
         Assert.Equal(1, Untranslated());
     }
+
+    [Fact]
+    public async Task Desfazer_a_traducao_da_IA_deixa_a_linha_editada_depois_e_diz_quantas()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+        var id = ProjectFolder.Open(root).LoadText("yst00001")[0].Id;
+        new LineEditor(ProjectFolder.Open(root), TimeProvider.System).SetTranslation("yst00001", id, "Minha versão");
+
+        var entry = Assert.Single(vm.Tasks.Entries);
+        await entry.UndoCommand.ExecuteAsync(null);
+
+        var after = ProjectFolder.Open(root).LoadText("yst00001");
+        Assert.Equal("Minha versão", after[0].Translation);
+        Assert.Equal(TranslationStatus.Untranslated, after[1].Status);
+        Assert.Equal("1 linha voltou ao que era. 1 foi editada depois e ficou como está.", entry.UndoMessage);
+    }
 }

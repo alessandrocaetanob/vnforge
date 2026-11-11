@@ -448,4 +448,19 @@ public class AddressTermsViewModelTests
             new AddressTerm("健太", "美咲", "先輩", "senpai"),
         ], folder.LoadAddressTerms());
     }
+
+    [Fact]
+    public async Task Renomear_com_um_par_orfao_no_destino_fica_o_que_ja_existia_como_no_Core()
+    {
+        var existente = new AddressTerm("健太", "みさき", "みさきさん", "Misaki-san");
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: [new("健太", "美咲", "美咲ちゃん", "Misaki-chan"), existente]);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        vm.Flush();
+
+        Assert.Equal([existente], folder.LoadAddressTerms());
+        Assert.Equal([("健太", "みさき")], vm.AddressTerms.Rows.Select(r => (r.From, r.To)));
+        Assert.Equal("Misaki-san", Assert.Single(vm.AddressTerms.Rows).Target);
+    }
 }

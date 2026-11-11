@@ -378,4 +378,19 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.NotNull(EvalStore.LoadLatest(project));
         Assert.Equal([ClaudeModels.Opus, ClaudeModels.Sonnet, ClaudeModels.Haiku], _models);
     }
+
+    [Fact]
+    public async Task Sem_juiz_a_nota_sai_como_sem_juiz()
+    {
+        var vm = Vm();
+        await vm.LoadAsync(Project());
+        await vm.RunOpenCommand.ExecuteAsync(null);
+        vm.UseJudge = false;
+
+        await vm.StartRunCommand.ExecuteAsync(null);
+        await vm.Running;
+
+        Assert.All(vm.Rows, r => Assert.Equal("sem juiz", r.JudgeText));
+        Assert.Empty(_judge.ReceivedBatches);
+    }
 }

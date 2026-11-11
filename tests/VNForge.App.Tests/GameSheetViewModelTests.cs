@@ -614,4 +614,16 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Single(_notices, n => n.Kind == ToastKind.Warning && n.Text.Contains("1 ficou sem tradução", StringComparison.Ordinal));
         Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame(GameSheetSamples.Id)!.Synopsis!.Status);
     }
+
+    [Fact]
+    public async Task No_esconder_o_retrato_adulto_volta_ao_quadro_tracejado_e_o_cartao_do_personagem_fica()
+    {
+        var vm = await AdultAsync(AdultMode.Hide);
+
+        Assert.Equal(TileKind.ImageHidden, vm.CharacterTiles[0].Kind);
+        Assert.False(vm.CharacterTiles[0].ShowsPortrait);
+        Assert.Equal("Imagem de conteúdo adulto escondida", vm.CharacterTiles[0].Caption);
+        Assert.Equal(6, vm.CharacterTiles.Count);
+        Assert.DoesNotContain(vm.Tags, t => t is { IsHidden: true, CanReveal: true });
+    }
 }

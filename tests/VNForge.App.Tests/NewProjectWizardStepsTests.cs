@@ -64,4 +64,18 @@ public sealed class NewProjectWizardStepsTests : IDisposable
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Equal("Pronto", vm.Breadcrumb);
     }
+
+    [Fact]
+    public async Task A_legenda_da_ia_continua_a_mesma_depois_de_concluir()
+    {
+        var vm = await AtStepAsync(WizardStep.Ai);
+        vm.Models.Select("claude-sonnet-5-5");
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.All(vm.Steps, s => Assert.Equal(PipelineStepState.Done, s.State));
+        Assert.Equal("Qualidade e limite de gasto", vm.Steps[4].Subtitle);
+    }
 }

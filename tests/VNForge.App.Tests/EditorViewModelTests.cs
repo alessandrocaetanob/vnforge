@@ -125,4 +125,19 @@ public class EditorViewModelTests
         Assert.Equal("Cena 1", vm.ScriptTitle);
         Assert.False(vm.IsLoading);
     }
+
+    [Fact]
+    public async Task Proxima_anda_so_entre_as_linhas_filtradas()
+    {
+        var vm = await Carregado();
+        Filtrar(vm, LineStatusFilter.Pending);
+
+        vm.SelectNextCommand.Execute(null);
+
+        Assert.Equal(3, vm.SelectedLine?.Number);
+    }
+
+    private static void Filtrar(EditorViewModel vm, LineStatusFilter filter) => vm.SelectFilterCommand.Execute(Chip(vm, filter));
+
+    private static FilterChipViewModel Chip(EditorViewModel vm, LineStatusFilter filter) => vm.Filters.Single(f => f.Filter == filter);
 }
