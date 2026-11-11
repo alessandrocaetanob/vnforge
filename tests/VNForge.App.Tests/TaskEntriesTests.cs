@@ -154,6 +154,31 @@ public class TaskEntriesTests
     }
 
     [Fact]
+    public async Task A_linha_acompanha_a_mensagem_e_o_custo_da_tarefa()
+    {
+        var gate = new TaskCompletionSource();
+        var reported = new TaskCompletionSource<IBackgroundTaskReporter>();
+        var item = service.Start("Traduzindo o jogo", (reporter, _) =>
+        {
+            reporter.Report(0.5, "Cena 2 de 4");
+            reported.SetResult(reporter);
+            return gate.Task;
+        }, usesAi: true);
+        var worker = await reported.Task;
+        Assert.Equal("14:32 · Cena 2 de 4", bar.Entries[0].Subtitle);
+        var seen = new List<string?>();
+        bar.Entries[0].PropertyChanged += (_, e) => seen.Add(e.PropertyName);
+
+        worker.Report(0.75, "Cena 3 de 4");
+        worker.AddCost(2);
+
+        Assert.Equal("14:32 · Cena 3 de 4", bar.Entries[0].Subtitle);
+        Assert.Contains(string.Empty, seen);
+        gate.SetResult();
+        await item.Completion;
+    }
+
+    [Fact]
     public async Task Expandir_o_teste_sobrevive_a_reordenacao_da_lista()
     {
         await Done("Build de Jogo", Test);

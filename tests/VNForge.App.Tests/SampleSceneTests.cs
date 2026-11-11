@@ -20,6 +20,24 @@ public sealed class SampleSceneTests : IDisposable
     private StartViewModel CreateStart() =>
         new(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now), temp.SubFolder("exemplo"));
 
+    [Fact]
+    public async Task Experimentar_cria_o_projeto_na_pasta_de_exemplos_abre_e_leva_ao_Painel()
+    {
+        var start = CreateStart();
+        await start.LoadAsync();
+        ProjectSummary? dashboard = null;
+        start.DashboardRequested += (_, summary) => dashboard = summary;
+
+        await start.OpenSampleCommand.ExecuteAsync(null);
+
+        Assert.Null(start.ErrorMessage);
+        Assert.NotNull(dashboard);
+        Assert.True(dashboard.IsSample);
+        Assert.StartsWith(temp.SubFolder("exemplo"), dashboard.Root, StringComparison.OrdinalIgnoreCase);
+        var item = Assert.Single(start.Recents);
+        Assert.Equal(SampleProject.Name, item.Name);
+    }
+
     private async Task<(MainWindowViewModel Vm, string Root)> OpenSampleAsync()
     {
         var start = CreateStart();

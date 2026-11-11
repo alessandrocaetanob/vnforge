@@ -41,6 +41,22 @@ public class StartV3Tests
     }
 
     [Fact]
+    public async Task Soltar_um_arquivo_vale_pela_pasta_dele()
+    {
+        using var temp = new TempFolder();
+        var game = temp.SubFolder("jogo");
+        var exe = Path.Combine(game, "Jogo.exe");
+        File.WriteAllText(exe, "MZ");
+        var vm = Create(temp);
+        string? chosen = null;
+        vm.GameFolderChosen += (_, folder) => chosen = folder;
+
+        await vm.DropFolderAsync(exe);
+
+        Assert.Equal(game, chosen);
+    }
+
+    [Fact]
     public async Task Soltar_uma_pasta_que_nao_existe_avisa_e_nao_abre_o_assistente()
     {
         using var temp = new TempFolder();

@@ -139,6 +139,25 @@ public class StartViewModelFalhasTests
     }
 
     [Fact]
+    public async Task Item_com_problema_usa_o_nome_da_pasta_e_mostra_travessao_no_progresso()
+    {
+        using var temp = new TempFolder();
+        var config = new RecentProjectsFile(temp.SubFolder("config"));
+        config.Add(Path.Combine(temp.Path, "sumiu"), Now);
+        var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
+
+        await vm.LoadAsync();
+
+        var item = Assert.Single(vm.Recents);
+        Assert.Equal("sumiu", item.Name);
+        Assert.Equal("—", item.PercentLabel);
+        Assert.Equal("—", item.Lines);
+        Assert.Equal("—", item.ModelLabel);
+        Assert.Equal(item.Path, item.Subtitle);
+        Assert.Equal(100, item.Distribution.Pending);
+    }
+
+    [Fact]
     public async Task Item_disponivel_descreve_a_distribuicao_para_leitor_de_tela()
     {
         using var temp = new TempFolder();

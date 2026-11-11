@@ -89,6 +89,21 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
+    public async Task Campos_vazios_nao_inventam_cotacao_nem_limite()
+    {
+        var file = SettingsFile();
+        var vm = await AtAiStepAsync(file: file);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var saved = file.Load();
+        Assert.Null(saved.BrlPerUsd);
+        Assert.Null(saved.RateInformedOn);
+        Assert.Null(saved.SpendLimit);
+        Assert.Equal(TranslationQuality.Careful, saved.Quality);
+    }
+
+    [Fact]
     public async Task Mexer_so_na_cotacao_renova_a_data_e_nao_arredonda_o_limite()
     {
         var file = SettingsFile();
@@ -168,6 +183,17 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         var saved = file.Load();
         Assert.Equal(250m, saved.SpendLimit);
         Assert.Equal(5.43m, saved.BrlPerUsd);
+    }
+
+    [Fact]
+    public async Task Cancelar_nao_grava_nada()
+    {
+        var file = SettingsFile();
+        var vm = await AtAiStepAsync(file: file);
+        vm.RateText = "5,43";
+        vm.CancelCommand.Execute(null);
+
+        Assert.False(File.Exists(file.Path));
     }
 
     [Theory]

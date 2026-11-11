@@ -143,6 +143,19 @@ public sealed class EditorSceneTests : IDisposable
         Assert.Equal(segunda.SameSourceResult, primeira.SameSourceResult);
     }
 
+    [Fact]
+    public async Task Linha_que_sumiu_diz_para_reabrir_o_projeto_e_nao_para_tentar_de_novo()
+    {
+        var porta = Porta();
+        var vm = DetalheComFalas(new FalasIguais(5, gate: porta));
+        var execucao = vm.UseForAllCommand.ExecuteAsync(null);
+
+        porta.SetResult(new VNForge.App.Services.SameSourceOutcome(2, 5, 2, true, FailureReason: "A linha 'x' não existe no script 'y'. Reabra o projeto e tente de novo.", Stale: true));
+        await execucao;
+
+        Assert.Equal("Aplicada a 2 de 5 linhas; as outras não foram gravadas. A linha 'x' não existe no script 'y'. Reabra o projeto e tente de novo. O que já foi gravado pode ser desfeito pela lista de tarefas.", vm.ErrorMessage);
+    }
+
     [Theory]
     [InlineData(1, "Aplicada a 3 linhas. 1 linha foi editada enquanto isso e ficou como estava.")]
     [InlineData(2, "Aplicada a 3 linhas. 2 linhas foram editadas enquanto isso e ficaram como estavam.")]

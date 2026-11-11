@@ -68,6 +68,20 @@ public class CommandPaletteTests
     }
 
     [Fact]
+    public async Task Comando_abrir_pasta_entrega_a_raiz_do_projeto()
+    {
+        using var temp = new TempFolder();
+        var opened = new List<string>();
+        var vm = await Opened(temp, opened, TranslationStatus.Untranslated);
+        vm.Palette.Open();
+        vm.Palette.Query = "abrir pasta";
+
+        vm.Palette.ExecuteSelected();
+
+        Assert.Equal([vm.CurrentProject!.Root], opened);
+    }
+
+    [Fact]
     public async Task Comando_novo_build_abre_a_pagina_Build()
     {
         using var temp = new TempFolder();

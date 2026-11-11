@@ -63,6 +63,27 @@ public sealed class EditorConsistencyTests : IDisposable
     }
 
     [Fact]
+    public async Task Usar_em_todas_grava_a_variante_na_linha_aberta_e_nas_outras_depois_de_confirmar()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[2];
+        var chosen = vm.Detail!.ConsistencyCard!.Variants[0];
+
+        await vm.Detail.UseVariantCommand.ExecuteAsync(chosen);
+
+        // As outras linhas têm outra tradução: a pergunta de sempre do "Usar em todos" vem antes de gravar nelas.
+        Assert.True(vm.Detail.IsUseForAllConfirmOpen);
+        await vm.Detail.ConfirmUseForAllCommand.ExecuteAsync(null);
+
+        Assert.All(Traducoes().Take(4), t => Assert.Equal("Bom dia.", t));
+        Assert.Equal("Tchau.", Traducoes()[4]);
+        relogio.Advance(EditorViewModel.RecheckDelay);
+        await vm.Rechecking;
+        Assert.All(vm.Lines, l => Assert.False(Tem(l)));
+        Assert.Null(vm.Detail.ConsistencyCard);
+    }
+
+    [Fact]
     public async Task Usar_em_todas_pode_ser_desfeito_pelo_mesmo_aviso_do_usar_em_todos()
     {
         var vm = await Abrir();

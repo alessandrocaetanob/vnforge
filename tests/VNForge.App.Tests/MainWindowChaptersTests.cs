@@ -40,6 +40,21 @@ public class MainWindowChaptersTests
     }
 
     [Fact]
+    public async Task Novo_capitulo_no_menu_da_linha_do_Painel_abre_o_Editor_na_cena_dela_com_o_campo_do_nome_aberto()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+        var row = main.Dashboard.Chapters[0];
+
+        main.Dashboard.NewChapterCommand.Execute(row);
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.Equal(row.ScriptKey, main.Editor.SelectedScript?.Key);
+        Assert.True(main.Editor.IsNamingChapter);
+    }
+
+    [Fact]
     public async Task Renomear_o_capitulo_no_Painel_atualiza_a_lista_do_Editor_e_o_mover_usa_o_nome_novo()
     {
         using var temp = new TempFolder();

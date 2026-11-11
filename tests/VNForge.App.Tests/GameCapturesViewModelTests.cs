@@ -115,6 +115,19 @@ public sealed class GameCapturesViewModelTests : IDisposable
         Assert.Null(library.GameOfProject(_data.SubFolder("outro")));
     }
 
+    [Fact]
+    public async Task Erro_qualquer_na_captura_vira_o_aviso_da_pagina()
+    {
+        _capturer.Crash = true;
+        var vm = Create();
+        vm.Enter(Game);
+
+        _hotkey.Press();
+        await vm.Capturing;
+
+        Assert.Equal("A captura falhou: a janela sumiu no meio da cópia.", vm.ErrorMessage);
+    }
+
     private async Task<(MainWindowViewModel Shell, LibraryViewModel Library, string Root)> OpenShellAsync()
     {
         var root = SampleProjects.Create(_data.SubFolder("projeto"), "Minha VN", TranslationStatus.Machine);

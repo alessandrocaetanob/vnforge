@@ -80,6 +80,19 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
     private bool HasBackups => Directory.Exists(Folder.BackupDirectory) && Directory.EnumerateDirectories(Folder.BackupDirectory).Any();
 
+    [Theory]
+    [InlineData("fold")]
+    [InlineData("remap")]
+    [InlineData("sjis")]
+    public async Task Outra_acentuacao_nao_mostra_o_patch(string strategy)
+    {
+        var vm = await OpenAsync(strategy);
+
+        Assert.False(vm.HasPatch);
+        Assert.Equal(BuildPatchState.None, vm.PatchState);
+        Assert.False(vm.PatchCommand.CanExecute(null));
+    }
+
     [Fact]
     public async Task Aplicar_pede_confirmacao_e_so_grava_depois_de_confirmar_com_backup_do_original()
     {

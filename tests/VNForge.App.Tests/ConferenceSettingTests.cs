@@ -70,6 +70,23 @@ public class ConferenceSettingTests
         Assert.Equal("1 correção aplicada. O ajuste Reticências passou de Caractere … para Três pontos.", vm.NoticeMessage);
     }
 
+    [Fact]
+    public async Task Sem_conflito_o_botao_nao_grava_nem_avisa_o_app()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp, ThreeEllipsisLines());
+        var card = vm.SettingCards[0];
+        folder.SaveFormatting(FormattingProfile.Default);
+        var changed = 0;
+        vm.SettingsChanged += (_, _) => changed++;
+
+        await vm.ApplySettingCommand.ExecuteAsync(card);
+
+        Assert.Equal(0, changed);
+        Assert.Equal("O ajuste já não estava em conflito.", vm.NoticeMessage);
+        Assert.Empty(vm.SettingCards);
+    }
+
     private static ConferenceIssueRowViewModel Row(int codePoint) =>
         new(new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00001:000001", "yst00001", $"o caractere '{char.ConvertFromUtf32(codePoint)}' (U+{codePoint:X4}) não existe na estratégia 'cp1252'."),
             characters: new ConferenceRowCharacterContext(TextEncoderRegistry.Default.Create("cp1252")));

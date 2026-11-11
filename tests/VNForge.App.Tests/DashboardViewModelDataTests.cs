@@ -198,6 +198,20 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
+    public async Task O_ritmo_diz_as_horas_que_faltam_no_ritmo_da_pessoa()
+    {
+        var approvals = Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddDays(-1).AddSeconds(i * 30))).ToList();
+        var dashboard = new ProjectDashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 240), (TranslationStatus.Approved, 10)))), Stages(awaiting: 240), AiUsageTotals.Empty)
+        {
+            Sessions = new SessionsFile(SessionsFile.CurrentVersion, approvals),
+        };
+
+        var vm = await Load(dashboard);
+
+        Assert.Equal("No seu ritmo (120 linhas por hora), faltam cerca de 2 horas de revisão.", vm.PaceText);
+    }
+
+    [Fact]
     public async Task O_botao_de_cada_item_leva_a_tela_que_resolve()
     {
         var dashboard = new ProjectDashboard(Mixed(), Stages(), AiUsageTotals.Empty)

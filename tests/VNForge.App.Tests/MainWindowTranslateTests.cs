@@ -145,6 +145,18 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Pedido_acima_do_limite_nao_deixa_traduzir_e_nada_e_gravado()
+    {
+        var (vm, root) = await OpenAsync(spendLimit: "0,01");
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.True(vm.Translate.IsOverLimit);
+        Assert.False(vm.Translate.StartCommand.CanExecute(null));
+        Assert.Equal(TranslationStatus.Untranslated, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
     public async Task Definir_agora_leva_ao_Glossario_na_aba_Personagens()
     {
         var (vm, root) = await OpenAsync();

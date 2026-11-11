@@ -65,6 +65,20 @@ public class SettingsGameTitleReadTests
     }
 
     [Fact]
+    public async Task Depois_de_ler_digitar_a_traducao_grava_junto_do_original()
+    {
+        using var temp = new TempFolder();
+        var (summary, _) = OldProject(temp, "原題");
+        var vm = Create(temp, new TitleEngine());
+        await LoadAsync(vm, summary);
+        vm.ReadGameTitleCommand.Execute(null);
+
+        vm.GameTitleTranslation = "Meu Título";
+
+        Assert.Equal(new GameTitleConfig("原題", "Meu Título"), ProjectFolder.Open(summary.Root).LoadConfig().Game.Title);
+    }
+
+    [Fact]
     public async Task Cache_sem_o_arquivo_do_titulo_explica_e_mantem_o_botao()
     {
         using var temp = new TempFolder();

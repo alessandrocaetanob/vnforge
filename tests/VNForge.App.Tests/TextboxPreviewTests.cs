@@ -56,6 +56,27 @@ public class TextboxPreviewTests : IDisposable
     }
 
     [Fact]
+    public void O_cache_das_marcas_le_o_vnforge_json_e_so_o_relê_quando_ele_muda()
+    {
+        var arquivo = Path.Combine(raiz, ProjectFolder.ConfigFileName);
+        var projeto = ProjectFolder.Open(raiz);
+        var cache = new SpeakerMarksCache();
+        Assert.Equal(SpeakerBoxMarks.None, cache.Get(raiz));
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        Assert.Equal(new SpeakerBoxMarks("\u00A0", string.Empty), cache.Get(raiz));
+
+        projeto.SaveConfig(projeto.LoadConfig() with { Style = StyleConfig.Default with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets } });
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 6, 0, DateTimeKind.Utc));
+        Assert.Equal(new SpeakerBoxMarks("«", "»"), cache.Get(raiz));
+
+        File.WriteAllText(arquivo, "{ isto nao e json");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 7, 0, DateTimeKind.Utc));
+        Assert.Equal(SpeakerBoxMarks.None, cache.Get(raiz));
+    }
+
+    [Fact]
     public void Cache_reaproveita_o_perfil_ate_o_arquivo_mudar()
     {
         GravarPerfil(Perfil);

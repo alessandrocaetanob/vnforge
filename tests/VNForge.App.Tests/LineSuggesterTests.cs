@@ -34,6 +34,17 @@ public sealed class LineSuggesterTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_chave_usa_o_provedor_real_com_o_modelo_padrao()
+    {
+        chave = "k1";
+
+        var sugestao = await Abrir().SuggestAsync(Linha, CancellationToken.None);
+
+        Assert.False(sugestao.FromFakeProvider);
+        Assert.Equal($"k1/{ClaudeModels.Opus}", sugestao.Text);
+    }
+
+    [Fact]
     public async Task Reaproveita_o_provedor_enquanto_chave_e_modelo_nao_mudam()
     {
         chave = "k1";

@@ -250,6 +250,18 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_ilegivel_na_recarga_vira_mensagem_e_nao_lanca()
+    {
+        var vm = await OpenAsync();
+        Directory.Delete(folder.Root, recursive: true);
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.InjectCommand.CanExecute(null));
+        Assert.NotEmpty(vm.PlanMessage);
+    }
+
+    [Fact]
     public async Task Fechar_a_janela_no_meio_de_uma_operacao_e_recusado_com_aviso()
     {
         var blocking = new BlockingStarter();
@@ -313,6 +325,20 @@ public sealed class BuildViewModelTests : IDisposable
         {
             Project = ProjectSummaryReader.Read(folder.Root),
         };
+    }
+
+    [Fact]
+    public async Task Build_de_projeto_parcial_grava_sem_permitir_avisos_e_mostra_a_contagem_no_resumo()
+    {
+        var vm = BuildableVm(new QaEngine([new UntranslatedQaRule()]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.False(vm.AllowWarnings);
+        Assert.Null(vm.ErrorMessage);
+        Assert.True(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
+        Assert.Contains(vm.Facts, f => f.Label == "QA" && f.Value == "2 linhas sem tradução; o build copiou o original nelas.");
+        Assert.DoesNotContain(vm.Log, l => l.Message.Contains("[nao-traduzida]", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -458,6 +484,22 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.True(vm.HasRestoreProblem);
         Assert.NotEmpty(vm.BackupMessage);
         Assert.False(vm.RestoreCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Backup_restaurado_diz_que_foi_restaurado()
+    {
+        PutBuild();
+        var vm = Open();
+        await vm.ReloadAsync();
+        vm.InjectCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        vm.RestoreCommand.Execute(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(vm.Backups);
+        Assert.Contains("restaurado", row.Note);
+        Assert.Equal($"Pasta backup{Path.DirectorySeparatorChar} do projeto · fora do git · 1 backup", vm.BackupFooter);
     }
 
     private sealed class ErrorOnOlaRule : UnitQaRule

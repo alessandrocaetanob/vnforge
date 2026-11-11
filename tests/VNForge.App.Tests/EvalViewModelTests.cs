@@ -257,6 +257,20 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_barra_da_rodada_as_cegas_conta_o_par_que_esta_na_tela()
+    {
+        var vm = await RunRound(Vm(), Project());
+        vm.BlindStartCommand.Execute(null);
+        for (var i = 0; i < 6; i++)
+        {
+            vm.ChooseFirstCommand.Execute(null);
+        }
+
+        Assert.Equal("Par 7 de 12", vm.PairTitle);
+        Assert.Equal(7d / 12, vm.PairFraction, 6);
+    }
+
+    [Fact]
     public async Task O_original_diz_para_quem_a_fala_vai_pelo_elenco_da_cena_na_biblia()
     {
         var project = Project();

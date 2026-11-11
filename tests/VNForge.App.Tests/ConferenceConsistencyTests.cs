@@ -111,6 +111,33 @@ public class ConferenceConsistencyTests
     }
 
     [Fact]
+    public async Task Com_a_pagina_ocupada_as_acoes_do_cartao_nao_executam()
+    {
+        using var temp = new TempFolder();
+        // A regra extra segura a conferência até o teste olhar os comandos: sem ela a leitura terminava, em outra thread, antes dos Assert
+        // quando a thread do teste ficava sem CPU, e os comandos já voltavam a executar.
+        using var gate = new ManualResetEventSlim(initialState: true);
+        var (vm, _) = await Loaded(temp, new QaEngine([.. QaEngine.Default.Rules, new GateRule(gate)]));
+        var card = vm.ConsistencyCards.Single();
+        gate.Reset();
+
+        var running = vm.RefreshAsync();
+        try
+        {
+            Assert.True(vm.IsBusy);
+            Assert.False(vm.KeepDifferentCommand.CanExecute(card));
+            Assert.False(vm.UseVariantCommand.CanExecute(card.Variants[0]));
+        }
+        finally
+        {
+            gate.Set();
+            await running;
+        }
+
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
     public async Task Manter_diferentes_nao_conta_como_aviso_marcado_como_certo()
     {
         using var temp = new TempFolder();

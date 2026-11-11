@@ -181,6 +181,19 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
+    public async Task Falha_do_provedor_vira_mensagem_em_portugues_sem_versoes()
+    {
+        using var vm = Abrir(new LineSuggester(() => new ProvedorDeReescrita(_ => throw new HttpRequestException("connection reset"))));
+
+        await Chip(vm, RewriteDirection.Shorter).Command.ExecuteAsync(null);
+
+        Assert.StartsWith("Não foi possível reescrever", vm.RewriteError);
+        Assert.False(vm.HasRewriteOptions);
+        Assert.False(vm.IsRewriting);
+        Assert.Equal(@"Olá, tudo bem?\p", vm.Translation);
+    }
+
+    [Fact]
     public async Task Novo_pedido_apaga_as_versoes_e_o_erro_anteriores_ao_comecar()
     {
         var espera = new TaskCompletionSource<IReadOnlyList<string>>();

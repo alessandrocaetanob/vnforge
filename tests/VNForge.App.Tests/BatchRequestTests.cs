@@ -68,6 +68,28 @@ public sealed class BatchRequestTests : IDisposable
     private string Translation(int index) => ProjectFolder.Open(root).LoadText("yst00001")[index].Translation!;
 
     [Fact]
+    public async Task Confirmar_chama_a_IA_e_mostra_a_previa_com_antes_e_depois_sem_gravar()
+    {
+        var (vm, provider, _) = Build();
+        await vm.BeginRequestAsync(Request);
+
+        await vm.RunRequestCommand.ExecuteAsync(null);
+
+        var (request, batch) = Assert.Single(provider.Received);
+        Assert.Equal(Request, request);
+        Assert.Equal(["yst00001:000000", "yst00001:000003"], batch.Lines.Select(l => l.Id));
+        Assert.Equal(["yst00001 · linha 1", "yst00001 · linha 4"], vm.Results.Select(r => r.Location));
+        Assert.Equal(["Você sabe o que houve?", "Eu vi você ontem."], vm.Results.Select(r => r.Before));
+        Assert.Equal(["tu sabe o que houve?", "Eu vi tu ontem."], vm.Results.Select(r => r.After));
+        Assert.True(vm.HasPreview);
+        Assert.False(vm.HasRequestPlan);
+        Assert.Contains("A IA reescreveu 2 linhas de 2 lidas. Nada foi gravado ainda.", vm.Summary);
+        Assert.Contains("Voltam para Traduzida e precisam de nova revisão: 1 aprovada", vm.Summary);
+        Assert.Equal("Você sabe o que houve?", Translation(0));
+        Assert.Equal("Eu vi você ontem.", Translation(3));
+    }
+
+    [Fact]
     public async Task Aplicar_grava_so_a_previa_e_deixa_o_Desfazer_na_lista_de_tarefas()
     {
         var (vm, _, tasks) = Build();
@@ -89,6 +111,23 @@ public sealed class BatchRequestTests : IDisposable
         Assert.StartsWith("Pedido em lote:", task.Title);
         Assert.NotNull(task.Restore);
         Assert.False(vm.HasPreview);
+    }
+
+    [Fact]
+    public async Task O_Desfazer_do_pedido_devolve_as_linhas()
+    {
+        var (vm, _, tasks) = Build();
+        await vm.BeginRequestAsync(Request);
+        await vm.RunRequestCommand.ExecuteAsync(null);
+        await vm.ApplyCommand.ExecuteAsync(null);
+
+        await vm.History!.UndoAsync(Assert.Single(tasks.Tasks));
+
+        Assert.Equal("Você sabe o que houve?", Translation(0));
+        Assert.Equal("Eu vi você ontem.", Translation(3));
+        var unit = ProjectFolder.Open(root).LoadText("yst00001")[0];
+        Assert.Equal(TranslationStatus.Approved, unit.Status);
+        Assert.Null(unit.Origin);
     }
 
     [Fact]
@@ -140,6 +179,36 @@ public sealed class BatchRequestTests : IDisposable
         Assert.False(vm.HasRequestPlan);
         Assert.Contains("limite de gasto", vm.ErrorMessage);
         Assert.Empty(provider.Received);
+    }
+
+    [Fact]
+    public async Task O_gasto_da_IA_fica_registrado_no_projeto()
+    {
+        var (vm, _, _) = Build(usageOf: _ => new ClaudeUsage(2_000, 500, 0, 0));
+        await vm.BeginRequestAsync(Request);
+
+        await vm.RunRequestCommand.ExecuteAsync(null);
+
+        Assert.True(AiUsageLog.Load(ProjectFolder.Open(root)).Dollars > 0m);
+        Assert.Contains("Gasto: ", vm.Summary);
+    }
+
+    [Fact]
+    public async Task Falha_da_IA_mostra_o_erro_e_nao_deixa_prévia()
+    {
+        var provider = new ThrowingProvider();
+        var vm = new SearchReplaceViewModel(clock)
+        {
+            Project = ProjectSummaryReader.Read(root),
+            Requests = new BatchRequestService((_, _) => provider, () => Settings()),
+        };
+        await vm.BeginRequestAsync(Request);
+
+        await vm.RunRequestCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasPreview);
+        Assert.Contains("A IA não respondeu", vm.ErrorMessage);
+        Assert.Equal("Você sabe o que houve?", Translation(0));
     }
 
     private sealed class GatedProvider(Task gate) : IBatchRequestProvider

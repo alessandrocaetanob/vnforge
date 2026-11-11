@@ -49,6 +49,20 @@ public class GlossaryPageTests
     }
 
     [Fact]
+    public async Task Texto_ilegivel_nao_derruba_a_pagina_e_deixa_a_contagem_em_zero()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp);
+        File.WriteAllText(folder.TextPath("yst00001"), "{ não é json");
+
+        vm.Reload();
+        await vm.Loading;
+
+        Assert.Equal(3, vm.Terms.Count);
+        Assert.All(vm.Terms, t => Assert.Equal(0, t.Uses));
+    }
+
+    [Fact]
     public async Task Busca_nao_apaga_do_arquivo_o_que_ela_esconde()
     {
         using var temp = new TempFolder();

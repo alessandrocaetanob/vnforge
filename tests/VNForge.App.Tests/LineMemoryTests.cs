@@ -150,4 +150,23 @@ public sealed class LineMemoryTests : IDisposable
         projeto.Sync([Aprovada("a:000001", "x")]);
         Assert.Contains(TranslationMemory.FileName, projeto.Problem);
     }
+
+    [Fact]
+    public async Task A_data_da_aprovacao_usa_o_fuso_do_relogio_injetado()
+    {
+        var memoria = new TranslationMemory(Config);
+        memoria.Record(TranslationMemory.KeyOf(Path.Combine(pasta.Path, "estrela")), "Hoshizora no Kakera", Aprovada("a:000001", "Atrasados."), new DateTimeOffset(2026, 9, 15, 1, 30, 0, TimeSpan.Zero));
+        var relogioBrasilia = new FakeTimeProvider(new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero));
+        relogioBrasilia.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("teste", TimeSpan.FromHours(-3), "teste", "teste"));
+        var unidade = new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "美咲", Frase, "Outra.", TranslationStatus.Machine);
+        using var vm = new LineDetailViewModel(unidade, "yst00001", new LineEditor(ProjectFolder.Open(raiz), relogioBrasilia), new Navegador(), relogioBrasilia, acao => acao())
+        {
+            Memory = DoProjeto(memoria),
+        };
+
+        vm.ShowMemory();
+        await vm.MemoryLoading;
+
+        Assert.Equal("Hoshizora no Kakera · aprovada em 14/09", vm.MemorySuggestions.Single().Origin);
+    }
 }

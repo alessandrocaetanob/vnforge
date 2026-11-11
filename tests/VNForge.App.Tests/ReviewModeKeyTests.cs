@@ -43,6 +43,19 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     }
 
     [Fact]
+    public async Task As_teclas_continuam_valendo_depois_da_primeira_porque_o_foco_fica_na_tela()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, [(Key.Right, PhysicalKey.ArrowRight, true), (Key.Enter, PhysicalKey.Enter, true)], (vm, review) =>
+        {
+            Assert.Equal(2, review.Position);
+            Assert.True(review.Blocks[1].IsApproved);
+        });
+    }
+
+    [Fact]
     public async Task Com_a_janela_Traduzir_com_IA_aberta_as_teclas_da_revisao_nao_agem()
     {
         using var temp = new TempFolder();

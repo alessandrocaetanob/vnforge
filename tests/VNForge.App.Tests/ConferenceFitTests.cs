@@ -97,6 +97,18 @@ public sealed class ConferenceFitTests : IDisposable
     }
 
     [Fact]
+    public async Task Depois_de_dividir_a_pagina_a_mais_aparece_como_aviso_e_nao_como_erro()
+    {
+        var vm = await Conferir(null);
+
+        await vm.SelectedFit!.SplitCommand.ExecuteAsync(null);
+
+        var extra = Assert.Single(vm.Rows, r => r.RuleId == ExtraPageQaRule.RuleId);
+        Assert.False(extra.IsError);
+        Assert.DoesNotContain(vm.Rows, r => r.RuleId == "marcador-diferente");
+    }
+
+    [Fact]
     public async Task Encurtar_com_a_ia_recusando_deixa_a_traducao_e_mostra_o_motivo_no_aviso()
     {
         var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));

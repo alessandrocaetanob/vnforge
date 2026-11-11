@@ -212,6 +212,19 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public void Excerpt_longo_nao_deixa_barra_solta_no_corte()
+    {
+        var before = new string('a', 59) + @"\p fim";
+        var after = new string('a', 59) + @"\p  fim";
+
+        var excerpt = ConferenceIssueRowViewModel.Excerpt(before, after);
+
+        Assert.StartsWith("“" + new string('a', 59) + "…", excerpt);
+        Assert.DoesNotContain('\\', excerpt);
+        Assert.Equal(new string('a', 59) + "…”", excerpt[1..]);
+    }
+
+    [Fact]
     public void Excerpt_longo_com_marcador_inteiro_antes_do_corte_o_preserva()
     {
         var before = new string('a', 50) + @"\p" + new string('b', 20) + "  c";
@@ -266,6 +279,20 @@ public class ConferenceViewModelTests
 
         Assert.Equal("Nada a corrigir com um clique.", vm.NoticeMessage);
         Assert.Equal(0, changed);
+    }
+
+    [Fact]
+    public async Task Corrigir_respeita_o_ok_marcado_pelo_revisor()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        await vm.MarkOkCommand.ExecuteAsync(IssueRows(vm).First(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo"));
+
+        await vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.Equal("olá  mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal("a b c", folder.LoadText("yst00002")[0].Translation);
+        Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
     }
 
     [Fact]
@@ -401,6 +428,28 @@ public class ConferenceViewModelTests
         Assert.False(empty.HasTranslation);
 
         Assert.Equal("Corrigir 2 com um clique", vm.FixAllLabel);
+    }
+
+    [Fact]
+    public async Task Aplicar_correcao_grava_so_a_linha_avisa_reconfere_e_passa_para_o_proximo()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+        var row = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        vm.SelectedRow = row;
+
+        await vm.ApplyFixCommand.ExecuteAsync(row);
+
+        Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
+        Assert.Equal("a  b  c", folder.LoadText("yst00002")[0].Translation);
+        Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
+        Assert.Equal(1, changed);
+        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000");
+        Assert.Equal("Corrigir 1 com um clique", vm.FixAllLabel);
+        Assert.NotNull(vm.SelectedRow);
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]

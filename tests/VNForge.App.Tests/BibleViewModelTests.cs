@@ -60,6 +60,18 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Quem_aparece_diz_nao_fala_para_o_cadastrado_sem_falas_na_cena()
+    {
+        SaveCastScene();
+        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Characters = ["Kenta"] }]));
+        var vm = Open();
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
+
+        Assert.Equal("não fala", vm.SceneCharacters.Single().Lines);
+    }
+
+    [Fact]
     public void Piadas_que_voltam_lista_as_cenas_em_que_cada_uma_volta()
     {
         _project.SaveBible(GameBible.From(

@@ -39,6 +39,24 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
         return Math.Abs(picture.Bgra[at] - 180) <= 2 && Math.Abs(picture.Bgra[at + 1] - 120) <= 2 && Math.Abs(picture.Bgra[at + 2] - 60) <= 2;
     }
 
+    [Fact]
+    public async Task TheTextIsWrittenInsideTheAreaAndNothingIsDrawnOutsideIt()
+    {
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var composer = new AvaloniaImageComposer();
+                var result = composer.Decode(composer.Render(Background(), Edit("Portão")));
+
+                var inside = Enumerable.Range(30, 40).SelectMany(y => Enumerable.Range(50, 100).Select(x => (x, y))).Count(p => !IsBackground(result, p.x, p.y));
+                var outside = Enumerable.Range(0, Height).SelectMany(y => Enumerable.Range(0, Width).Select(x => (x, y)))
+                    .Count(p => (p.x < 50 || p.x >= 150 || p.y < 30 || p.y >= 70) && !IsBackground(result, p.x, p.y));
+                Assert.True(inside > 30, $"só {inside} pixels de texto na área");
+                Assert.Equal(0, outside);
+            },
+            TestContext.Current.CancellationToken);
+    }
+
     private static byte[] HeaderOnly(int width, int height)
     {
         var bytes = new List<byte> { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13 };

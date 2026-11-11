@@ -48,6 +48,25 @@ public sealed class MainWindowEditorPassTests : IDisposable
     }
 
     [Fact]
+    public async Task A_opcao_vem_marcada_e_o_pedido_leva_a_escolha()
+    {
+        var (vm, _) = await OpenAsync((_, _) => Firm());
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        TranslationRequest? request = null;
+        vm.Translate.StartRequested += (_, r) => request = r;
+
+        Assert.True(vm.Translate.EditorPass);
+        Assert.StartsWith("+ ", vm.Translate.EditorPassPriceText);
+
+        vm.Translate.EditorPass = false;
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.False(request!.EditorPass);
+    }
+
+    [Fact]
     public async Task Falha_da_passada_avisa_em_portugues_e_a_traducao_continua_gravada()
     {
         var (vm, root) = await OpenAsync((_, _) => new FakeEditorPassProvider(_ => throw new InvalidOperationException("Falha simulada.")));

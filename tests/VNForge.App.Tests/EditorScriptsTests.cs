@@ -45,6 +45,15 @@ public class EditorScriptsTests
     }
 
     [Fact]
+    public async Task Cabecalho_mostra_o_capitulo_e_a_posicao_da_cena_e_o_nome_dela_como_titulo()
+    {
+        var vm = await Carregado();
+
+        Assert.Equal("Capítulo 1 · cena 2 de 3", vm.Breadcrumb);
+        Assert.Equal("Capítulo 1 — Manhã de chuva", vm.ScriptTitle);
+    }
+
+    [Fact]
     public async Task Quando_o_scripts_json_chega_depois_o_Cena_N_vira_o_nome_real_sem_mexer_na_posicao()
     {
         var nomes = ScriptNames.Empty;

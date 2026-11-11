@@ -334,6 +334,47 @@ public sealed class ReleaseViewModelTests
     }
 
     [Fact]
+    public async Task Cada_etapa_mostra_o_detalhe_que_o_core_achou_e_a_atual_o_andamento_do_arquivo()
+    {
+        var (vm, publisher, temp, _) = await OpenAsync();
+        using var _t = temp;
+        using var reached = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var calls = 0;
+        publisher.Blocker = _ =>
+        {
+            if (++calls == 4)
+            {
+                reached.Set();
+                release.Wait(TimeSpan.FromMinutes(3));
+            }
+
+            return false;
+        };
+
+        var running = vm.GenerateCommand.ExecuteAsync(null);
+        await Task.Run(() => reached.Wait(TimeSpan.FromMinutes(3)), Ct);
+        try
+        {
+            Assert.Equal(
+                ["0,5 s", "1,0 s · 308 de 312 scripts reaproveitados", "1,5 s · 4 arquivos", "63% · Game/script.ypf", string.Empty, string.Empty],
+                vm.Steps.Select(s => s.StatusText));
+            var patch = vm.Steps[3];
+            Assert.True(patch.IsRunning);
+            Assert.False(patch.IsIndeterminate);
+            Assert.Equal(63, patch.Percent);
+            Assert.True(vm.Steps[2].IsIndeterminate);
+        }
+        finally
+        {
+            release.Set();
+            await running;
+        }
+
+        Assert.Equal("3,0 s", vm.Steps[5].StatusText);
+    }
+
+    [Fact]
     public async Task A_versao_pronta_lista_os_cinco_arquivos_o_checksum_dos_pacotes_e_deixa_a_tabela_do_patch_para_antes()
     {
         var (vm, _, temp, _) = await OpenAsync(ReadyWithPreviousPatch());

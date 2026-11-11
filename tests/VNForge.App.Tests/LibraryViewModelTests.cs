@@ -489,6 +489,17 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_varredura_rodando_a_acao_da_primeira_varredura_nao_faz_nada()
+    {
+        var vm = await Loaded();
+
+        await vm.ScanActionCommand.ExecuteAsync(null);
+
+        Assert.Equal(LibraryMode.Games, vm.Mode);
+        Assert.Equal(LibraryScanPhase.Idle, vm.Scan.Phase);
+    }
+
+    [Fact]
     public async Task Ver_a_biblioteca_depois_da_varredura_ja_pede_o_primeiro_jogo_em_duvida()
     {
         var vm = await Loaded();

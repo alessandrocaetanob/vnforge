@@ -77,6 +77,17 @@ public sealed class FitWarningViewModelTests
     }
 
     [Fact]
+    public async Task Falha_de_rede_vira_mensagem_em_portugues()
+    {
+        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => Task.FromException<string>(new HttpRequestException("boom"))));
+
+        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
+
+        Assert.Contains("Falha de rede", cenario.Aviso.Error);
+        Assert.Empty(cenario.Encurtados);
+    }
+
+    [Fact]
     public async Task Cancelar_interrompe_o_pedido_sem_mostrar_erro()
     {
         var iniciado = new TaskCompletionSource();

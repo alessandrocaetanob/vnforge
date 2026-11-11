@@ -368,6 +368,31 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task O_texto_escrito_a_mao_e_gravado_e_revisado_junto_com_marcar_revisado()
+    {
+        var vm = await ReadyAsync();
+        var review = await ReviewAsync(vm);
+        vm.SelectedSpoiler = vm.SpoilerOptions[2];
+        review.SelectedFilter = review.Filters[1];
+        while (review.Current!.Title != "Haruto Mine")
+        {
+            review.NextCommand.Execute(null);
+        }
+
+        Assert.Equal(["Descrição de Haruto Mine", "Traços de Haruto Mine"], review.Pairs.Select(p => p.Title));
+        Assert.True(review.Pairs[0].ShowsActions);
+        Assert.False(review.Pairs[1].ShowsActions);
+        review.Pairs[0].Draft = "Veterano do clube, bem calmo.";
+        Assert.True(review.Pairs[0].IsDirty);
+
+        await review.MarkReviewedCommand.ExecuteAsync(null);
+
+        var description = Store.LoadCharacter("c6")!.Description!;
+        Assert.Equal(("Veterano do clube, bem calmo.", TranslationStatus.Reviewed), (description.Target, description.Status));
+        Assert.Equal(TranslationStatus.Reviewed, Store.LoadTerms().Find(SheetTermKind.Trait, "i13")!.Text.Status);
+    }
+
+    [Fact]
     public async Task A_lista_com_o_numero_errado_de_nomes_mostra_o_erro_no_par_e_nao_revisa_nada()
     {
         var vm = await ReadyAsync();

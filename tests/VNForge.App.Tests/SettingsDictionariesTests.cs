@@ -144,6 +144,23 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelar_fecha_sem_gravar_e_apagar_tira_a_regra_escolhida()
+    {
+        var (vm, folder) = await Opened(Sample());
+
+        vm.AddPreRuleCommand.Execute(null);
+        vm.Editor!.Pattern = "x";
+        vm.CancelEditorCommand.Execute(null);
+        Assert.False(vm.IsEditorOpen);
+        Assert.Equal(2, folder.LoadFormatting().Dictionary.Pre.Count);
+
+        vm.DeleteSelectedRuleCommand.Execute(null);
+
+        Assert.Empty(folder.LoadFormatting().Dictionary.Post);
+        Assert.Empty(vm.PostRules);
+    }
+
+    [Fact]
     public async Task Editar_troca_a_regra_no_mesmo_lugar()
     {
         var (vm, folder) = await Opened(Sample());

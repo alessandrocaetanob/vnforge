@@ -125,6 +125,22 @@ public sealed class PersonalGlossaryTabTests : IDisposable
     }
 
     [Fact]
+    public async Task Abrir_a_aba_relê_o_glossario_pessoal_e_esconde_busca_e_adicionar()
+    {
+        var pessoal = Pessoal();
+        var (vm, _) = await AbrirAsync(pessoal);
+        pessoal.Upsert(new PersonalTerm("先輩", "senpai"));
+
+        vm.SelectedTab = GlossaryTab.Personal;
+
+        Assert.Equal(["先輩"], vm.Personal.Rows.Select(r => r.Source));
+        Assert.True(vm.IsPersonalTab);
+        Assert.False(vm.ShowSearch);
+        vm.SelectedTab = GlossaryTab.Terms;
+        Assert.True(vm.ShowSearch);
+    }
+
+    [Fact]
     public async Task Adicionar_termo_abre_o_dialogo_e_grava_o_termo_escrito_a_mao()
     {
         var pessoal = Pessoal();

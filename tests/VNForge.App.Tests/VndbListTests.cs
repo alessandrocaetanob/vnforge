@@ -119,6 +119,26 @@ public sealed class VndbListTests
     }
 
     [Fact]
+    public async Task Marcar_como_terminado_grava_aqui_e_envia_ao_VNDB_quando_ha_token()
+    {
+        using var setup = new Setup([Game("g1", "v4")], [Entry("v4", T0, null, null, LibraryListLabels.Playing)]);
+        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true };
+        var plan = await setup.Service.PlanAsync(FakeVndbCatalog.ValidToken, LibrarySyncDirection.Both, ct: Ct);
+        await setup.Service.ApplyAsync(plan, FakeVndbCatalog.ValidToken, Ct);
+        Assert.True(setup.Local("g1").HasLabel(LibraryListLabels.Playing));
+
+        var note = await setup.Service.MarkFinishedAsync("g1", Ct);
+
+        Assert.Null(note);
+        var local = setup.Local("g1");
+        Assert.True(local.HasLabel(LibraryListLabels.Finished));
+        Assert.False(local.HasLabel(LibraryListLabels.Playing));
+        Assert.Equal(new DateOnly(2026, 11, 6), local.Finished);
+        var remote = await setup.Remote("v4");
+        Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
+    }
+
+    [Fact]
     public async Task Sem_rede_terminar_aqui_fica_so_aqui_e_nao_derruba()
     {
         using var setup = new Setup([Game("g1", "v4")], [], wrap: fake => new OfflineList(fake));
@@ -220,6 +240,26 @@ public sealed class VndbListTests
         Assert.Equal(70, setup.Local("g1").Vote);
         Assert.Equal(1, changed);
         Assert.False(connection.IsConflictsOpen);
+    }
+
+    [Fact]
+    public async Task A_escolha_campo_a_campo_do_dialogo_vale_mesmo_contra_o_lado_mais_recente()
+    {
+        var local = new LibraryListState("v4", new LibraryListFields { Vote = 90 }, T0.AddHours(1))
+        {
+            Base = new LibraryListFields { Vote = 80 },
+            SyncedAt = T0,
+            OnVndb = true,
+        };
+        using var setup = new Setup([Game("g1", "v4") with { List = local }], [Entry("v4", T0.AddHours(2), 70, null)]);
+        var connection = new VndbConnectionViewModel(setup.Service, new FixedClock(Later));
+
+        await connection.SyncNowCommand.ExecuteAsync(null);
+        connection.Conflicts.Single().UseLocal = true;
+        await connection.ApplyConflictsCommand.ExecuteAsync(null);
+
+        Assert.Equal(90, setup.Local("g1").Vote);
+        Assert.Equal(90, (await setup.Remote("v4")).Vote);
     }
 
     [Fact]

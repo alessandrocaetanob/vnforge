@@ -217,6 +217,28 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
+    public async Task Atualizar_que_falha_mostra_o_erro_e_mantem_o_dicionario_antigo()
+    {
+        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(new SyntheticDictionary.Server(HttpStatusCode.ServiceUnavailable)));
+        var antes = File.ReadAllBytes(dicionario.IndexPath);
+        using var vm = Abrir(dicionario);
+        vm.HoverSource(Em(Frase, "遅刻"));
+
+        await vm.InstallDictionaryCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsFailedCard);
+        Assert.Contains("503", vm.InstallProblem);
+        Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
+        Assert.Equal(antes, File.ReadAllBytes(dicionario.IndexPath));
+        Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
+
+        vm.CloseWordCardCommand.Execute(null);
+        vm.HoverSource(Em(Frase, "二人"));
+        Assert.True(vm.IsEntryCard);
+        Assert.Equal("二人", vm.WordText);
+    }
+
+    [Fact]
     public async Task O_mouse_parado_sobre_o_mesmo_caractere_nao_refaz_a_busca()
     {
         var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario);

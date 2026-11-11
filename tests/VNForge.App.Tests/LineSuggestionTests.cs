@@ -40,6 +40,17 @@ public sealed class LineSuggestionTests : IDisposable
     }
 
     [Fact]
+    public async Task Erro_do_provedor_nao_mostra_o_texto_em_ingles()
+    {
+        using var vm = Abrir(0, new RoteiroSugestor(_ => throw new InvalidDataException("Unexpected JSON token at line 3")));
+
+        await vm.SuggestCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain("JSON", vm.SuggestionError);
+        Assert.Contains("Erro inesperado", vm.SuggestionError);
+    }
+
+    [Fact]
     public async Task Recusa_do_modelo_vira_mensagem_em_portugues()
     {
         using var vm = Abrir(0, new LineSuggester(() => new RecusaProvider()));

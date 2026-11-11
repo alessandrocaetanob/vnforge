@@ -46,6 +46,41 @@ public class TextAppearanceSettingsTests
         Assert.Equal(100, loaded.TextScalePercent);
         Assert.Equal(JapaneseFontChoice.Default, loaded.JapaneseFont);
     }
+
+    [Fact]
+    public void Aumentar_e_diminuir_andam_pelos_tamanhos_param_nas_pontas_e_gravam()
+    {
+        using var temp = new TempFolder();
+        var file = new AppSettingsFile(temp.SubFolder("config"));
+        var settings = Settings(file);
+        var raised = 0;
+        settings.TextAppearanceChanged += (_, _) => raised++;
+        Assert.Equal([90, 100, 110, 125, 150], settings.TextSizes.Select(t => t.Value));
+
+        settings.IncreaseTextSizeCommand.Execute(null);
+        Assert.Equal(110, settings.TextScalePercent);
+        Assert.Equal(110, file.Load().TextScalePercent);
+
+        for (var i = 0; i < 5; i++)
+        {
+            settings.IncreaseTextSizeCommand.Execute(null);
+        }
+
+        Assert.Equal(150, settings.TextScalePercent);
+        Assert.Equal(3, raised);
+
+        for (var i = 0; i < 9; i++)
+        {
+            settings.DecreaseTextSizeCommand.Execute(null);
+        }
+
+        Assert.Equal(90, settings.TextScalePercent);
+        Assert.Equal(90, file.Load().TextScalePercent);
+
+        settings.ResetTextSizeCommand.Execute(null);
+        Assert.Equal(100, settings.TextScalePercent);
+        Assert.Equal(100, file.Load().TextScalePercent);
+    }
 }
 
 /// <summary>O Ctrl + e o Ctrl - mudam o texto do Editor; as outras páginas, o trilho e a barra de status seguem em 100%.</summary>

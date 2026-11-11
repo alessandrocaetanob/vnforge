@@ -234,6 +234,26 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_a_sinopse_traduzida_pela_IA_a_ficha_mostra_a_traducao_e_o_selo()
+    {
+        var vm = new NewProjectWizardViewModel(
+            new FakeFolderPicker(null),
+            [new TitledEngine(Title)],
+            vndb: Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)),
+            gameCharacterNames: (_, _, _) => null,
+            translatedSynopsis: link => link.VisualNovelId == "v1" ? "  Numa cidade onde chove quase sempre.  " : null);
+        await vm.SetGameFolderAsync(game);
+        vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
+        await vm.NextCommand.ExecuteAsync(null);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.True(vm.Preview!.IsSynopsisTranslated);
+        Assert.True(vm.Preview.HasSynopsis);
+        Assert.Equal("Numa cidade onde chove quase sempre.", vm.Preview.Synopsis);
+    }
+
+    [Fact]
     public async Task Seguir_sem_VNDB_com_a_busca_em_andamento_cancela_o_pedido_e_libera_o_assistente()
     {
         var catalog = new BlockingCatalog();

@@ -170,6 +170,35 @@ public class CharacterSheetTests
     }
 
     [Fact]
+    public async Task Contagem_e_lista_seguem_o_falante_escolhido_e_juntam_as_duas_larguras_do_nome()
+    {
+        using var temp = new TempFolder();
+        var (vm, _, _) = Create(temp,
+        [
+            Line(0, "はい", "美咲", "Sim.", TranslationStatus.Machine),
+            Line(1, "いいえ", "健太", "Não.", TranslationStatus.Machine, chosen: "美咲"),
+            Line(2, "ええと", "美咲", null, TranslationStatus.Untranslated, chosen: string.Empty),
+            Line(3, "長い長い長い台詞", "Ａ子", null, TranslationStatus.Untranslated),
+            Line(4, "短い", "A子", null, TranslationStatus.Untranslated),
+        ]);
+        await vm.Loading;
+
+        await OpenSheetAsync(vm, "美咲");
+
+        Assert.Equal("2 falas", vm.Sheet!.UsesText);
+        Assert.Equal(["いいえ", "はい"], vm.Sheet.Lines.Select(l => l.Source));
+        Assert.Equal(2, vm.Sheet.AwaitingReview);
+
+        vm.Characters.Add(new CharacterRow("A子", "Ako", description: "Colega de turma.\nSempre atrasada."));
+        await OpenSheetAsync(vm, "A子");
+
+        Assert.Equal("2 falas", vm.Sheet!.UsesText);
+        Assert.Equal(["長い長い長い台詞", "短い"], vm.Sheet.Lines.Select(l => l.Source));
+        Assert.Equal("Colega de turma. Sempre atrasada.", vm.Sheet.Subtitle);
+        Assert.True(vm.Sheet.HasSubtitle);
+    }
+
+    [Fact]
     public async Task Renomear_o_personagem_com_a_ficha_aberta_troca_as_falas_pelas_do_novo_nome()
     {
         using var temp = new TempFolder();

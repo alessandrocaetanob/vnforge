@@ -32,6 +32,21 @@ public sealed class EditorSearchPanelTests : IDisposable
     }
 
     [Fact]
+    public async Task Clicar_de_novo_no_mesmo_resultado_volta_para_a_linha()
+    {
+        var vm = await Abrir();
+        vm.Search.Pattern = "tradução 2";
+        await vm.Search.FindCommand.ExecuteAsync(null);
+        var linha = vm.Search.Results.Single();
+        vm.Search.SelectedResult = linha;
+        vm.SelectedLine = vm.Lines[0];
+
+        await vm.OpenSearchResultAsync(linha);
+
+        Assert.Equal("yst00001:000002", vm.SelectedLine?.Id);
+    }
+
+    [Fact]
     public async Task Resultado_de_uma_linha_que_nao_existe_mais_avisa_no_Editor()
     {
         var vm = await Abrir();

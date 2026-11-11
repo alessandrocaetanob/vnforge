@@ -303,6 +303,21 @@ public class AddressTermsViewModelTests
     }
 
     [Fact]
+    public async Task Depois_de_renomear_a_pagina_fica_salva_sem_falha()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, terms: Both);
+
+        vm.Characters.Single(c => c.Source == "美咲").Source = "みさき";
+        Assert.True(vm.IsDirty);
+        vm.Flush();
+
+        Assert.False(vm.IsDirty);
+        Assert.False(vm.SaveFailed);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Sugestao_pendente_da_IA_segue_o_nome_novo_e_continua_sugestao()
     {
         var fake = new FakeGlossarySuggester(address: (_, _) => [new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan")]);

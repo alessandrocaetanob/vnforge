@@ -47,6 +47,51 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
     /// <summary>A sobrancelha diz "a chave do Claude": o nome do produto, não o do modelo, e a frase fixa do desenho.</summary>
     private const string Sobrancelha = "Valem só para este projeto. A chave do Claude fica guardada no Windows.";
 
+    [Fact]
+    public async Task A_aba_IA_e_gasto_nao_mostra_modelo_variavel_nem_DPAPI_fora_dos_detalhes_tecnicos()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
+        var vm = Criar(temp, environmentKey: "sk-ant-chave-do-teste");
+        vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
+        await vm.EstimateLoading;
+        vm.ExchangeRateText = "5,40";
+        vm.SpendLimitText = "300";
+        await vm.TestConnectionCommand.ExecuteAsync(null);
+        vm.ChangeKeyCommand.Execute(null);
+        Assert.True(vm.ConnectionOk);
+        string[] proibidos = ["Claude ", "Haiku", "Sonnet", "Opus", "DPAPI", "ANTHROPIC", "token"];
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Abrir(vm);
+                try
+                {
+                    var textos = window.GetVisualDescendants()
+                        .Where(v => !v.GetVisualAncestors().OfType<TechnicalDetails>().Any() && v is not TechnicalDetails)
+                        .SelectMany(TextosVisiveis)
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .ToList();
+
+                    Assert.Contains(Sobrancelha, textos);
+                    textos.Remove(Sobrancelha);
+
+                    Assert.Contains("Conexão funcionando.", textos);
+                    Assert.Contains("Qualidade padrão", textos);
+                    foreach (var proibido in proibidos)
+                    {
+                        Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
+                    }
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            CancellationToken.None);
+    }
+
     [Theory]
     [InlineData("sjis", "o teste no jogo recusa as letras acentuadas")]
     [InlineData("remap", "A fonte modificada ainda não está pronta.")]

@@ -52,6 +52,20 @@ public class EditorDetailTests : IDisposable
     }
 
     [Fact]
+    public async Task Alt_Cima_e_Alt_Baixo_do_painel_movem_a_selecao_e_gravam_antes()
+    {
+        var vm = await Abrir();
+        vm.Detail!.Translation = "Primeira";
+
+        vm.Detail.NextCommand.Execute(null);
+        Assert.Equal("yst00001:000001", vm.SelectedLine?.Id);
+        Assert.Equal("Primeira", Gravada(0).Translation);
+
+        vm.Detail!.PreviousCommand.Execute(null);
+        Assert.Equal("yst00001:000000", vm.SelectedLine?.Id);
+    }
+
+    [Fact]
     public async Task Aprovar_a_ultima_linha_mantem_a_selecao_e_o_painel()
     {
         var vm = await Abrir();

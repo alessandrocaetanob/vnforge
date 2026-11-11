@@ -173,6 +173,32 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Criar_grava_o_vnforge_json_com_as_escolhas_e_vai_para_o_passo_final()
+    {
+        var vm = await AtNamesStepAsync();
+        vm.ProjectName = "Minha VN — PT-BR";
+        vm.SourceLanguages.Select("en");
+        vm.TargetLanguages.Select("es");
+        await vm.NextCommand.ExecuteAsync(null);
+        vm.EncodingStrategies.Select("cp1252");
+        await vm.NextCommand.ExecuteAsync(null);
+        vm.Models.Select("claude-sonnet-5-5");
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Done, vm.Step);
+        Assert.Null(vm.ErrorMessage);
+        var config = ProjectFolder.Open(ProjectPath()).LoadConfig();
+        Assert.Equal("Minha VN — PT-BR", config.Name);
+        Assert.Equal(new LanguagesConfig("en", "es"), config.Languages);
+        Assert.Equal(new EncodingConfig("cp1252"), config.Encoding);
+        Assert.Equal("claude-sonnet-5-5", config.Ai.Model);
+        Assert.Equal("Jogo.exe", config.Game.Exe);
+        Assert.Equal(new EngineConfig("yuris", 500, "0xD36FAC96"), config.Engine);
+        Assert.Contains("Minha VN — PT-BR", vm.CreatedSummary);
+    }
+
+    [Fact]
     public async Task Pasta_que_ja_tem_projeto_nao_e_sobrescrita()
     {
         SampleProjects.Create(ProjectPath(), "Existente");

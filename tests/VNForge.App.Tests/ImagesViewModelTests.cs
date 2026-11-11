@@ -159,6 +159,22 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task UndoGoesBackToWhatIsSaved()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.Text = "Portão";
+        await vm.MarkCommand.ExecuteAsync(null);
+        vm.Text = "Outra coisa";
+        Assert.True(vm.CanUndo);
+
+        vm.UndoCommand.Execute(null);
+
+        Assert.Equal("Portão", vm.Text);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
     public async Task TheStateTextFollowsTheEditAndTheChipsReadTheirCountAsText()
     {
         var vm = Open();

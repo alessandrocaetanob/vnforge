@@ -197,6 +197,21 @@ public class LineDetailViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Id_que_nao_esta_no_arquivo_vira_mensagem_e_a_edicao_continua_pendente()
+    {
+        var unidade = Gravada(raiz, 0) with { Id = "yst00001:999999" };
+        using var vm = Abrir(0, unidade);
+
+        vm.Translation = "Oi";
+        relogio.Advance(LineDetailViewModel.SaveDelay);
+
+        Assert.Contains("Não foi possível gravar", vm.ErrorMessage);
+        Assert.Contains("yst00001:999999", vm.ErrorMessage);
+        vm.NextCommand.Execute(null);
+        Assert.Equal(0, navegador.Next);
+    }
+
+    [Fact]
     public void Aprovar_com_erro_ao_gravar_nao_avanca()
     {
         var caminho = ProjectFolder.Open(raiz).TextPath("yst00001");

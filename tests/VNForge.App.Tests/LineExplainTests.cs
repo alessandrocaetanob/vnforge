@@ -72,6 +72,31 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
+    public async Task Recusa_do_modelo_vira_mensagem_em_portugues_e_deixa_pedir_de_novo()
+    {
+        var servico = new ServicoFalso(erro: new ClaudeRefusalException("A IA recusou explicar esta fala."));
+        using var vm = Abrir(servico);
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.Equal("A IA recusou explicar esta fala.", vm.ExplainError);
+        Assert.Empty(vm.ExplainParts);
+
+        servico.Erro = null;
+        servico.Resposta = Resposta;
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ExplainError);
+        Assert.True(vm.IsExplainOpen);
+        Assert.Equal(2, vm.ExplainParts.Count);
+        Assert.Equal(2, servico.Pedidos);
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsExplainOpen);
+    }
+
+    [Fact]
     public async Task Servico_do_app_sem_chave_avisa_e_com_chave_usa_o_explicador_do_projeto()
     {
         string? chave = null;

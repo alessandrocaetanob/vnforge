@@ -129,4 +129,28 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
 
         Assert.Empty(problems);
     }
+
+    [Fact]
+    public async Task Conferencia_em_tela_larga_so_estica_a_lista_de_problemas()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWithProblem(temp);
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
+        await vm.ConferenceLoading;
+        var widths = new List<double>();
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Open(vm, 2560);
+                widths.AddRange(window.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("panel") && b.IsEffectivelyVisible).Select(b => b.Bounds.Width));
+                window.Close();
+            },
+            CancellationToken.None);
+
+        // O painel mantém a largura do quadro v3 (384); a lista de problemas fica com o resto.
+        Assert.Equal(2, widths.Count);
+        Assert.Equal(384, widths[1], 1);
+        Assert.True(widths[0] > 1500);
+    }
 }
