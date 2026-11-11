@@ -23,16 +23,6 @@ public class TranslationResponseValidatorTests
     }
 
     [Fact]
-    public void Id_ausente_e_problema()
-    {
-        var report = TranslationResponseValidator.Validate(Batch(("a", "x"), ("b", "y")), [new("a", "x2")]);
-
-        var problem = Assert.Single(report.Problems);
-        Assert.Equal("b", problem.Id);
-        Assert.Equal(TranslationProblemKind.MissingId, problem.Kind);
-    }
-
-    [Fact]
     public void Marcador_perdido_e_problema()
     {
         var report = TranslationResponseValidator.Validate(Batch(("a", @"Oi\p")), [new("a", "Hi")]);
@@ -87,6 +77,25 @@ public class ValidatingTranslationProviderTests
 {
     private static TextUnit Unit(string id, string source) =>
         new(id, TextUnitKind.Dialogue, null, source, null, TranslationStatus.Untranslated);
+
+    [Fact]
+    public async Task Reenvia_so_o_id_ausente()
+    {
+        var first = true;
+        var inner = new ScriptedProvider(batch =>
+        {
+            var skip = first;
+            first = false;
+            return [.. batch.Lines.Where(l => !skip || l.Id != "b").Select(l => new TranslationResult(l.Id, l.Source))];
+        });
+        var provider = new ValidatingTranslationProvider(inner);
+
+        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "x"), Unit("b", "y")]), CancellationToken.None);
+
+        Assert.Equal(["a", "b"], results.Select(r => r.Id));
+        Assert.Equal(["a", "b"], inner.Batches[0].Lines.Select(l => l.Id));
+        Assert.Equal(["b"], inner.Batches[1].Lines.Select(l => l.Id));
+    }
 
     [Fact]
     public async Task Esgotadas_as_tentativas_a_linha_volta_marcada_para_revisao()

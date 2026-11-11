@@ -38,6 +38,7 @@ public sealed class AppBudgetFileTests : IDisposable
     [Theory]
     [InlineData("""{ "spendLimit": "muito" }""", "spendLimit")]
     [InlineData("""{ "spendLimit": -5 }""", "spendLimit")]
+    [InlineData("""{ "spendLimit": 1e40 }""", "spendLimit")]
     public void Valor_de_dinheiro_invalido_vira_problema(string content, string field)
     {
         Write(content);
@@ -46,6 +47,25 @@ public sealed class AppBudgetFileTests : IDisposable
 
         Assert.NotNull(reading.Problem);
         Assert.Contains(field, reading.Problem);
+    }
+
+    [Fact]
+    public void Aviso_ou_cotacao_invalidos_com_limite_valido_nao_bloqueiam()
+    {
+        Write("""{ "spendLimit": 100, "warnAbove": "x", "exchangeRate": 500 }""");
+
+        var reading = AppBudgetFile.Load(_dir);
+
+        Assert.Null(reading.Problem);
+        Assert.Equal(100m, reading.Settings.Limits.Limit);
+    }
+
+    [Fact]
+    public void Campo_nulo_ou_ausente_nao_e_problema()
+    {
+        Write("""{ "spendLimit": null, "concurrency": 3 }""");
+
+        Assert.Null(AppBudgetFile.Load(_dir).Problem);
     }
 
     [Theory]

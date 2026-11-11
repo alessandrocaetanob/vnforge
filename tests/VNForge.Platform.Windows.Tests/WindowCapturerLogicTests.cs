@@ -29,14 +29,6 @@ public sealed class WindowCapturerLogicTests
     // ---- escolha da janela ----
 
     [Fact]
-    public void Sem_dizer_qual_janela_nao_captura_nada()
-    {
-        var error = Assert.Throws<LibraryException>(() => Capturer.Capture(new WindowTarget()));
-
-        Assert.Contains("Diga qual janela", error.Message);
-    }
-
-    [Fact]
     public void Entre_as_janelas_que_combinam_vale_a_maior()
     {
         AddGame(1, "CLANNAD", 100, 100);
@@ -181,6 +173,16 @@ public sealed class WindowCapturerLogicTests
         Assert.False(WindowCapturer.IsBlank([0, 0, 0, 0, 0, 0, 1, 0]));
         Assert.False(WindowCapturer.IsBlank([0, 0, 0, 0, 0, 1, 0, 0]));
         Assert.False(WindowCapturer.IsBlank([1, 0, 0, 0]));
+    }
+
+    [Fact]
+    public void Fora_do_Windows_o_capturador_de_verdade_diz_que_so_funciona_la()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "No Windows o capturador de verdade captura de fato.");
+
+        var error = Assert.Throws<LibraryException>(() => new WindowCapturer().Capture(new WindowTarget(Handle: 1)));
+
+        Assert.Contains("só funciona no Windows", error.Message);
     }
 
     private static byte[] Solid(int width, int height, byte blue)

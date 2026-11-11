@@ -54,6 +54,19 @@ public sealed class BatchEstimateTests : IDisposable
     }
 
     [Fact]
+    public void Lote_todo_no_cache_nao_custa_nada()
+    {
+        var cache = new TranslationCache();
+        var batch = new TranslationBatch([Line(0)]);
+        cache.Set(TranslationCache.KeyFor(batch.Lines[0], TranslationCache.ContextFor(ClaudeModels.Opus, batch)), "sim");
+
+        var estimate = CostEstimator.EstimateBatch(batch, ClaudeModels.Opus, ClaudeEffort.High, cache);
+
+        Assert.Equal(0m, estimate.Dollars);
+        Assert.Equal(1, estimate.CachedLines);
+    }
+
+    [Fact]
     public void O_estimador_do_pedido_divide_em_lotes_do_tamanho_da_execucao()
     {
         var project = Project();

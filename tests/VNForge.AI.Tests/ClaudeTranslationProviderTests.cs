@@ -119,6 +119,16 @@ public class ClaudeTranslationProviderTests
         Assert.Equal(new TranslationResult("a", "Oi"), Assert.Single(results));
     }
 
+    [Fact]
+    public async Task Uso_da_recusa_tambem_e_contado()
+    {
+        var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(10, 0, 5, 0))));
+
+        await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None);
+
+        Assert.Equal(5, provider.Usage.CacheReadInputTokens);
+    }
+
     [Theory]
     [InlineData("não é json")]
     [InlineData("""{"translations":[{"id":"zzz","translation":"x"}]}""")]

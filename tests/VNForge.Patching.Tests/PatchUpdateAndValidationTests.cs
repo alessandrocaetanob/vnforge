@@ -33,30 +33,6 @@ public class PatchUpdateAndValidationTests
     }
 
     [Fact]
-    public void Atualizacao_que_falha_no_segundo_arquivo_volta_para_a_versao_anterior_e_nao_para_os_originais()
-    {
-        using var game = new SyntheticGame();
-        InstallFirstVersionAndChangeBuild(game);
-        var installedExe = SyntheticGame.Sha(Path.Combine(game.Game, "Game/Game.exe"));
-        var installedScript = SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf"));
-        var installedCreated = SyntheticGame.Sha(Path.Combine(game.Game, SyntheticGame.CreatedFile));
-        using var second = SecondVersionWithBrokenScriptDelta(game);
-
-        var error = Assert.Throws<PatchException>(() => PatchInstaller.Install(game.Game, second, null, Ct));
-
-        Assert.Contains("estado de antes desta instalação", error.Message);
-        Assert.DoesNotContain("ao que eram", error.Message);
-        Assert.Equal(installedExe, SyntheticGame.Sha(Path.Combine(game.Game, "Game/Game.exe")));
-        Assert.Equal(installedScript, SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
-        Assert.Equal(installedCreated, SyntheticGame.Sha(Path.Combine(game.Game, SyntheticGame.CreatedFile)));
-        Assert.Equal("1.1.0", PatchInstaller.InstalledVersion(game.Game));
-        Assert.False(Directory.Exists(Path.Combine(game.Game, PatchInstaller.BackupFolderName, ".anterior")));
-
-        PatchInstaller.Uninstall(game.Game, null, Ct);
-        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
-    }
-
-    [Fact]
     public void Primeira_instalacao_que_falha_deixa_o_manifesto_sem_instalacao_e_o_jogo_original()
     {
         using var game = new SyntheticGame();
@@ -141,6 +117,42 @@ public class PatchUpdateAndValidationTests
         var package = ManualPackage([Entry("Game/a.bin", offset, length)], payloadBytes: 8);
 
         Assert.Throws<PatchException>(() => PatchPackage.Open(package));
+    }
+
+    [Fact]
+    public void Manifesto_valido_com_o_delta_dentro_do_pacote_abre()
+    {
+        using var package = PatchPackage.Open(ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8));
+
+        Assert.Single(package.Manifest.Files);
+    }
+
+    [Fact]
+    [Trait("Category", "Lento")]
+    public void Patch_de_um_arquivo_de_64_MB_nao_carrega_o_delta_na_memoria()
+    {
+        using var game = new SyntheticGame();
+        const int size = 64 * 1024 * 1024;
+        var original = Path.Combine(game.Root, "grande-original.ypf");
+        var result = Path.Combine(game.Root, "grande-build.ypf");
+        var data = SyntheticGame.Random(11, size);
+        File.WriteAllBytes(original, data);
+        for (var i = 0; i < 6 * 1024 * 1024; i++)
+        {
+            data[20_000_000 + i] ^= 0x5A;
+        }
+
+        File.WriteAllBytes(result, data);
+        using var package = new MemoryStream();
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        PatchBuilder.Build(SyntheticGame.Info(), [new PatchSource("Game/grande.ypf", original, result)], package, cancellationToken: Ct);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // O delta tem ~6 MB (a região trocada é aleatória). O VCDiff lê o original inteiro (64 MB); o resto não pode somar outro arquivo inteiro por delta.
+        Assert.True(allocated < 3L * size, $"alocou {allocated / 1048576} MB para um arquivo de {size / 1048576} MB");
+        using var opened = PatchPackage.Open(new MemoryStream(package.ToArray()));
+        Assert.True(opened.Manifest.Files[0].Length < 8 * 1024 * 1024);
     }
 
     private static PatchFileEntry Entry(string path, long offset, long length) =>

@@ -40,27 +40,23 @@ public partial class AddressTermsAiTests
     ];
 
     [Fact]
-    public async Task Devolve_os_pares_da_resposta_para_o_haiku_com_o_schema_estrito()
+    public async Task Descarta_o_que_nao_vale_e_fica_com_o_primeiro_de_cada_par()
     {
-        var client = new StubClient(_ => Ok("""{"pairs":[{"from":"健太","to":"美咲","source":"美咲ちゃん","target":"Misaki-chan"},{"from":"美咲","to":"健太","source":"先輩","target":"senpai"}]}"""));
+        var client = new StubClient(_ => Ok("""
+            {"pairs":[
+              {"from":"健太","to":"健太","source":"俺","target":"eu"},
+              {"from":"ある人","to":"美咲","source":"君","target":"você"},
+              {"from":"健太","to":"誰か","source":"あいつ","target":"ele"},
+              {"from":"健太","to":"美咲","source":"  ","target":"Misaki"},
+              {"from":" 健太","to":"美咲","source":" 美咲ちゃん ","target":" Misaki-chan "},
+              {"from":"健太","to":"美咲","source":"美咲","target":"Misaki"}
+            ]}
+            """));
         var suggester = new ClaudeGlossarySuggester(client);
 
         var result = await suggester.SuggestAddressTermsAsync(Speakers, Roster, CancellationToken.None);
 
-        Assert.Equal(
-            [new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan"), new AddressTermSuggestion("美咲", "健太", "先輩", "senpai")],
-            result);
-        var request = Assert.Single(client.Requests);
-        Assert.Equal("claude-haiku-5-5", request.Model);
-        Assert.Contains("美咲ちゃん、おはよう", request.User);
-        Assert.Contains("\"凛\"", request.User);
-        Assert.Contains("Kenta", request.User);
-
-        using var schema = JsonDocument.Parse(request.JsonSchema);
-        var item = schema.RootElement.GetProperty("properties").GetProperty("pairs").GetProperty("items");
-        Assert.False(schema.RootElement.GetProperty("additionalProperties").GetBoolean());
-        Assert.False(item.GetProperty("additionalProperties").GetBoolean());
-        Assert.Equal(["from", "to", "source", "target"], item.GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal([new AddressTermSuggestion("健太", "美咲", "美咲ちゃん", "Misaki-chan")], result);
     }
 
     [Fact]

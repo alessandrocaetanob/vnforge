@@ -68,6 +68,17 @@ public class VndbTokenResolverTests
     }
 
     [Fact]
+    public void Fora_do_windows_o_cofre_manda_usar_a_variavel_de_ambiente()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Só vale fora do Windows.");
+        using var dir = new TempDir();
+
+        var erro = Assert.Throws<VndbException>(() => new DpapiVndbTokenStore(dir.Path).Save("x"));
+
+        Assert.Contains("VNDB_TOKEN", erro.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Arquivo_do_Windows_copiado_para_outro_sistema_e_ignorado_com_aviso_e_a_variavel_vale()
     {
         using var dir = new TempDir();

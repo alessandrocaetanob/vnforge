@@ -123,6 +123,28 @@ public class PatchRoundTripTests
     }
 
     [Fact]
+    public void Patch_novo_instala_por_cima_do_anterior_e_desinstalar_ainda_devolve_o_jogo_original()
+    {
+        using var game = new SyntheticGame();
+        using (var first = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info("1.1.0"))))
+        {
+            PatchInstaller.Install(game.Game, first, null, Ct);
+        }
+
+        var script = File.ReadAllBytes(Path.Combine(game.Build, "Game/script.ypf"));
+        script[500] ^= 0x33;
+        File.WriteAllBytes(Path.Combine(game.Build, "Game/script.ypf"), script);
+        using var second = PatchPackage.Open(game.BuildPackage(SyntheticGame.Info("1.2.0", "1.1.0")));
+
+        Assert.Equal(PatchCheckState.Ready, PatchInstaller.Check(game.Game, second).State);
+        PatchInstaller.Install(game.Game, second, null, Ct);
+
+        Assert.Equal(SyntheticGame.Sha(Path.Combine(game.Build, "Game/script.ypf")), SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
+        PatchInstaller.Uninstall(game.Game, null, Ct);
+        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
+    }
+
+    [Fact]
     public void Arquivo_mexido_depois_da_instalacao_nao_e_sobrescrito_pela_desinstalacao()
     {
         using var game = new SyntheticGame();

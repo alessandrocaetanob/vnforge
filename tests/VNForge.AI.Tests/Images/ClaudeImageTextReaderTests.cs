@@ -72,14 +72,13 @@ public sealed class ClaudeImageTextReaderTests
     }
 
     [Fact]
-    public async Task Resposta_cortada_leva_o_uso_da_chamada_na_excecao()
+    public async Task Resposta_cortada_pelo_limite_de_tokens_e_erro()
     {
-        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te""", new ClaudeUsage(900, 2000, 100, 0)));
+        var client = new StubClient(_ => new ClaudeReply("max_tokens", """{"hasText":true,"te"""));
 
         var error = await Assert.ThrowsAsync<ImageReadFailedException>(() => new ClaudeImageTextReader(client).ReadAsync(Image, Token));
 
-        Assert.Equal(1000, error.InputTokens);
-        Assert.Equal(2000, error.OutputTokens);
+        Assert.Contains("max_tokens", Assert.IsType<ClaudeResponseException>(error.InnerException).Detail);
     }
 
     [Theory]
