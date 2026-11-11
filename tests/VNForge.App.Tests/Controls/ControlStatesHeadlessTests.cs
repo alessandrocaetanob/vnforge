@@ -409,6 +409,11 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
             Assert.Equal(36, Part<Grid>(off, "SwitchAreaGrid").Bounds.Width);
             Assert.Equal(36, Part<Border>(off, "OuterBorder").Bounds.Width);
             Assert.Equal(36, Part<Border>(on, "SwitchKnobBounds").Bounds.Width);
+            // Bolinha de 16 e, desligado, trilho cheio de stroke-control com a bolinha na cor do cartão.
+            Assert.Equal(16, Part<Avalonia.Controls.Shapes.Ellipse>(off, "SwitchKnobOff").Bounds.Width);
+            Assert.Equal(16, Part<Avalonia.Controls.Shapes.Ellipse>(on, "SwitchKnobOn").Bounds.Width);
+            Assert.Equal(Token(off, "Vnf.StrokeControl"), ColorOf(Part<Border>(off, "OuterBorder").Background));
+            Assert.Equal(Token(off, "Vnf.BgCard"), ColorOf(Part<Avalonia.Controls.Shapes.Ellipse>(off, "SwitchKnobOff").Fill));
             var track = Part<Border>(off, "OuterBorder").Bounds;
             foreach (var (toggle, name) in new[] { (off, "SwitchKnobOff"), (on, "SwitchKnobOn") })
             {
@@ -475,14 +480,21 @@ public class ControlStatesHeadlessTests(HeadlessFixture fixture) : IClassFixture
 
             Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(1).Background));
             Assert.Equal(Token(seg, "Vnf.TextPrimary"), ColorOf(Presenter(1).Foreground));
-            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(0).Background));
-            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(32, i.Bounds.Height));
+            Assert.Equal(Token(seg, "Vnf.StrokeSubtle"), ColorOf(Presenter(1).BorderBrush));
+            Assert.Equal(Token(seg, "Vnf.TextSecondary"), ColorOf(Presenter(0).Foreground));
+            Assert.Equal(Colors.Transparent, ColorOf(Presenter(0).Background));
+            // Pílula inteira de bg-inset, sem contorno e sem divisor; a marcada é uma pílula de 28 a 3 px da borda.
+            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(seg.Background));
+            Assert.Equal(new Thickness(0), seg.BorderThickness);
+            Assert.True(seg.CornerRadius.TopLeft >= 17);
+            Assert.All(seg.GetVisualDescendants().OfType<ListBoxItem>(), i => Assert.Equal(28, i.Bounds.Height));
+            Assert.Equal(new Thickness(3), seg.Padding);
             Assert.Equal(34, seg.Bounds.Height);
 
             seg.SelectedIndex = 2;
             ui.Settle();
             Assert.Equal(Token(seg, "Vnf.BgCard"), ColorOf(Presenter(2).Background));
-            Assert.Equal(Token(seg, "Vnf.BgInset"), ColorOf(Presenter(1).Background));
+            Assert.Equal(Colors.Transparent, ColorOf(Presenter(1).Background));
         });
     }
 

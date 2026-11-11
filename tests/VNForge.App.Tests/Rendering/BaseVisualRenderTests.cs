@@ -160,6 +160,43 @@ public sealed class BaseVisualRenderTests(HeadlessFixture fixture) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public async Task Interruptor_ligado_e_desligado_com_rotulo_e_seletor_Semanas_Lista_batem_com_o_quadro(string themeName)
+    {
+        var theme = Variant(themeName);
+        await OnUi(() =>
+        {
+            var on = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, MinWidth = 0, IsChecked = true };
+            var off = new ToggleSwitch { Classes = { "lib-switch" }, OnContent = null, OffContent = null, MinWidth = 0, IsChecked = false };
+            var seg = new ListBox { Classes = { "seg" }, ItemsSource = new[] { "Semanas", "Lista" }, SelectedIndex = 0 };
+            var panel = new StackPanel
+            {
+                Margin = new Thickness(24),
+                Spacing = 16,
+                Children =
+                {
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { on, new TextBlock { Text = "Incluir subpastas", VerticalAlignment = VerticalAlignment.Center } } },
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { off, new TextBlock { Text = "Ler a pasta de novo ao abrir", VerticalAlignment = VerticalAlignment.Center } } },
+                    seg,
+                },
+            };
+
+            ScreenRenderer.Render(panel, theme, RenderOutput.PathFor(ScreenRenderer.FileName("base-interruptor-e-seletor", theme)), 400, 200, window =>
+            {
+                var stroke = Token(window, "Vnf.StrokeControlColor");
+                var card = Token(window, "Vnf.BgCardColor");
+                var offTrack = PixelProbe.Capture(window, off);
+                Assert.True(offTrack.CountInArea(new Rect(0, 0, offTrack.Width, offTrack.Height), stroke, 2) > 36 * 20 * 0.4);
+                Assert.True(offTrack.CountInArea(new Rect(0, 0, offTrack.Width, offTrack.Height), card, 2) > 100);
+
+                Assert.Equal(36, on.Bounds.Width);
+                Assert.InRange(seg.Bounds.Width, 158, 163);
+                Assert.Equal(34, seg.Bounds.Height);
+            });
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public async Task Titulo_de_pagina_nao_corta_a_descendente_e_a_sobrancelha_usa_a_fonte_da_interface(string themeName)
     {
         var theme = Variant(themeName);
