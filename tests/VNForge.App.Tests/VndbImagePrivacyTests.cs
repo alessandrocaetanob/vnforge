@@ -303,9 +303,8 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
                     Assert.True(Directory.Exists(config), "o leitor cria a pasta antes de observar");
                     window.Show();
                     ScreenRenderer.Settle(window);
-                    // Sem arquivo vale o padrão, Blur: a imagem aparece, desfocada.
-                    Assert.True(portrait.HasImage);
-                    Assert.True(portrait.IsBlurred);
+                    // Sem arquivo vale o padrão, Blur: a imagem aparece, desfocada. O download e a decodificação rodam fora da UI, então a imagem chega depois do Show.
+                    await WaitUntil(() => portrait.HasImage && portrait.IsBlurred, window);
 
                     SetAdult(config, showAdult: true);
                     await WaitUntil(() => portrait.HasImage && !portrait.IsBlurred, window);
