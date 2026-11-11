@@ -115,12 +115,14 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
         Assert.True(shownFilled.Shows("Jogo de referência"));
         Assert.False(shownFilled.Shows("Opcional"));
         Assert.False(hidden.Shows("Opcional"));
+        Assert.Equal(hidden.Widths["Nome do instalador"], hidden.Widths["Número da versão"]);
+        Assert.True(shown.Widths["Número da versão"] < shown.Widths["Nome do instalador"] / 2 + 1);
         Assert.Equal(hidden.CardHeight, shown.CardHeight);
         Assert.Equal(hidden.CardHeight, shownFilled.CardHeight);
     }
 
     /// <summary>O que a tela mostrou: onde cada campo caiu e se um nome apareceu.</summary>
-    private sealed record Inspection(Dictionary<string, Point> Positions, HashSet<string> Names, Dictionary<string, string?> Placeholders, double CardHeight)
+    private sealed record Inspection(Dictionary<string, Point> Positions, HashSet<string> Names, Dictionary<string, string?> Placeholders, double CardHeight, Dictionary<string, double> Widths)
     {
         public bool Shows(string name) => Names.Contains(name);
     }
@@ -131,6 +133,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
         var names = new HashSet<string>();
         var placeholders = new Dictionary<string, string?>();
         var cardHeight = 0.0;
+        var widths = new Dictionary<string, double>();
         Render(host, screen, theme, window =>
         {
             foreach (var control in window.GetVisualDescendants().OfType<TextBox>().Where(c => c.IsEffectivelyVisible && c.Bounds.Height > 0))
@@ -139,6 +142,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
                 {
                     positions[name] = point;
                     placeholders[name] = control.PlaceholderText;
+                    widths[name] = control.Bounds.Width;
                     names.Add(name);
                 }
             }
@@ -146,7 +150,7 @@ public sealed class ReleaseRenderTests(HeadlessFixture fixture) : IClassFixture<
             cardHeight = window.GetVisualDescendants().OfType<Control>().First(c => c.GetValue(Avalonia.Automation.AutomationProperties.NameProperty) == "A versão").Bounds.Height;
             names.UnionWith(window.GetVisualDescendants().OfType<TextBlock>().Where(c => c.IsEffectivelyVisible && c.Text is not null).Select(c => c.Text!));
         });
-        return new Inspection(positions, names, placeholders, cardHeight);
+        return new Inspection(positions, names, placeholders, cardHeight, widths);
     }
 
     [Theory]

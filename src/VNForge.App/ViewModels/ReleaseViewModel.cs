@@ -219,7 +219,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
     public partial ProjectSummary? Project { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsReady), nameof(IsGenerating), nameof(IsDone), nameof(IsBlocked), nameof(ShowReceived), nameof(ShowChanges), nameof(ShowGameFiles), nameof(GenerateLabel), nameof(ShowTestShortcut), nameof(ShowErrorsShortcut), nameof(ShowGameVersionField), nameof(GameVersionError), nameof(HasGameVersionError))]
+    [NotifyPropertyChangedFor(nameof(IsReady), nameof(IsGenerating), nameof(IsDone), nameof(IsBlocked), nameof(ShowReceived), nameof(ShowChanges), nameof(ShowGameFiles), nameof(GenerateLabel), nameof(ShowTestShortcut), nameof(ShowErrorsShortcut), nameof(ShowGameVersionField), nameof(VersionColumnSpan), nameof(GameVersionError), nameof(HasGameVersionError))]
     public partial ReleasePhase Phase { get; private set; }
 
     [ObservableProperty]
@@ -364,6 +364,9 @@ public sealed partial class ReleaseViewModel : ObservableObject
     /// <summary>O campo "Versão do jogo" só aparece quando o executável do jogo não traz versão: com ela, o Core a lê sozinho.</summary>
     public bool ShowGameVersionField => IsReady && readiness is { GameVersion: null or "" };
 
+    /// <summary>Quantas colunas o Número da versão ocupa na célula do formulário: uma ao lado da Versão do jogo, as duas sem ela.</summary>
+    public int VersionColumnSpan => ShowGameVersionField ? 1 : 2;
+
     /// <summary>A versão do jogo digitada, ou nulo quando o campo está oculto ou vazio (o patch segue sem versão, e o botão de gerar fica ativo).</summary>
     private string? TypedGameVersion() => ShowGameVersionField ? GameConfig.NormalizeVersion(GameVersion) : null;
 
@@ -423,6 +426,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         gameVersionEdited = false;
         SetGameVersion(string.Empty);
         OnPropertyChanged(nameof(ShowGameVersionField));
+        OnPropertyChanged(nameof(VersionColumnSpan));
         OnPropertyChanged(nameof(GameVersionHelp));
         OnPropertyChanged(nameof(OutputError));
         OnPropertyChanged(nameof(HasOutputError));
@@ -559,6 +563,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(ShowGameVersionField));
+        OnPropertyChanged(nameof(VersionColumnSpan));
         OnPropertyChanged(nameof(GameVersionHelp));
         GameFolder = read.GameFolder;
         GameFolderLabel = read.GameVersion is { Length: > 0 } found ? $"{read.GameFolder} (versão {found})" : read.GameFolder;
