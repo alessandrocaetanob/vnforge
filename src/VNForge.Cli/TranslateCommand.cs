@@ -70,7 +70,7 @@ internal static partial class TranslateCommand
 
         if (WantsBatch(parseResult))
         {
-            return await RunBatchAsync(cli, parseResult, output, error, json, project, settings, filter, limit, statuses, selection, builder, cache, token).ConfigureAwait(false);
+            return await RunBatchAsync(cli, parseResult, new BatchConsole(output, error, json), project, new BatchScope(settings, filter, limit, statuses, selection, builder, cache), token).ConfigureAwait(false);
         }
 
         if (parseResult.GetValue(Common.DryRun))

@@ -344,7 +344,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             var l = scalar.Get(local);
             var r = scalar.Get(remote);
             LibrarySyncWinner? chosen = options.Resolutions.TryGetValue((game.Id, scalar.Name), out var decided) ? decided : null;
-            switch (DecideScalar(scalar, l, r, scalar.Get(baseFields), hasBase, direction, localNewer, conflicts, chosen))
+            switch (DecideScalar(scalar, new ScalarValues(l, r, scalar.Get(baseFields), hasBase), direction, localNewer, conflicts, chosen))
             {
                 case Move.Pull:
                     newLocal = scalar.Set(newLocal, r);
@@ -396,8 +396,11 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         return new LibrarySyncStep(item, newState, changed, update);
     }
 
-    private static Move DecideScalar(Scalar scalar, object? l, object? r, object? b, bool hasBase, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts, LibrarySyncWinner? chosen)
+    private sealed record ScalarValues(object? Local, object? Remote, object? Base, bool HasBase);
+
+    private static Move DecideScalar(Scalar scalar, ScalarValues values, LibrarySyncDirection direction, bool localNewer, List<LibrarySyncConflict> conflicts, LibrarySyncWinner? chosen)
     {
+        var (l, r, b, hasBase) = values;
         if (Equals(l, r))
         {
             return Move.Keep;

@@ -38,22 +38,27 @@ internal static partial class TranslateCommand
 
     private static bool WantsBatch(ParseResult parseResult) => parseResult.GetValue(BatchOption) || parseResult.GetValue(CancelBatchOption);
 
+    private sealed record BatchConsole(TextWriter Output, TextWriter Error, bool Json);
+
+    private sealed record BatchScope(
+        AiRunSettings Settings,
+        System.Text.RegularExpressions.Regex? Filter,
+        int? Limit,
+        HashSet<TranslationStatus> Statuses,
+        LineSelection Selection,
+        TranslationBatchBuilder Builder,
+        TranslationCache Cache);
+
     private static async Task<int> RunBatchAsync(
         VnfCli cli,
         ParseResult parseResult,
-        TextWriter output,
-        TextWriter error,
-        bool json,
+        BatchConsole console,
         ProjectFolder project,
-        AiRunSettings settings,
-        System.Text.RegularExpressions.Regex? filter,
-        int? limit,
-        HashSet<TranslationStatus> statuses,
-        LineSelection selection,
-        TranslationBatchBuilder builder,
-        TranslationCache cache,
+        BatchScope scope,
         CancellationToken token)
     {
+        var (output, error, json) = console;
+        var (settings, filter, limit, statuses, selection, builder, cache) = scope;
         var open = new NightBatchStore(project).Open();
         bool Wanted(TextUnit u) => statuses.Contains(u.Status) && !string.IsNullOrWhiteSpace(u.Source);
         IMessageBatchClient Client() => cli.MessageBatchClientFactory?.Invoke() ?? ClaudeProviderFactory.CreateBatchClient(RequireApiKey(cli));

@@ -150,7 +150,7 @@ internal static class ImagesCommand
         }
 
         var exitCode = result.Failed.Count > 0 || result.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        WriteResult(output, json, model, listing, plan, estimate, result, usage, exitCode);
+        WriteResult(output, json, model, new ScanContext(listing, plan, estimate), result, usage, exitCode);
         token.ThrowIfCancellationRequested();
         return exitCode;
     }
@@ -303,14 +303,16 @@ internal static class ImagesCommand
         };
     }
 
+    private sealed record ScanContext(ImageListing Listing, ImageScanPlan Plan, CostEstimate Estimate);
+
     private static void WriteResult(
-        TextWriter output, bool json, string model, ImageListing listing, ImageScanPlan plan, CostEstimate estimate, ImageScanResult result, ClaudeUsage? usage, int exitCode)
+        TextWriter output, bool json, string model, ScanContext scan, ImageScanResult result, ClaudeUsage? usage, int exitCode)
     {
         var dollars = RunCostTracker.DollarsFor(model, usage);
         var withText = result.Entries.Where(e => e.HasText).ToList();
         if (json)
         {
-            var data = JsonBase(model, false, listing, plan, estimate);
+            var data = JsonBase(model, false, scan.Listing, scan.Plan, scan.Estimate);
             data["read"] = result.Read;
             data["withText"] = withText.Count;
             data["inventory"] = result.Entries.Count;
