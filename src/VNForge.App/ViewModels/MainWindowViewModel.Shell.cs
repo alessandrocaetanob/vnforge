@@ -87,7 +87,34 @@ public sealed partial class MainWindowViewModel
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
 
     /// <summary>"Biblioteca › Amaoto no Hakoniwa" dentro do jogo e nos Ajustes de um projeto aberto; "Ajustes" nos Ajustes sem projeto; "Biblioteca" no resto.</summary>
-    public string Breadcrumb => InGame && SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing ? $"Biblioteca › {ProjectTitle} › Revisar a ficha" : InGame || (HasProject && selectedNav?.Key == NavKey.Settings) ? $"Biblioteca › {ProjectTitle}" : selectedNav?.Key == NavKey.Settings ? "Ajustes" : selectedNav?.Key == NavKey.Characters ? (Characters.OpenName is { } name ? $"Personagens › {name}" : "Personagens") : "Biblioteca";
+    public string Breadcrumb
+    {
+        get
+        {
+            var inSettings = selectedNav?.Key == NavKey.Settings;
+            if (InGame && SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing)
+            {
+                return $"Biblioteca › {ProjectTitle} › Revisar a ficha";
+            }
+
+            if (InGame || (HasProject && inSettings))
+            {
+                return $"Biblioteca › {ProjectTitle}";
+            }
+
+            if (inSettings)
+            {
+                return "Ajustes";
+            }
+
+            if (selectedNav?.Key == NavKey.Characters)
+            {
+                return Characters.OpenName is { } name ? $"Personagens › {name}" : "Personagens";
+            }
+
+            return "Biblioteca";
+        }
+    }
 
     /// <summary>Atraso entre gravar uma linha e reler o andamento do jogo para o cabeçalho; várias gravações seguidas fazem uma leitura só.</summary>
     public TimeSpan ProgressRefreshDelay { get; set; } = TimeSpan.FromMilliseconds(1500);
@@ -98,7 +125,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>Há um jogo aberto antes e a página de agora é a Biblioteca ou os Ajustes: o botão da barra de título volta a ele.</summary>
     public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Characters or NavKey.Settings;
 
-    /// <summary>Verde quando o jogo está todo pronto, neutro quando nada foi feito, azul no meio.</summary>
+    /// <summary>Verde quando o jogo está completo, neutro quando nada foi feito, azul no meio.</summary>
     public bool GameProgressDone => GameProgress.Percent(ReadyLines, TotalLines) >= 100;
 
     public bool GameProgressNone => GameProgress.Percent(ReadyLines, TotalLines) == 0;
@@ -202,6 +229,11 @@ public sealed partial class MainWindowViewModel
         if (CurrentProject is { } opened && !ReferenceEquals(opened, before))
         {
             SelectedNav = sheetItem;
+        }
+        else if (Start.ErrorMessage is { Length: > 0 } problem)
+        {
+            // Não depende do PropertyChanged de Start.ErrorMessage: o mesmo erro duas vezes seguidas não o dispara de novo.
+            Library.ReportProblem(problem);
         }
     }
 

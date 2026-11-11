@@ -8,22 +8,24 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
 {
     /// <summary>Confirma <paramref name="vndbId"/> (um dos candidatos, ou outro que a pessoa digitou) para o jogo.</summary>
     /// <exception cref="LibraryException">O jogo não existe, ou o VNDB não tem o id.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> parou a espera pela trava do arquivo.</exception>
     /// <exception cref="VNForge.Core.Vndb.VndbException">O VNDB falhou.</exception>
     public async Task<LibraryGame> ConfirmAsync(string gameId, string vndbId, CancellationToken cancellationToken = default)
     {
-        var game = await Task.Run(() => Get(gameId), CancellationToken.None).ConfigureAwait(false);
+        var game = await Task.Run(() => Get(gameId), cancellationToken).ConfigureAwait(false);
         var confirmed = await matcherFactory().ConfirmAsync(game, vndbId, cancellationToken).ConfigureAwait(false);
-        await Task.Run(() => file.Update(library => library.Replace(confirmed)), CancellationToken.None).ConfigureAwait(false);
+        await Task.Run(() => file.Update(library => Replaced(library, confirmed), cancellationToken), cancellationToken).ConfigureAwait(false);
         return confirmed;
     }
 
     /// <summary>Procura o jogo no VNDB de novo, mesmo que já tenha sido procurado, e guarda os candidatos novos. Não confirma sozinho.</summary>
+    /// <exception cref="LibraryException">O jogo não existe mais na biblioteca.</exception>
     /// <exception cref="VNForge.Core.Vndb.VndbException">O VNDB falhou.</exception>
     public async Task<LibraryGame> SearchAgainAsync(string gameId, CancellationToken cancellationToken = default)
     {
-        var game = await Task.Run(() => Get(gameId), CancellationToken.None).ConfigureAwait(false);
+        var game = await Task.Run(() => Get(gameId), cancellationToken).ConfigureAwait(false);
         var searched = await matcherFactory().MatchAsync(game, new LibraryMatchOptions(), cancellationToken).ConfigureAwait(false);
-        await Task.Run(() => file.Update(library => library.Replace(searched)), CancellationToken.None).ConfigureAwait(false);
+        await Task.Run(() => file.Update(library => Replaced(library, searched), cancellationToken), cancellationToken).ConfigureAwait(false);
         return searched;
     }
 
@@ -65,6 +67,12 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
 
     /// <summary>Tira o jogo da Biblioteca. A pasta dele não é tocada. Devolve se o jogo estava lá.</summary>
     public bool Remove(string gameId) => file.Update(library => library.Remove(gameId));
+
+    private static LibraryGame Replaced(GameLibrary library, LibraryGame game)
+    {
+        library.Replace(game);
+        return game;
+    }
 
     private LibraryGame Get(string gameId) => file.Load().Find(gameId);
 }

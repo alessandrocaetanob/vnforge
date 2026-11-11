@@ -389,6 +389,32 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Confirmar_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
+    {
+        var vm = await Loaded();
+        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
+        File.Update(library => library.Remove(vm.Match.Game!.Id));
+
+        await vm.Match.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.True(vm.Match.IsOpen);
+        Assert.Contains("Não foi possível confirmar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Buscar_de_novo_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
+    {
+        var vm = await Loaded();
+        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
+        File.Update(library => library.Remove(vm.Match.Game!.Id));
+
+        await vm.Match.SearchCommand.ExecuteAsync(null);
+
+        Assert.True(vm.Match.IsOpen);
+        Assert.Contains("Não foi possível procurar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Desfazer_o_casamento_e_tirar_da_biblioteca_mexem_so_no_library_json()
     {
         var vm = await Loaded();

@@ -172,10 +172,19 @@ public sealed partial class StartViewModel(RecentProjectsFile recents, IFolderPi
     private async Task OpenFolderAsync()
     {
         ClearMessages();
-        var path = await picker.PickFolderAsync("Abrir projeto do VNForge");
-        if (path is not null)
+        string? path = null;
+        try
         {
-            await OpenAsync(path);
+            path = await picker.PickFolderAsync("Abrir projeto do VNForge");
+            if (path is not null)
+            {
+                await OpenAsync(path);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Quem abre a pasta pelo seletor não tem outro lugar onde esta exceção seria vista: vira o aviso da tela, sem o caminho.
+            ErrorMessage = $"{(path is null ? e.Message : WithoutPath(e.Message, path))} O projeto não pôde ser aberto.";
         }
     }
 
