@@ -137,4 +137,16 @@ public class DashboardNavigationTests
         Assert.Equal(NavKey.Settings, main.SelectedNav!.Key);
         Assert.Equal(SettingsViewModel.GamesTab, main.Settings.SelectedTab);
     }
+
+    [Fact]
+    public async Task Confirmar_a_regravacao_das_imagens_leva_a_pagina_de_testar()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+
+        main.Images.ConfirmRewriteCommand.Execute(null);
+        await main.Build.Loading;
+
+        Assert.Equal(NavKey.Build, main.SelectedNav!.Key);
+    }
 }
