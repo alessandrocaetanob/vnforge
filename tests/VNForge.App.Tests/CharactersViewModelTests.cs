@@ -286,5 +286,17 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.DoesNotContain(vm.Page.Groups, g => g.Chips.Any(c => c.IsHidden));
         Assert.Contains(vm.Page.Groups, g => g.Chips.Any(c => c.Text == "Nude"));
         Assert.Contains(vm.TraitFacets, f => f.Label == "Nude");
+
+        // Borrar o jogo de novo esconde o traço outra vez, e o filtro por ele cai junto em vez de deixar a lista filtrada por um traço invisível.
+        vm.TraitFacets.Single(f => f.Label == "Nude").IsSelected = true;
+        Assert.Equal(["Hana Tsukino"], vm.Items.Select(i => i.Name));
+        reveals.Conceal(CharactersSamples.Moon);
+
+        Assert.Empty(vm.ActiveTraits);
+        Assert.DoesNotContain(vm.TraitFacets, f => f.Label == "Nude");
+        Assert.Contains(vm.Items, i => i.Name == "Hana Tsukino");
+        vm.RevealPortraitCommand.Execute(string.Empty);
+        vm.RevealPortraitCommand.Execute(null);
+        Assert.False(reveals.IsRevealed(string.Empty));
     }
 }

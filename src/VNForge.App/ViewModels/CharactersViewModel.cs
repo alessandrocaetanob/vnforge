@@ -307,6 +307,9 @@ public sealed partial class CharactersViewModel : ObservableObject
         var privacy = new LibraryPrivacy(ShowSpoilers, data.Library.Privacy.Adult);
         var text = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
         var all = LibraryCharacters.List(data.Library, data.Characters, data.Terms, data.Editions, privacy, isRevealed: Reveals.IsRevealed);
+        // Um traço que a privacidade voltou a esconder (o adulto depois de borrar o jogo de novo) sai do filtro: ele some das facetas, e a lista ficaria filtrada por algo invisível.
+        var seen = all.Characters.SelectMany(c => c.Traits).Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
+        selectedTraits.RemoveWhere(id => !seen.Contains(id));
         LibraryCharacterList basis, shown;
         try
         {
@@ -652,7 +655,13 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     /// <summary>O olho do retrato borrado: libera o jogo (capa e retratos dele) em toda a Biblioteca até a pessoa sair dela.</summary>
     [RelayCommand]
-    private void RevealPortrait(string? visualNovelId) => Reveals.Reveal(visualNovelId);
+    private void RevealPortrait(string? visualNovelId)
+    {
+        if (!string.IsNullOrEmpty(visualNovelId))
+        {
+            Reveals.Reveal(visualNovelId);
+        }
+    }
 
     /// <summary>Volta da página do personagem para a lista, com a busca e os filtros que estavam.</summary>
     [RelayCommand]
