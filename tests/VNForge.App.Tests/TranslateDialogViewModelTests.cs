@@ -68,6 +68,32 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_passada_de_editor_marcada_entra_na_conta_do_limite_e_desmarcar_a_tira()
+    {
+        var folder = Project();
+        Directory.CreateDirectory(folder.CacheDirectory);
+        AiUsageLog.TryRecord(folder, new AiUsageTotals(0, 0, 0, 0, 2m, 1));
+        var quotes = TranslationQuoter.Quote(TranslationQuoter.PendingLines(folder.LoadAllText(), ["yst00001"]), Rate);
+        var limit = 10m + quotes.For(TranslationQuality.Careful).Brl + 0.01m;
+
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(limit, null)));
+
+        Assert.True(vm.EditorPass);
+        Assert.True(vm.IsOverLimit);
+        Assert.False(vm.CanStart);
+        Assert.Contains("passa do limite", vm.OverLimitText);
+
+        vm.EditorPass = false;
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+
+        vm.EditorPass = true;
+
+        Assert.True(vm.IsOverLimit);
+    }
+
+    [Fact]
     public async Task Pedido_acima_do_valor_de_aviso_muda_o_botao_para_traduzir_mesmo_assim()
     {
         var vm = await OpenAsync(Project(), Settings(new BudgetLimits(null, 0.01m)));

@@ -93,6 +93,27 @@ public class TaskEntriesTests
     }
 
     [Fact]
+    public async Task Antes_das_duas_horas_o_proximo_passo_continua_o_mesmo_teste()
+    {
+        await Done("Build de Jogo", Test);
+        clock.Advance(BackgroundTaskService.GroupIdleLimit - TimeSpan.FromMinutes(1));
+        await Done("Injetar no jogo", Test);
+
+        Assert.Single(bar.Entries);
+    }
+
+    [Fact]
+    public async Task Tarefa_avulsa_continua_uma_linha_propria()
+    {
+        await Done("Extrair Jogo");
+
+        var entry = Assert.Single(bar.Entries);
+        Assert.False(entry.IsGroup);
+        Assert.Equal("Extrair Jogo", entry.Title);
+        Assert.Equal("14:32", entry.Subtitle);
+    }
+
+    [Fact]
     public async Task A_hora_de_outro_dia_traz_o_dia_e_o_mes()
     {
         await Done("Extrair Jogo");

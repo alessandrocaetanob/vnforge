@@ -258,6 +258,26 @@ public class AddressTermsViewModelTests
     ];
 
     [Fact]
+    public async Task Digitar_o_nome_aos_poucos_e_salvar_no_meio_nao_perde_o_par()
+    {
+        using var temp = new TempFolder();
+        var clock = new FakeTimeProvider();
+        var (vm, folder) = await OpenAsync(temp, clock: clock, terms: Both);
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+
+        misaki.Source = "み";
+        clock.Advance(GlossaryViewModel.SaveDelay);
+        misaki.Source = "みさ";
+        misaki.Source = "みさき";
+        clock.Advance(GlossaryViewModel.SaveDelay);
+
+        Assert.Equal([
+            new AddressTerm("健太", "みさき", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("みさき", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
+
+    [Fact]
     public async Task Renomear_para_um_nome_que_ja_existe_nao_mexe_nos_pares_ate_a_linha_ficar_certa()
     {
         using var temp = new TempFolder();

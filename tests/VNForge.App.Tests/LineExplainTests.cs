@@ -97,6 +97,16 @@ public sealed class LineExplainTests : IDisposable
     }
 
     [Fact]
+    public async Task Falha_de_rede_aparece_sem_detalhes_tecnicos()
+    {
+        using var vm = Abrir(new ServicoFalso(erro: new HttpRequestException("boom")));
+
+        await vm.ToggleExplainCommand.ExecuteAsync(null);
+
+        Assert.Equal("Falha de rede ou tempo esgotado ao falar com a IA. Confira a conexão e tente de novo.", vm.ExplainError);
+    }
+
+    [Fact]
     public async Task Servico_do_app_sem_chave_avisa_e_com_chave_usa_o_explicador_do_projeto()
     {
         string? chave = null;

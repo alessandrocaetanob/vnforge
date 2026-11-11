@@ -67,6 +67,23 @@ public sealed class MainWindowEditorPassTests : IDisposable
     }
 
     [Fact]
+    public async Task Com_a_opcao_marcada_a_passada_deixa_sugestoes_e_nao_grava_traducao()
+    {
+        var (vm, root) = await OpenAsync((_, _) => Firm());
+
+        await Translate(vm);
+
+        var folder = ProjectFolder.Open(root);
+        var texto = folder.LoadText("yst00001");
+        Assert.All(texto, u => Assert.Equal(TranslationStatus.Machine, u.Status));
+        Assert.All(texto, u => Assert.DoesNotContain("!", u.Translation, StringComparison.Ordinal));
+        Assert.Equal(2, EditorSuggestionsFile.Load(folder).Suggestions.Count);
+        Assert.Equal(["Traduzindo esta cena", "Passada de editor"], vm.TaskService.Tasks.Select(t => t.Title));
+        Assert.Contains("2 sugestões em 1 cena", vm.Toasts.Toasts.Last().Message);
+        Assert.True(vm.Editor.Lines.All(l => l.HasEditorSuggestion));
+    }
+
+    [Fact]
     public async Task Falha_da_passada_avisa_em_portugues_e_a_traducao_continua_gravada()
     {
         var (vm, root) = await OpenAsync((_, _) => new FakeEditorPassProvider(_ => throw new InvalidOperationException("Falha simulada.")));

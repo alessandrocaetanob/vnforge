@@ -114,6 +114,26 @@ public sealed class EditorConsistencyTests : IDisposable
     }
 
     [Fact]
+    public async Task Manter_diferentes_grava_a_marca_tira_o_aviso_e_continua_depois_de_reabrir()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[2];
+        var card = vm.Detail!.ConsistencyCard!;
+
+        Assert.True(vm.Detail.KeepDifferentCommand.CanExecute(card));
+        await vm.Detail.KeepDifferentCommand.ExecuteAsync(card);
+
+        Assert.Null(vm.Detail.ConsistencyCard);
+        await vm.Rechecking;
+        Assert.All(vm.Lines, l => Assert.False(Tem(l)));
+        Assert.All(projeto.LoadText(Script).Take(4), u => Assert.Contains(ConsistencyGroups.FlagFor(card.Group), u.Flags));
+        Assert.Empty(new InconsistentTranslationRule().Check(QaContext.ForTexts(projeto.LoadAllText())));
+
+        var reaberto = await Abrir();
+        Assert.All(reaberto.Lines, l => Assert.False(Tem(l)));
+    }
+
+    [Fact]
     public async Task Manter_diferentes_volta_a_avisar_quando_uma_traducao_muda()
     {
         var vm = await Abrir();

@@ -57,6 +57,27 @@ public sealed class LineSuggesterTests : IDisposable
     }
 
     [Fact]
+    public async Task Trocar_a_chave_cria_outro_provedor_e_descarta_o_antigo()
+    {
+        var sugestor = LineSuggester.ForUser(pasta.Path, _ => chave, (key, model) =>
+        {
+            var provedor = new ProvedorDescartavel(key);
+            antigos.Add(provedor);
+            return provedor;
+        });
+        chave = "k1";
+        await sugestor.SuggestAsync(Linha, CancellationToken.None);
+
+        chave = "k2";
+        var sugestao = await sugestor.SuggestAsync(Linha, CancellationToken.None);
+
+        Assert.Equal("k2", sugestao.Text);
+        Assert.Equal(2, antigos.Count);
+        Assert.True(antigos[0].Descartado);
+        Assert.False(antigos[1].Descartado);
+    }
+
+    [Fact]
     public async Task Trocar_o_modelo_em_ai_json_cria_outro_provedor()
     {
         chave = "k1";

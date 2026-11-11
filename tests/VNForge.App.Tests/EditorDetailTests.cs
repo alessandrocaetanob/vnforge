@@ -52,6 +52,22 @@ public class EditorDetailTests : IDisposable
     }
 
     [Fact]
+    public async Task Ctrl_Enter_aprova_e_move_a_selecao_para_a_proxima_linha()
+    {
+        var vm = await Abrir();
+        vm.Detail!.Translation = "Bom dia.";
+
+        vm.Detail.ApproveAndNextCommand.Execute(null);
+
+        Assert.Equal("yst00001:000001", vm.SelectedLine?.Id);
+        Assert.Equal("yst00001:000001", vm.Detail?.Id);
+        var lida = Gravada(0);
+        Assert.Equal(TranslationStatus.Approved, lida.Status);
+        Assert.Equal("Bom dia.", lida.Translation);
+        Assert.Equal(1, ProjectStatusReporter.Create(ProjectFolder.Open(raiz)).Total.Approved);
+    }
+
+    [Fact]
     public async Task Alt_Cima_e_Alt_Baixo_do_painel_movem_a_selecao_e_gravam_antes()
     {
         var vm = await Abrir();

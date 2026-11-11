@@ -311,6 +311,16 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_barra_de_chrF_da_tabela_usa_a_janela_do_relatorio()
+    {
+        var vm = await RunRound(Vm(), Project());
+
+        Assert.All(vm.Rows, r => Assert.InRange(r.ChrfShare, 0d, 1d));
+        var best = vm.Rows.MaxBy(r => r.Chrf)!;
+        Assert.Same(best, vm.Rows.MaxBy(r => r.ChrfShare));
+    }
+
+    [Fact]
     public void A_janela_do_chrF_vai_de_um_degrau_abaixo_do_menor_ao_maior_arredondado_para_cima()
     {
         var shares = EvalChrfBar.Shares([61.4, 60.9, 59.8, 54.3, 47]);

@@ -81,6 +81,25 @@ public class TextAppearanceSettingsTests
         Assert.Equal(100, settings.TextScalePercent);
         Assert.Equal(100, file.Load().TextScalePercent);
     }
+
+    [Fact]
+    public void Escolher_a_fonte_do_japones_grava_avisa_e_nao_perde_o_tamanho()
+    {
+        using var temp = new TempFolder();
+        var file = new AppSettingsFile(temp.SubFolder("config"));
+        var settings = Settings(file);
+        var raised = 0;
+        settings.TextAppearanceChanged += (_, _) => raised++;
+        settings.IncreaseTextSizeCommand.Execute(null);
+
+        settings.SelectedJapaneseFont = settings.JapaneseFonts.Single(f => f.Value == JapaneseFontChoice.YuGothic);
+
+        Assert.Equal(2, raised);
+        var loaded = file.Load();
+        Assert.Equal(JapaneseFontChoice.YuGothic, loaded.JapaneseFont);
+        Assert.Equal(110, loaded.TextScalePercent);
+        Assert.Equal(JapaneseFontChoice.YuGothic, Settings(file).JapaneseFont);
+    }
 }
 
 /// <summary>O Ctrl + e o Ctrl - mudam o texto do Editor; as outras páginas, o trilho e a barra de status seguem em 100%.</summary>

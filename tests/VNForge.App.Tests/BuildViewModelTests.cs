@@ -419,6 +419,20 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Depois_do_build_o_resultado_traz_scripts_pacote_e_acentuacao()
+    {
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Equal("Scripts", vm.Facts[0].Label);
+        Assert.Equal("1 reconstruído de 1", vm.Facts[0].Value);
+        Assert.Equal("12 B (original 8 B)", vm.Facts.Single(f => f.Label == Ysbin).Value);
+        Assert.Equal("FOLD · 1 caractere substituído", vm.Facts.Single(f => f.Label == "Acentuação").Value);
+        Assert.True(vm.HasFacts);
+    }
+
+    [Fact]
     public async Task O_tamanho_do_pacote_mostra_o_original_quando_o_jogo_o_tem()
     {
         File.WriteAllText(GameFile, new string('o', 2048));

@@ -305,6 +305,21 @@ public sealed class EditorSceneTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelar_a_pergunta_nao_grava_nada_nas_outras_linhas()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[3];
+        vm.Detail!.FieldText = "Tá bom.";
+
+        await vm.Detail!.UseForAllCommand.ExecuteAsync(null);
+        vm.Detail.CancelUseForAllCommand.Execute(null);
+
+        Assert.False(vm.Detail.IsUseForAllConfirmOpen);
+        Assert.Equal("Aham.\\p", Gravada("yst00001", 2).Translation);
+        Assert.Equal("Sim.\\p", Gravada("yst00002", 0).Translation);
+    }
+
+    [Fact]
     public async Task Se_um_script_nao_grava_a_grade_mostra_o_que_ja_foi_gravado_e_a_mensagem_e_sem_caminho()
     {
         var falhar = true;

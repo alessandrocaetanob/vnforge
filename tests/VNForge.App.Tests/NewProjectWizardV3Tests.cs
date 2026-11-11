@@ -104,6 +104,24 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
+    public async Task Cotacao_e_limite_que_a_pessoa_nao_mexeu_voltam_ao_arquivo_como_estavam()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.4321m, RateInformedOn = new DateOnly(2026, 1, 2), SpendLimit = 123.456m });
+        var vm = await AtAiStepAsync(file: file);
+
+        Assert.Equal("5,43", vm.RateText);
+        Assert.Equal(5.4321m, vm.Rate.BrlPerUsd);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var saved = file.Load();
+        Assert.Equal(5.4321m, saved.BrlPerUsd);
+        Assert.Equal(new DateOnly(2026, 1, 2), saved.RateInformedOn);
+        Assert.Equal(123.456m, saved.SpendLimit);
+    }
+
+    [Fact]
     public async Task Mexer_so_na_cotacao_renova_a_data_e_nao_arredonda_o_limite()
     {
         var file = SettingsFile();

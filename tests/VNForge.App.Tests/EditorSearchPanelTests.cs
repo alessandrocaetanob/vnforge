@@ -32,6 +32,20 @@ public sealed class EditorSearchPanelTests : IDisposable
     }
 
     [Fact]
+    public async Task Clicar_num_resultado_seleciona_a_linha_na_grade()
+    {
+        var vm = await Abrir();
+        vm.Search.Pattern = "tradução 2";
+        await vm.Search.FindCommand.ExecuteAsync(null);
+
+        vm.Search.SelectedResult = vm.Search.Results.Single();
+        await vm.Loading;
+
+        Assert.Equal("yst00001:000002", vm.SelectedLine?.Id);
+        Assert.Equal("yst00001:000002", vm.Detail?.Id);
+    }
+
+    [Fact]
     public async Task Clicar_de_novo_no_mesmo_resultado_volta_para_a_linha()
     {
         var vm = await Abrir();

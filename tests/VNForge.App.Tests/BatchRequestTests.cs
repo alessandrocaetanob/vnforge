@@ -144,6 +144,17 @@ public sealed class BatchRequestTests : IDisposable
     }
 
     [Fact]
+    public async Task Mudar_um_campo_do_painel_descarta_o_pedido_pendente()
+    {
+        var (vm, _, _) = Build();
+        await vm.BeginRequestAsync(Request);
+
+        vm.Pattern = "outra coisa";
+
+        Assert.False(vm.HasRequestPlan);
+    }
+
+    [Fact]
     public async Task Sem_chave_o_pedido_e_recusado_antes_de_qualquer_gasto()
     {
         var (vm, provider, _) = Build(key: false);
@@ -326,6 +337,23 @@ public sealed class BatchRequestTests : IDisposable
         Assert.Equal("O pedido parou no limite de gasto antes de ler qualquer fala. Nada foi gasto nem gravado.", vm.Summary);
         Assert.Empty(provider.Received);
         Assert.False(vm.HasPreview);
+    }
+
+    [Fact]
+    public void A_paleta_oferece_o_pedido_primeiro_quando_o_texto_tem_tres_palavras_ou_mais()
+    {
+        var asked = new List<string>();
+        var palette = new CommandPaletteViewModel(
+            () => [new PaletteEntry(PaletteGroup.Command, "Trocar tema", "", () => { })],
+            (_, _) => [],
+            query => new PaletteEntry(PaletteGroup.Command, $"Pedir à IA: {query}", "", () => asked.Add(query)));
+        palette.Open();
+
+        palette.Query = "trocar você por tu";
+
+        Assert.Equal("Pedir à IA: trocar você por tu", palette.Results[0].Title);
+        palette.ExecuteSelected();
+        Assert.Equal(["trocar você por tu"], asked);
     }
 
     [Fact]

@@ -17,6 +17,23 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     private static readonly DateTimeOffset Now = new(2026, 10, 25, 15, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task Enter_aprova_e_grava_a_aprovacao_com_hora()
+    {
+        using var temp = new TempFolder();
+        var root = CreateProject(temp.SubFolder("projeto"));
+
+        await Pressionar(root, Key.Enter, PhysicalKey.Enter, (vm, review) =>
+        {
+            Assert.Equal(1, review.Position);
+            Assert.True(review.Blocks[0].IsApproved);
+            Assert.Equal(TranslationStatus.Approved, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
+            var record = Assert.Single(SessionsFile.Load(ProjectFolder.Open(root)).Approvals);
+            Assert.Equal("yst00001:000000", record.UnitId);
+            Assert.Equal(Now, record.At);
+        });
+    }
+
+    [Fact]
     public async Task E_sai_do_modo_revisao_com_a_linha_aberta_no_editor()
     {
         using var temp = new TempFolder();

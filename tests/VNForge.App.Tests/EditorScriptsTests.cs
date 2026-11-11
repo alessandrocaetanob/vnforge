@@ -72,6 +72,22 @@ public class EditorScriptsTests
     }
 
     [Fact]
+    public async Task Capitulo_sem_numero_da_a_Cena_3_de_5_na_sobrancelha()
+    {
+        string[] chaves = ["yst00001", "yst00002", "yst00003", "yst00004", "yst00005", "yst00006", "yst00007"];
+        var nomes = chaves.Skip(2).Aggregate(ScriptNames.Empty, (atual, chave) => atual.WithGroup(chave, ScriptGrouping.ExtraName));
+        var vm = new EditorViewModel(_ => Lines([.. chaves.Select(c => (c, new[] { Unit(c, 1, null, TranslationStatus.Approved) }))])) { NamesLoader = _ => nomes };
+        vm.Project = Summary();
+        await vm.Loading;
+
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00005");
+
+        Assert.Null(vm.SelectedScript.Chapter!.Number);
+        Assert.Equal("Cena 3 de 5", vm.Breadcrumb);
+        Assert.Equal("Cena 5", vm.ScriptTitle);
+    }
+
+    [Fact]
     public async Task Os_chips_Todas_Em_japones_Para_revisar_e_Com_aviso_trazem_a_contagem()
     {
         var vm = await Carregado();

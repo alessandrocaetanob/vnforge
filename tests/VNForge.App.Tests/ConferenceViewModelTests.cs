@@ -264,6 +264,28 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public async Task Marcar_como_ok_grava_o_flag_e_tira_o_aviso_da_lista()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await Loaded(temp);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+        var row = IssueRows(vm).First(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+
+        await vm.MarkOkCommand.ExecuteAsync(row);
+
+        Assert.Contains("espaco-duplo", folder.LoadText("yst00001").Single(u => u.Id == "yst00001:000000").Flags);
+        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        Assert.Equal(1, changed);
+        Assert.Contains("1 aviso marcado como certo", vm.SilencedSummary);
+
+        // O que a tela mostra continua igual ao vnf check depois da marca: as mesmas ocorrências, sem as silenciadas.
+        var expected = QaEngine.Default.Run(QaContext.FromProject(folder));
+        Assert.Equal(expected.Issues.Count, IssueRows(vm).Sum(r => r.Count));
+        Assert.Single(expected.Silenced);
+    }
+
+    [Fact]
     public async Task Corrigir_tudo_roda_todos_os_fixers_e_avisa_quando_nao_ha_o_que_corrigir()
     {
         using var temp = new TempFolder();

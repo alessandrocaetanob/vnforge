@@ -49,6 +49,20 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content is string)];
 
     [Fact]
+    public async Task Projeto_aberto_mostra_o_botao_Continuar_e_o_Abrir_da_linha_sem_um_segundo_Abrir_projeto()
+    {
+        using var temp = new TempFolder();
+        var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: [("yst00013", TranslationStatus.Approved)]);
+        var vm = await OpenAsync(temp, root);
+
+        var labels = await ShowAsync(vm, w => DetailButtons(w).Where(b => b.IsEffectivelyEnabled).Select(b => (string)b.Content!).ToArray());
+
+        Assert.DoesNotContain("Abrir projeto", labels);
+        Assert.Contains("Abrir", labels);
+        Assert.Contains("Continuar: testar no jogo", labels);
+    }
+
+    [Fact]
     public async Task Projeto_sem_linhas_nao_tem_proximo_passo_e_o_cartao_oferece_Abrir_projeto()
     {
         using var temp = new TempFolder();

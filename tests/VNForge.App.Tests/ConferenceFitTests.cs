@@ -97,6 +97,18 @@ public sealed class ConferenceFitTests : IDisposable
     }
 
     [Fact]
+    public async Task Dividir_avisa_o_editor_que_o_texto_mudou()
+    {
+        var vm = await Conferir(null);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+
+        await vm.SelectedFit!.SplitCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, changed);
+    }
+
+    [Fact]
     public async Task Depois_de_dividir_a_pagina_a_mais_aparece_como_aviso_e_nao_como_erro()
     {
         var vm = await Conferir(null);

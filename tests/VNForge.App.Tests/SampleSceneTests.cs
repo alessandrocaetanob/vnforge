@@ -38,6 +38,18 @@ public sealed class SampleSceneTests : IDisposable
         Assert.Equal(SampleProject.Name, item.Name);
     }
 
+    [Fact]
+    public async Task O_botao_so_aparece_na_primeira_vez()
+    {
+        var start = CreateStart();
+        await start.LoadAsync();
+        Assert.True(start.ShowSampleButton);
+
+        await start.OpenSampleCommand.ExecuteAsync(null);
+
+        Assert.False(start.ShowSampleButton);
+    }
+
     private async Task<(MainWindowViewModel Vm, string Root)> OpenSampleAsync()
     {
         var start = CreateStart();

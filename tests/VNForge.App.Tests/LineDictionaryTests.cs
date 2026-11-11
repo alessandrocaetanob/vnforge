@@ -85,6 +85,24 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
+    public async Task Mais_sentidos_abre_a_lista_inteira_e_as_outras_entradas_da_mesma_grafia()
+    {
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), "行って");
+
+        vm.HoverSource(0);
+        Assert.Equal("Mais 6 sentidos · 2 leituras · 1 outra entrada", vm.WordMore);
+        vm.ExpandWordCommand.Execute(null);
+
+        Assert.Equal(10, vm.WordSenses.Count);
+        Assert.False(vm.HasWordMore);
+        Assert.True(vm.HasWordOthers);
+        var outra = Assert.Single(vm.WordOthers);
+        Assert.Equal("行う · おこなう", outra.Title);
+        Assert.Equal("v5u, vt", outra.Tag);
+        Assert.Equal("to perform", outra.Senses[0].Text);
+    }
+
+    [Fact]
     public async Task Marcador_do_jogo_ocupa_uma_posicao_e_a_palavra_seguinte_continua_achavel()
     {
         const string original = "{player}は遅刻だ";

@@ -121,6 +121,21 @@ public class EditorChaptersTests
     }
 
     [Fact]
+    public async Task Cancelar_o_novo_capitulo_fecha_o_campo_sem_gravar()
+    {
+        using var open = await Open();
+        open.Editor.SelectedScript = open.Scene("yst00003");
+        open.Editor.BeginNewChapterCommand.Execute(null);
+        open.Editor.NewChapterName = "Noite";
+
+        open.Editor.CancelNewChapterCommand.Execute(null);
+
+        Assert.False(open.Editor.IsNamingChapter);
+        Assert.Null(open.Editor.ChapterMessage);
+        Assert.Null(open.OnDisk.Group("yst00003"));
+    }
+
+    [Fact]
     public async Task Falha_ao_gravar_mostra_a_mensagem_e_nao_mexe_na_lista()
     {
         using var open = await Open((_, _, _) => throw new ScriptGroupingException("Não há script com a chave 'yst00003'."));

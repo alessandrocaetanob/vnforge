@@ -533,6 +533,35 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Sair_da_revisao_grava_o_que_foi_escrito_e_um_filtro_vazio_diz_o_que_fazer()
+    {
+        var vm = await ReadyAsync();
+        var review = await ReviewAsync(vm);
+        vm.SelectedSpoiler = vm.SpoilerOptions[2];
+        review.NextCommand.Execute(null);
+        review.NextCommand.Execute(null);
+        review.Pairs[0].Draft = "Descrição de Kenta escrita à mão.";
+
+        vm.ExitReviewCommand.Execute(null);
+        await vm.Loading;
+
+        Assert.False(vm.IsReviewing);
+        Assert.Equal("Descrição de Kenta escrita à mão.", Store.LoadCharacter("c1")!.Description!.Target);
+
+        SheetEditor.Approve(Store, GameSheetSamples.Id);
+        SheetEditor.Review(Store, GameSheetSamples.Id);
+        SheetEditor.Approve(Store, GameSheetSamples.Id);
+        await vm.ReloadCommand.ExecuteAsync(null);
+        vm.StartReviewCommand.Execute(null);
+        review.SelectedFilter = review.Filters[1];
+
+        Assert.True(review.IsEmpty);
+        Assert.Contains("Nenhum bloco neste filtro", review.EmptyText, StringComparison.Ordinal);
+        Assert.False(review.HasBlock);
+        Assert.Equal("revisado igual a uma fala", review.Subtitle);
+    }
+
+    [Fact]
     public async Task Ficha_sem_blocos_nao_abre_a_revisao_e_marcar_um_bloco_sem_traducao_avisa()
     {
         var vm = await ReadyAsync(translate: false);

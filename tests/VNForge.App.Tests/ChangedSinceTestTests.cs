@@ -179,6 +179,23 @@ public sealed class ChangedSinceTestTests
         return main;
     }
 
+    [Fact]
+    public async Task Abrir_no_Painel_leva_ao_Editor_com_so_as_falas_que_mudaram()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenMainAsync(temp);
+        await main.Dashboard.ReloadAsync();
+        Assert.Equal(["Cena 1"], main.Dashboard.SinceTest.Rows.Select(r => r.Name));
+
+        main.Dashboard.SinceTest.OpenCommand.Execute(main.Dashboard.SinceTest.Rows[0]);
+        await main.LineNavigation;
+
+        Assert.Equal(NavKey.Editor, main.SelectedNav!.Key);
+        Assert.Equal("yst00001", main.Editor.SelectedScript?.Key);
+        Assert.True(main.Editor.Filters.Single(f => f.Filter == LineStatusFilter.ChangedSinceTest).IsSelected);
+        Assert.Equal(["yst00001:000001"], main.Editor.Lines.Select(l => l.Id));
+    }
+
     private sealed class IdleStarter : VNForge.Core.Projects.IGameProcessStarter
     {
         public void Start(string executablePath, string workingDirectory) => throw new IOException("o teste não abre o jogo");
