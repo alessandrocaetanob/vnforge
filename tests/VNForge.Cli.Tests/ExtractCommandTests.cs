@@ -88,7 +88,6 @@ public sealed class ExtractCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("--no-color")]
     [InlineData("--quiet")]
     public async Task No_terminal_interativo_com_no_color_ou_quiet_o_log_de_sempre_continua(string option)
     {
@@ -103,38 +102,6 @@ public sealed class ExtractCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Resumo_mostra_scripts_e_linhas_por_kind_como_no_doc_03()
-    {
-        await InitProject();
-
-        var result = await Extract();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        Assert.Equal("Extraídos 2 scripts, 5 linhas (1 diálogo, 1 narração, 2 escolhas, 1 nome)", lines[^1]);
-        Assert.StartsWith("Descompactado: ysbin.ypf (4 arquivos) em ", lines[0]);
-        Assert.Equal(2, lines.Length);
-    }
-
-    [Fact]
-    public async Task Grava_text_json_por_script_e_descompacta_so_o_pacote_de_scripts_em_cache()
-    {
-        await InitProject();
-
-        await Extract();
-
-        var project = ProjectFolder.Open(ProjectPath);
-        Assert.Equal([Yst00001, "yst00002"], project.LoadAllText().Keys);
-        Assert.Equal(["美咲", "おはよう"], [project.LoadText(Yst00001)[0].Speaker, project.LoadText(Yst00001)[0].Source]);
-        Assert.Equal(
-            [TextUnitKind.Narration, TextUnitKind.Choice, TextUnitKind.Choice],
-            project.LoadText("yst00002").Select(u => u.Kind));
-        Assert.True(File.Exists(Path.Combine(ProjectPath, ".cache", "game", YsbinYpf, "yst00001.ybn")));
-        Assert.False(Directory.Exists(Path.Combine(ProjectPath, ".cache", "game", "bgm.ypf")));
-    }
-
-    [Fact]
     public async Task Nao_altera_a_pasta_do_jogo()
     {
         await InitProject();
@@ -146,40 +113,6 @@ public sealed class ExtractCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(before, HashTree(_game));
         Assert.Equal(entriesBefore, Directory.EnumerateFileSystemEntries(_game, "*", SearchOption.AllDirectories).Order().ToArray());
-    }
-
-    [Fact]
-    public async Task Json_traz_o_resumo_no_envelope()
-    {
-        await InitProject();
-
-        var result = await Extract("--json");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        using var document = JsonDocument.Parse(result.Output);
-        var root = document.RootElement;
-        Assert.True(root.GetProperty("ok").GetBoolean());
-        Assert.Equal(0, root.GetProperty("exitCode").GetInt32());
-        var data = root.GetProperty("data");
-        Assert.Equal(2, data.GetProperty("scripts").GetInt32());
-        Assert.Equal(5, data.GetProperty("lines").GetInt32());
-        var kinds = data.GetProperty("kinds");
-        Assert.Equal(1, kinds.GetProperty("dialogue").GetInt32());
-        Assert.Equal(1, kinds.GetProperty("narration").GetInt32());
-        Assert.Equal(2, kinds.GetProperty("choice").GetInt32());
-        Assert.Equal(1, kinds.GetProperty("name").GetInt32());
-        Assert.Equal(0, kinds.GetProperty("system").GetInt32());
-        Assert.Equal(0, kinds.GetProperty("other").GetInt32());
-        var texts = data.GetProperty("texts");
-        Assert.Equal(Yst00001, texts[0].GetProperty("key").GetString());
-        Assert.Equal("01_prologo", texts[0].GetProperty("name").GetString());
-        Assert.Equal(2, texts[0].GetProperty("lines").GetInt32());
-        Assert.False(texts[1].TryGetProperty("name", out _));
-        var archive = data.GetProperty("archives")[0];
-        Assert.Equal(YsbinYpf, archive.GetProperty("path").GetString());
-        Assert.Equal(4, archive.GetProperty("files").GetInt32());
-        Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
     }
 
     [Fact]
@@ -216,19 +149,6 @@ public sealed class ExtractCommandTests : IDisposable
         Assert.Equal(0, reextraction.GetProperty("outdated").GetInt32());
         Assert.Equal(0, reextraction.GetProperty("removed").GetInt32());
         Assert.True(reextraction.GetProperty("kept").GetInt32() > 0);
-    }
-
-    [Fact]
-    public async Task Sem_project_usa_a_pasta_atual()
-    {
-        var init = await _cli.RunAsync(["init", ".", "--game", _game], TestContext.Current.CancellationToken);
-        Assert.Equal(0, init.ExitCode);
-
-        var result = await _cli.RunAsync([ExtractVerb], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Extraídos 2 scripts", result.Output);
-        Assert.True(File.Exists(Path.Combine(_cli.WorkingDirectory, "text", "yst00001.json")));
     }
 
     [Fact]

@@ -83,13 +83,15 @@ public sealed class JmdictCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_da_consulta_traz_a_palavra_a_conjugacao_e_os_sentidos()
+    public async Task Json_da_instalacao_e_da_consulta_traz_as_entradas_a_palavra_a_conjugacao_e_os_sentidos()
     {
         _cli.Cli.HttpClientFactory = () => new HttpClient(new Server());
-        await Run("jmdict", "install");
+        var install = await Run("jmdict", "install", "--json");
 
         var result = await Run("jmdict", "lookup", "行こう", "--json");
 
+        using var installed = JsonDocument.Parse(install.Output);
+        Assert.Equal(2, installed.RootElement.GetProperty("data").GetProperty("entries").GetInt32());
         using var json = JsonDocument.Parse(result.Output);
         var word = json.RootElement.GetProperty("data").GetProperty("words")[0];
         Assert.Equal("行く", word.GetProperty("word").GetString());

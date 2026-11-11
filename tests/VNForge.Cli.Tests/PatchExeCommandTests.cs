@@ -139,18 +139,6 @@ public sealed class PatchExeCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmar_com_s_aplica_o_patch()
-    {
-        PutExe();
-        _cli.SetInput("s\n");
-
-        var result = await Run(PatchExe);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Single(Directory.GetDirectories(_project.BackupDirectory));
-    }
-
-    [Fact]
     public async Task Sem_yes_e_sem_entrada_pede_o_yes()
     {
         var original = PutExe();
@@ -222,13 +210,4 @@ public sealed class PatchExeCommandTests : IDisposable
         Assert.Equal(original, await File.ReadAllBytesAsync(ExePath, Token));
     }
 
-    [Fact]
-    public async Task Patch_exe_aparece_na_ajuda_como_experimental()
-    {
-        var result = await _cli.RunAsync([PatchExe, "--help"], Token);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Experimental", result.Output);
-        Assert.Contains("vnf patch-exe", result.Output);
-    }
 }

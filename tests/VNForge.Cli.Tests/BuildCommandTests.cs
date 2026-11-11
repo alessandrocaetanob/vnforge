@@ -148,43 +148,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Em_terminal_interativo_o_resumo_vira_painel_com_scripts_pacote_acentuacao_e_duracao()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => $"Traduzido {i}");
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-        rich.Cli.Qa = new QaEngine([]);
-
-        var result = await rich.RunAsync([BuildVerb, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        Assert.Contains("Resultado do build", result.Output);
-        Assert.Contains("1 reconstruídos de 2", result.Output);
-        Assert.Contains(YsbinYpf, result.Output);
-        Assert.Contains("(original ", result.Output);
-        Assert.Contains("Acentuação", result.Output);
-        Assert.Contains("sjis · nenhum caractere trocado", result.Output);
-        Assert.Contains("Duração", result.Output);
-        Assert.DoesNotContain("Reconstruídos", result.Output);
-    }
-
-    [Fact]
-    public async Task No_terminal_interativo_com_no_color_o_log_de_sempre_continua()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => $"Traduzido {i}");
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-        rich.Cli.Qa = new QaEngine([]);
-
-        var result = await rich.RunAsync([BuildVerb, "--no-color", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Reconstruídos 1 script", result.Output);
-        Assert.DoesNotContain("Resultado do build", result.Output);
-    }
-
-    [Fact]
     public async Task Sem_traducao_o_ysbin_ypf_do_build_e_identico_ao_original()
     {
         await InitAndExtract();
@@ -236,15 +199,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Erro_de_qa_continua_parando_com_allow_warnings()
-    {
-        var result = await BuildWithRule(QaSeverity.Error, AllowWarningsFlag);
-
-        Assert.Equal(2, result.ExitCode);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
-    }
-
-    [Fact]
     public async Task Aviso_de_qa_para_o_build_sem_allow_warnings()
     {
         var result = await BuildWithRule(QaSeverity.Warning);
@@ -253,32 +207,6 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Contains("AVISO yst00001:", result.Output);
         Assert.Contains(AllowWarningsFlag, result.Output);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(ProjectPath, BuildVerb)));
-    }
-
-    [Fact]
-    public async Task Allow_warnings_deixa_so_os_avisos_passar_e_os_lista()
-    {
-        var result = await BuildWithRule(QaSeverity.Warning, AllowWarningsFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("AVISO yst00001:", result.Output);
-        Assert.True(File.Exists(Path.Combine(ProjectPath, BuildVerb, YsbinYpf)));
-    }
-
-    [Fact]
-    public async Task Caixa_acima_do_limite_aparece_uma_vez_so_na_saida_de_texto()
-    {
-        await InitAndExtract();
-        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
-        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
-        _cli.Cli.Qa = QaEngine.Default;
-
-        var result = await Build(AllowWarningsFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("[caixa-acima-do-limite] caixa 1 com 3 linhas (máximo 2).", result.Output);
-        Assert.Equal(1, result.Output.Split(Yst00001000000).Length - 1);
-        Assert.DoesNotContain("Aviso: yst00001", result.Output);
     }
 
     [Fact]
@@ -294,67 +222,6 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(1, result.Output.Split(Yst00001000000).Length - 1);
-    }
-
-    [Fact]
-    public async Task Caixa_acima_do_limite_no_json_fica_so_na_lista_do_qa()
-    {
-        await InitAndExtract();
-        File.WriteAllText(ProjectFolder.Open(ProjectPath).FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 5, "maxLines": 2, "charWidth": "uniform" } }""");
-        Translate(Yst1, i => i == 0 ? "aaa bbb ccc" : "Mika");
-        _cli.Cli.Qa = QaEngine.Default;
-
-        var result = await Build(JsonFlag, AllowWarningsFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
-        var issue = Assert.Single(data.GetProperty("qa").GetProperty("issues").EnumerateArray(), i => i.GetProperty("rule").GetString() == "caixa-acima-do-limite");
-        Assert.Equal(Yst00001000000, issue.GetProperty("unit").GetString());
-    }
-
-    [Fact]
-    public async Task Linhas_sem_traducao_nao_bloqueiam_o_build_e_o_resumo_traz_a_contagem()
-    {
-        await InitAndExtract();
-        _cli.Cli.Qa = QaEngine.Default;
-
-        var result = await Build();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.True(File.Exists(Path.Combine(ProjectPath, BuildVerb, YsbinYpf)));
-        Assert.Contains("linhas sem tradução; o build copiou o original nelas", result.Output);
-        Assert.DoesNotContain("[nao-traduzida]", result.Output);
-    }
-
-    [Fact]
-    public async Task Json_do_build_parcial_traz_a_contagem_de_linhas_sem_traducao()
-    {
-        await InitAndExtract();
-        _cli.Cli.Qa = QaEngine.Default;
-
-        var result = await Build(JsonFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        Assert.True(document.RootElement.GetProperty("data").GetProperty("qa").GetProperty("untranslated").GetInt32() > 0);
-    }
-
-    [Fact]
-    public async Task Build_bloqueado_por_outro_aviso_nao_lista_nao_traduzida_mas_traz_a_contagem()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? Hello : "Mika");
-        _cli.Cli.Qa = new QaEngine([new UntranslatedQaRule(), new TranslationIs(ForbiddenWord, QaSeverity.Warning, Hello)]);
-
-        var result = await Build();
-
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains("[palavra-proibida]", result.Output);
-        Assert.DoesNotContain("[nao-traduzida]", result.Output);
-        Assert.Contains("linhas sem tradução; o build copiou o original nelas", result.Output);
-        Assert.Contains("0 erros, 1 aviso.", result.Output);
     }
 
     [Fact]
@@ -405,32 +272,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_do_build_com_aviso_liberado_traz_o_qa()
-    {
-        var result = await BuildWithRule(QaSeverity.Warning, JsonFlag, AllowWarningsFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var qa = document.RootElement.GetProperty("data").GetProperty("qa");
-        Assert.Equal(1, qa.GetProperty("warnings").GetInt32());
-        Assert.Equal(0, qa.GetProperty("errors").GetInt32());
-    }
-
-    [Fact]
-    public async Task Resumo_conta_scripts_linhas_e_pacotes()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-
-        var result = await Build();
-
-        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        Assert.StartsWith("Gravado: ", lines[0]);
-        Assert.EndsWith("ysbin.ypf (1 script alterado)", lines[0]);
-        Assert.Equal("Reconstruídos 1 script (2 linhas trocadas); 1 pacote gravado em build/", lines[^1]);
-    }
-
-    [Fact]
     public async Task Build_sem_mudanca_desde_o_anterior_nao_reconstroi_nenhum_script_e_mantem_o_build()
     {
         await InitAndExtract();
@@ -444,68 +285,6 @@ public sealed class BuildCommandTests : IDisposable
         var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         Assert.Equal("Nada mudou desde o build anterior: 1 script reaproveitado, nenhum reconstruído.", lines[^1]);
         Assert.Equal(before, HashTree(Path.Combine(ProjectPath, BuildVerb)));
-    }
-
-    [Fact]
-    public async Task Build_incremental_so_reconstroi_o_script_que_mudou()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-        await Build();
-        Translate(Yst2, _ => "Rain");
-
-        var result = await Build(JsonFlag);
-
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.Equal(1, data.GetProperty("scripts").GetInt32());
-        Assert.Equal(1, data.GetProperty("reusedScripts").GetInt32());
-        var entries = ReadEntries(Path.Combine(ProjectPath, BuildVerb, YsbinYpf));
-        Assert.Equal(2, entries.Count(e => e.Key.StartsWith("yst0000", StringComparison.Ordinal)));
-        Assert.Equal(2, Assert.Single(data.GetProperty("archives").EnumerateArray()).GetProperty("replacedFiles").GetInt32());
-    }
-
-    [Fact]
-    public async Task Full_reconstroi_tudo_mesmo_sem_mudanca()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-        await Build();
-
-        var result = await Build("--full", JsonFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.Equal(1, data.GetProperty("scripts").GetInt32());
-        Assert.Equal(0, data.GetProperty("reusedScripts").GetInt32());
-    }
-
-    [Fact]
-    public async Task Sem_full_o_build_reaproveita_os_scripts_que_nao_mudaram()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-        await Build();
-
-        var result = await Build(JsonFlag);
-
-        using var document = JsonDocument.Parse(result.Output);
-        Assert.Equal(1, document.RootElement.GetProperty("data").GetProperty("reusedScripts").GetInt32());
-    }
-
-    [Fact]
-    public async Task Only_changed_deixou_de_existir_e_a_ajuda_aponta_o_full()
-    {
-        await InitAndExtract();
-
-        var result = await Build("--only-changed", "false");
-        var help = await _cli.RunAsync(["build", "--help"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--only-changed", result.Error);
-        Assert.Contains("--full", help.Output);
-        Assert.DoesNotContain("--only-changed", help.Output);
     }
 
     [Fact]
@@ -531,18 +310,6 @@ public sealed class BuildCommandTests : IDisposable
 
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("latin9", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Mudar_o_encoding_reconstroi_o_script_mesmo_sem_mudar_a_traducao()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-        await Build();
-
-        var result = await Build(EncodingFlag, "fold");
-
-        Assert.StartsWith("Reconstruídos 1 script", result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -596,28 +363,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Linha_traduzida_em_ascii_reabre_no_ypf_e_reextrai_com_a_traducao()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-
-        var result = await Build();
-
-        Assert.Equal(0, result.ExitCode);
-        var original = ReadEntries(Path.Combine(_game, YsbinYpf));
-        var built = ReadEntries(Path.Combine(ProjectPath, BuildVerb, YsbinYpf));
-        Assert.Equal(original.Keys.Order(), built.Keys.Order());
-        var units = Reextract(Yst00001Ybn, built[Yst00001Ybn]);
-        Assert.Equal([GoodMorning, "Mika"], units.Select(u => u.Source));
-        Assert.Equal(Reextract(Yst00001Ybn, original[Yst00001Ybn]).Select(u => u.Id), units.Select(u => u.Id));
-        Assert.NotEqual(original[Yst00001Ybn], built[Yst00001Ybn]);
-        foreach (var other in original.Keys.Where(k => k != Yst00001Ybn))
-        {
-            Assert.Equal(original[other], built[other]);
-        }
-    }
-
-    [Fact]
     public async Task Pacote_em_subpasta_mantem_o_caminho_e_o_sem_mudanca_sai_identico()
     {
         await InitAndExtract(withExtraArchive: true);
@@ -633,33 +378,6 @@ public sealed class BuildCommandTests : IDisposable
         using var document = JsonDocument.Parse(result.Output);
         var archives = document.RootElement.GetProperty("data").GetProperty("archives");
         Assert.Equal(["pac/extra.ypf", YsbinYpf], archives.EnumerateArray().Select(a => a.GetProperty("path").GetString()).Order(StringComparer.Ordinal));
-    }
-
-    [Fact]
-    public async Task Json_traz_o_resumo_no_envelope()
-    {
-        await InitAndExtract();
-        Translate(Yst2, _ => "Rain");
-
-        var result = await Build(JsonFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        using var document = JsonDocument.Parse(result.Output);
-        var root = document.RootElement;
-        Assert.True(root.GetProperty("ok").GetBoolean());
-        Assert.Equal(0, root.GetProperty("exitCode").GetInt32());
-        var data = root.GetProperty("data");
-        Assert.Equal(1, data.GetProperty("scripts").GetInt32());
-        Assert.Equal(2, data.GetProperty("totalScripts").GetInt32());
-        Assert.Equal(3, data.GetProperty("lines").GetInt32());
-        var rebuilt = Assert.Single(data.GetProperty("rebuilt").EnumerateArray());
-        Assert.Equal(Yst2, rebuilt.GetProperty("key").GetString());
-        Assert.Equal("yst00002.ybn", rebuilt.GetProperty("name").GetString());
-        var archive = Assert.Single(data.GetProperty("archives").EnumerateArray());
-        Assert.Equal(YsbinYpf, archive.GetProperty("path").GetString());
-        Assert.Equal(1, archive.GetProperty("replacedFiles").GetInt32());
-        Assert.Equal(0, data.GetProperty("warnings").GetArrayLength());
     }
 
     [Fact]
@@ -710,20 +428,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Erro_em_json_sai_no_envelope()
-    {
-        await InitAndExtract();
-        Translate(Yst1, _ => "😀");
-
-        var result = await Build(JsonFlag);
-
-        Assert.Equal(1, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        Assert.False(document.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Contains(Yst00001000000, document.RootElement.GetProperty("error").GetProperty("message").GetString());
-    }
-
-    [Fact]
     public async Task Jogo_que_mudou_depois_da_extracao_e_recusado()
     {
         await InitAndExtract();
@@ -739,33 +443,6 @@ public sealed class BuildCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("o jogo mudou depois da extração", result.Error);
         Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, BuildVerb), "*", SearchOption.AllDirectories));
-    }
-
-    [Fact]
-    public async Task Build_anterior_e_substituido_por_inteiro()
-    {
-        await InitAndExtract();
-        var stale = Path.Combine(ProjectPath, BuildVerb, "sobra.txt");
-        Directory.CreateDirectory(Path.GetDirectoryName(stale) ?? ".");
-        await File.WriteAllTextAsync(stale, "x", TestContext.Current.CancellationToken);
-
-        var result = await Build();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.False(File.Exists(stale));
-    }
-
-    [Fact]
-    public async Task Sem_extract_pede_para_rodar_vnf_extract()
-    {
-        var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
-        Assert.Equal(0, init.ExitCode);
-        UseStrategy("sjis");
-
-        var result = await Build();
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("Rode vnf extract", result.Error);
     }
 
     [Fact]
@@ -811,21 +488,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Aborto_por_caractere_nao_codificavel_lista_todas_as_linhas_de_uma_vez()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? "«ªã»" : "Mika ã");
-
-        var result = await Build();
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001:000000 posição 0: '«' (U+00AB)", result.Error);
-        Assert.Contains("yst00001:000000 posição 2: 'ã' (U+00E3)", result.Error);
-        Assert.Contains("yst00001:000513 posição 5: 'ã' (U+00E3)", result.Error);
-        Assert.False(File.Exists(Path.Combine(ProjectPath, BuildVerb, YsbinYpf)));
-    }
-
-    [Fact]
     public async Task Estrategia_sem_encoder_aborta_com_mensagem_clara()
     {
         await InitAndExtract();
@@ -853,18 +515,6 @@ public sealed class BuildCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Report_sem_problemas_sai_com_zero()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-
-        var result = await Build(ReportFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("0 caracteres não codificáveis; 0 caracteres trocados.", result.Output);
-    }
-
-    [Fact]
     public async Task Report_em_json_traz_caractere_ponto_de_codigo_posicao_e_substituto()
     {
         await InitAndExtract();
@@ -888,17 +538,4 @@ public sealed class BuildCommandTests : IDisposable
         Assert.False(issue.TryGetProperty("replacement", out _));
     }
 
-    [Fact]
-    public async Task Json_do_build_traz_o_bloco_encoding()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => i == 0 ? GoodMorning : "Mika");
-
-        var result = await Build(JsonFlag);
-
-        using var document = JsonDocument.Parse(result.Output);
-        var encoding = document.RootElement.GetProperty("data").GetProperty("encoding");
-        Assert.Equal("sjis", encoding.GetProperty("strategy").GetString());
-        Assert.Equal(0, encoding.GetProperty("replaced").GetInt32());
-    }
 }

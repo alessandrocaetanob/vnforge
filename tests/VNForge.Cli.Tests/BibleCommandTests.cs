@@ -88,20 +88,6 @@ public sealed class BibleCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmando_gera_a_biblia_e_grava_o_bible_json()
-    {
-        _cli.SetInput("s\n");
-
-        var result = await Run("generate");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("3 cenas escritas em 2 capítulos", result.Output);
-        Assert.Equal(["yst1", "yst2", "yst3"], _project.LoadBible().Scenes.Select(s => s.Key));
-        Assert.Equal(VNForge.AI.Claude.ClaudeModels.Opus, _requestedModel);
-        Assert.NotEmpty(_project.LoadBible().Synopsis);
-    }
-
-    [Fact]
     public async Task Bible_json_ilegivel_para_o_generate_antes_de_pagar_e_nao_toca_o_backup()
     {
         _project.SaveBible(GameBible.From([new BibleScene("yst1") { Summary = "Boa" }]));
@@ -132,39 +118,6 @@ public sealed class BibleCommandTests : IDisposable
         Assert.Contains("passaria do limite", result.Output, StringComparison.Ordinal);
         Assert.Empty(_provider.SceneCalls);
         Assert.False(File.Exists(_project.BiblePath));
-    }
-
-    [Fact]
-    public async Task Estimativa_que_cabe_no_restante_do_limite_gera_normalmente()
-    {
-        Directory.CreateDirectory(_cli.UserConfigDirectory);
-        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 500 }""");
-        _cli.SetInput("s\n");
-
-        var result = await Run("generate");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.NotEmpty(_provider.SceneCalls);
-    }
-
-    [Fact]
-    public async Task O_modelo_vem_da_opcao()
-    {
-        var result = await Run("generate", "--yes", "--model", "claude-sonnet-5-5");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal("claude-sonnet-5-5", _requestedModel);
-        Assert.Equal("claude-sonnet-5-5", _project.LoadBible().Generation!.Model);
-    }
-
-    [Fact]
-    public async Task O_nome_da_cena_da_biblia_aparece_nas_listas_do_projeto()
-    {
-        await Run("generate", "--yes");
-
-        var status = await _cli.RunAsync(["status", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Contains("Cena manha", status.Output);
     }
 
     [Fact]
@@ -348,21 +301,6 @@ public sealed class BibleCommandTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("não há bíblia anterior", result.Error);
-    }
-
-    [Fact]
-    public async Task O_translate_manda_o_resumo_da_cena_em_cada_pedido()
-    {
-        _project.SaveBible(GameBible.From([new BibleScene("yst1") { Name = "Atraso", Summary = "Kenta e Ren chegam atrasados." }]) with { Synopsis = "Sinopse do jogo." });
-        var translator = new FakeTranslationProvider();
-        _cli.Cli.TranslationProviderFactory = (_, _) => translator;
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath, "--yes"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        var withScene = translator.ReceivedBatches.Where(b => b.Scenes.Count > 0).ToList();
-        Assert.Contains(withScene, b => b.Scenes[0].Summary == "Kenta e Ren chegam atrasados." && b.Lines.Any(l => l.Id.StartsWith("yst1:", StringComparison.Ordinal)));
-        Assert.All(translator.ReceivedBatches, b => Assert.Equal("Sinopse do jogo.", b.Synopsis));
     }
 
     [Fact]

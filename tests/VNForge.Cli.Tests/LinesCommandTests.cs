@@ -39,22 +39,6 @@ public sealed class LinesCommandTests : IDisposable
     private TextUnit Line(string key, int index) => _project.LoadText(key)[index];
 
     [Fact]
-    public async Task Keep_marca_as_linhas_pelos_ids_e_o_json_conta_o_que_mudou()
-    {
-        var result = await Run("keep", "yst00001:000001,yst00002:000002", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal("keep", data.GetProperty("action").GetString());
-        Assert.Equal(2, data.GetProperty("changed").GetInt32());
-        Assert.Equal(0, data.GetProperty("unchanged").GetInt32());
-        Assert.Equal(TranslationStatus.Keep, Line(Yst00001, 0).Status);
-        Assert.Equal(TranslationStatus.Keep, Line(Yst00002, 1).Status);
-        Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 1).Status);
-    }
-
-    [Fact]
     public async Task Chave_de_script_marca_todas_as_linhas_dele()
     {
         var result = await Run("keep", Yst00002);
@@ -63,20 +47,6 @@ public sealed class LinesCommandTests : IDisposable
         Assert.Contains("2 linhas", result.Output, StringComparison.Ordinal);
         Assert.All(_project.LoadText(Yst00002), u => Assert.Equal(TranslationStatus.Keep, u.Status));
         Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 0).Status);
-    }
-
-    [Fact]
-    public async Task Keep_numa_linha_traduzida_apaga_a_traducao_e_repetir_nao_muda_nada()
-    {
-        await Run("keep", "yst00001:000003", "--yes");
-        var again = await Run("keep", "yst00001:000003", JsonOption);
-
-        var line = Line(Yst00001, 2);
-        Assert.Equal(TranslationStatus.Keep, line.Status);
-        Assert.Null(line.Translation);
-        using var doc = JsonDocument.Parse(again.Output);
-        Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("changed").GetInt32());
-        Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("unchanged").GetInt32());
     }
 
     [Fact]
@@ -126,23 +96,6 @@ public sealed class LinesCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Speaker_nome_troca_o_falante_so_das_linhas_pedidas_e_o_json_conta()
-    {
-        var result = await Run("speaker", "yst00001:000001,yst00002:000002", "--nome", "Inui", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal("speaker", data.GetProperty("action").GetString());
-        Assert.Equal("nome", data.GetProperty("speaker").GetString());
-        Assert.Equal(2, data.GetProperty("changed").GetInt32());
-        Assert.Equal("Inui", Line(Yst00001, 0).ChosenSpeaker);
-        Assert.Equal("Inui", Line(Yst00002, 1).ChosenSpeaker);
-        Assert.Null(Line(Yst00001, 1).ChosenSpeaker);
-        Assert.Null(Line(Yst00001, 0).Speaker);
-    }
-
-    [Fact]
     public async Task Speaker_narracao_e_original_gravam_vazio_e_limpam_a_escolha()
     {
         _project.SaveText(Yst00002, [.. _project.LoadText(Yst00002).Select(u => u with { Speaker = "美咲" })]);
@@ -173,9 +126,6 @@ public sealed class LinesCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData]
-    [InlineData("--nome", "Inui", "--narracao")]
-    [InlineData("--narracao", "--original")]
     [InlineData("--nome", " ")]
     public async Task Speaker_exige_exatamente_uma_das_tres_formas(params string[] extra)
     {

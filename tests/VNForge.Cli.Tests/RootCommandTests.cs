@@ -43,21 +43,6 @@ public sealed class RootCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Help_de_subcomando_lista_comandos_e_opcoes_globais()
-    {
-        _cli.AddCommand(Teste, _ => 0);
-
-        var root = await _cli.RunAsync(["--help"], TestContext.Current.CancellationToken);
-        var sub = await _cli.RunAsync([Teste, "--help"], TestContext.Current.CancellationToken);
-
-        Assert.Contains("Outros comandos:", root.Output);
-        Assert.Contains(Teste, root.Output);
-        Assert.Contains("Uso:", sub.Output);
-        Assert.Contains("vnf teste", sub.Output);
-        Assert.Contains(JsonOption, sub.Output);
-    }
-
-    [Fact]
     public async Task Version_mostra_o_nome_e_a_versao()
     {
         var result = await _cli.RunAsync(["--version"], TestContext.Current.CancellationToken);

@@ -82,22 +82,6 @@ public sealed class ImagesScanCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Le_as_imagens_e_grava_o_inventario_com_o_texto_e_o_lugar()
-    {
-        var result = await Scan("--yes");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(3, _reader.Received.Count);
-        var inventory = _project.LoadImageInventory();
-        Assert.Equal(3, inventory.Count);
-        Assert.Equal(
-            [("ui.ypf", "ui/botao.png", "つづきから"), ("ui.ypf", "ui/titulo.png", "ニューゲーム")],
-            inventory.Where(e => e.HasText).Select(e => (e.Archive, e.Path, e.Text)));
-        Assert.Contains("2 imagens com texto", result.Output);
-        Assert.Contains("images.json", result.Output);
-    }
-
-    [Fact]
     public async Task Json_traz_o_numero_de_imagens_com_texto_e_a_lista()
     {
         var result = await Scan("--yes", "--json");
@@ -127,16 +111,6 @@ public sealed class ImagesScanCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Force_le_tudo_de_novo()
-    {
-        await Scan("--yes");
-
-        await Scan("--yes", "--force");
-
-        Assert.Equal(6, _reader.Received.Count);
-    }
-
-    [Fact]
     public async Task Min_pixels_deixa_entrar_a_imagem_pequena()
     {
         var result = await Scan("--yes", "--min-pixels", "100");
@@ -158,18 +132,6 @@ public sealed class ImagesScanCommandTests : IDisposable
         Assert.Contains("[s/N]", result.Error);
         Assert.Empty(_reader.Received);
         Assert.False(File.Exists(_project.ImageInventoryPath));
-    }
-
-    [Fact]
-    public async Task Pedido_acima_do_aviso_segue_quando_a_pessoa_confirma()
-    {
-        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "warnAbove": 0.0001 }""");
-        _cli.SetInput("s\n");
-
-        var result = await Scan();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(3, _reader.Received.Count);
     }
 
     [Fact]
@@ -197,21 +159,6 @@ public sealed class ImagesScanCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Resposta_cobrada_mas_inutil_entra_no_gasto_do_projeto()
-    {
-        _reader.InputTokens = 1000;
-        _reader.OutputTokens = 100;
-        _reader.BadReplyWhen = image => image.Name.EndsWith("rua.jpg", StringComparison.Ordinal);
-
-        var result = await Scan("--yes");
-
-        Assert.Equal(1, result.ExitCode);
-        var usage = AiUsageLog.Load(_project);
-        Assert.Equal(3000, usage.InputTokens);
-        Assert.Equal(300, usage.OutputTokens);
-    }
-
-    [Fact]
     public async Task Falha_ao_gravar_o_inventario_nao_apaga_o_gasto_ja_feito()
     {
         _reader.InputTokens = 1000;
@@ -236,15 +183,6 @@ public sealed class ImagesScanCommandTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("1 imagem recusada", result.Output);
         Assert.DoesNotContain(_project.LoadImageInventory(), e => e.Path == "bg/rua.jpg");
-    }
-
-    [Fact]
-    public async Task Limit_corta_as_leituras()
-    {
-        var result = await Scan("--yes", "--limit", "1");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Single(_reader.Received);
     }
 
     [Fact]

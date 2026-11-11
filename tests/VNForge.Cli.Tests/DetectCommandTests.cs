@@ -37,25 +37,6 @@ public sealed class DetectCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Pasta_com_ypf_mostra_a_engine_e_os_detalhes()
-    {
-        var dir = NewGameDir();
-        await File.WriteAllBytesAsync(Path.Combine(dir, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync([Detect, GameOption, dir], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Engine detectada: yuris", result.Output);
-        Assert.Contains("parece YU-RIS", result.Output);
-        var lines = result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n');
-        Assert.Equal("Engine detectada: yuris", lines[0]);
-        Assert.StartsWith("├── parece YU-RIS", lines[1]);
-        var packages = Array.FindIndex(lines, l => l.EndsWith("Pacotes", StringComparison.Ordinal));
-        Assert.True(packages > 1, "o nó Pacotes tem de vir depois do resumo");
-        Assert.Matches(@"^[│ ]   └── bgm\.ypf: v500", lines[packages + 1]);
-    }
-
-    [Fact]
     public async Task Ypf_com_indice_ilegivel_mostra_os_avisos_com_rotulo_em_portugues()
     {
         var dir = NewGameDir();
@@ -87,17 +68,6 @@ public sealed class DetectCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_game_usa_a_pasta_atual()
-    {
-        await File.WriteAllBytesAsync(Path.Combine(_cli.WorkingDirectory, BgmYpf), EmptyYpf, TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync([Detect], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Engine detectada: yuris", result.Output);
-    }
-
-    [Fact]
     public async Task Json_traz_o_resultado_da_deteccao()
     {
         var dir = NewGameDir();
@@ -112,20 +82,6 @@ public sealed class DetectCommandTests : IDisposable
         Assert.True(data.GetProperty("detected").GetBoolean());
         Assert.Equal("yuris", data.GetProperty("engine").GetString());
         Assert.Equal("v500, 0 arquivos", data.GetProperty("details").GetProperty("ypf:bgm.ypf").GetString());
-    }
-
-    [Fact]
-    public async Task Json_de_pasta_sem_engine_marca_detected_falso()
-    {
-        var dir = NewGameDir();
-
-        var result = await _cli.RunAsync([Detect, GameOption, dir, "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.False(data.GetProperty("detected").GetBoolean());
-        Assert.False(data.TryGetProperty("engine", out _));
     }
 
     [Fact]

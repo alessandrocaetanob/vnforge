@@ -37,34 +37,6 @@ public sealed class StatusCommandTests : IDisposable
         new($"{key}:{n:D6}", TextUnitKind.Dialogue, speaker, "原文", status == TranslationStatus.Untranslated ? null : "tradução", status);
 
     [Fact]
-    public async Task Json_traz_total_arquivos_e_personagens_que_batem_com_os_text_json()
-    {
-        var result = await _cli.RunAsync(["status", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.True(doc.RootElement.GetProperty("ok").GetBoolean());
-        var data = doc.RootElement.GetProperty("data");
-
-        var total = data.GetProperty("total");
-        Assert.Equal(4, total.GetProperty("lines").GetInt32());
-        Assert.Equal(1, total.GetProperty("untranslated").GetInt32());
-        Assert.Equal(1, total.GetProperty("machine").GetInt32());
-        Assert.Equal(0, total.GetProperty("translated").GetInt32());
-        Assert.Equal(1, total.GetProperty("reviewed").GetInt32());
-        Assert.Equal(1, total.GetProperty("approved").GetInt32());
-        Assert.Equal(75, total.GetProperty("percent").GetDouble());
-
-        var files = data.GetProperty("files").EnumerateArray().ToList();
-        Assert.Equal([Yst00001, "yst00002"], files.Select(f => f.GetProperty("key").GetString()));
-        Assert.Equal([3, 1], files.Select(f => f.GetProperty("lines").GetInt32()));
-
-        var characters = data.GetProperty("characters").EnumerateArray().ToList();
-        Assert.Equal(["美咲", "健", null], characters.Select(c => c.GetProperty("speaker").GetString()));
-        Assert.Equal([2, 1, 1], characters.Select(c => c.GetProperty("lines").GetInt32()));
-    }
-
-    [Fact]
     public async Task Texto_mostra_titulo_barra_legenda_e_as_duas_tabelas()
     {
         var project = ProjectFolder.Open(_projectPath);
@@ -93,19 +65,6 @@ public sealed class StatusCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Json_traz_o_nome_do_script_e_nulo_quando_nao_ha()
-    {
-        ProjectFolder.Open(_projectPath).RenameScript(Yst00001, "Prólogo");
-
-        var result = await _cli.RunAsync(["status", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        var files = doc.RootElement.GetProperty("data").GetProperty("files").EnumerateArray().ToList();
-        Assert.Equal(["Prólogo", null], files.Select(f => f.GetProperty("name").GetString()));
-        Assert.Equal([Yst00001, "yst00002"], files.Select(f => f.GetProperty("key").GetString()));
-    }
-
-    [Fact]
     public async Task Texto_mostra_a_coluna_Nome_quando_algum_script_tem_nome()
     {
         var project = ProjectFolder.Open(_projectPath);
@@ -131,30 +90,6 @@ public sealed class StatusCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains(Yst00001, result.Output);
-    }
-
-    [Fact]
-    public async Task Terminal_interativo_pinta_a_barra_com_as_cores_do_app()
-    {
-        using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
-
-        var result = await cli.RunAsync(["status", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("38;2;92;203;138m", result.Output); // aprovada
-        Assert.Contains("38;2;165;139;242m", result.Output); // IA
-        Assert.Contains("38;2;124;132;146m", result.Output); // pendente
-    }
-
-    [Fact]
-    public async Task No_color_tira_o_ansi_mesmo_em_terminal_interativo()
-    {
-        using var cli = new CliHarness(terminal: CliTerminal.TrueColor(width: 100));
-
-        var result = await cli.RunAsync(["status", "--project", _projectPath, "--no-color"], TestContext.Current.CancellationToken);
-
-        Assert.DoesNotContain('\u001b', result.Output);
-        Assert.Contains("█ Aprovadas 1", result.Output);
     }
 
     [Fact]

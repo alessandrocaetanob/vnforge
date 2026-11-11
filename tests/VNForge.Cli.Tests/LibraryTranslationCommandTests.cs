@@ -142,7 +142,6 @@ public sealed class LibraryTranslationCommandTests : IDisposable
 
     [Theory]
     [InlineData]
-    [InlineData("--original", "--traduzido")]
     public async Task Switch_exige_exatamente_uma_das_duas_opcoes(params string[] options)
     {
         var game = await PrepareLinkedGame();

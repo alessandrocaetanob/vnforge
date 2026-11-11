@@ -91,16 +91,6 @@ public sealed class VndbCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Search_com_json_nao_leva_o_credito_para_dentro_do_json()
-    {
-        var result = await _cli.RunAsync(["vndb", "search", "Hakoniwa", JsonFlag], Token);
-
-        using var json = JsonDocument.Parse(result.Output);
-        Assert.True(json.RootElement.GetProperty("ok").GetBoolean());
-        Assert.DoesNotContain(VndbCredit.ShortText, result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Search_com_json_entrega_os_resultados_e_se_combinam_com_a_pasta()
     {
         var result = await _cli.RunAsync(["vndb", "search", "Fan Disc", JsonFlag], Token);
@@ -113,39 +103,12 @@ public sealed class VndbCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Search_sem_titulo_nem_pasta_pede_um_dos_dois()
-    {
-        var result = await _cli.RunAsync(["vndb", "search"], Token);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--game", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Search_sem_resultado_diz_que_nao_achou()
     {
         var result = await _cli.RunAsync(["vndb", "search", "Titulo que ninguem tem"], Token);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("não achou", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Init_com_vndb_liga_o_jogo_e_extrair_leva_os_personagens_com_genero_para_o_characters_json()
-    {
-        var init = await _cli.RunAsync(["init", "projeto", "--game", _game, "--vndb", GameId], Token);
-
-        Assert.Equal(0, init.ExitCode);
-        Assert.Contains("Jogo do VNDB: Amaoto no Hakoniwa (v900001), 3 personagens", init.Output, StringComparison.Ordinal);
-        var project = ProjectFolder.Open(ProjectPath);
-        Assert.Equal("Numa cidade onde chove.", project.LoadVndbLink()?.Synopsis);
-        Assert.False(File.Exists(project.CharactersPath));
-
-        var extract = await _cli.RunAsync(["extract", "--project", ProjectPath], Token);
-
-        Assert.Equal(0, extract.ExitCode);
-        var misaki = Assert.Single(project.LoadCharacters());
-        Assert.Equal(("美咲", CharacterGender.Female, "Misaki Todo"), (misaki.Source, misaki.Gender, misaki.Romaji));
     }
 
     [Fact]

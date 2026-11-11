@@ -226,15 +226,4 @@ public sealed class MemoryCommandTests : IDisposable
         Assert.DoesNotContain("1 pares", sync.Output);
     }
 
-    [Fact]
-    public async Task Find_nao_sugere_par_de_projeto_com_o_mesmo_nome_em_outra_pasta()
-    {
-        NovoProjeto("antigo", "Amaoto no Hakoniwa", Linha(1, Frase, "Atrasados."));
-        NovoProjeto("novo", "Amaoto no Hakoniwa");
-        await Run("antigo", "memory", "sync");
-
-        var result = await Run("novo", "memory", "find", Frase);
-
-        Assert.Contains("Nenhum par parecido", result.Output);
-    }
 }

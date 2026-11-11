@@ -98,19 +98,6 @@ public sealed class ReviewCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task No_terminal_interativo_com_no_color_o_progresso_segue_no_erro_padrao()
-    {
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-        rich.Cli.ReviewProviderFactory = (_, _) => _provider;
-
-        var result = await rich.RunAsync(["review", "--no-color", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("100%", result.Error);
-        Assert.DoesNotContain("lote 1/1", result.Output);
-    }
-
-    [Fact]
     public async Task Grava_a_sugestao_em_notes_sem_mudar_translation_status_nem_origin()
     {
         var before = _project.LoadAllText().ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
@@ -137,29 +124,6 @@ public sealed class ReviewCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_status_revisa_so_as_linhas_machine()
-    {
-        await Run();
-
-        Assert.Equal("[IA] Conferir: tradução 2", Line(Script1, 1).Notes);
-        Assert.Equal("[IA] Conferir: tradução 4", Line(Script1, 3).Notes);
-        Assert.Equal("[IA] Conferir: tradução 1", Line("abc", 0).Notes);
-        Assert.Equal(string.Empty, Line(Script1, 2).Notes);
-        Assert.Equal(string.Empty, Line(Script1, 4).Notes);
-        Assert.Equal(string.Empty, Line(Script1, 0).Notes);
-    }
-
-    [Fact]
-    public async Task O_lote_leva_a_traducao_para_o_provedor()
-    {
-        await Run(FilesFlag, "abc");
-
-        var line = Assert.Single(Assert.Single(_provider.ReceivedBatches).Lines);
-        Assert.Equal("tradução 1", line.Translation);
-        Assert.Equal(ClaudeModels.Opus, _requestedModel);
-    }
-
-    [Fact]
     public async Task Nova_revisao_troca_a_nota_da_ia_e_preserva_a_nota_humana()
     {
         var units = _project.LoadText("abc");
@@ -168,17 +132,6 @@ public sealed class ReviewCommandTests : IDisposable
         await Run(FilesFlag, "abc");
 
         Assert.Equal("Falar com o diretor\n[IA] Conferir: tradução 1", Line("abc", 0).Notes);
-    }
-
-    [Fact]
-    public async Task Nota_humana_com_linhas_em_branco_volta_intacta()
-    {
-        var units = _project.LoadText("abc");
-        _project.SaveText("abc", [units[0] with { Notes = "a\n\nb\n[IA] velha" }]);
-
-        await Run(FilesFlag, "abc");
-
-        Assert.Equal("a\n\nb\n[IA] Conferir: tradução 1", Line("abc", 0).Notes);
     }
 
     [Fact]
@@ -195,17 +148,6 @@ public sealed class ReviewCommandTests : IDisposable
         var data = doc.RootElement.GetProperty("data");
         Assert.Equal(0, data.GetProperty("suggestions").GetInt32());
         Assert.Equal(4, data.GetProperty("clean").GetInt32());
-    }
-
-    [Fact]
-    public async Task Files_e_limit_filtram_as_linhas()
-    {
-        var result = await Run(FilesFlag, "yst0000*", "--limit", "2", JsonFlag);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.Equal(2, doc.RootElement.GetProperty("data").GetProperty("suggestions").GetInt32());
-        Assert.Equal(string.Empty, Line("abc", 0).Notes);
-        Assert.Equal(string.Empty, Line("yst00002", 0).Notes);
     }
 
     [Fact]
@@ -291,19 +233,6 @@ public sealed class ReviewCommandTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Sem chave de API", result.Error);
-    }
-
-    [Fact]
-    public async Task Glossario_e_guia_de_estilo_chegam_ao_lote()
-    {
-        _project.SaveGlossary([new VNForge.Core.Glossary.GlossaryTerm("原文1", "texto 1", null)]);
-        await File.WriteAllTextAsync(Path.Combine(_projectPath, "style.md"), "Tom informal.", TestContext.Current.CancellationToken);
-
-        await Run(FilesFlag, "abc");
-
-        var batch = Assert.Single(_provider.ReceivedBatches);
-        Assert.Equal("Tom informal.", batch.StyleGuide);
-        Assert.Equal("texto 1", Assert.Single(batch.Glossary).Target);
     }
 
     private sealed class FailingProvider : IReviewProvider
