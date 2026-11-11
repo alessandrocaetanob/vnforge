@@ -32,8 +32,9 @@ internal static class VndbRules
         ArgumentNullException.ThrowIfNull(update);
         if (update.Vote.Kind == VndbChangeKind.Set)
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan(update.Vote.Value, MinVote);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(update.Vote.Value, MaxVote);
+            // S3236 é falso positivo: o ParamName "update" faz parte do contrato da exceção.
+            ArgumentOutOfRangeException.ThrowIfLessThan(update.Vote.Value, MinVote, nameof(update));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(update.Vote.Value, MaxVote, nameof(update));
         }
 
         var invalid = update.LabelsSet.Concat(update.LabelsUnset).Cast<int?>().FirstOrDefault(id => id is < 1 or > MaxLabelId || id == VotedLabelId);

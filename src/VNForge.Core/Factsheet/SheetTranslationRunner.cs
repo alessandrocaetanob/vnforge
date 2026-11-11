@@ -77,7 +77,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
         {
             if (terms.Find(SheetTermKind.Tag, tagId) is { } term && Needs(term.Text, force))
             {
-                items.Add(new SheetTranslationItem(SheetField.OfTag(tagId).Key,SheetItemKind.TagName, term.Text.Source, term.Context));
+                items.Add(new SheetTranslationItem(SheetField.OfTag(tagId).Key, SheetItemKind.TagName, term.Text.Source, term.Context));
             }
         }
 

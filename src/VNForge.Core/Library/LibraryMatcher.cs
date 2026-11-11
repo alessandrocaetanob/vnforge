@@ -106,7 +106,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
                 continue;
             }
 
-            foreach (var result in await catalog.SearchVisualNovelsAsync(termText,options.SearchLimit, cancellationToken).ConfigureAwait(false))
+            foreach (var result in await catalog.SearchVisualNovelsAsync(termText, options.SearchLimit, cancellationToken).ConfigureAwait(false))
             {
                 found.TryAdd(result.Id, result);
             }

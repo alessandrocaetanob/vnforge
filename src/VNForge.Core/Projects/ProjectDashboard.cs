@@ -116,7 +116,6 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         };
     }
 
-    // Um arquivo de apoio inválido (nomes, personagens) não derruba o Painel: os números dependem só de text/*.json.
     private static BuildStatus BuildOf(ProjectFolder project, bool built)
     {
         if (built)
@@ -127,6 +126,7 @@ public sealed record ProjectDashboard(ProjectStatus Status, IReadOnlyList<Pipeli
         return BuildState.Load(project) is null ? BuildStatus.None : BuildStatus.Stale;
     }
 
+    // Um arquivo de apoio inválido (nomes, personagens) não derruba o Painel: os números dependem só de text/*.json.
     private static T TryLoad<T>(Func<T> load, T fallback)
     {
         try

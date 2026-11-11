@@ -116,7 +116,7 @@ public static class UnwritableCharacters
 
         var decomposed = original.Normalize(NormalizationForm.FormD);
         var bare = new StringBuilder(decomposed.Length);
-        foreach (var c in decomposed.Where(c => c is < '̀' or > 'ͯ'))
+        foreach (var c in decomposed.Where(c => c is < '\u0300' or > '\u036F'))
         {
             bare.Append(c);
         }
