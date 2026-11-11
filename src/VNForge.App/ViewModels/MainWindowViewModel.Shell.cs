@@ -202,10 +202,24 @@ public sealed partial class MainWindowViewModel
     private async Task OpenExistingProjectAsync()
     {
         var before = CurrentProject;
-        await Start.OpenFolderCommand.ExecuteAsync(null);
+        try
+        {
+            await Start.OpenFolderCommand.ExecuteAsync(null);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Library.ReportProblem($"{e.Message} O projeto não pôde ser aberto.");
+            return;
+        }
+
         if (CurrentProject is { } opened && !ReferenceEquals(opened, before))
         {
             SelectedNav = sheetItem;
+        }
+        else if (Start.ErrorMessage is { Length: > 0 } problem)
+        {
+            // Não depende do PropertyChanged de Start.ErrorMessage: o mesmo erro duas vezes seguidas não o dispara de novo.
+            Library.ReportProblem(problem);
         }
     }
 

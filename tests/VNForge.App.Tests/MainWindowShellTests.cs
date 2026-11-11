@@ -573,4 +573,42 @@ public sealed class MainWindowShellTests
         Assert.False(string.IsNullOrEmpty(first));
         Assert.Equal(first, library.ErrorMessage);
     }
+
+    [Fact]
+    public async Task Abrir_um_projeto_que_ja_existe_com_a_pasta_ilegivel_vira_aviso_na_Biblioteca_e_nao_excecao_solta()
+    {
+        using var temp = new TempFolder();
+        var library = new LibraryViewModel(null, new FakeFolderPicker(null), action => action());
+        var picker = new ThrowingPicker(new IOException("O disco não respondeu."));
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), picker, new FixedClock(Now)), library: library);
+
+        library.OpenExistingProjectCommand.Execute(null);
+        await vm.ProjectOpening;
+
+        Assert.True(vm.ProjectOpening.IsCompletedSuccessfully);
+        Assert.Contains("O disco não respondeu.", library.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task O_mesmo_erro_ao_abrir_um_projeto_que_ja_existe_aparece_de_novo_na_segunda_vez()
+    {
+        using var temp = new TempFolder();
+        var library = new LibraryViewModel(null, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(Path.Combine(temp.Path, "sumiu")), new FixedClock(Now)), library: library);
+
+        library.OpenExistingProjectCommand.Execute(null);
+        await vm.ProjectOpening;
+        var first = library.ErrorMessage;
+        library.ReportProblem(string.Empty);
+        library.OpenExistingProjectCommand.Execute(null);
+        await vm.ProjectOpening;
+
+        Assert.False(string.IsNullOrEmpty(first));
+        Assert.Equal(first, library.ErrorMessage);
+    }
+
+    private sealed class ThrowingPicker(Exception error) : IFolderPicker
+    {
+        public Task<string?> PickFolderAsync(string title) => Task.FromException<string?>(error);
+    }
 }

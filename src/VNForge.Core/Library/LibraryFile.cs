@@ -58,7 +58,13 @@ public sealed class LibraryFile(string directory)
     /// Quem tem uma operação longa (a busca no VNDB) deve chamar <c>Update</c> por resultado, e não segurar a biblioteca lida no começo até o fim.
     /// </summary>
     /// <exception cref="LibraryException">O arquivo está ilegível, ou outro processo o segurou por mais de <see cref="LockTimeout"/>.</exception>
-    public T Update<T>(Func<GameLibrary, T> change)
+    public T Update<T>(Func<GameLibrary, T> change) => Update(change, CancellationToken.None);
+
+    /// <inheritdoc cref="Update{T}(Func{GameLibrary, T})"/>
+    /// <param name="change">A mudança a aplicar.</param>
+    /// <param name="cancellationToken">Para a espera pela trava; depois de a trava ser pega a gravação termina.</param>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> parou a espera pela trava.</exception>
+    public T Update<T>(Func<GameLibrary, T> change, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(change);
         try
@@ -70,7 +76,7 @@ public sealed class LibraryFile(string directory)
             throw new LibraryException($"A pasta de '{Path}' não pôde ser criada: {e.Message}", e);
         }
 
-        using var gate = Acquire();
+        using var gate = Acquire(cancellationToken);
         var library = Load();
         var result = change(library);
         Save(library);
@@ -91,8 +97,8 @@ public sealed class LibraryFile(string directory)
     /// <summary>Quanto <see cref="Update{T}(Func{GameLibrary, T})"/> espera outro processo soltar a trava.</summary>
     public static TimeSpan LockTimeout { get; } = TimeSpan.FromSeconds(15);
 
-    private FileStream Acquire() =>
-        FileLock.Acquire(Path + ".lock", LockTimeout, $"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.");
+    private FileStream Acquire(CancellationToken cancellationToken) =>
+        FileLock.Acquire(Path + ".lock", LockTimeout, $"A biblioteca ('{Path}') está em uso por outro processo. Tente de novo em instantes.", cancellationToken);
 
     /// <summary>Grava a biblioteca sem deixar o arquivo pela metade: escreve num temporário ao lado e troca.</summary>
     /// <exception cref="LibraryException">O arquivo não pôde ser gravado (disco cheio, sem permissão, preso por outro programa).</exception>

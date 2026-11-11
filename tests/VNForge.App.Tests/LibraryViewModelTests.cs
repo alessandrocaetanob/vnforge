@@ -342,6 +342,30 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Confirmar_um_jogo_que_sumiu_da_biblioteca_vira_aviso_na_tela()
+    {
+        var vm = await Loaded();
+        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
+        File.Update(library => library.Remove(vm.Match.Game!.Id));
+
+        await vm.Match.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
+    }
+
+    [Fact]
+    public async Task Buscar_de_novo_um_jogo_que_sumiu_da_biblioteca_vira_aviso_na_tela()
+    {
+        var vm = await Loaded();
+        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
+        File.Update(library => library.Remove(vm.Match.Game!.Id));
+
+        await vm.Match.SearchCommand.ExecuteAsync(null);
+
+        Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
+    }
+
+    [Fact]
     public async Task Desfazer_o_casamento_e_tirar_da_biblioteca_mexem_so_no_library_json()
     {
         var vm = await Loaded();
