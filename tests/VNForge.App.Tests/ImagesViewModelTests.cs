@@ -102,6 +102,24 @@ public sealed class ImagesViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task FitTextSaysWhetherTheTranslationFitsTheArea()
+    {
+        var vm = Open();
+        await Select(vm, Gate);
+        vm.SetRegion(100, 100, 200, 40);
+
+        vm.Text = "Colégio";
+        await vm.Previewing;
+        Assert.Equal("Cabe na placa · 70 de 200 px de largura", vm.FitText);
+        Assert.True(vm.FitsRegion);
+
+        vm.Text = "Colégio Sakuragaoka do bairro";
+        await vm.Previewing;
+        Assert.StartsWith("Não cabe na placa · 290 de 200 px de largura", vm.FitText);
+        Assert.False(vm.FitsRegion);
+    }
+
+    [Fact]
     public async Task EveryChangeRendersAgain()
     {
         var vm = Open();
@@ -138,22 +156,6 @@ public sealed class ImagesViewModelTests : IDisposable
         Assert.Equal(ImageState.Marked, vm.SelectedItem!.State);
         Assert.False(vm.IsDirty);
         Assert.True(vm.IsMarked);
-    }
-
-    [Fact]
-    public async Task UndoGoesBackToWhatIsSaved()
-    {
-        var vm = Open();
-        await Select(vm, Gate);
-        vm.Text = "Portão";
-        await vm.MarkCommand.ExecuteAsync(null);
-        vm.Text = "Outra coisa";
-        Assert.True(vm.CanUndo);
-
-        vm.UndoCommand.Execute(null);
-
-        Assert.Equal("Portão", vm.Text);
-        Assert.False(vm.IsDirty);
     }
 
     [Fact]

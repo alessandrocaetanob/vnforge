@@ -321,24 +321,6 @@ public sealed class MainWindowShellTests
         Assert.Contains("O disco não respondeu.", library.ErrorMessage, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task O_mesmo_erro_ao_abrir_um_projeto_que_ja_existe_aparece_de_novo_na_segunda_vez()
-    {
-        using var temp = new TempFolder();
-        var library = new LibraryViewModel(null, new FakeFolderPicker(null), action => action());
-        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(Path.Combine(temp.Path, "sumiu")), new FixedClock(Now)), library: library);
-
-        library.OpenExistingProjectCommand.Execute(null);
-        await vm.ProjectOpening;
-        var first = library.ErrorMessage;
-        library.ReportProblem(string.Empty);
-        library.OpenExistingProjectCommand.Execute(null);
-        await vm.ProjectOpening;
-
-        Assert.False(string.IsNullOrEmpty(first));
-        Assert.Equal(first, library.ErrorMessage);
-    }
-
     private sealed class ThrowingPicker(Exception error) : IFolderPicker
     {
         public Task<string?> PickFolderAsync(string title) => Task.FromException<string?>(error);

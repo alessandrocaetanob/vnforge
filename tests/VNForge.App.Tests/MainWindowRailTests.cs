@@ -46,6 +46,26 @@ public class MainWindowRailTests
     private static TextUnit WithWarning(TextUnit unit) => unit with { Translation = "duas  palavras" };
 
     [Fact]
+    public async Task Contador_conta_so_os_erros_e_deixa_os_avisos_de_fora()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenedWith(temp, WithMarkerError, WithWarning);
+        var item = vm.Nav.Single(n => n.Key == NavKey.Conference);
+
+        Assert.Equal(2, vm.Editor.IssueCount);
+        Assert.Equal(1, item.Badge);
+        Assert.Equal("1", item.BadgeText);
+        Assert.False(item.ShowNotice);
+
+        vm.SelectedNav = item;
+        await vm.ConferenceLoading;
+
+        Assert.Equal(1, vm.Conference.ErrorCount);
+        Assert.Equal(1, item.Badge);
+        Assert.False(item.ShowNotice);
+    }
+
+    [Fact]
     public void Selecionar_Ajustes_pelo_pe_navega_e_limpa_a_selecao_do_alto()
     {
         using var temp = new TempFolder();

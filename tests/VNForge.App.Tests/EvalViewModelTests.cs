@@ -76,6 +76,19 @@ public sealed class EvalViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Sem_linhas_aprovadas_diz_o_que_fazer_e_nao_deixa_rodar()
+    {
+        var vm = Vm();
+
+        await vm.LoadAsync(Project(approved: 0));
+
+        Assert.True(vm.ShowNoGold);
+        Assert.False(vm.ShowStrip);
+        Assert.Contains("Aprove algumas no Editor", vm.NoGoldText);
+        Assert.False(vm.RunOpenCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Tirar_configuracao_ou_juiz_baixa_o_custo_e_muda_o_botao()
     {
         var vm = Vm();
@@ -95,6 +108,23 @@ public sealed class EvalViewModelTests : IDisposable
         vm.RunItems[2].IsSelected = false;
         Assert.False(vm.CanRun);
         Assert.False(vm.StartRunCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Sem_chave_ou_acima_do_limite_o_botao_de_rodar_fica_desligado()
+    {
+        var noKey = Vm(() => new DashboardContext(ExchangeRate.Placeholder, BudgetLimits.None, HasApiKey: false));
+        await noKey.LoadAsync(Project());
+        await noKey.RunOpenCommand.ExecuteAsync(null);
+        Assert.True(noKey.KeyMissing);
+        Assert.False(noKey.CanRun);
+
+        var tight = Vm(() => new DashboardContext(ExchangeRate.Placeholder, new BudgetLimits(0.001m, null), HasApiKey: true));
+        await tight.LoadAsync(Project());
+        await tight.RunOpenCommand.ExecuteAsync(null);
+        Assert.True(tight.IsOverLimit);
+        Assert.False(tight.CanRun);
+        Assert.Contains("limite de gasto", tight.OverLimitText);
     }
 
     [Fact]
@@ -173,6 +203,23 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.Contains("Sobrou 1 par que você pulou", vm.Message);
         Assert.NotEqual("sem rodada", vm.Rows[0].BlindText);
         Assert.All(vm.Rows.Where(r => r.BlindText != "não rodou"), r => Assert.Matches(@"^\d+ de \d+$", r.BlindText));
+    }
+
+    [Fact]
+    public async Task As_respostas_voltam_quando_o_projeto_e_lido_de_novo()
+    {
+        var project = Project();
+        var vm = await RunRound(Vm(), project);
+        vm.BlindStartCommand.Execute(null);
+        vm.ChooseFirstCommand.Execute(null);
+        vm.ChooseFirstCommand.Execute(null);
+
+        var again = Vm();
+        await again.LoadAsync(project);
+
+        Assert.Equal("2 de 12 pares feitos", again.BlindSummary);
+        Assert.Equal("Continuar às cegas", again.BlindActionText);
+        Assert.Equal(3, again.Rows.Count);
     }
 
     [Fact]

@@ -25,23 +25,21 @@ public sealed class AdultPrivacyTests : IDisposable
     }
 
     [Fact]
-    public async Task A_aba_Privacidade_e_o_atalho_da_Biblioteca_gravam_e_leem_o_mesmo_modo_do_arquivo()
+    public void Sem_gravar_o_cartao_volta_ao_modo_que_vale_e_a_aba_mostra_o_erro()
     {
-        var (shell, library) = await ShellAsync();
-        var privacy = shell.Settings.Privacy!;
+        var failing = true;
+        var privacy = new PrivacySettingsViewModel(() => AdultMode.Blur, _ => !failing, () => "disco cheio");
 
-        Assert.True(shell.Settings.HasPrivacy);
-        Assert.Equal(AdultMode.Blur, privacy.Modes.Single(m => m.IsSelected).Mode);
+        privacy.Modes[2].IsSelected = true;
 
-        privacy.Modes.Single(m => m.Mode == AdultMode.Hide).IsSelected = true;
+        Assert.Equal([false, true, false], privacy.Modes.Select(m => m.IsSelected));
+        Assert.Equal("disco cheio", privacy.ErrorMessage);
+        Assert.True(privacy.HasError);
 
-        Assert.Equal(AdultMode.Hide, library.AdultMode);
-        Assert.Equal(AdultMode.Hide, File.Load().Privacy.Adult);
-        Assert.DoesNotContain(library.Cards, c => c.Title == "Kuroneko Archive");
+        failing = false;
+        privacy.Modes[0].IsSelected = true;
 
-        library.ChooseAdultMode(AdultMode.Show);
-
-        Assert.Equal(AdultMode.Show, privacy.Modes.Single(m => m.IsSelected).Mode);
+        Assert.False(privacy.HasError);
     }
 
     [Fact]

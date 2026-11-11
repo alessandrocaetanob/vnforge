@@ -119,26 +119,6 @@ public sealed class VndbListTests
     }
 
     [Fact]
-    public async Task Marcar_como_terminado_grava_aqui_e_envia_ao_VNDB_quando_ha_token()
-    {
-        using var setup = new Setup([Game("g1", "v4")], [Entry("v4", T0, null, null, LibraryListLabels.Playing)]);
-        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true };
-        var plan = await setup.Service.PlanAsync(FakeVndbCatalog.ValidToken, LibrarySyncDirection.Both, ct: Ct);
-        await setup.Service.ApplyAsync(plan, FakeVndbCatalog.ValidToken, Ct);
-        Assert.True(setup.Local("g1").HasLabel(LibraryListLabels.Playing));
-
-        var note = await setup.Service.MarkFinishedAsync("g1", Ct);
-
-        Assert.Null(note);
-        var local = setup.Local("g1");
-        Assert.True(local.HasLabel(LibraryListLabels.Finished));
-        Assert.False(local.HasLabel(LibraryListLabels.Playing));
-        Assert.Equal(new DateOnly(2026, 11, 6), local.Finished);
-        var remote = await setup.Remote("v4");
-        Assert.Contains(remote.Labels, l => l.Id == LibraryListLabels.Finished);
-    }
-
-    [Fact]
     public async Task Sem_rede_terminar_aqui_fica_so_aqui_e_nao_derruba()
     {
         using var setup = new Setup([Game("g1", "v4")], [], wrap: fake => new OfflineList(fake));
@@ -158,6 +138,19 @@ public sealed class VndbListTests
 
         public Task UpdateEntryAsync(string token, string visualNovelId, VndbListUpdate update, CancellationToken ct = default) =>
             throw new HttpRequestException("Sem conexão.");
+    }
+
+    [Fact]
+    public async Task Marcar_como_terminado_sem_token_fica_so_aqui()
+    {
+        using var setup = new Setup([Game("g1", "v4")], [], withToken: false);
+        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true };
+
+        var note = await setup.Service.MarkFinishedAsync("g1", Ct);
+
+        Assert.Contains("só aqui", note);
+        Assert.True(setup.Local("g1").HasLabel(LibraryListLabels.Finished));
+        Assert.DoesNotContain(setup.Fake.Calls, c => c.StartsWith(nameof(IVndbUserList.UpdateEntryAsync), StringComparison.Ordinal));
     }
 
     [Fact]
@@ -258,6 +251,22 @@ public sealed class VndbListTests
     }
 
     [Fact]
+    public async Task Terminar_aqui_so_sobe_ao_VNDB_quando_a_escolha_esta_ligada()
+    {
+        using var setup = new Setup([Game("g1", "v4")], []);
+
+        await setup.Service.EditAsync("g1", new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished] }, Ct);
+        Assert.DoesNotContain(setup.Fake.Calls, c => c.StartsWith(nameof(IVndbUserList.UpdateEntryAsync), StringComparison.Ordinal));
+        Assert.True(setup.Local("g1").HasLabel(LibraryListLabels.Finished));
+
+        setup.Service.Choices = new VndbSyncChoices { MarkFinishedOnVndb = true };
+        await setup.Service.EditAsync("g1", new VndbListUpdate { LabelsSet = [LibraryListLabels.Finished], Vote = 90 }, Ct);
+
+        Assert.Contains(setup.Fake.Calls, c => c.StartsWith(nameof(IVndbUserList.UpdateEntryAsync), StringComparison.Ordinal));
+        Assert.Contains((await setup.Remote("v4")).Labels, l => l.Id == LibraryListLabels.Finished);
+    }
+
+    [Fact]
     public async Task O_cartao_da_Ficha_mostra_a_lista_e_edita_rotulo_voto_datas_e_notas()
     {
         using var setup = new Setup([Game("g1", "v4")], []);
@@ -295,6 +304,20 @@ public sealed class VndbListTests
         await card.CommitCommand.ExecuteAsync(null);
         Assert.Null(setup.Local("g1").Finished);
         Assert.Null(setup.Local("g1").Vote);
+    }
+
+    [Fact]
+    public async Task O_cartao_segue_o_jogo_ligado_a_pasta_do_projeto_e_some_sem_confirmacao()
+    {
+        using var setup = new Setup([Game("g1", "v4") with { ProjectPath = "C:\\Projetos\\um" }, Game("g2", "v4") with { ProjectPath = "C:\\Projetos\\dois" }, Game("g3", "v9") with { VndbId = null, Confirmation = LibraryConfirmation.None }], []);
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        await library.LoadAsync();
+
+        await library.ListCardForProject("c:\\projetos\\dois", "v4")!.ToggleLabelCommand.ExecuteAsync(new VndbLabelChip(LibraryListLabels.Playing, "Jogando", false));
+
+        Assert.True(setup.Local("g2").HasLabel(LibraryListLabels.Playing));
+        Assert.Null(setup.File.Load().Find("g1").CurrentList);
+        Assert.Null(library.ListCardForProject(null, null));
     }
 
     [Fact]
@@ -378,5 +401,16 @@ public sealed class VndbListTests
         Assert.False(setup.Service.Choices.Labels);
         Assert.False(setup.Service.Choices.Dates);
         Assert.False(setup.Service.Choices.Notes);
+    }
+
+    [Fact]
+    public void Escolher_o_lado_remoto_de_um_conflito_desmarca_o_local_e_o_contrario()
+    {
+        var conflito = new VndbConflictRow("g1", "Jogo", "Notas", "local", "remoto", localWins: true);
+
+        conflito.UseRemote = true;
+        Assert.False(conflito.UseLocal);
+        conflito.UseRemote = false;
+        Assert.True(conflito.UseLocal);
     }
 }

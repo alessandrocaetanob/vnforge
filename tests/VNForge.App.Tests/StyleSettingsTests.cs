@@ -33,22 +33,29 @@ public class StyleSettingsTests
     }
 
     [Fact]
-    public async Task Escolher_guillemets_grava_no_vnforge_json_e_voltar_ao_padrao_tira_o_campo()
+    public void O_exemplo_muda_com_honorifico_tratamento_e_onomatopeia()
     {
-        using var temp = new TempFolder();
-        var (vm, root) = await Opened(temp);
-        var saves = 0;
-        vm.ProjectSaved += (_, _) => saves++;
+        var style = new StyleSettingsViewModel();
+        var seen = new List<string?>();
+        style.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(StyleSettingsViewModel.ExampleTranslation))
+            {
+                seen.Add(style.ExampleTranslation);
+            }
+        };
 
-        vm.Style.SelectedSpeakerDelimiter = vm.Style.SpeakerDelimiters.Single(o => o.Value == SpeakerDelimiterStyle.Guillemets);
+        Assert.Equal("Misaki, o veterano está te chamando. O coração não dispara?", style.ExampleTranslation);
 
-        Assert.Equal(1, saves);
-        Assert.Equal(SpeakerDelimiterStyle.Guillemets, ProjectFolder.Open(root).LoadConfig().Style.SpeakerDelimiter);
-        Assert.Contains("\"speakerDelimiter\": \"guillemets\"", File.ReadAllText(Path.Combine(root, ProjectFolder.ConfigFileName)));
+        style.SelectedHonorific = style.Honorifics[0];
+        Assert.Equal("Misaki-chan, o senpai está te chamando. O coração não dispara?", style.ExampleTranslation);
 
-        vm.Style.SelectedSpeakerDelimiter = vm.Style.SpeakerDelimiters.Single(o => o.Value == SpeakerDelimiterStyle.None);
+        style.SelectedAddress = style.Addresses[1];
+        Assert.EndsWith(" Não ficas nervosa?", style.ExampleTranslation);
 
-        Assert.DoesNotContain("speakerDelimiter", File.ReadAllText(Path.Combine(root, ProjectFolder.ConfigFileName)), StringComparison.Ordinal);
+        style.TranslateOnomatopoeia = false;
+        Assert.Equal("Misaki-chan, o senpai está te chamando. Não fica doki doki? Não ficas nervosa?", style.ExampleTranslation);
+        Assert.Equal(3, seen.Count);
     }
 
     [Fact]

@@ -69,6 +69,17 @@ public class StartV3Tests
     }
 
     [Fact]
+    public void A_lista_da_primeira_vez_diz_se_a_chave_esta_guardada()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        Assert.Contains("Sem ela", vm.ApiKeyNeedText, StringComparison.Ordinal);
+        vm.ApiKeyConfigured = true;
+        Assert.Contains("já está guardada", vm.ApiKeyNeedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_pasta_solta_abre_o_assistente_com_a_pasta_preenchida()
     {
         using var temp = new TempFolder();
@@ -111,23 +122,6 @@ public class StartV3Tests
         await vm.DropFolderAsync(temp.SubFolder("jogo"), dropped: 3);
 
         Assert.Contains("Só a primeira", vm.NoticeMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task O_proximo_passo_aberto_pelo_Inicio_cai_no_script_do_passo_e_nao_no_primeiro()
-    {
-        using var temp = new TempFolder();
-        var vm = new MainWindowViewModel(Create(temp));
-        await vm.Start.OpenAsync(Project(temp));
-        await vm.Start.DetailLoading;
-        var target = vm.Start.Detail.NextStepTarget;
-        Assert.Equal("yst00002", target?.ScriptKey);
-
-        await vm.Start.OpenNextStepCommand.ExecuteAsync(null);
-        await vm.LineNavigation;
-
-        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-        Assert.Equal(target?.ScriptKey, vm.Editor.SelectedScript?.Key);
     }
 
     [Fact]

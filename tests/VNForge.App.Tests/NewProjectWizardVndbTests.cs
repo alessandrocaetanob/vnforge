@@ -130,6 +130,22 @@ public sealed class NewProjectWizardVndbTests : IDisposable
     }
 
     [Fact]
+    public async Task O_nome_em_destaque_vem_na_ordem_ocidental_e_o_original_fica_abaixo_so_quando_existe()
+    {
+        var catalog = new FakeVndbCatalog(
+            [Vn("v1", "Amaoto no Hakoniwa", Title)],
+            [Character("c1", "Aizawa Kenta", "相沢 健太", "m"), Character("c2", "John Smith", "ジョン・スミス", "m"), Character("c3", "Sakura", "桜", "f")]);
+        var vm = await AtVndbStepAsync(catalog);
+
+        await vm.NextCommand.ExecuteAsync(null);
+
+        var rows = vm.Preview!.Characters;
+        Assert.Equal(["Kenta Aizawa", "John Smith", "Sakura"], rows.Select(c => c.Display));
+        Assert.Equal(["Aizawa Kenta", "John Smith", "Sakura"], rows.Select(c => c.Romaji));
+        Assert.All(rows, c => Assert.True(c.HasOriginal));
+    }
+
+    [Fact]
     public async Task O_aviso_de_genero_conta_tambem_os_que_o_VNDB_traz_sem_genero()
     {
         var vm = await AtVndbStepAsync(Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)), gameNames: (_, _, _) => ["相沢 健太", "誰某", "名無し 08", "名無し 09"]);

@@ -89,23 +89,25 @@ public sealed class SpellingMenuHeadlessTests(HeadlessFixture fixture) : IClassF
     }
 
     [Fact]
-    public async Task Botao_direito_no_espaco_vazio_depois_da_palavra_no_fim_da_linha_nao_abre_o_menu()
+    public async Task Botao_direito_com_o_campo_rolado_acha_a_palavra_sob_o_ponteiro()
     {
         var (vm, _) = Abrir();
-        vm.FieldText = "Eu esquesi";
+        vm.FieldText = string.Concat(Enumerable.Repeat("linha de enchimento\n", 12)) + "Eu esquesi a chave.";
 
         await fixture.Session.Dispatch(
             () =>
             {
                 var (window, view, editor) = Show(vm);
-                var fimDaPalavra = PointAt(window, editor, 10);
+                editor.MaxHeight = 70;
+                window.UpdateLayout();
+                editor.ScrollToEnd();
+                window.UpdateLayout();
+                Assert.True(editor.TextArea.TextView.ScrollOffset.Y > 0);
+                var offset = vm.FieldText.IndexOf("esquesi", StringComparison.Ordinal) + 3;
 
-                RightClick(window, fimDaPalavra + new Point(150, 0));
-                Assert.Null(view.SpellingFlyout);
+                RightClick(window, PointAt(window, editor, offset));
 
-                RightClick(window, PointAt(window, editor, 9));
-                Assert.NotNull(view.SpellingFlyout);
-
+                Assert.True(view.SpellingFlyout?.IsOpen);
                 window.Close();
             },
             CancellationToken.None);

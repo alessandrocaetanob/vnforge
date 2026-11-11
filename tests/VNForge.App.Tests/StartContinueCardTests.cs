@@ -70,4 +70,31 @@ public class StartContinueCardTests
         Assert.Empty(blanks);
         Assert.Equal("segunda fala", vm.ContinueLayout!.Boxes[0].Lines[0].Text);
     }
+
+    [Fact]
+    public async Task Abrir_da_linha_nao_abre_projeto_de_motor_sem_suporte_nem_pasta_que_sumiu()
+    {
+        using var temp = new TempFolder();
+        var unsupported = StartFixtures.Create(temp.SubFolder("k"), "Segunda VN", engineId: "kirikiri");
+        var vanishing = StartFixtures.Create(temp.SubFolder("v"), "Terceira VN");
+        var vm = Create(temp);
+        await vm.OpenAsync(unsupported);
+        await vm.OpenAsync(vanishing);
+        Directory.Delete(vanishing, recursive: true);
+        await vm.LoadAsync();
+        var pedidos = 0;
+        vm.DashboardRequested += (_, _) => pedidos++;
+        var opened = 0;
+        vm.ProjectOpened += (_, _) => opened++;
+
+        foreach (var item in vm.Recents)
+        {
+            await vm.OpenRecentCommand.ExecuteAsync(item);
+        }
+
+        Assert.Equal(2, vm.Recents.Count);
+        Assert.False(vm.Recents[0].IsSupported);
+        Assert.Equal(0, pedidos);
+        Assert.Equal(0, opened);
+    }
 }

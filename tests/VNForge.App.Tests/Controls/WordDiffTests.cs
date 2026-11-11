@@ -28,4 +28,12 @@ public class WordDiffTests
         Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
         Assert.Equal(2, diff.Count);
     }
+
+    [Fact]
+    public void Pausas_nao_contam_e_quebra_de_linha_vira_espaco()
+    {
+        var diff = WordDiff.Compute("…Tem certeza?  Você vai se molhar.", "…Tem certeza?\\nVocê vai se molhar.\\p");
+
+        Assert.All(diff, s => Assert.Equal(DiffKind.Equal, s.Kind));
+    }
 }

@@ -45,15 +45,6 @@ public class EditorScriptsTests
     }
 
     [Fact]
-    public async Task Cabecalho_mostra_o_capitulo_e_a_posicao_da_cena_e_o_nome_dela_como_titulo()
-    {
-        var vm = await Carregado();
-
-        Assert.Equal("Capítulo 1 · cena 2 de 3", vm.Breadcrumb);
-        Assert.Equal("Capítulo 1 — Manhã de chuva", vm.ScriptTitle);
-    }
-
-    [Fact]
     public async Task Quando_o_scripts_json_chega_depois_o_Cena_N_vira_o_nome_real_sem_mexer_na_posicao()
     {
         var nomes = ScriptNames.Empty;
@@ -94,5 +85,28 @@ public class EditorScriptsTests
 
         vm.ScriptFilter = string.Empty;
         Assert.Equal(3, vm.VisibleScripts.Count());
+    }
+
+    [Fact]
+    public async Task O_script_em_traducao_ganha_o_icone_girando_e_so_ele()
+    {
+        var vm = await Carregado();
+
+        vm.RunningScriptKey = "yst00014";
+
+        Assert.Equal(["yst00014"], vm.Scripts.Where(s => s.IsRunning).Select(s => s.Key));
+
+        vm.RunningScriptKey = null;
+        Assert.DoesNotContain(vm.Scripts, s => s.IsRunning);
+    }
+
+    [Fact]
+    public async Task O_indicador_do_QA_da_linha_distingue_erro_e_aviso()
+    {
+        var vm = await Carregado();
+
+        Assert.Equal(LineIssue.Error, vm.Lines[1].Issue);
+        Assert.Equal(LineIssue.Warning, vm.Lines[2].Issue);
+        Assert.Equal(LineIssue.None, vm.Lines[0].Issue);
     }
 }

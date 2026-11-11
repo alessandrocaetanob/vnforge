@@ -56,6 +56,29 @@ public class TextboxPreviewTests : IDisposable
     }
 
     [Fact]
+    public void Cache_reaproveita_o_perfil_ate_o_arquivo_mudar()
+    {
+        GravarPerfil(Perfil);
+        var arquivo = ProjectFolder.Open(raiz).FormattingPath;
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc));
+        var cache = new FormattingProfileCache();
+
+        var primeiro = cache.Get(raiz);
+
+        Assert.Same(primeiro, cache.Get(raiz));
+        GravarPerfil("""{ "wrap": { "enabled": true, "maxWidth": 20, "charWidth": "uniform" } }""");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 5, 0, DateTimeKind.Utc));
+        var segundo = cache.Get(raiz);
+        Assert.NotSame(primeiro, segundo);
+        Assert.Equal(20, segundo!.Wrap.MaxWidth);
+        GravarPerfil("{ isto nao e json");
+        File.SetLastWriteTimeUtc(arquivo, new DateTime(2026, 10, 24, 12, 6, 0, DateTimeKind.Utc));
+        Assert.Null(cache.Get(raiz));
+        File.Delete(arquivo);
+        Assert.Same(FormattingProfile.Default, cache.Get(raiz));
+    }
+
+    [Fact]
     public async Task Perfil_ilegivel_deixa_o_painel_sem_previa()
     {
         GravarPerfil(Perfil);

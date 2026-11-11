@@ -23,4 +23,12 @@ public sealed class ReviewStageTests
         Assert.Equal(expectedWidth, fitted.Width, 3);
         Assert.Equal(expectedWidth / Aspect, fitted.Height, 3);
     }
+
+    private static (StageColumn Column, ReviewStage Stage, ScrollViewer Below) Build(double belowHeight)
+    {
+        var stage = new ReviewStage();
+        var below = new ScrollViewer { Content = new Border { Height = belowHeight } };
+        var column = new StageColumn { Children = { stage, below } };
+        return (column, stage, below);
+    }
 }

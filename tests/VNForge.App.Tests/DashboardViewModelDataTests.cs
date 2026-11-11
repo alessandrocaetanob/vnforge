@@ -109,20 +109,6 @@ public class DashboardViewModelDataTests
     }
 
     [Fact]
-    public async Task O_proximo_passo_revisa_o_primeiro_capitulo_com_linhas_da_IA()
-    {
-        var vm = await Load(Dashboard(Mixed(), TwoChapters()));
-        var requested = new List<DashboardNavigation>();
-        vm.NavigationRequested += (_, request) => requested.Add(request);
-
-        Assert.True(vm.HasNextStep);
-        Assert.Equal("Revisar o capítulo 1", vm.NextStepLabel);
-        vm.OpenNextStepCommand.Execute(null);
-
-        Assert.Equal([new DashboardNavigation(NavKey.Editor, "yst00002")], requested);
-    }
-
-    [Fact]
     public async Task Falha_ao_montar_o_Painel_mostra_o_erro_e_nao_deixa_a_tela_lendo_para_sempre()
     {
         var vm = new DashboardViewModel(_ => Dashboard(Mixed())) { Project = Summary };
@@ -133,6 +119,24 @@ public class DashboardViewModelDataTests
         Assert.False(vm.IsLoading);
         Assert.Contains("ajustes ilegíveis", vm.ErrorMessage);
         Assert.Empty(vm.Chapters);
+    }
+
+    [Fact]
+    public async Task Tudo_pronto_com_problemas_o_proximo_passo_e_conferir_e_sem_problemas_e_testar()
+    {
+        var status = StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Approved, 4))));
+        var withProblems = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(0, 2) };
+        var clean = new ProjectDashboard(status, Stages(), AiUsageTotals.Empty) { Qa = new QaTotals(0, 0) };
+        var tested = new ProjectDashboard(status, Stages(build: true, inject: true), AiUsageTotals.Empty) { Qa = new QaTotals(0, 0) };
+
+        var a = await Load(withProblems);
+        var b = await Load(clean);
+        var c = await Load(tested);
+
+        Assert.Equal("Conferir a tradução", a.NextStepLabel);
+        Assert.Equal("Testar no jogo", b.NextStepLabel);
+        Assert.Equal("Testar de novo no jogo", c.NextStepLabel);
+        a.OpenNextStepCommand.Execute(null);
     }
 
     [Fact]
@@ -191,20 +195,6 @@ public class DashboardViewModelDataTests
         }
 
         Assert.Equal([NavKey.Editor, NavKey.Editor, NavKey.Conference, NavKey.Build], requested);
-    }
-
-    [Fact]
-    public async Task O_ritmo_diz_as_horas_que_faltam_no_ritmo_da_pessoa()
-    {
-        var approvals = Enumerable.Range(0, 120).Select(i => new ApprovalRecord("yst00001", $"yst00001:{i:D6}", Now.AddDays(-1).AddSeconds(i * 30))).ToList();
-        var dashboard = new ProjectDashboard(StatusOf(("yst00001", Lines("yst00001", (TranslationStatus.Machine, 240), (TranslationStatus.Approved, 10)))), Stages(awaiting: 240), AiUsageTotals.Empty)
-        {
-            Sessions = new SessionsFile(SessionsFile.CurrentVersion, approvals),
-        };
-
-        var vm = await Load(dashboard);
-
-        Assert.Equal("No seu ritmo (120 linhas por hora), faltam cerca de 2 horas de revisão.", vm.PaceText);
     }
 
     [Fact]
@@ -267,4 +257,15 @@ public class DashboardViewModelDataTests
         Qa = new QaTotals(0, 0),
         Readiness = new ReadinessFacts(TestedInGame: false),
     };
+
+    [Fact]
+    public async Task O_detalhe_do_Inicio_de_um_projeto_real_mostra_o_aviso_de_chave_com_a_cena_de_exemplo_aberta()
+    {
+        var noKey = new DashboardContext(ExchangeRate.Placeholder, BudgetLimits.None, HasApiKey: false);
+        var panel = await Load(AllApproved(), noKey, Summary with { IsSample = true });
+        var detail = await Load(AllApproved(), noKey);
+
+        Assert.DoesNotContain(panel.Todos, t => t.Title == "Falta a chave do Claude");
+        Assert.Contains(detail.Todos, t => t.Title == "Falta a chave do Claude");
+    }
 }

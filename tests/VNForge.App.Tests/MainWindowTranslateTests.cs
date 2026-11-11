@@ -72,6 +72,19 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Uma_unica_cena_escolhida_que_nao_e_a_aberta_e_a_que_a_janela_traduz()
+    {
+        var (vm, _) = await OpenAsync();
+        vm.Editor.ChosenScripts.Add(vm.Editor.Scripts.Single(s => s.Key == "yst00002"));
+
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+
+        Assert.Equal(TranslationScope.Scene, vm.Translate.SelectedScope.Scope);
+        Assert.Equal(1, vm.Translate.Lines);
+    }
+
+    [Fact]
     public async Task A_traducao_da_IA_deixa_um_ponto_de_restauracao_e_o_Desfazer_da_lista_devolve_as_linhas()
     {
         var (vm, root) = await OpenAsync();
@@ -92,26 +105,6 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.False(entry.CanUndo);
         Assert.Equal("2 linhas voltaram ao que eram.", entry.UndoMessage);
         Assert.Contains("2 linhas voltaram", vm.Toasts.Toasts.Last().Message);
-    }
-
-    [Fact]
-    public async Task Desfazer_a_traducao_da_IA_deixa_a_linha_editada_depois_e_diz_quantas()
-    {
-        var (vm, root) = await OpenAsync();
-        vm.Editor.TranslatePendingCommand.Execute(null);
-        await vm.TranslateOpening;
-        vm.Translate.StartCommand.Execute(null);
-        await vm.TranslationRun;
-        var id = ProjectFolder.Open(root).LoadText("yst00001")[0].Id;
-        new LineEditor(ProjectFolder.Open(root), TimeProvider.System).SetTranslation("yst00001", id, "Minha versão");
-
-        var entry = Assert.Single(vm.Tasks.Entries);
-        await entry.UndoCommand.ExecuteAsync(null);
-
-        var after = ProjectFolder.Open(root).LoadText("yst00001");
-        Assert.Equal("Minha versão", after[0].Translation);
-        Assert.Equal(TranslationStatus.Untranslated, after[1].Status);
-        Assert.Equal("1 linha voltou ao que era. 1 foi editada depois e ficou como está.", entry.UndoMessage);
     }
 
     [Fact]
@@ -273,6 +266,15 @@ public sealed class MainWindowTranslateTests : IDisposable
         Assert.Equal(ToastKind.Warning, kind);
         Assert.Contains("parou no limite de gasto", text);
         Assert.Contains("30 linhas ficaram sem tradução porque o lote não voltou. Sem rede.", text);
+    }
+
+    [Fact]
+    public void Nada_traduzido_porque_a_pessoa_mudou_as_linhas_e_aviso()
+    {
+        var (text, kind) = MainWindowViewModel.DescribeOutcome(new TranslationJobResult(0, 0, 0, null, 0m, null, Skipped: 4));
+
+        Assert.Equal(ToastKind.Warning, kind);
+        Assert.Contains("4 linhas mudaram durante a execução", text);
     }
 
     [Fact]

@@ -164,6 +164,24 @@ public class LineDetailViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Marcadores_faltando_aparecem_conforme_a_traducao_muda()
+    {
+        var unidade = new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, @"A\nB\p{VAR:x}", null, TranslationStatus.Untranslated);
+        using var vm = Abrir(0, unidade);
+        Assert.Empty(vm.MissingMarkers);
+
+        vm.Translation = @"a\n";
+        Assert.Equal([@"\p", "{VAR:x}"], vm.MissingMarkers);
+        Assert.True(vm.HasMissingMarkers);
+        Assert.Contains(@"\p, {VAR:x}", vm.MissingMarkersText);
+
+        vm.Translation = @"a\nb\p{VAR:x}";
+        Assert.Empty(vm.MissingMarkers);
+        Assert.False(vm.HasMissingMarkers);
+        Assert.Equal(string.Empty, vm.MissingMarkersText);
+    }
+
+    [Fact]
     public void Marcador_invalido_na_traducao_vira_aviso_sem_derrubar_o_painel()
     {
         var unidade = new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, @"A\n", null, TranslationStatus.Untranslated);
@@ -189,6 +207,21 @@ public class LineDetailViewModelTests : IDisposable
 
         Assert.NotNull(vm.ErrorMessage);
         Assert.Equal(0, navegador.Next);
+    }
+
+    [Fact]
+    public void Argumentos_nulos_sao_recusados()
+    {
+        var unidade = Gravada(raiz, 0);
+        var editor = new LineEditor(ProjectFolder.Open(raiz), relogio);
+        Action<Action> direto = a => a();
+
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(null!, "k", editor, navegador, relogio, direto));
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(unidade, null!, editor, navegador, relogio, direto));
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(unidade, "k", null!, navegador, relogio, direto));
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(unidade, "k", editor, null!, relogio, direto));
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(unidade, "k", editor, navegador, null!, direto));
+        Assert.Throws<ArgumentNullException>(() => new LineDetailViewModel(unidade, "k", editor, navegador, relogio, null!));
     }
 
     private sealed class FakeNavigator : ILineNavigator

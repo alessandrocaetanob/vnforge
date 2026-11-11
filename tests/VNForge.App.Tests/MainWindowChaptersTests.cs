@@ -24,6 +24,22 @@ public class MainWindowChaptersTests
     }
 
     [Fact]
+    public async Task Mover_cenas_no_Editor_atualiza_o_Painel_sem_reler_o_projeto()
+    {
+        using var temp = new TempFolder();
+        var main = await OpenAsync(temp);
+        Assert.Equal(["Parte 1"], main.Dashboard.Chapters.Select(c => c.Name));
+        main.Editor.SelectedScript = main.Editor.Scripts.Single(s => s.Key == "yst00003");
+
+        main.Editor.BeginNewChapterCommand.Execute(null);
+        main.Editor.NewChapterName = "Final";
+        await main.Editor.CommitNewChapterCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Parte 1", "Final"], main.Dashboard.Chapters.Select(c => c.Name));
+        Assert.Equal("Final", ProjectFolder.Open(main.Editor.Project!.Root).LoadScriptNames().Group("yst00003"));
+    }
+
+    [Fact]
     public async Task Renomear_o_capitulo_no_Painel_atualiza_a_lista_do_Editor_e_o_mover_usa_o_nome_novo()
     {
         using var temp = new TempFolder();

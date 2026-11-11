@@ -180,19 +180,20 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Jogo_sem_casamento_mostra_a_placa_sem_capa_e_o_aviso()
+    public async Task Abrir_jogo_avisa_o_shell_com_o_jogo_da_gaveta_ou_do_cartao()
     {
         var vm = await Loaded();
+        var opened = new List<string>();
+        vm.GameOpenRequested += (_, game) => opened.Add(game.Title);
 
-        var toge = Card(vm, "Tōge no Kaji");
+        vm.OpenGameCommand.Execute(null);
+        Assert.Empty(opened);
 
-        Assert.True(toge.HasNoArt);
-        Assert.True(toge.HasState);
-        Assert.Equal("Engine não reconhecida", toge.Chip);
-        Assert.True(Card(vm, "Kōrin no Mori").StateIsWarning);
-        Assert.False(Card(vm, "Amaoto no Hakoniwa").StateIsWarning);
-        Assert.Equal(0.38, Card(vm, "Amaoto no Hakoniwa").Progress, 2);
-        Assert.False(toge.HasProgress);
+        vm.Select(Card(vm, "Amaoto no Hakoniwa"));
+        vm.OpenGameCommand.Execute(null);
+        vm.OpenGameCommand.Execute(Card(vm, "Fuyu no Shiori"));
+
+        Assert.Equal(["Amaoto no Hakoniwa", "Fuyu no Shiori"], opened);
     }
 
     [Fact]

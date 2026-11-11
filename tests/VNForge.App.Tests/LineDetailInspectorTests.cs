@@ -80,6 +80,23 @@ public sealed class LineDetailInspectorTests : IDisposable
     private const string PerfilSemQuebra = """{ "wrap": { "enabled": false, "maxWidth": 54, "maxLines": 3, "charWidth": "uniform" } }""";
 
     [Fact]
+    public void Com_a_quebra_desligada_linhas_explicitas_acima_do_limite_seguem_como_passa_e_o_QA_concorda()
+    {
+        var perfil = FormattingProfileSerializer.Parse(PerfilSemQuebra);
+        var unidade = Fala("美咲", "「ふふっ」\\p", "um\\ndois\\ntres\\nquatro\\p");
+        using var vm = Abrir(unidade);
+        vm.AttachPreview(perfil);
+
+        var texts = new Dictionary<string, IReadOnlyList<TextUnit>> { ["yst00013"] = [unidade] };
+        var aviso = Assert.Single(new BoxLineLimitRule().Check(new QaContext(texts, [], [], perfil)));
+
+        Assert.Equal("Passa 1 linha", vm.FitText);
+        Assert.True(vm.DoesNotFit);
+        Assert.False(vm.FitIsNeutral);
+        Assert.Contains("4 linhas (máximo 3)", aviso.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Linha_que_o_build_nao_formata_diz_isso_em_vez_de_cabe()
     {
         var perfil = FormattingProfile.Default with { Kinds = [TextUnitKind.Narration], Wrap = new WrapRule(true, 40, 3, CharWidthMode.Uniform) };
@@ -142,6 +159,18 @@ public sealed class LineDetailInspectorTests : IDisposable
     private static EditorContext Cadastro() => new(
         new CharacterBook([new CharacterEntry("美咲", "Misaki", CharacterGender.Female, "fala informal e animada")]),
         [new GlossaryTerm("遅刻", "atraso"), new GlossaryTerm("傘", "guarda-chuva"), new GlossaryTerm("校門", "portão da escola")]);
+
+    [Fact]
+    public void Contexto_junta_varios_termos_e_avisa_quando_nao_ha_nenhum()
+    {
+        var com = Fala(null, "校門の前で、傘を持って立っていた。\\p", null, TranslationStatus.Untranslated);
+        var sem = Fala(null, "雨が降っている。\\p", null, TranslationStatus.Untranslated);
+        using var varios = Abrir(com, Cadastro().For(com.Speaker, com.Source));
+        using var nenhum = Abrir(sem, Cadastro().For(sem.Speaker, sem.Source));
+
+        Assert.Equal("Glossário: 傘 → guarda-chuva · 校門 → portão da escola", varios.GlossaryText);
+        Assert.Equal("Nenhum termo do glossário nesta linha.", nenhum.GlossaryText);
+    }
 
     [Fact]
     public void Traducao_trocada_por_fora_refaz_o_campo()

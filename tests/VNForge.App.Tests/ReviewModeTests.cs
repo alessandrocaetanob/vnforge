@@ -55,6 +55,48 @@ public sealed class ReviewModeTests : IDisposable
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
 
     [Fact]
+    public async Task Esta_boa_registra_a_aprovacao_com_a_hora_do_relogio_em_sessions_json()
+    {
+        var log = new ProjectApprovalLog(raiz);
+        var vm = await Abrir(log);
+        vm.StartReview();
+
+        vm.Review!.ApproveCommand.Execute(null);
+        relogio.Advance(TimeSpan.FromMinutes(2));
+        vm.Review.ApproveCommand.Execute(null);
+        await log.Saving;
+
+        var registro = SessionsFile.Load(ProjectFolder.Open(raiz));
+        Assert.Equal(
+            [
+                new ApprovalRecord("yst00001", "yst00001:000000", new DateTimeOffset(2026, 10, 25, 15, 0, 0, TimeSpan.Zero)),
+                new ApprovalRecord("yst00001", "yst00001:000003", new DateTimeOffset(2026, 10, 25, 15, 2, 0, TimeSpan.Zero)),
+            ],
+            registro.Approvals);
+        Assert.Equal(2, vm.ReviewedToday);
+        Assert.Equal("2 linhas revisadas hoje", vm.Review.TodayText);
+    }
+
+    [Fact]
+    public async Task Depois_da_ultima_linha_a_tela_final_resume_a_revisao_e_diz_a_proxima_cena()
+    {
+        var vm = await Abrir();
+        vm.StartReview();
+        var revisao = vm.Review!;
+
+        revisao.ApproveCommand.Execute(null);
+        revisao.LaterCommand.Execute(null);
+        revisao.SkipCommand.Execute(null);
+
+        Assert.True(revisao.IsFinished);
+        Assert.False(revisao.IsActive);
+        Assert.Equal("Revisão da cena concluída", revisao.FinishedTitle);
+        Assert.Equal("1 linha aprovada, 1 deixada para depois e 1 pulada.", revisao.FinishedText);
+        Assert.Equal("Cena 2", revisao.NextSceneName);
+        Assert.True(revisao.HasNextScene);
+    }
+
+    [Fact]
     public async Task Se_a_gravacao_falha_a_revisao_fica_na_linha_e_o_painel_mostra_o_erro()
     {
         var vm = await Abrir();
@@ -105,6 +147,21 @@ public sealed class ReviewModeTests : IDisposable
         Assert.False(revisao.HasPrevious);
         Assert.Empty(revisao.PreviousLines);
         Assert.Equal("Narração", revisao.Next!.Who);
+    }
+
+    [Fact]
+    public async Task Outra_sugestao_mostra_o_preco_em_reais_da_linha_em_exibicao()
+    {
+        var vm = await Abrir(preco: unidade => $"R$ {unidade.Id[^1]},00");
+        vm.StartReview();
+        var revisao = vm.Review!;
+
+        Assert.Equal("R$ 0,00", revisao.SuggestionPriceText);
+        Assert.True(revisao.HasSuggestionPrice);
+
+        revisao.SkipCommand.Execute(null);
+
+        Assert.Equal("R$ 3,00", revisao.SuggestionPriceText);
     }
 
     [Fact]

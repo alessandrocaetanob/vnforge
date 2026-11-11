@@ -15,21 +15,18 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public async Task O_gasto_vem_do_registro_do_projeto_em_reais_pela_cotacao_dos_ajustes()
+    public async Task Projeto_ilegivel_mostra_o_erro_e_limpa_a_tela()
     {
         using var temp = new TempFolder();
         var vm = Open(temp, TranslationStatus.Machine);
-        vm.Context = () => new DashboardContext(new VNForge.AI.Cost.ExchangeRate(5.40m, new DateOnly(2026, 10, 22)), new VNForge.AI.Cost.BudgetLimits(300m, null), true);
         await vm.ReloadAsync();
-        Assert.Equal("R$ 0,00 de R$ 300,00", vm.SpentText);
+        File.WriteAllText(Path.Combine(vm.Project!.Root, "text", "yst00001.json"), "{ quebrado");
 
-        AiUsageLog.TryRecord(ProjectFolder.Open(vm.Project!.Root), new AiUsageTotals(1_500_000, 600_000, 0, 0, 26.40m, 1));
         await vm.ReloadAsync();
 
-        Assert.Equal("R$ 142,56 de R$ 300,00", vm.SpentText);
-        Assert.Equal(142.56, vm.SpentBrl, 2);
-        Assert.Equal(300, vm.LimitBrl);
-        Assert.Equal("Faltam R$ 157,44 para o limite.", vm.SpendHint);
+        Assert.StartsWith("Não foi possível ler o projeto", vm.ErrorMessage);
+        Assert.Empty(vm.Chapters);
+        Assert.Empty(vm.Steps);
     }
 
     [Fact]

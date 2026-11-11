@@ -83,4 +83,25 @@ public sealed class SampleSceneTests : IDisposable
         Assert.Contains("renomeie ou mova", start.ErrorMessage);
         Assert.DoesNotContain(temp.Path, start.ErrorMessage);
     }
+
+    [Fact]
+    public async Task Construir_testar_e_injetar_ficam_desligados_e_a_faixa_explica_por_que()
+    {
+        var root = SampleProject.Create(temp.SubFolder("exemplo"));
+        var vm = new BuildViewModel(new BackgroundTaskService()) { Project = ProjectSummaryReader.Read(root) };
+
+        await vm.ReloadAsync();
+
+        Assert.False(vm.BuildCommand.CanExecute(null));
+        Assert.False(vm.TestCommand.CanExecute(null));
+        Assert.False(vm.TestAccentsCommand.CanExecute(null));
+        Assert.False(vm.InjectCommand.CanExecute(null));
+        Assert.False(vm.LaunchCommand.CanExecute(null));
+        Assert.False(vm.PatchCommand.CanExecute(null));
+        Assert.False(vm.RestoreCommand.CanExecute(null));
+        Assert.False(vm.ReturnToOriginalCommand.CanExecute(null));
+        Assert.Equal(GameState.Original, vm.GameBannerState);
+        Assert.Equal("Esta é uma cena de exemplo, sem jogo para testar", vm.GameBannerTitle);
+        Assert.Contains("não há jogo", vm.GameBannerMessage, StringComparison.Ordinal);
+    }
 }

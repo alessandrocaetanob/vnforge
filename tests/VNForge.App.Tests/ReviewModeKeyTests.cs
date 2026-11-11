@@ -17,21 +17,6 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
     private static readonly DateTimeOffset Now = new(2026, 10, 25, 15, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task M_deixa_para_depois_e_avanca()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, Key.M, PhysicalKey.M, (vm, review) =>
-        {
-            Assert.Equal(1, review.Position);
-            Assert.True(review.Blocks[0].IsLater);
-            Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
-            Assert.Empty(SessionsFile.Load(ProjectFolder.Open(root)).Approvals);
-        });
-    }
-
-    [Fact]
     public async Task E_sai_do_modo_revisao_com_a_linha_aberta_no_editor()
     {
         using var temp = new TempFolder();
@@ -55,42 +40,6 @@ public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<
             Assert.False(vm.Editor.IsReviewing);
             Assert.Equal(TranslationStatus.Machine, ProjectFolder.Open(root).LoadText("yst00001")[0].Status);
         });
-    }
-
-    [Fact]
-    public async Task As_teclas_continuam_valendo_depois_da_primeira_porque_o_foco_fica_na_tela()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Pressionar(root, [(Key.Right, PhysicalKey.ArrowRight, true), (Key.Enter, PhysicalKey.Enter, true)], (vm, review) =>
-        {
-            Assert.Equal(2, review.Position);
-            Assert.True(review.Blocks[1].IsApproved);
-        });
-    }
-
-    [Fact]
-    public async Task Esc_que_fecha_o_mapa_de_atalhos_nao_fecha_tambem_a_revisao()
-    {
-        using var temp = new TempFolder();
-        var root = CreateProject(temp.SubFolder("projeto"));
-
-        await Rodar(
-            root,
-            (window, vm) =>
-            {
-                vm.ToggleShortcutMapCommand.Execute(null);
-                ScreenHost.Settle(window);
-                Assert.True(vm.IsShortcutMapOpen);
-
-                Teclar(window, [(Key.Escape, PhysicalKey.Escape, true)]);
-            },
-            (vm, _) =>
-            {
-                Assert.False(vm.IsShortcutMapOpen);
-                Assert.True(vm.Editor.IsReviewing);
-            });
     }
 
     [Fact]

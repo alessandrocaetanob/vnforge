@@ -103,31 +103,6 @@ public class EditorChaptersTests
         Assert.Equal("Cena 3", open.Scene("yst00003").Name);
     }
 
-    [Fact]
-    public async Task Novo_capitulo_com_duas_cenas_marcadas_nasce_na_posicao_da_primeira_cena_na_ordem_da_historia()
-    {
-        using var open = await Open();
-        open.Editor.SelectedScript = open.Scene("yst00002");
-        open.Editor.ChosenScripts.Add(open.Scene("yst00002"));
-        open.Editor.ChosenScripts.Add(open.Scene("yst00005"));
-
-        open.Editor.BeginNewChapterCommand.Execute(null);
-        Assert.True(open.Editor.IsNamingChapter);
-        open.Editor.NewChapterName = "  Lembrança ";
-        await open.Editor.CommitNewChapterCommand.ExecuteAsync(null);
-
-        Assert.False(open.Editor.IsNamingChapter);
-        Assert.Equal("Lembrança", open.OnDisk.Group("yst00002"));
-        Assert.Equal("Lembrança", open.OnDisk.Group("yst00005"));
-
-        // A primeira cena (yst00002) vem depois da yst00001 e antes da yst00004: o capítulo novo fica entre os dois.
-        Assert.Equal(["Capítulo 1", "Lembrança", "Capítulo 2", ScriptGrouping.ExtraName], open.Editor.Chapters.Select(c => c.Name));
-        Assert.Equal([1, 2, 3, null], open.Editor.Chapters.Select(c => c.Number));
-        Assert.Equal(["yst00002", "yst00005"], open.ChapterKeys("Lembrança"));
-        Assert.Equal(["Capítulo 1", "Lembrança", "Capítulo 2", ScriptGrouping.ExtraName], open.Dashboard.Chapters.Select(c => c.Name));
-        Assert.Equal(open.Editor.SceneList.Select(s => s.Key), open.Editor.Chapters.SelectMany(c => c.Scripts).Select(s => s.Key));
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -168,6 +143,21 @@ public class EditorChaptersTests
         Assert.Empty(vm.Chapters);
         Assert.Empty(vm.SceneList);
         Assert.False(vm.IsNamingChapter);
+    }
+
+    [Fact]
+    public async Task Novo_capitulo_leva_as_cenas_marcadas_na_hora_de_abrir_o_campo_e_nao_as_do_Enter()
+    {
+        using var open = await Open();
+        open.Editor.SelectedScript = open.Scene("yst00003");
+        open.Editor.BeginNewChapterCommand.Execute(null);
+        open.Editor.ChosenScripts.Add(open.Scene("yst00004"));
+        open.Editor.NewChapterName = "Noite";
+
+        await open.Editor.CommitNewChapterCommand.ExecuteAsync(null);
+
+        Assert.Equal(["yst00003"], open.ChapterKeys("Noite"));
+        Assert.Equal(["yst00004", "yst00005"], open.ChapterKeys("Capítulo 2"));
     }
 
     [Fact]

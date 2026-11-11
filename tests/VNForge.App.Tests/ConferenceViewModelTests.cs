@@ -66,6 +66,34 @@ public class ConferenceViewModelTests
         return (vm, folder);
     }
 
+    [Fact]
+    public async Task Pontuacao_japonesa_fora_da_codificacao_ganha_correcao_de_um_clique_e_o_detalhe_diz_qual_caractere_e()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await LoadedCp1252(temp);
+
+        var til = IssueRows(vm).Single(r => r.UnitId == "story04:000064");
+        var estrela = IssueRows(vm).Single(r => r.UnitId == "story04:000065");
+
+        Assert.True(til.HasProposal);
+        Assert.Equal("~Manhã~", til.ProposedText);
+        Assert.Equal("O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do til japonês (～).", til.Detail);
+        Assert.False(estrela.HasProposal);
+        Assert.Equal("O † não existe na acentuação do projeto.", estrela.Detail);
+    }
+
+    [Fact]
+    public async Task Corrigir_tudo_troca_a_pontuacao_japonesa_e_deixa_o_que_nao_tem_substituto()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await LoadedCp1252(temp);
+
+        await vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.Equal(["~Manhã~", "Sem † solução"], folder.LoadText("story04").Select(u => u.Translation));
+        Assert.Equal(["story04:000065"], IssueRows(vm).Select(r => r.UnitId));
+    }
+
     private static QaIssue Unencodable(int codePoint, string unitId = "yst00001:000001")
     {
         var text = char.ConvertFromUtf32(codePoint);
@@ -91,6 +119,22 @@ public class ConferenceViewModelTests
 
         Assert.False(vm.IsBusy);
         Assert.DoesNotContain(IssueRows(vm), r => r.RuleId == "espaco-duplo");
+    }
+
+    [Theory]
+    [InlineData(0x200B)] // espaço de largura zero
+    [InlineData(0x00A0)] // espaço sem quebra
+    [InlineData(0x0007)] // controle
+    [InlineData(0x3000)] // espaço ideográfico
+    public void Caractere_invisivel_aparece_pelo_codigo(int codePoint)
+    {
+        var issue = Unencodable(codePoint);
+
+        var row = new ConferenceIssueRowViewModel(issue);
+
+        var nome = codePoint == 0x3000 ? " (espaço de largura dupla)" : string.Empty;
+        var dica = codePoint == 0x3000 ? " Use um espaço comum no lugar do espaço de largura dupla (U+3000)." : string.Empty;
+        Assert.Equal($"O U+{codePoint:X4}{nome} não existe na acentuação do projeto.{dica}", row.Detail);
     }
 
     [Fact]
@@ -131,6 +175,21 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public async Task Cena_sem_nome_vira_Cena_N_pela_posicao_no_jogo_e_nunca_mostra_o_id()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = Open(temp);
+        folder.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("yst00001", null, "Manhã de chuva")]));
+        await vm.RefreshAsync();
+
+        var texts = IssueRows(vm).SelectMany(r => new[] { r.Where, r.DetailTitle }).ToList();
+
+        Assert.Contains("Cena 2 · linha 1", texts);
+        Assert.Contains("Manhã de chuva · linha 1", texts);
+        Assert.All(texts, t => Assert.DoesNotContain("yst000", t, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Titulo_do_jogo_que_a_estrategia_nao_grava_aparece_como_erro_do_titulo_e_nao_como_cena()
     {
         using var temp = new TempFolder();
@@ -150,19 +209,6 @@ public class ConferenceViewModelTests
         Assert.Equal("Título do jogo", row.Where);
         Assert.Equal("Título do jogo fora da codificação", row.Title);
         Assert.Equal("Título do jogo", row.LineLabel);
-    }
-
-    [Fact]
-    public void Excerpt_longo_nao_deixa_barra_solta_no_corte()
-    {
-        var before = new string('a', 59) + @"\p fim";
-        var after = new string('a', 59) + @"\p  fim";
-
-        var excerpt = ConferenceIssueRowViewModel.Excerpt(before, after);
-
-        Assert.StartsWith("“" + new string('a', 59) + "…", excerpt);
-        Assert.DoesNotContain('\\', excerpt);
-        Assert.Equal(new string('a', 59) + "…”", excerpt[1..]);
     }
 
     [Fact]
@@ -205,17 +251,21 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
-    public async Task Corrigir_respeita_o_ok_marcado_pelo_revisor()
+    public async Task Corrigir_tudo_roda_todos_os_fixers_e_avisa_quando_nao_ha_o_que_corrigir()
     {
         using var temp = new TempFolder();
         var (vm, folder) = await Loaded(temp);
-        await vm.MarkOkCommand.ExecuteAsync(IssueRows(vm).First(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo"));
 
         await vm.FixAllCommand.ExecuteAsync(null);
+        Assert.Equal("2 correções aplicadas.", vm.NoticeMessage);
+        Assert.DoesNotContain(QaEngine.Default.Run(QaContext.FromProject(folder)).Issues, i => i.RuleId == "espaco-duplo");
 
-        Assert.Equal("olá  mundo", folder.LoadText("yst00001")[0].Translation);
-        Assert.Equal("a b c", folder.LoadText("yst00002")[0].Translation);
-        Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
+        var changed = 0;
+        vm.TextsChanged += (_, _) => changed++;
+        await vm.FixAllCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nada a corrigir com um clique.", vm.NoticeMessage);
+        Assert.Equal(0, changed);
     }
 
     [Fact]
@@ -229,6 +279,19 @@ public class ConferenceViewModelTests
 
         Assert.Empty(vm.Rows);
         Assert.StartsWith("Não foi possível conferir o projeto:", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Trocar_de_projeto_limpa_a_lista_anterior()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+        Assert.NotEmpty(vm.Rows);
+
+        vm.Project = null;
+
+        Assert.Empty(vm.Rows);
+        Assert.Equal("Abra um projeto para conferir as traduções.", vm.EmptyMessage);
     }
 
     [Fact]
@@ -274,6 +337,18 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
+    public async Task A_lista_poe_erros_primeiro_depois_por_script_e_linha_e_a_nao_traduzida_por_ultimo()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp);
+
+        Assert.Equal(
+            [("traducao-vazia", "yst00001:000002"), ("espaco-duplo", "yst00001:000000"), ("espaco-duplo", "yst00002:000005"), ("nao-traduzida", "yst00001:000003")],
+            IssueRows(vm).Select(r => (r.RuleId, r.UnitId)));
+        Assert.Equal(["Erro", "Aviso", "Aviso", "Aviso"], IssueRows(vm).Select(r => r.SeverityLabel));
+    }
+
+    [Fact]
     public async Task Nao_traduzida_vira_uma_linha_por_script_com_a_contagem()
     {
         using var temp = new TempFolder();
@@ -303,25 +378,29 @@ public class ConferenceViewModelTests
     }
 
     [Fact]
-    public async Task Aplicar_correcao_grava_so_a_linha_avisa_reconfere_e_passa_para_o_proximo()
+    public async Task Cada_problema_com_corretor_traz_a_correcao_proposta_e_o_resto_nao()
     {
         using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp);
-        var changed = 0;
-        vm.TextsChanged += (_, _) => changed++;
-        var row = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
-        vm.SelectedRow = row;
+        var (vm, _) = await Loaded(temp);
 
-        await vm.ApplyFixCommand.ExecuteAsync(row);
+        var spaced = IssueRows(vm).Single(r => r.UnitId == "yst00001:000000" && r.RuleId == "espaco-duplo");
+        Assert.True(spaced.HasProposal);
+        Assert.Equal("olá mundo", spaced.ProposedText);
+        Assert.Equal("Um clique", spaced.Tag);
+        Assert.Equal("“olá  mundo”", spaced.Detail);
+        Assert.Equal("olá  mundo", spaced.Translation);
+        Assert.Equal("原文0", spaced.Original);
+        Assert.Equal("Espaço duplo", spaced.Title);
+        Assert.Equal("yst00001:0000", spaced.LineLabel);
 
-        Assert.Equal("olá mundo", folder.LoadText("yst00001")[0].Translation);
-        Assert.Equal("a  b  c", folder.LoadText("yst00002")[0].Translation);
-        Assert.Equal("1 correção aplicada.", vm.NoticeMessage);
-        Assert.Equal(1, changed);
-        Assert.DoesNotContain(IssueRows(vm), r => r.UnitId == "yst00001:000000");
-        Assert.Equal("Corrigir 1 com um clique", vm.FixAllLabel);
-        Assert.NotNull(vm.SelectedRow);
-        Assert.False(vm.IsBusy);
+        var empty = IssueRows(vm).Single(r => r.RuleId == "traducao-vazia");
+        Assert.False(empty.HasProposal);
+        Assert.Equal(string.Empty, empty.Tag);
+        Assert.Equal("Tradução vazia", empty.Title);
+        Assert.Equal("Tradução vazia (status approved)", empty.Detail);
+        Assert.False(empty.HasTranslation);
+
+        Assert.Equal("Corrigir 2 com um clique", vm.FixAllLabel);
     }
 
     [Fact]
@@ -373,6 +452,16 @@ public class ConferenceViewModelTests
 
         Assert.Equal("regra-nova", ConferenceRuleTexts.Title("regra-nova"));
         Assert.Equal("Faz algo.", ConferenceRuleTexts.Explanation("regra-nova", "Faz algo."));
+    }
+
+    [Theory]
+    [InlineData("yst00012:000042", "yst00012:0042")]
+    [InlineData("yst00012:123456", "yst00012:123456")]
+    [InlineData("sem-dois-pontos", "sem-dois-pontos")]
+    [InlineData("yst:abc", "yst:abc")]
+    public void A_linha_aparece_em_mono_com_quatro_digitos(string unitId, string expected)
+    {
+        Assert.Equal(expected, ConferenceIssueRowViewModel.FormatLine(unitId));
     }
 
     private sealed class FixGateRule(ManualResetEventSlim entered, ManualResetEventSlim gate) : IQaRule, IQaFixer

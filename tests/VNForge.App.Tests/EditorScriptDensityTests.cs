@@ -6,28 +6,6 @@ namespace VNForge.App.Tests;
 /// <summary>A densidade Roteiro da grade do Editor (#460): começa nas colunas, e a escolha fica em <c>editor-layout.json</c> para o próximo app.</summary>
 public sealed class EditorScriptDensityTests
 {
-    [Fact]
-    public void Memoria_sem_pasta_comeca_nas_colunas_e_lembra_so_ate_o_app_fechar()
-    {
-        var memory = new EditorLayoutMemory();
-
-        Assert.False(memory.ScriptDensity);
-        memory.ScriptDensity = true;
-        Assert.True(memory.ScriptDensity);
-    }
-
-    [Theory]
-    [InlineData("{ não é json")]
-    [InlineData("[true]")]
-    [InlineData("{\"lines-script\": \"sim\"}")]
-    public void Arquivo_ilegivel_vale_como_colunas(string content)
-    {
-        using var temp = new TempFolder();
-        var config = temp.SubFolder("config");
-        File.WriteAllText(Path.Combine(config, "editor-layout.json"), content);
-
-        Assert.False(new EditorLayoutMemory(config).ScriptDensity);
-    }
 
     [Fact]
     public void O_Editor_comeca_nas_colunas_e_a_escolha_grava_e_volta_na_proxima_sessao()

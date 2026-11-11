@@ -138,6 +138,25 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Sem_linhas_pendentes_o_cartao_diz_isso_e_sem_projeto_mostra_so_o_uso()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        Assert.All(vm.Models, m => Assert.Equal(m.Use, m.Detail));
+
+        vm.Load(OpenProject(temp));
+        await vm.EstimateLoading;
+
+        Assert.Equal(0, vm.PendingLines);
+        Assert.All(vm.Models, m => Assert.Equal($"{m.Use} · nenhuma linha pendente", m.Detail));
+
+        vm.Load(null);
+        await vm.EstimateLoading;
+
+        Assert.All(vm.Models, m => Assert.Equal(m.Use, m.Detail));
+    }
+
+    [Fact]
     public async Task Abrir_outro_projeto_antes_da_estimativa_acabar_nao_deixa_o_numero_do_anterior()
     {
         using var temp = new TempFolder();
@@ -300,6 +319,25 @@ public class SettingsViewModelTests
 
         Assert.Equal("Não foi possível guardar a chave: o cofre não está disponível.", vm.KeyMessage);
         Assert.DoesNotContain(SecretKey, vm.KeyMessage);
+    }
+
+    [Fact]
+    public void Cartao_da_chave_diz_de_onde_ela_vem_sem_mostrar_o_valor()
+    {
+        using var temp = new TempFolder();
+        var vault = new MemoryApiKeyStore();
+        var vm = Create(temp, vault);
+        Assert.Equal("Não configurada · use Adicionar chave para guardá-la no cofre do Windows", vm.KeyDetail);
+        Assert.Equal("Adicionar chave", vm.ChangeKeyLabel);
+
+        vault.Save(SecretKey);
+        vm = Create(temp, vault);
+        Assert.Equal("Configurada · guardada no cofre do Windows, fora do projeto", vm.KeyDetail);
+        Assert.Equal("Trocar chave", vm.ChangeKeyLabel);
+
+        vm = Create(temp, vault, environmentKey: SecretKey);
+        Assert.Equal("Configurada · lida de uma variável de ambiente, que vale mais que o cofre", vm.KeyDetail);
+        Assert.DoesNotContain(SecretKey, vm.KeyDetail);
     }
 
     [Fact]

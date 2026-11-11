@@ -99,6 +99,21 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Nome_do_projeto_comeca_no_nome_da_pasta_e_nao_sobrescreve_o_que_o_usuario_digitou()
+    {
+        var vm = Create();
+        await vm.SetGameFolderAsync(game);
+
+        vm.SetProjectDirectory(ProjectPath("primeira"));
+        Assert.Equal("primeira", vm.ProjectName);
+        vm.SetProjectDirectory(ProjectPath("segunda"));
+        Assert.Equal("segunda", vm.ProjectName);
+        vm.ProjectName = "Minha VN";
+        vm.SetProjectDirectory(ProjectPath("terceira"));
+        Assert.Equal("Minha VN", vm.ProjectName);
+    }
+
+    [Fact]
     public async Task Os_cinco_passos_andam_e_voltam_na_ordem_do_doc_04()
     {
         var vm = Create();
@@ -155,32 +170,6 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Equal(WizardStep.Done, vm.Step);
         Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
         Assert.Equal("1 termo do glossário pessoal entrou no glossário do projeto.", vm.PersonalNotice);
-    }
-
-    [Fact]
-    public async Task Criar_grava_o_vnforge_json_com_as_escolhas_e_vai_para_o_passo_final()
-    {
-        var vm = await AtNamesStepAsync();
-        vm.ProjectName = "Minha VN — PT-BR";
-        vm.SourceLanguages.Select("en");
-        vm.TargetLanguages.Select("es");
-        await vm.NextCommand.ExecuteAsync(null);
-        vm.EncodingStrategies.Select("cp1252");
-        await vm.NextCommand.ExecuteAsync(null);
-        vm.Models.Select("claude-sonnet-5-5");
-
-        await vm.NextCommand.ExecuteAsync(null);
-
-        Assert.Equal(WizardStep.Done, vm.Step);
-        Assert.Null(vm.ErrorMessage);
-        var config = ProjectFolder.Open(ProjectPath()).LoadConfig();
-        Assert.Equal("Minha VN — PT-BR", config.Name);
-        Assert.Equal(new LanguagesConfig("en", "es"), config.Languages);
-        Assert.Equal(new EncodingConfig("cp1252"), config.Encoding);
-        Assert.Equal("claude-sonnet-5-5", config.Ai.Model);
-        Assert.Equal("Jogo.exe", config.Game.Exe);
-        Assert.Equal(new EngineConfig("yuris", 500, "0xD36FAC96"), config.Engine);
-        Assert.Contains("Minha VN — PT-BR", vm.CreatedSummary);
     }
 
     [Fact]

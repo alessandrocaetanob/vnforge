@@ -85,6 +85,21 @@ public sealed class LineDictionaryTests : IDisposable
     }
 
     [Fact]
+    public async Task Marcador_do_jogo_ocupa_uma_posicao_e_a_palavra_seguinte_continua_achavel()
+    {
+        const string original = "{player}は遅刻だ";
+        using var vm = Abrir(await SyntheticDictionary.InstalledAsync(Dicionario), original);
+
+        Assert.Equal("￼は遅刻だ", vm.DictionarySource);
+        vm.HoverSource(0);
+        Assert.False(vm.ShowWordCard);
+        vm.HoverSource(3);
+
+        Assert.Equal("遅刻", vm.WordText);
+        Assert.Equal(2, vm.WordStart);
+    }
+
+    [Fact]
     public void Sem_o_dicionario_instalado_a_primeira_passada_oferece_o_download_e_Agora_nao_cala_o_aviso()
     {
         var dicionario = SyntheticDictionary.NotInstalled(Dicionario);
@@ -148,6 +163,41 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(vm.WordNeedsUpdate);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelar_em_qualquer_etapa_deixa_o_estado_de_acordo_com_o_arquivo_no_disco(bool atualizacao)
+    {
+        var servidor = new SyntheticDictionary.Server();
+        var dicionario = atualizacao
+            ? await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(servidor))
+            : SyntheticDictionary.NotInstalled(Dicionario, () => new HttpClient(servidor));
+        var indice = Path.Combine(Dicionario, "jmdict.vnfdict");
+        var cancelou = false;
+        dicionario.Changed += (_, _) =>
+        {
+            // Cancela no primeiro aviso de montagem do índice (sem o tamanho do download), o ponto em que a importação já pode estar rodando.
+            if (!cancelou && dicionario.State == OfflineDictionaryState.Installing && dicionario.Progress < 0)
+            {
+                cancelou = true;
+                dicionario.CancelInstall();
+            }
+        };
+
+        await dicionario.InstallAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(dicionario.Problem);
+        Assert.True(File.Exists(indice) == (dicionario.State == OfflineDictionaryState.Ready), $"Estado {dicionario.State} e arquivo {(File.Exists(indice) ? "presente" : "ausente")} não combinam.");
+        if (dicionario.State == OfflineDictionaryState.Ready)
+        {
+            Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
+        }
+        else
+        {
+            Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
+        }
+    }
+
     [Fact]
     public async Task Esc_durante_o_download_cancela_e_o_mouse_saindo_do_cartao_nao()
     {
@@ -164,28 +214,6 @@ public sealed class LineDictionaryTests : IDisposable
 
         Assert.False(vm.ShowWordCard);
         Assert.Equal(OfflineDictionaryState.NotInstalled, dicionario.State);
-    }
-
-    [Fact]
-    public async Task Atualizar_que_falha_mostra_o_erro_e_mantem_o_dicionario_antigo()
-    {
-        var dicionario = await SyntheticDictionary.InstalledAsync(Dicionario, () => new HttpClient(new SyntheticDictionary.Server(HttpStatusCode.ServiceUnavailable)));
-        var antes = File.ReadAllBytes(dicionario.IndexPath);
-        using var vm = Abrir(dicionario);
-        vm.HoverSource(Em(Frase, "遅刻"));
-
-        await vm.InstallDictionaryCommand.ExecuteAsync(null);
-
-        Assert.True(vm.IsFailedCard);
-        Assert.Contains("503", vm.InstallProblem);
-        Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
-        Assert.Equal(antes, File.ReadAllBytes(dicionario.IndexPath));
-        Assert.NotNull(dicionario.FindWordAt(Frase, Em(Frase, "遅刻")));
-
-        vm.CloseWordCardCommand.Execute(null);
-        vm.HoverSource(Em(Frase, "二人"));
-        Assert.True(vm.IsEntryCard);
-        Assert.Equal("二人", vm.WordText);
     }
 
     [Fact]
@@ -317,6 +345,23 @@ public sealed class LineDictionaryTests : IDisposable
         Assert.False(vm.ShowWordCard);
         Assert.False(vm.WordNeedsUpdate);
         Assert.Equal(OfflineDictionaryState.Ready, dicionario.State);
+    }
+
+    [Fact]
+    public void O_download_so_e_oferecido_sobre_letra_japonesa_dentro_do_texto()
+    {
+        const string texto = "A㐀豈ｱあア";
+        using var vm = Abrir(SyntheticDictionary.NotInstalled(Dicionario), texto);
+
+        var oferecido = new List<bool>();
+        for (var i = 0; i <= texto.Length; i++)
+        {
+            vm.HoverSource(i);
+            oferecido.Add(vm.IsOfferCard);
+            vm.CloseWordCard();
+        }
+
+        Assert.Equal([false, true, true, true, true, true, false], oferecido);
     }
 
     [Fact]

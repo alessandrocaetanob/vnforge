@@ -111,23 +111,16 @@ public class ConferenceConsistencyTests
     }
 
     [Fact]
-    public async Task Manter_diferentes_some_da_conferencia_grava_no_projeto_e_continua_depois_de_reabrir()
+    public async Task Manter_diferentes_nao_conta_como_aviso_marcado_como_certo()
     {
         using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp);
-        var card = vm.ConsistencyCards.Single();
-        var before = vm.IssueCount;
+        var (vm, _) = await Loaded(temp);
 
-        Assert.True(vm.KeepDifferentCommand.CanExecute(card));
-        await vm.KeepDifferentCommand.ExecuteAsync(card);
+        await vm.KeepDifferentCommand.ExecuteAsync(vm.ConsistencyCards.Single());
+        var afterKeep = vm.SilencedSummary;
+        await vm.RefreshAsync();
 
-        Assert.Empty(vm.ConsistencyCards);
-        Assert.Equal(before - 2, vm.IssueCount);
-        Assert.All(folder.LoadAllText().Values.SelectMany(u => u).Where(u => u.Source == Source), u => Assert.Contains(ConsistencyGroups.FlagFor(card.Group), u.Flags));
-
-        var reopened = new ConferenceViewModel { Project = vm.Project };
-        await reopened.RefreshAsync();
-        Assert.Empty(reopened.ConsistencyCards);
+        Assert.Equal(afterKeep, vm.SilencedSummary);
     }
 
     private sealed class GateRule(ManualResetEventSlim gate) : IQaRule

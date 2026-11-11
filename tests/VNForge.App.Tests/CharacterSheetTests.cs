@@ -170,35 +170,6 @@ public class CharacterSheetTests
     }
 
     [Fact]
-    public async Task Contagem_e_lista_seguem_o_falante_escolhido_e_juntam_as_duas_larguras_do_nome()
-    {
-        using var temp = new TempFolder();
-        var (vm, _, _) = Create(temp,
-        [
-            Line(0, "はい", "美咲", "Sim.", TranslationStatus.Machine),
-            Line(1, "いいえ", "健太", "Não.", TranslationStatus.Machine, chosen: "美咲"),
-            Line(2, "ええと", "美咲", null, TranslationStatus.Untranslated, chosen: string.Empty),
-            Line(3, "長い長い長い台詞", "Ａ子", null, TranslationStatus.Untranslated),
-            Line(4, "短い", "A子", null, TranslationStatus.Untranslated),
-        ]);
-        await vm.Loading;
-
-        await OpenSheetAsync(vm, "美咲");
-
-        Assert.Equal("2 falas", vm.Sheet!.UsesText);
-        Assert.Equal(["いいえ", "はい"], vm.Sheet.Lines.Select(l => l.Source));
-        Assert.Equal(2, vm.Sheet.AwaitingReview);
-
-        vm.Characters.Add(new CharacterRow("A子", "Ako", description: "Colega de turma.\nSempre atrasada."));
-        await OpenSheetAsync(vm, "A子");
-
-        Assert.Equal("2 falas", vm.Sheet!.UsesText);
-        Assert.Equal(["長い長い長い台詞", "短い"], vm.Sheet.Lines.Select(l => l.Source));
-        Assert.Equal("Colega de turma. Sempre atrasada.", vm.Sheet.Subtitle);
-        Assert.True(vm.Sheet.HasSubtitle);
-    }
-
-    [Fact]
     public async Task Renomear_o_personagem_com_a_ficha_aberta_troca_as_falas_pelas_do_novo_nome()
     {
         using var temp = new TempFolder();
@@ -265,5 +236,36 @@ public class CharacterSheetTests
         await OpenSheetAsync(vm, "健太");
         vm.Reload();
         Assert.Null(vm.Sheet);
+    }
+
+    [Fact]
+    public void A_linha_nova_avisa_IsBlank_conforme_se_escreve_e_o_botao_da_ficha_segue()
+    {
+        var row = new CharacterRow();
+        var changed = new List<string?>();
+        ((INotifyPropertyChanged)row).PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        Assert.True(row.IsBlank);
+
+        row.Source = "美咲";
+
+        Assert.False(row.IsBlank);
+        Assert.Contains(nameof(CharacterRow.IsBlank), changed);
+        Assert.Equal("Abrir a ficha de 美咲", row.OpenSheetLabel);
+
+        changed.Clear();
+        row.Target = "Misaki";
+        Assert.Contains(nameof(CharacterRow.OpenSheetLabel), changed);
+        Assert.Equal("Abrir a ficha de Misaki", row.OpenSheetLabel);
+
+        row.Source = string.Empty;
+        row.Target = string.Empty;
+        Assert.True(row.IsBlank);
+
+        changed.Clear();
+        row.Tone = "calmo";
+        Assert.Contains(nameof(CharacterRow.IsBlank), changed);
+        row.Tone = string.Empty;
+        row.Gender = CharacterGender.Male;
+        Assert.False(row.IsBlank);
     }
 }

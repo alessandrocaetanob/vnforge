@@ -144,23 +144,6 @@ public sealed class SettingsDictionariesTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_fecha_sem_gravar_e_apagar_tira_a_regra_escolhida()
-    {
-        var (vm, folder) = await Opened(Sample());
-
-        vm.AddPreRuleCommand.Execute(null);
-        vm.Editor!.Pattern = "x";
-        vm.CancelEditorCommand.Execute(null);
-        Assert.False(vm.IsEditorOpen);
-        Assert.Equal(2, folder.LoadFormatting().Dictionary.Pre.Count);
-
-        vm.DeleteSelectedRuleCommand.Execute(null);
-
-        Assert.Empty(folder.LoadFormatting().Dictionary.Post);
-        Assert.Empty(vm.PostRules);
-    }
-
-    [Fact]
     public async Task Editar_troca_a_regra_no_mesmo_lugar()
     {
         var (vm, folder) = await Opened(Sample());
@@ -283,5 +266,21 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal("Nenhuma linha do projeto tem este texto.", vm.PreviewEmpty);
         Assert.True(vm.HasPreviewEmpty);
         Assert.Equal("0 linhas", Assert.Single(vm.PreRules).LinesText);
+    }
+
+    [Fact]
+    public async Task Fechar_o_dialogo_pelo_interruptor_descarta_a_edicao_e_abrir_por_ele_nao_faz_nada()
+    {
+        var (vm, folder) = await Opened(Sample());
+        vm.AddPreRuleCommand.Execute(null);
+        vm.Editor!.Pattern = "x";
+
+        vm.IsEditorOpen = true;
+        Assert.True(vm.IsEditorOpen);
+        vm.IsEditorOpen = false;
+
+        Assert.Null(vm.Editor);
+        Assert.Equal(2, folder.LoadFormatting().Dictionary.Pre.Count);
+        vm.Dispose();
     }
 }

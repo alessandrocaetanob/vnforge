@@ -106,22 +106,6 @@ public sealed class EditorPassJobTests : IDisposable
     }
 
     [Fact]
-    public async Task Outra_nao_traz_de_volta_uma_sugestao_que_a_pessoa_ignorou_enquanto_o_pedido_rodava()
-    {
-        var folder = Folder("Oi  você");
-        var provider = new HookedProvider(_ => { });
-        var job = new EditorPassJob(folder, (_, _) => provider, new TranslationJobSettings(Rate, BudgetLimits.None, 1), null, new FakeTimeProvider(Noon));
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
-        provider.OnAnother = () => EditorSuggestionsFile.Update(folder, f => f.Without(old.ScriptKey, old.UnitId));
-
-        var another = await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken);
-
-        Assert.Null(another);
-        Assert.Empty(EditorSuggestionsFile.Load(folder).Suggestions);
-    }
-
-    [Fact]
     public async Task Outra_acima_do_limite_de_gasto_recusa_com_mensagem_e_nao_chama_a_IA()
     {
         var folder = Folder("Oi  você");

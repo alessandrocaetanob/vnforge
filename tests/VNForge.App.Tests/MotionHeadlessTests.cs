@@ -83,4 +83,36 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
     });
 
     private static Avalonia.AvaloniaProperty TranslateTransform_Y => Avalonia.Media.TranslateTransform.YProperty;
+
+    [Fact]
+    public Task Interrogacao_abre_o_mapa_de_atalhos_e_esc_fecha_mas_nao_dentro_de_um_campo() => OnUi(() =>
+    {
+        using var temp = new TempFolder();
+        var start = new StartViewModel(new RecentProjectsFile(temp.Path), new FakeFolderPicker(null), TimeProvider.System);
+        var vm = new MainWindowViewModel(start);
+        var window = new MainWindow { Width = 1200, Height = 800, DataContext = vm };
+        try
+        {
+            window.Show();
+            ScreenHost.Settle(window);
+
+            window.KeyPress(Key.OemQuestion, RawInputModifiers.Shift, PhysicalKey.Slash, "?");
+            Assert.True(vm.IsShortcutMapOpen);
+            Assert.True(window.GetVisualDescendants().OfType<ShortcutMapView>().Single().IsVisible);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Assert.False(vm.IsShortcutMapOpen);
+
+            var box = new TextBox();
+            window.Content = new StackPanel { Children = { box } };
+            ScreenHost.Settle(window);
+            box.Focus();
+            window.KeyPress(Key.OemQuestion, RawInputModifiers.Shift, PhysicalKey.Slash, "?");
+            Assert.False(vm.IsShortcutMapOpen);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
 }

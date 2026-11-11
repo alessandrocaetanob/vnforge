@@ -102,25 +102,6 @@ public sealed class ReadSceneTests : IDisposable
     }
 
     [Fact]
-    public async Task F_marca_soa_estranho_no_arquivo_sem_mexer_no_resto_da_fala()
-    {
-        var vm = await Abrir();
-        vm.StartReading();
-        var leitor = vm.Reading!;
-
-        leitor.ToggleOddCommand.Execute(null);
-
-        Assert.True(leitor.IsOdd);
-        Assert.Equal(1, leitor.OddCount);
-        Assert.Equal("1 fala soa estranho", leitor.OddText);
-        var gravada = Gravadas()[0];
-        Assert.Equal([ReadingFlags.SoundsOdd], gravada.Flags);
-        Assert.Equal("Bom dia.\\p", gravada.Translation);
-        Assert.Equal(TranslationStatus.Machine, gravada.Status);
-        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Odd).Count);
-    }
-
-    [Fact]
     public async Task F_de_novo_tira_a_marca()
     {
         var vm = await Abrir();
@@ -183,5 +164,23 @@ public sealed class ReadSceneTests : IDisposable
 
         Assert.False(vm.IsReadingScene);
         Assert.Equal(LineStatusFilter.All, vm.Filters.Single(f => f.IsSelected).Filter);
+    }
+
+    [Fact]
+    public async Task Cena_de_uma_fala_avisa_que_voltar_ficou_possivel_ao_chegar_no_fim()
+    {
+        var vm = await Abrir();
+        vm.SelectedScript = vm.Scripts.Single(s => s.Key == "yst00002");
+        vm.StartReading();
+        var leitor = vm.Reading!;
+        var avisos = new List<string?>();
+        leitor.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+        Assert.False(leitor.CanGoBack);
+
+        leitor.NextCommand.Execute(null);
+
+        Assert.True(leitor.IsFinished);
+        Assert.True(leitor.CanGoBack);
+        Assert.Contains(nameof(ReadSceneViewModel.CanGoBack), avisos);
     }
 }

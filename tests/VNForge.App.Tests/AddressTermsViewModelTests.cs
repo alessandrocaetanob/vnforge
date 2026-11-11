@@ -207,6 +207,18 @@ public class AddressTermsViewModelTests
     }
 
     [Fact]
+    public async Task Trocar_de_projeto_limpa_a_tabela()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await OpenAsync(temp, terms: Saved);
+
+        vm.Project = null;
+
+        Assert.Empty(vm.AddressTerms.Rows);
+        Assert.Empty(vm.AddressTerms.CharacterNames);
+    }
+
+    [Fact]
     public async Task Editar_o_nome_de_um_personagem_refaz_o_pedido_da_IA_na_hora_de_pedir()
     {
         var fake = new FakeGlossarySuggester();
@@ -244,6 +256,28 @@ public class AddressTermsViewModelTests
         new("健太", "美咲", "美咲ちゃん", "Misaki-chan"),
         new("美咲", "健太", "先輩", "senpai"),
     ];
+
+    [Fact]
+    public async Task Renomear_para_um_nome_que_ja_existe_nao_mexe_nos_pares_ate_a_linha_ficar_certa()
+    {
+        using var temp = new TempFolder();
+        var (vm, folder) = await OpenAsync(temp, terms: Both);
+
+        var misaki = vm.Characters.Single(c => c.Source == "美咲");
+        misaki.Source = "健太";
+        vm.Flush();
+
+        Assert.Equal(Both, folder.LoadAddressTerms());
+        Assert.Equal([("健太", "美咲"), ("美咲", "健太")], vm.AddressTerms.Rows.Select(r => (r.From, r.To)));
+
+        misaki.Source = "みさき";
+        vm.Flush();
+
+        Assert.Equal([
+            new AddressTerm("健太", "みさき", "美咲ちゃん", "Misaki-chan"),
+            new AddressTerm("みさき", "健太", "先輩", "senpai"),
+        ], folder.LoadAddressTerms());
+    }
 
     [Fact]
     public async Task Remover_um_personagem_e_renomear_outro_para_o_nome_dele_descarta_o_par_que_viraria_consigo_mesmo()

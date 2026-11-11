@@ -38,6 +38,22 @@ public class ConferenceSettingTests
     private static TextUnit[] ThreeEllipsisLines() => [Unit(0, "Espera... vai"), Unit(1, "Hum... sim"), Unit(2, "Ah... não")];
 
     [Fact]
+    public async Task O_filtro_Um_clique_e_o_botao_do_cabecalho_contam_as_linhas_que_o_ajuste_resolve()
+    {
+        using var temp = new TempFolder();
+        var (vm, _) = await Loaded(temp, [.. ThreeEllipsisLines(), Unit(3, "olá  mundo")]);
+
+        Assert.Equal(4, vm.Filters.Single(f => f.Kind == ConferenceFilterKind.OneClick).Count);
+        Assert.Equal("Corrigir 4 com um clique", vm.FixAllLabel);
+        Assert.True(vm.HasFixable);
+
+        vm.SelectFilterCommand.Execute(vm.Filters.Single(f => f.Kind == ConferenceFilterKind.OneClick));
+
+        Assert.True(vm.HasSettingCards);
+        Assert.Equal(["espaco-duplo"], vm.Rows.Select(r => r.RuleId));
+    }
+
+    [Fact]
     public async Task Corrigir_com_um_clique_tambem_troca_o_ajuste_e_o_aviso_diz_qual()
     {
         using var temp = new TempFolder();
@@ -54,26 +70,21 @@ public class ConferenceSettingTests
         Assert.Equal("1 correção aplicada. O ajuste Reticências passou de Caractere … para Três pontos.", vm.NoticeMessage);
     }
 
-    [Fact]
-    public async Task Sem_conflito_o_botao_nao_grava_nem_avisa_o_app()
-    {
-        using var temp = new TempFolder();
-        var (vm, folder) = await Loaded(temp, ThreeEllipsisLines());
-        var card = vm.SettingCards[0];
-        folder.SaveFormatting(FormattingProfile.Default);
-        var changed = 0;
-        vm.SettingsChanged += (_, _) => changed++;
-
-        await vm.ApplySettingCommand.ExecuteAsync(card);
-
-        Assert.Equal(0, changed);
-        Assert.Equal("O ajuste já não estava em conflito.", vm.NoticeMessage);
-        Assert.Empty(vm.SettingCards);
-    }
-
     private static ConferenceIssueRowViewModel Row(int codePoint) =>
         new(new QaIssue("caractere-nao-codificavel", QaSeverity.Error, "yst00001:000001", "yst00001", $"o caractere '{char.ConvertFromUtf32(codePoint)}' (U+{codePoint:X4}) não existe na estratégia 'cp1252'."),
             characters: new ConferenceRowCharacterContext(TextEncoderRegistry.Default.Create("cp1252")));
+
+    [Theory]
+    [InlineData(0x2026, "O … (reticências, U+2026) não existe na acentuação do projeto. Use três pontos (...) no lugar das reticências (…).")]
+    [InlineData(0x201C, "O “ (aspas curvas, U+201C) não existe na acentuação do projeto. Use aspas retas (\") no lugar das aspas curvas (“).")]
+    [InlineData(0x201D, "O ” (aspas curvas, U+201D) não existe na acentuação do projeto. Use aspas retas (\") no lugar das aspas curvas (”).")]
+    [InlineData(0x2014, "O \u2014 (travessão, U+2014) não existe na acentuação do projeto. Use hífen (-) no lugar do travessão (U+2014).")]
+    [InlineData(0x2013, "O \u2013 (meia-risca, U+2013) não existe na acentuação do projeto. Use hífen (-) no lugar da meia-risca (U+2013).")]
+    [InlineData(0xFF5E, "O ～ (til japonês, U+FF5E) não existe na acentuação do projeto. Use ~ no lugar do til japonês (～).")]
+    public void A_dica_diz_por_extenso_o_que_trocar_quando_o_substituto_se_confunde_com_o_original(int codePoint, string expected)
+    {
+        Assert.Equal(expected, Row(codePoint).Detail);
+    }
 
     [Fact]
     public void O_ponto_final_nao_cola_no_caractere_citado()

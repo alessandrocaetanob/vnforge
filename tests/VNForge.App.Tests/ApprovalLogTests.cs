@@ -65,6 +65,27 @@ public sealed class ApprovalLogTests : IDisposable
     }
 
     [Fact]
+    public async Task FlushAll_espera_a_gravacao_pendente_e_diz_quando_ela_nao_terminou()
+    {
+        using var liberar = new ManualResetEventSlim();
+        var log = ProjectApprovalLog.For(raiz, root => new ProjectApprovalLog(root, save: (pasta, registro) =>
+        {
+            liberar.Wait(TestContext.Current.CancellationToken);
+            SessionsFile.Save(pasta, registro);
+        }));
+        log.Record("yst00001", "yst00001:000001", Noon);
+
+        Assert.False(ProjectApprovalLog.FlushAll(TimeSpan.Zero));
+
+        var espera = Task.Run(() => ProjectApprovalLog.FlushAll(TimeSpan.FromSeconds(30)), TestContext.Current.CancellationToken);
+        liberar.Set();
+
+        Assert.True(await espera);
+        Assert.Equal(["yst00001:000001"], SessionsFile.Load(Projeto).Approvals.Select(a => a.UnitId));
+        Assert.True(log.Saving.IsCompleted);
+    }
+
+    [Fact]
     public async Task FlushAll_tenta_gravar_de_novo_o_que_ficou_pendente_depois_de_uma_falha()
     {
         var falhas = 1;

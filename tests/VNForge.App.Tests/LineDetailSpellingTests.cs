@@ -33,6 +33,32 @@ public sealed class LineDetailSpellingTests : IDisposable
     }
 
     [Fact]
+    public void Misspelling_at_acha_a_palavra_pelo_indice_inclusive_na_borda_direita()
+    {
+        using var vm = Abrir(ProjectDictionary.Empty);
+        vm.FieldText = "Eu esquesi a chave.";
+
+        Assert.Null(vm.MisspellingAt(2));
+        Assert.Equal("esquesi", vm.MisspellingAt(3)?.Text);
+        Assert.Equal("esquesi", vm.MisspellingAt(6)?.Text);
+        Assert.Equal("esquesi", vm.MisspellingAt(10)?.Text);
+        Assert.Null(vm.MisspellingAt(11));
+        Assert.Equal("esquesi", vm.MisspellingAt(9, includeEnd: false)?.Text);
+        Assert.Null(vm.MisspellingAt(10, includeEnd: false));
+    }
+
+    [Fact]
+    public void Ignorar_sem_pasta_de_projeto_ou_sem_corretor_nao_faz_nada()
+    {
+        using var semPasta = Abrir(ProjectDictionary.Empty);
+        using var semCorretor = Abrir(null, raiz);
+
+        Assert.False(semPasta.IgnoreWordCommand.CanExecute("esquesi"));
+        Assert.False(semCorretor.IgnoreWordCommand.CanExecute("esquesi"));
+        Assert.False(File.Exists(ProjectFolder.Open(raiz).IgnoredWordsPath));
+    }
+
+    [Fact]
     public void Arquivo_de_palavras_ignoradas_invalido_deixa_a_palavra_marcada_e_mostra_o_motivo()
     {
         File.WriteAllText(ProjectFolder.Open(raiz).IgnoredWordsPath, "isto não é json");

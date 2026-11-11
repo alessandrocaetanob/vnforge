@@ -47,20 +47,19 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
     /// <summary>A sobrancelha diz "a chave do Claude": o nome do produto, não o do modelo, e a frase fixa do desenho.</summary>
     private const string Sobrancelha = "Valem só para este projeto. A chave do Claude fica guardada no Windows.";
 
-    [Fact]
-    public async Task A_aba_IA_e_gasto_nao_mostra_modelo_variavel_nem_DPAPI_fora_dos_detalhes_tecnicos()
+    [Theory]
+    [InlineData("sjis", "o teste no jogo recusa as letras acentuadas")]
+    [InlineData("remap", "A fonte modificada ainda não está pronta.")]
+    public async Task Acentos_com_estrategia_que_o_teste_recusa_avisa_sem_jargao_e_desliga_o_botao_de_teste(string strategy, string esperado)
     {
         using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Untranslated);
-        var vm = Criar(temp, environmentKey: "sk-ant-chave-do-teste");
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
+        var folder = VNForge.Core.Projects.ProjectFolder.Open(root);
+        folder.SaveConfig(folder.LoadConfig() with { Encoding = new VNForge.Core.Projects.EncodingConfig(strategy) });
+        var vm = Criar(temp);
         vm.Load(VNForge.Core.Projects.ProjectSummaryReader.Read(root));
         await vm.EstimateLoading;
-        vm.ExchangeRateText = "5,40";
-        vm.SpendLimitText = "300";
-        await vm.TestConnectionCommand.ExecuteAsync(null);
-        vm.ChangeKeyCommand.Execute(null);
-        Assert.True(vm.ConnectionOk);
-        string[] proibidos = ["Claude ", "Haiku", "Sonnet", "Opus", "DPAPI", "ANTHROPIC", "token"];
+        vm.SelectedTab = 3;
 
         await fixture.Session.Dispatch(
             () =>
@@ -74,15 +73,13 @@ public class SettingsViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<
                         .Where(t => !string.IsNullOrWhiteSpace(t))
                         .ToList();
 
-                    Assert.Contains(Sobrancelha, textos);
-                    textos.Remove(Sobrancelha);
-
-                    Assert.Contains("Conexão funcionando.", textos);
-                    Assert.Contains("Qualidade padrão", textos);
-                    foreach (var proibido in proibidos)
+                    Assert.Contains(textos, t => t!.Contains(esperado, StringComparison.Ordinal));
+                    foreach (var proibido in JargaoDosAcentos)
                     {
                         Assert.DoesNotContain(textos, t => t!.Contains(proibido, StringComparison.OrdinalIgnoreCase));
                     }
+
+                    Assert.False(Botao(window, "Abrir Testar no jogo").IsEnabled);
                 }
                 finally
                 {

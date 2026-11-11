@@ -57,6 +57,50 @@ public sealed class EditorCompactTests(HeadlessFixture fixture) : IClassFixture<
         return window;
     }
 
+    [Fact]
+    public async Task Cruzar_os_1400_px_e_voltar_mantem_o_mesmo_campo_com_texto_cursor_selecao_e_foco()
+    {
+        var (vm, temp) = await Abrir();
+        using var _ = temp;
+        var states = new List<(bool Same, string? Text, int Caret, int Selection, bool Focused)>();
+        var initial = (Text: string.Empty, Caret: 0, Selection: 0);
+
+        await fixture.Session.Dispatch(
+            () =>
+            {
+                var window = Show(new EditorView { DataContext = vm }, 1440);
+                var detailView = window.GetVisualDescendants().OfType<LineDetailView>().Single();
+                var editor = detailView.GetVisualDescendants().OfType<TextEditor>().Single();
+                editor.Text = "uma tradução editada";
+                editor.Select(4, 7);
+                editor.CaretOffset = 11;
+                editor.TextArea.Focus();
+                Settle(window);
+                initial = (editor.Text, editor.CaretOffset, editor.SelectionLength);
+                Assert.True(editor.TextArea.IsFocused, "o campo começa com o foco");
+
+                foreach (var width in CrossingSteps)
+                {
+                    window.Width = width;
+                    Settle(window);
+                    var now = detailView.GetLogicalDescendants().OfType<TextEditor>().Distinct().Single();
+                    states.Add((ReferenceEquals(now, editor), now.Text, now.CaretOffset, now.SelectionLength, now.TextArea.IsFocused));
+                }
+
+                window.Close();
+            },
+            CancellationToken.None);
+
+        Assert.Equal("uma tradução editada", initial.Text);
+        Assert.Equal(2, states.Count);
+        Assert.All(states, st =>
+        {
+            Assert.True(st.Same);
+            Assert.Equal(initial, (st.Text, st.Caret, st.Selection));
+            Assert.True(st.Focused);
+        });
+    }
+
     private sealed class GatedSuggester : ILineSuggester
     {
         public TaskCompletionSource<LineSuggestion> Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

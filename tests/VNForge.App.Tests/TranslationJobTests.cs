@@ -31,6 +31,20 @@ public sealed class TranslationJobTests
             new FakeTimeProvider(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.Zero)));
 
     [Fact]
+    public async Task So_traduz_os_scripts_do_escopo()
+    {
+        using var temp = new TempFolder();
+        var folder = ProjectFolder.Open(SampleProjects.Create(temp.Path, "Teste", TranslationStatus.Untranslated));
+        var provider = new UsageProvider();
+
+        var result = await Job(folder, provider).RunAsync(new TranslationRequest(TranslationScope.Scene, TranslationQuality.Fast, ["outro"]), new Reporter(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.Translated);
+        Assert.Equal(0, provider.Calls);
+        Assert.Equal(TranslationStatus.Untranslated, folder.LoadText("yst00001")[0].Status);
+    }
+
+    [Fact]
     public async Task Edicao_feita_no_Editor_no_meio_do_lote_sobrevive_e_a_IA_nao_sobrescreve_a_linha_traduzida_a_mao()
     {
         using var temp = new TempFolder();

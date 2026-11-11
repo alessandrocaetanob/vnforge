@@ -74,6 +74,23 @@ public sealed class ReadSceneEditorHostTests(HeadlessFixture fixture) : IClassFi
             CancellationToken.None);
     }
 
+    [Fact]
+    public async Task Alt_seta_nao_muda_a_linha_enquanto_se_le()
+    {
+        using var temp = new TempFolder();
+        var vm = await OpenAsync(temp);
+        vm.SelectedLine = vm.Lines[0];
+        vm.StartReading();
+
+        vm.SelectNextCommand.Execute(null);
+        vm.SelectPreviousCommand.Execute(null);
+
+        Assert.Same(vm.Lines[0], vm.SelectedLine);
+        vm.StopReading();
+        vm.SelectNextCommand.Execute(null);
+        Assert.Same(vm.Lines[1], vm.SelectedLine);
+    }
+
     [Theory]
     [InlineData(960)]
     [InlineData(1366)]

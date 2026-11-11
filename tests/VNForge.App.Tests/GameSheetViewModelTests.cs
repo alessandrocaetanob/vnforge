@@ -109,6 +109,23 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Ver_todos_mostra_o_setimo_cartao_que_esta_escondido_por_spoiler()
+    {
+        var vm = await ReadyAsync();
+
+        vm.ToggleAllCharactersCommand.Execute(null);
+
+        Assert.Equal(7, vm.CharacterTiles.Count);
+        Assert.Equal("Ver menos", vm.ShowAllText);
+        var hidden = vm.CharacterTiles[^1];
+        Assert.True(hidden.ShowsHidden);
+        Assert.Equal(("Nome escondido", "Spoiler de nível 2", 2), (hidden.Name, hidden.Caption, hidden.HiddenLevel));
+        Assert.False(hidden.HasPills);
+        vm.ToggleAllCharactersCommand.Execute(null);
+        Assert.Equal(6, vm.CharacterTiles.Count);
+    }
+
+    [Fact]
     public async Task Mostrar_num_cartao_escondido_sobe_o_nivel_ate_o_que_ele_pede()
     {
         var vm = await ReadyAsync();
@@ -141,6 +158,18 @@ public sealed class GameSheetViewModelTests : IDisposable
         vm.Open(GameSheetSamples.Id, "Amaoto");
         await vm.Loading;
         return vm;
+    }
+
+    [Fact]
+    public async Task No_mostrar_a_ficha_traz_a_tag_erotica_e_o_retrato_sem_borrao()
+    {
+        var blurred = await AdultAsync(AdultMode.Blur);
+        var vm = await AdultAsync(AdultMode.Show);
+
+        Assert.Equal(blurred.Tags.Count(t => !t.IsHidden) + 1, vm.Tags.Count(t => !t.IsHidden));
+        Assert.DoesNotContain(vm.Tags, t => t.IsHidden && t.Text.Contains("adulto", StringComparison.Ordinal));
+        Assert.Equal(TileKind.Portrait, vm.CharacterTiles[0].Kind);
+        Assert.False(vm.CharacterTiles[0].ShowsImageBlurred);
     }
 
     [Fact]
@@ -188,6 +217,21 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.False(raw.CanToggleOriginal);
         Assert.Equal(new SheetPill("Sem tradução", SheetTone.Pending), raw.SynopsisPill);
         Assert.StartsWith("A town where it rains", raw.SynopsisText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task O_texto_em_portugues_conta_os_blocos_por_etapa_e_o_botao_diz_se_e_de_novo()
+    {
+        var vm = await ReadyAsync();
+
+        Assert.Equal(new SheetStatusCounts(0, 4, 1, 2, 1), vm.BlockCounts);
+        Assert.Equal(["1 aprovado", "2 revisados", "1 traduzido", "4 pela IA"], vm.CountPills.Select(p => p.Text));
+        Assert.Equal("Traduzir de novo com a IA", vm.TranslateLabel);
+
+        using var other = new TempFolder();
+        var raw = await ReadyAsync(translate: false, other.Path);
+        Assert.Equal(["8 sem tradução"], raw.CountPills.Select(p => p.Text));
+        Assert.Equal("Traduzir com a IA", raw.TranslateLabel);
     }
 
     [Fact]

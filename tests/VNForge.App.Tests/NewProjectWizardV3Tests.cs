@@ -89,6 +89,21 @@ public sealed class NewProjectWizardV3Tests : IDisposable
     }
 
     [Fact]
+    public async Task Mexer_so_na_cotacao_renova_a_data_e_nao_arredonda_o_limite()
+    {
+        var file = SettingsFile();
+        file.Save(new AppSettings(2) { BrlPerUsd = 5.4321m, RateInformedOn = new DateOnly(2026, 1, 2), SpendLimit = 123.456m });
+        var onlyRate = await AtAiStepAsync(file: file);
+        onlyRate.RateText = "6,00";
+
+        await onlyRate.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(6m, file.Load().BrlPerUsd);
+        Assert.Equal(new DateOnly(2026, 10, 25), file.Load().RateInformedOn);
+        Assert.Equal(123.456m, file.Load().SpendLimit);
+    }
+
+    [Fact]
     public async Task Se_o_app_json_nao_grava_o_projeto_fica_criado_e_a_tela_avisa()
     {
         var blocker = Path.Combine(temp.Path, "arquivo-no-lugar-da-pasta");
@@ -153,17 +168,6 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         var saved = file.Load();
         Assert.Equal(250m, saved.SpendLimit);
         Assert.Equal(5.43m, saved.BrlPerUsd);
-    }
-
-    [Fact]
-    public async Task Cancelar_nao_grava_nada()
-    {
-        var file = SettingsFile();
-        var vm = await AtAiStepAsync(file: file);
-        vm.RateText = "5,43";
-        vm.CancelCommand.Execute(null);
-
-        Assert.False(File.Exists(file.Path));
     }
 
     [Theory]

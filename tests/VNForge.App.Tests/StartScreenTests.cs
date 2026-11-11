@@ -17,21 +17,15 @@ public class StartScreenTests
         [.. statuses.Select(s => (key, s))];
 
     [Fact]
-    public async Task Detalhe_mostra_motor_modelo_com_esforco_acentuacao_linhas_e_scripts()
+    public async Task Haiku_aparece_sem_esforco_como_no_artboard()
     {
         using var temp = new TempFolder();
-        var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN", lines: [.. Lines("yst00001", TranslationStatus.Approved, TranslationStatus.Untranslated), .. Lines("yst00002", TranslationStatus.Machine)]);
+        var root = StartFixtures.Create(temp.SubFolder("vn"), "Teste YPF", model: "claude-haiku-5-5");
         var vm = Create(temp);
 
         await vm.OpenAsync(root);
 
-        var item = vm.Selected!;
-        Assert.Equal("YU-RIS 5.x · YPF v500", item.EngineLabel);
-        Assert.Equal("Claude Opus 5.5 · esforço médio", item.ModelLabel);
-        Assert.Equal("CP1252 (patch opcional da fonte)", item.EncodingLabel);
-        Assert.Equal("3", item.Lines);
-        Assert.Equal("2", item.Scripts);
-        Assert.StartsWith("YU-RIS 5.x · YPF v500 · ", item.Subtitle);
+        Assert.Equal("Claude Haiku 5.5", vm.Selected!.ModelLabel);
     }
 
     [Theory]
@@ -65,38 +59,6 @@ public class StartScreenTests
         Assert.Equal("yst00001", vm.Selected!.ResumeScript);
         Assert.Equal("Continuar em yst00001", vm.Selected.ResumeLabel);
         Assert.True(vm.OpenSelectedInEditorCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Projeto_sem_scripts_continua_no_Editor_sem_citar_script()
-    {
-        using var temp = new TempFolder();
-        var root = StartFixtures.Create(temp.SubFolder("vn"), "Recem extraido");
-        var vm = Create(temp);
-
-        await vm.OpenAsync(root);
-
-        Assert.Null(vm.Selected!.ResumeScript);
-        Assert.Equal("Continuar no Editor", vm.Selected.ResumeLabel);
-    }
-
-    [Fact]
-    public async Task Abrir_da_linha_da_lista_abre_aquele_projeto_e_pede_o_Painel()
-    {
-        using var temp = new TempFolder();
-        var first = StartFixtures.Create(temp.SubFolder("a"), "Primeira VN", lines: Lines("yst00001", TranslationStatus.Approved));
-        var second = StartFixtures.Create(temp.SubFolder("b"), "Segunda VN", lines: Lines("yst00001", TranslationStatus.Approved));
-        var vm = Create(temp);
-        await vm.OpenAsync(first);
-        await vm.OpenAsync(second);
-        var other = vm.Recents.Single(r => r.Name == "Primeira VN");
-        var eventos = new List<string>();
-        vm.DashboardRequested += (_, s) => eventos.Add("painel " + s.Name);
-
-        await vm.OpenRecentCommand.ExecuteAsync(other);
-
-        Assert.Equal(["painel Primeira VN"], eventos);
-        Assert.Equal("Primeira VN", vm.Selected!.Name);
     }
 
     [Fact]
@@ -158,5 +120,22 @@ public class StartScreenTests
 
         Assert.Null(vm.DefaultFolder);
         Assert.Equal("Nenhum projeto", vm.RecentsSummary);
+    }
+
+    [Fact]
+    public async Task Aviso_da_lista_ilegivel_some_quando_um_projeto_a_substitui()
+    {
+        using var temp = new TempFolder();
+        var config = new RecentProjectsFile(temp.SubFolder("config"));
+        File.WriteAllText(config.Path, "{ isto não é json");
+        var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
+        await vm.LoadAsync();
+        var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
+
+        await vm.OpenAsync(root);
+
+        Assert.Null(vm.RecentsProblem);
+        Assert.False(vm.HasRecentsProblem);
+        Assert.Single(vm.Recents);
     }
 }

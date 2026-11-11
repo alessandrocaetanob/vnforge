@@ -54,6 +54,25 @@ public sealed class LineRewriteTests : IDisposable
     private static RewriteChip Chip(LineDetailViewModel vm, RewriteDirection direcao) => vm.RewriteChips.Single(c => c.Direction == direcao);
 
     [Fact]
+    public async Task Chip_pede_duas_versoes_com_a_direcao_a_traducao_o_como_fala_o_glossario_e_a_caixa()
+    {
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor));
+
+        await Chip(vm, RewriteDirection.AsCharacter).Command.ExecuteAsync(null);
+
+        var (lote, pedido) = Assert.Single(provedor.ReceivedRewrites);
+        Assert.Equal(new RewriteRequest(RewriteDirection.AsCharacter, @"Olá, tudo bem?\p", 3, 40), pedido);
+        var personagem = Assert.Single(lote.Characters);
+        Assert.Equal(new CharacterInfo("美咲", "Misaki", "seco e resmungão", "female"), personagem);
+        Assert.Equal([new GlossaryEntry("先輩", "senpai", null)], lote.Glossary);
+        Assert.Equal(2, vm.RewriteOptions.Count);
+        Assert.Equal("Como o personagem falaria · 2 versões", vm.RewriteTitle);
+        Assert.Equal(@"Olá, tudo bem?\p", vm.Translation);
+        Assert.False(vm.IsRewriting);
+    }
+
+    [Fact]
     public async Task Sem_chave_de_api_usa_o_provedor_falso_e_avisa()
     {
         using var vm = Abrir(new LineSuggester(() => null));
@@ -162,16 +181,29 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
-    public async Task Falha_do_provedor_vira_mensagem_em_portugues_sem_versoes()
+    public async Task Novo_pedido_apaga_as_versoes_e_o_erro_anteriores_ao_comecar()
     {
-        using var vm = Abrir(new LineSuggester(() => new ProvedorDeReescrita(_ => throw new HttpRequestException("connection reset"))));
-
+        var espera = new TaskCompletionSource<IReadOnlyList<string>>();
+        var primeiro = true;
+        var provedor = new ProvedorDeReescrita(_ => primeiro ? [@"Oi.\p", @"E aí.\p"] : throw new InvalidOperationException("não deve chamar sincrono"))
+        {
+            Espera = () => primeiro ? null : espera.Task,
+        };
+        using var vm = Abrir(new LineSuggester(() => provedor));
         await Chip(vm, RewriteDirection.Shorter).Command.ExecuteAsync(null);
+        Assert.True(vm.HasRewriteOptions);
 
-        Assert.StartsWith("Não foi possível reescrever", vm.RewriteError);
+        primeiro = false;
+        var pedido = Chip(vm, RewriteDirection.MoreFormal).Command.ExecuteAsync(null);
+
+        Assert.True(vm.IsRewriting);
         Assert.False(vm.HasRewriteOptions);
-        Assert.False(vm.IsRewriting);
-        Assert.Equal(@"Olá, tudo bem?\p", vm.Translation);
+        Assert.False(Chip(vm, RewriteDirection.Shorter).Command.CanExecute(null));
+
+        espera.SetResult([@"Boa tarde.\p"]);
+        await pedido;
+        Assert.Equal([@"Boa tarde.\p"], vm.RewriteOptions.Select(o => o.Text));
+        Assert.True(Chip(vm, RewriteDirection.Shorter).Command.CanExecute(null));
     }
 
     [Fact]
@@ -207,6 +239,27 @@ public sealed class LineRewriteTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelar_interrompe_o_pedido_sem_mostrar_erro()
+    {
+        var espera = new TaskCompletionSource<IReadOnlyList<string>>();
+        var provedor = new ProvedorDeReescrita(_ => [])
+        {
+            Espera = () => espera.Task,
+        };
+        using var vm = Abrir(new LineSuggester(() => provedor));
+        var pedido = Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+        Assert.True(vm.IsRewriting);
+
+        vm.CancelRewriteCommand.Execute(null);
+        espera.SetResult([@"tarde demais.\p"]);
+        await pedido;
+
+        Assert.False(vm.IsRewriting);
+        Assert.Null(vm.RewriteError);
+        Assert.False(vm.HasRewriteOptions);
+    }
+
+    [Fact]
     public async Task Depois_de_trocar_o_falante_para_Narracao_a_medida_e_o_pedido_usam_o_falante_de_agora()
     {
         var provedor = new FakeTranslationProvider();
@@ -238,6 +291,17 @@ public sealed class LineRewriteTests : IDisposable
         Assert.Equal("Tom de comédia.", lote.StyleGuide);
         Assert.Equal(["antes"], lote.PreviousLines.Select(l => l.Source));
         Assert.Equal(["depois"], lote.NextLines.Select(l => l.Source));
+    }
+
+    [Fact]
+    public async Task Falante_so_de_sinais_nao_leva_personagem_ao_pedido()
+    {
+        var provedor = new FakeTranslationProvider();
+        using var vm = Abrir(new LineSuggester(() => provedor), indice: 1);
+
+        await Chip(vm, RewriteDirection.MoreNatural).Command.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(provedor.ReceivedRewrites).Batch.Characters);
     }
 
     [Fact]

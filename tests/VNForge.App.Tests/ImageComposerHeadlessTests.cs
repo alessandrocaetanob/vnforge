@@ -52,30 +52,19 @@ public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture
         return [.. bytes];
     }
 
-    [Fact]
-    public async Task SemiTransparentPixelsOutsideTheAreaComeBackWithTheSameAlphaAndColour()
+    [Theory]
+    [InlineData(8193, 100)]
+    [InlineData(100, 20000)]
+    [InlineData(8000, 8000)]
+    public async Task AnImageThatDeclaresATooBigSizeIsRefusedBeforeDecoding(int width, int height)
     {
         await fixture.Session.Dispatch(
             () =>
             {
                 var composer = new AvaloniaImageComposer();
-                var bgra = new byte[Width * Height * 4];
-                for (var i = 0; i < bgra.Length; i += 4)
-                {
-                    // Pré-multiplicado, como o Decode devolve: cor 200 com alfa 128 vira 100.
-                    (bgra[i], bgra[i + 1], bgra[i + 2], bgra[i + 3]) = (100, 60, 30, 128);
-                }
-
-                var rendered = composer.Decode(composer.Render(new RasterPicture(Width, Height, bgra), Edit(string.Empty)));
-
-                foreach (var (x, y) in new[] { (5, 5), (190, 90), (10, 95) })
-                {
-                    var at = ((y * Width) + x) * 4;
-                    Assert.InRange(rendered.Bgra[at + 3], 127, 129);
-                    Assert.InRange(rendered.Bgra[at], 99, 101);
-                    Assert.InRange(rendered.Bgra[at + 1], 59, 61);
-                    Assert.InRange(rendered.Bgra[at + 2], 29, 31);
-                }
+                var error = Assert.Throws<InvalidDataException>(() => composer.Decode(HeaderOnly(width, height)));
+                Assert.Contains("acima do que o editor abre", error.Message);
+                Assert.Throws<InvalidDataException>(() => composer.Thumbnail(HeaderOnly(width, height), 120));
             },
             TestContext.Current.CancellationToken);
     }

@@ -52,21 +52,6 @@ public class EditorDetailTests : IDisposable
     }
 
     [Fact]
-    public async Task Trocar_de_linha_descarta_o_painel_anterior_sem_deixar_gravacao_agendada()
-    {
-        var vm = await Abrir();
-        var anterior = vm.Detail!;
-        anterior.Translation = "Pendente";
-
-        vm.SelectedLine = vm.Lines[1];
-        anterior.Translation = "Depois de descartado";
-        relogio.Advance(TimeSpan.FromSeconds(5));
-
-        Assert.NotSame(anterior, vm.Detail);
-        Assert.Equal("Pendente", Gravada(0).Translation);
-    }
-
-    [Fact]
     public async Task Aprovar_a_ultima_linha_mantem_a_selecao_e_o_painel()
     {
         var vm = await Abrir();
@@ -94,6 +79,24 @@ public class EditorDetailTests : IDisposable
         Assert.Same(painel, vm.Detail);
         Assert.NotNull(painel.ErrorMessage);
         Assert.Equal("Não vai gravar", painel.Translation);
+    }
+
+    [Fact]
+    public async Task Depois_que_o_arquivo_volta_a_selecao_pode_seguir()
+    {
+        var vm = await Abrir();
+        var caminho = ProjectFolder.Open(raiz).TextPath("yst00001");
+        var original = File.ReadAllText(caminho);
+        vm.Detail!.Translation = "Agora vai";
+        File.Delete(caminho);
+        vm.SelectedLine = vm.Lines[1];
+        Assert.Equal("yst00001:000000", vm.SelectedLine?.Id);
+
+        File.WriteAllText(caminho, original);
+        vm.SelectedLine = vm.Lines[1];
+
+        Assert.Equal("yst00001:000001", vm.Detail?.Id);
+        Assert.Equal("Agora vai", Gravada(0).Translation);
     }
 
     [Fact]

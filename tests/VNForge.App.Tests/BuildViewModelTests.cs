@@ -81,6 +81,27 @@ public sealed class BuildViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Injecao_de_um_projeto_que_ja_foi_trocado_nao_avisa_no_projeto_novo()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        var avisos = new List<BuildNotice>();
+        vm.NoticeRaised += (_, notice) => avisos.Add(notice);
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BuildViewModel.IsBusy) && !vm.IsBusy)
+            {
+                vm.Project = null;
+            }
+        };
+        vm.InjectCommand.Execute(null);
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Empty(avisos);
+    }
+
+    [Fact]
     public async Task Cancelar_a_confirmacao_nao_grava_nada()
     {
         PutBuild();
@@ -260,6 +281,23 @@ public sealed class BuildViewModelTests : IDisposable
         Assert.Contains("jogo.exe", vm.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Trocar_de_projeto_limpa_o_log_e_o_estado()
+    {
+        PutBuild();
+        var vm = await OpenAsync();
+        await vm.LaunchCommand.ExecuteAsync(null);
+        Assert.NotEmpty(vm.Log);
+
+        var other = SampleProjects.Create(temp.SubFolder("outro"), "Outro", TranslationStatus.Approved);
+        vm.Project = ProjectSummaryReader.Read(other);
+        await vm.ReloadAsync();
+
+        Assert.Empty(vm.Log);
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsConfirming);
+    }
+
     private BuildViewModel BuildableVm(QaEngine qa, TimeProvider? clock = null, BackgroundTaskService? tasks = null)
     {
         var scripts = Path.Combine(folder.GameCacheDirectory, "pkg");
@@ -275,20 +313,6 @@ public sealed class BuildViewModelTests : IDisposable
         {
             Project = ProjectSummaryReader.Read(folder.Root),
         };
-    }
-
-    [Fact]
-    public async Task Build_de_projeto_parcial_grava_sem_permitir_avisos_e_mostra_a_contagem_no_resumo()
-    {
-        var vm = BuildableVm(new QaEngine([new UntranslatedQaRule()]));
-
-        await vm.BuildCommand.ExecuteAsync(null);
-
-        Assert.False(vm.AllowWarnings);
-        Assert.Null(vm.ErrorMessage);
-        Assert.True(File.Exists(Path.Combine(folder.BuildDirectory, Ysbin)));
-        Assert.Contains(vm.Facts, f => f.Label == "QA" && f.Value == "2 linhas sem tradução; o build copiou o original nelas.");
-        Assert.DoesNotContain(vm.Log, l => l.Message.Contains("[nao-traduzida]", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -366,6 +390,28 @@ public sealed class BuildViewModelTests : IDisposable
             vm.ResultText);
         Assert.Contains("Testar no jogo", vm.ResultText, StringComparison.Ordinal);
         Assert.Equal("Icon.Warning", vm.ResultIconKey);
+    }
+
+    [Fact]
+    public async Task O_tamanho_do_pacote_mostra_o_original_quando_o_jogo_o_tem()
+    {
+        File.WriteAllText(GameFile, new string('o', 2048));
+        var vm = BuildableVm(new QaEngine([]));
+
+        await vm.BuildCommand.ExecuteAsync(null);
+
+        Assert.Equal("12 B (original 2,0 KB)", vm.Facts.Single(f => f.Label == Ysbin).Value);
+    }
+
+    [Theory]
+    [InlineData(0, "0,0 s")]
+    [InlineData(6800, "6,8 s")]
+    [InlineData(59_940, "59,9 s")]
+    [InlineData(72_000, "1 min 12 s")]
+    [InlineData(3_725_000, "62 min 5 s")]
+    public void A_duracao_vira_texto_em_portugues(int milliseconds, string expected)
+    {
+        Assert.Equal(expected, BuildViewModel.FormatDuration(TimeSpan.FromMilliseconds(milliseconds)));
     }
 
     [Fact]

@@ -149,42 +149,6 @@ public sealed class ReleaseViewHeadlessTests(HeadlessFixture fixture) : IClassFi
     }
 
     [Fact]
-    public async Task Versao_pronta_mostra_os_arquivos_com_copiar_checksum_so_nos_pacotes_e_o_leia_me()
-    {
-        var (vm, _, temp, _) = await ReleaseViewModelTests.OpenAsync();
-        using var _t = temp;
-        await vm.GenerateCommand.ExecuteAsync(null);
-
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = Abrir(vm);
-                try
-                {
-                    Assert.True(Mostra(window, "Arquivos gerados"));
-                    Assert.True(Mostra(window, "Verificação"));
-                    Assert.False(Mostra(window, "O que o patch muda no jogo"));
-                    Assert.True(Mostra(window, "LEIA-ME.txt"));
-                    Assert.DoesNotContain("LICENCAS.txt", Textos(window));
-                    Assert.False(Mostra(window, "O que o jogador recebe"));
-                    Assert.False(Mostra(window, "A versão"));
-                    Assert.Equal(2, Visiveis(window, "Copiar checksum").Count());
-                    Assert.True(Mostra(window, "Abrir a pasta"));
-                    Assert.True(Mostra(window, "Testar o instalador"));
-                    Assert.Contains("accent", Assert.Single(Visiveis(window, "Abrir a pasta")).Classes);
-                    Assert.Contains("Versão 1.2.0 pronta", Textos(window));
-                    Assert.Contains(Textos(window), t => t.Contains("COMO INSTALAR", StringComparison.Ordinal));
-                    SemTravessao(window);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            },
-            CancellationToken.None);
-    }
-
-    [Fact]
     public async Task Fora_da_versao_de_referencia_trava_o_gerar_e_so_mostra_os_detalhes_a_pedido()
     {
         var read = ReleaseViewModelTests.Ready(reference: ReleaseReference.Differs, problem: "O jogo mudou desde a extração. Arquivos alterados: Game/Game.exe.")

@@ -124,22 +124,18 @@ public class StartViewModelFalhasTests
     }
 
     [Fact]
-    public async Task Item_com_problema_usa_o_nome_da_pasta_e_mostra_travessao_no_progresso()
+    public async Task Cargas_simultaneas_nao_duplicam_itens()
     {
         using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
         var config = new RecentProjectsFile(temp.SubFolder("config"));
-        config.Add(Path.Combine(temp.Path, "sumiu"), Now);
+        config.Add(root, Now);
         var vm = new StartViewModel(config, new FakeFolderPicker(null), new FixedClock(Now));
 
-        await vm.LoadAsync();
+        await Task.WhenAll(vm.LoadAsync(), vm.LoadAsync(), vm.LoadAsync());
 
-        var item = Assert.Single(vm.Recents);
-        Assert.Equal("sumiu", item.Name);
-        Assert.Equal("—", item.PercentLabel);
-        Assert.Equal("—", item.Lines);
-        Assert.Equal("—", item.ModelLabel);
-        Assert.Equal(item.Path, item.Subtitle);
-        Assert.Equal(100, item.Distribution.Pending);
+        Assert.Single(vm.Recents);
+        Assert.StartsWith("1 projeto", vm.RecentsSummary);
     }
 
     [Fact]

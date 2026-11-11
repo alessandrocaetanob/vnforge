@@ -183,6 +183,35 @@ public sealed class ReviewModeRiskTests : IDisposable
     }
 
     [Fact]
+    public async Task A_fila_por_risco_nao_cria_um_bloco_por_linha_no_topo()
+    {
+        var vm = await Abrir();
+
+        await vm.StartRiskReviewAsync();
+
+        Assert.Equal(4, vm.Review!.Blocks.Count);
+        Assert.Empty(vm.Review.VisibleBlocks);
+        vm.StartReview();
+        Assert.Equal(vm.Review!.Blocks.Count, vm.Review.VisibleBlocks.Count);
+    }
+
+    [Fact]
+    public async Task O_titulo_no_topo_e_Fila_por_risco_e_so_nas_outras_filas_e_o_nome_da_cena_com_a_posicao()
+    {
+        var vm = await Abrir();
+
+        await vm.StartRiskReviewAsync();
+        var risco = vm.Review!;
+        Assert.Equal("Fila por risco", risco.HeaderTitle);
+        Assert.False(risco.ShowPosition);
+
+        vm.StartReview();
+        var cena = vm.Review!;
+        Assert.Equal(cena.SceneName, cena.HeaderTitle);
+        Assert.True(cena.ShowPosition);
+    }
+
+    [Fact]
     public async Task Depois_de_gravar_a_linha_o_cartao_recalcula_os_sinais_sem_mudar_o_lugar_na_fila()
     {
         var vm = await Abrir();

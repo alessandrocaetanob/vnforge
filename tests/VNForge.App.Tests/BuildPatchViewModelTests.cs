@@ -132,6 +132,29 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Restaurar_originais_devolve_o_exe_byte_a_byte_e_a_lista_mostra_o_executavel()
+    {
+        var original = File.ReadAllBytes(ExePath);
+        var vm = await OpenAsync();
+        await vm.PatchCommand.ExecuteAsync(null);
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        vm.RestoreCommand.Execute(null);
+
+        var file = Assert.Single(vm.ConfirmationFiles);
+        Assert.Equal(Exe, file.Path);
+        Assert.Equal("Devolve o executável original", file.Kind);
+        Assert.Equal(Patched(original), File.ReadAllBytes(ExePath));
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal(original, File.ReadAllBytes(ExePath));
+        Assert.Equal(BuildPatchState.Available, vm.PatchState);
+        Assert.True(vm.PatchCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Exe_recusado_pelo_core_mostra_o_motivo_e_nao_grava_nada()
     {
         var notExe = SyntheticExe();
@@ -201,16 +224,23 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Trocar_de_projeto_durante_a_confirmacao_apaga_a_copia_de_trabalho()
+    public async Task O_patch_fica_desabilitado_enquanto_outra_operacao_roda()
     {
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
+        var blocking = new BlockingStarter();
+        var vm = await OpenAsync(starter: blocking);
+        Assert.True(vm.PatchCommand.CanExecute(null));
 
-        vm.Project = null;
+        var running = vm.LaunchCommand.ExecuteAsync(null);
+        Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
 
-        Assert.False(vm.IsConfirming);
-        Assert.Equal(BuildPatchState.None, vm.PatchState);
-        Assert.Empty(StagedFiles());
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.PatchCommand.CanExecute(null));
+
+        blocking.Release.Set();
+        await running;
+
+        Assert.False(vm.IsBusy);
+        Assert.True(vm.PatchCommand.CanExecute(null));
     }
 
     private sealed class BlockingStarter : IGameProcessStarter

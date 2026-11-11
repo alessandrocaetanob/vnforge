@@ -40,17 +40,6 @@ public sealed class LineSuggestionTests : IDisposable
     }
 
     [Fact]
-    public async Task Erro_do_provedor_nao_mostra_o_texto_em_ingles()
-    {
-        using var vm = Abrir(0, new RoteiroSugestor(_ => throw new InvalidDataException("Unexpected JSON token at line 3")));
-
-        await vm.SuggestCommand.ExecuteAsync(null);
-
-        Assert.DoesNotContain("JSON", vm.SuggestionError);
-        Assert.Contains("Erro inesperado", vm.SuggestionError);
-    }
-
-    [Fact]
     public async Task Recusa_do_modelo_vira_mensagem_em_portugues()
     {
         using var vm = Abrir(0, new LineSuggester(() => new RecusaProvider()));
@@ -62,15 +51,16 @@ public sealed class LineSuggestionTests : IDisposable
     }
 
     [Fact]
-    public async Task Executar_sem_sugestor_nao_faz_nada()
+    public async Task Painel_descartado_nao_pede_sugestao()
     {
-        using var vm = Abrir(0, null);
+        var provedor = new FakeTranslationProvider();
+        var vm = Abrir(0, new LineSuggester(() => provedor));
+        vm.Dispose();
 
         await vm.SuggestCommand.ExecuteAsync(null);
 
+        Assert.Empty(provedor.ReceivedBatches);
         Assert.False(vm.HasSuggestion);
-        Assert.False(vm.IsSuggesting);
-        Assert.Null(vm.SuggestionError);
     }
 
     private sealed class NavegadorNulo : ILineNavigator

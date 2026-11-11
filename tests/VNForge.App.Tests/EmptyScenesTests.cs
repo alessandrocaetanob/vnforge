@@ -57,6 +57,23 @@ public class EmptyScenesTests
     }
 
     [Fact]
+    public async Task No_Editor_as_cenas_vazias_vem_escondidas_com_a_contagem()
+    {
+        using var temp = new TempFolder();
+        var editor = await OpenEditor(CreateProject(temp));
+
+        Assert.True(editor.HideEmptyScenes);
+        Assert.Equal(2, editor.HiddenEmptyScenes);
+        Assert.Equal("2 cenas vazias escondidas", editor.HiddenEmptyScenesText);
+        Assert.True(editor.HasHiddenEmptyScenes);
+        Assert.False(editor.Scripts.Single(s => s.Key == "yst00002").IsListed);
+        Assert.False(editor.Scripts.Single(s => s.Key == "yst00003").IsListed);
+        Assert.True(editor.Scripts.Single(s => s.Key == "yst00001").IsListed);
+        Assert.True(editor.Scripts.Single(s => s.Key == "yst00004").IsListed);
+        Assert.All(editor.Scripts.Where(s => s.Key is "yst00002" or "yst00003"), s => Assert.False(s.IsGroupStart));
+    }
+
+    [Fact]
     public async Task No_Editor_com_a_opcao_desligada_a_cena_vazia_aparece_marcada_como_pronta()
     {
         using var temp = new TempFolder();
@@ -103,6 +120,21 @@ public class EmptyScenesTests
     }
 
     [Fact]
+    public async Task No_Painel_com_o_capitulo_aberto_vazio_o_proximo_passo_vai_para_o_primeiro_com_trabalho()
+    {
+        using var temp = new TempFolder();
+        var folder = CreateProject(temp);
+        folder.SaveText("yst00001", []);
+        var vm = await OpenDashboard(folder, lastEdited: "yst00001");
+
+        vm.HideEmptyScenes = false;
+
+        Assert.Equal("Traduzir o capítulo 3", vm.NextStepLabel);
+        Assert.Equal("yst00004", vm.NextStepTarget?.ScriptKey);
+        Assert.All(vm.Chapters.Where(c => c.IsEmpty), c => Assert.False(c.IsHere));
+    }
+
+    [Fact]
     public async Task No_Painel_alternar_a_opcao_reaplica_os_capitulos_sem_reler_o_projeto()
     {
         using var temp = new TempFolder();
@@ -124,15 +156,22 @@ public class EmptyScenesTests
     }
 
     [Fact]
-    public void A_escolha_gravada_vale_ao_abrir_o_app_de_novo()
+    public void A_escolha_vale_para_o_Painel_e_o_Editor_e_fica_no_app_json()
     {
         using var temp = new TempFolder();
         var config = temp.SubFolder("config");
-        Window(temp, config).Dashboard.HideEmptyScenes = false;
+        var main = Window(temp, config);
+        Assert.True(main.Dashboard.HideEmptyScenes);
+        Assert.True(main.Editor.HideEmptyScenes);
 
-        var reopened = Window(temp, config);
+        main.Editor.HideEmptyScenes = false;
 
-        Assert.False(reopened.Dashboard.HideEmptyScenes);
-        Assert.False(reopened.Editor.HideEmptyScenes);
+        Assert.False(main.Dashboard.HideEmptyScenes);
+        Assert.False(new AppSettingsFile(config).Load().HideEmptyScenes);
+
+        main.Dashboard.HideEmptyScenes = true;
+
+        Assert.True(main.Editor.HideEmptyScenes);
+        Assert.True(new AppSettingsFile(config).Load().HideEmptyScenes);
     }
 }

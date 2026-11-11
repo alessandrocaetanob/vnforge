@@ -111,6 +111,19 @@ public class MoneyFormattingTests
     {
         Assert.False(MoneyParser.TryParse(text, out _));
     }
+
+    [Theory]
+    [InlineData(0, "menos de 1 min")]
+    [InlineData(20, "menos de 1 min")]
+    [InlineData(6 * 60, "cerca de 6 min")]
+    [InlineData(59 * 60, "cerca de 59 min")]
+    [InlineData(2 * 3600, "cerca de 2 h")]
+    [InlineData(3600 + (32 * 60), "cerca de 1 h 30 min")]
+    [InlineData(84 * 3600, "cerca de 84 h")]
+    public void Tempo_aparece_sem_falsa_precisao(int seconds, string expected)
+    {
+        Assert.Equal(expected, ProjectLabels.Duration(TimeSpan.FromSeconds(seconds)));
+    }
 }
 
 public class BudgetSettingsViewModelTests
@@ -133,6 +146,24 @@ public class BudgetSettingsViewModelTests
         return (vm, ProjectFolder.Open(root));
     }
 
+    [Theory]
+    [InlineData("zero")]
+    [InlineData("0")]
+    [InlineData("101")]
+    public void Cotacao_invalida_mostra_o_erro_e_nao_grava(string text)
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+        var raised = 0;
+        vm.RateChanged += (_, _) => raised++;
+
+        vm.ExchangeRateText = text;
+
+        Assert.NotNull(vm.RateError);
+        Assert.Equal(0, raised);
+        Assert.Null(Saved(temp).BrlPerUsd);
+    }
+
     [Fact]
     public void Apagar_a_cotacao_volta_ao_exemplo()
     {
@@ -145,6 +176,19 @@ public class BudgetSettingsViewModelTests
         Assert.False(vm.Rate.IsInformed);
         Assert.Null(Saved(temp).BrlPerUsd);
         Assert.Null(vm.RateError);
+    }
+
+    [Fact]
+    public void O_modelo_exato_manda_e_o_fable_nao_marca_nenhuma_qualidade()
+    {
+        using var temp = new TempFolder();
+        var vm = Create(temp);
+
+        vm.SelectedModel = vm.Models.Single(m => m.Id == ClaudeModels.Fable);
+
+        Assert.Null(vm.SelectedQuality);
+        Assert.All(vm.Qualities, q => Assert.False(q.IsSelected));
+        Assert.Equal(TranslationQuality.Careful, Saved(temp).Quality);
     }
 
     [Fact]

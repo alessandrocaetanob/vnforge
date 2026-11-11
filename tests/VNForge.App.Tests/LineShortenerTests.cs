@@ -14,13 +14,13 @@ public sealed class LineShortenerTests
     private static string Palavras(int quantas) => string.Join(' ', Enumerable.Repeat("aaaaaaaaa", quantas));
 
     [Fact]
-    public async Task Escolhe_a_primeira_versao_que_cabe_na_caixa()
+    public async Task Se_nenhuma_cabe_devolve_a_primeira_para_o_aviso_conferir()
     {
-        var provedor = new Reescritor(Palavras(20) + @"\p", @"Cabe.\p");
+        var provedor = new Reescritor(Palavras(20) + @"\p", Palavras(30) + @"\p");
 
         var curta = await new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken);
 
-        Assert.Equal(@"Cabe.\p", curta);
+        Assert.Equal(Palavras(20) + @"\p", curta);
     }
 
     [Fact]

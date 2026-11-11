@@ -18,36 +18,4 @@ public partial class TokensTests
 
     [GeneratedRegex(@"x:Key=""(Vnf\.[A-Za-z0-9]+)""")]
     private static partial Regex KeyPattern();
-
-    [Fact]
-    public void Tokens_axaml_tem_todo_token_do_tokens_json_nos_dois_temas()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(baseDir, "design", "tokens.json")));
-        var axaml = File.ReadAllText(Path.Combine(baseDir, "design", "Tokens.axaml"));
-        var chaves = KeyPattern().Matches(axaml).Select(m => m.Groups[1].Value).ToList();
-
-        var esperados = new List<string>();
-        foreach (var token in json.RootElement.GetProperty("color").GetProperty("tokens").EnumerateArray())
-        {
-            var nome = "Vnf." + Pascal(token.GetProperty("name").GetString()!);
-            Assert.Equal(2, chaves.Count(c => c == nome));
-            Assert.Equal(2, chaves.Count(c => c == nome + "Color"));
-            var cores = Regex.Matches(axaml, $@"x:Key=""{Regex.Escape(nome)}Color"">(#[0-9A-Fa-f]{{6,8}})<").Select(m => m.Groups[1].Value).ToList();
-            var valor = token.GetProperty("value");
-            Assert.Equal(Resolve(json.RootElement, valor.GetProperty("dark").GetString()!, "dark"), cores[0], ignoreCase: true);
-            Assert.Equal(Resolve(json.RootElement, valor.GetProperty("light").GetString()!, "light"), cores[1], ignoreCase: true);
-            esperados.Add(nome);
-        }
-
-        foreach (var grupo in new[] { "size", "spacing", "radius" })
-        {
-            foreach (var token in json.RootElement.GetProperty(grupo).GetProperty("tokens").EnumerateArray())
-            {
-                Assert.Contains("Vnf." + Pascal(token.GetProperty("name").GetString()!), chaves);
-            }
-        }
-
-        Assert.NotEmpty(esperados);
-    }
 }

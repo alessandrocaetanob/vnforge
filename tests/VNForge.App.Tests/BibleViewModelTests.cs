@@ -60,15 +60,20 @@ public sealed class BibleViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Quem_aparece_diz_nao_fala_para_o_cadastrado_sem_falas_na_cena()
+    public void Piadas_que_voltam_lista_as_cenas_em_que_cada_uma_volta()
     {
-        SaveCastScene();
-        _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Characters = ["Kenta"] }]));
+        _project.SaveBible(GameBible.From(
+        [
+            new BibleScene("yst00001") { Jokes = ["o guarda-chuva de Ren", "só aqui"] },
+            new BibleScene("yst00002") { Jokes = ["O guarda-chuva de Ren"] },
+            new BibleScene("yst00010") { Jokes = ["o guarda-chuva de Ren"] },
+        ]));
+
         var vm = Open();
 
-        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-
-        Assert.Equal("não fala", vm.SceneCharacters.Single().Lines);
+        Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3", "só aqui"], vm.JokeChips.Select(c => c.Label));
+        vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00010");
+        Assert.Equal(["o guarda-chuva de Ren · cenas 1, 2 e 3"], vm.JokeChips.Select(c => c.Label));
     }
 
     [Fact]

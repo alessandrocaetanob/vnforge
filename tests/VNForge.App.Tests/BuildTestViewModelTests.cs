@@ -159,6 +159,22 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Testar_so_os_acentos_mostra_o_proprio_resultado_mesmo_com_erros_na_Conferencia()
+    {
+        var vm = await OpenAsync();
+        await vm.TestAccentsCommand.ExecuteAsync(null);
+        qaRule.Enabled = true;
+
+        await vm.ReloadAsync();
+
+        Assert.All(vm.LastTestSteps, r => Assert.True(r.IsDone));
+        Assert.Contains("só os acentos", vm.TestStepsCaption, StringComparison.Ordinal);
+        Assert.Contains("corrija os erros", vm.TestStepsCaption, StringComparison.Ordinal);
+        Assert.Equal(GameState.Blocked, vm.GameBannerState);
+        Assert.False(vm.TestCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Testar_no_jogo_confere_injeta_com_backup_abre_o_jogo_e_guarda_os_cinco_passos()
     {
         var vm = await OpenAsync();
@@ -204,19 +220,6 @@ public sealed class BuildTestViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Testar_so_os_acentos_injeta_a_frase_e_a_faixa_diz_que_e_o_teste_de_acentos()
-    {
-        var vm = await OpenAsync();
-
-        await vm.TestAccentsCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(GameTestKind.AccentTest, GameStateFile.Load(ProjectFolder.Open(root)).InGame?.Kind);
-        Assert.Contains("só os acentos", vm.LastTestTitle, StringComparison.Ordinal);
-        Assert.Contains("teste de acentos", vm.GameBannerMessage + vm.GameStatusText, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task So_a_cena_aberta_usa_a_cena_do_editor_e_desliga_sem_cena()
     {
         var vm = await OpenAsync();
@@ -236,6 +239,32 @@ public sealed class BuildTestViewModelTests : IDisposable
 
         Assert.False(vm.OnlyOpenScene);
         Assert.False(vm.HasOpenScene);
+    }
+
+    [Fact]
+    public async Task Reconstruir_so_scripts_alterados_chega_ao_teste_no_jogo()
+    {
+        var vm = await OpenAsync();
+        Assert.True(vm.OnlyChanged);
+        var buildFiles = () => Directory.EnumerateFiles(Path.Combine(root, "build"), "*", SearchOption.AllDirectories).ToList();
+        var old = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.NotEmpty(buildFiles());
+        foreach (var file in buildFiles())
+        {
+            File.SetLastWriteTimeUtc(file, old);
+        }
+
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.All(buildFiles(), f => Assert.Equal(old, File.GetLastWriteTimeUtc(f)));
+
+        vm.OnlyChanged = false;
+        await vm.TestCommand.ExecuteAsync(null);
+        Assert.Null(vm.ErrorMessage);
+        Assert.Contains(buildFiles(), f => File.GetLastWriteTimeUtc(f) != old);
     }
 
     [Fact]

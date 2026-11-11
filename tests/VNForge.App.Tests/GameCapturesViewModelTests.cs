@@ -103,16 +103,16 @@ public sealed class GameCapturesViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Erro_qualquer_na_captura_vira_o_aviso_da_pagina()
+    public async Task A_Biblioteca_acha_o_jogo_pela_pasta_do_projeto_de_traducao()
     {
-        _capturer.Crash = true;
-        var vm = Create();
-        vm.Enter(Game);
+        var game = Game with { ProjectPath = GameLibrary.NormalizeFolder(_data.SubFolder("projeto")) };
+        var other = game with { Id = "g00000000", ProjectPath = null };
+        var file = LibrarySamples.Save(_data.SubFolder("library"), new GameLibrary([other, game]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: _clock);
+        await library.LoadAsync();
 
-        _hotkey.Press();
-        await vm.Capturing;
-
-        Assert.Equal("A captura falhou: a janela sumiu no meio da cópia.", vm.ErrorMessage);
+        Assert.Equal(game.Id, library.GameOfProject(_data.Path + "/projeto/")?.Id);
+        Assert.Null(library.GameOfProject(_data.SubFolder("outro")));
     }
 
     private async Task<(MainWindowViewModel Shell, LibraryViewModel Library, string Root)> OpenShellAsync()

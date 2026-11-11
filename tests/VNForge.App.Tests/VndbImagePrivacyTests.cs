@@ -97,6 +97,22 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
         Assert.True(reader.Refresh().ShowAdult);
     }
 
+    [Fact]
+    public async Task O_observador_atualiza_e_avisa_quando_outro_processo_grava_o_library_json()
+    {
+        using var temp = new TempFolder();
+        SetAdult(temp.Path, showAdult: true);
+        using var reader = new LibraryPrivacyReader(temp.Path);
+        reader.Refresh();
+        var changed = new TaskCompletionSource();
+        reader.Changed += (_, _) => changed.TrySetResult();
+
+        SetAdult(temp.Path, showAdult: false);
+
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.False(reader.Current().ShowAdult);
+    }
+
     // ----- VndbImageSource -----
 
     private static (VndbImageSource Source, LibraryPrivacyReader Reader, FakeDownloader Downloader, FakeTimeProvider Time) NewSource(string config, string cache, Func<Uri, byte[]?>? respond = null, int capacity = 160, bool watch = false)
@@ -105,6 +121,44 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
         var downloader = new FakeDownloader(respond ?? (_ => Png()));
         var time = new FakeTimeProvider();
         return (new VndbImageSource(new VndbImageCache(cache, downloader, reader.Current, time), reader, capacity), reader, downloader, time);
+    }
+
+    [Fact]
+    public async Task Imagem_adulta_na_tela_volta_ao_marcador_quando_o_ajuste_e_desligado()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                using var temp = new TempFolder();
+                SetAdult(temp.Path, showAdult: true);
+                var (source, reader, _, _) = NewSource(temp.Path, Path.Combine(temp.Path, "imagens"));
+                VndbImages.Source = source;
+                var portrait = new Portrait { Size = PortraitSize.Md, Image = AdultFace, Seed = "Proibida" };
+                var window = new Window { Width = 200, Height = 200, Content = portrait };
+                try
+                {
+                    reader.Refresh();
+                    window.Show();
+                    await WaitUntil(() => portrait.HasImage, window);
+
+                    SetAdult(temp.Path, showAdult: false);
+                    reader.Refresh();
+                    await WaitUntil(() => !portrait.HasImage, window);
+
+                    SetAdult(temp.Path, showAdult: true);
+                    reader.Refresh();
+                    await WaitUntil(() => portrait.HasImage, window);
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = null;
+                    source.Dispose();
+                }
+
+                return 0;
+            },
+            Ct);
     }
 
     [Fact]
@@ -334,4 +388,63 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
     }
 
     private static WriteableBitmap Blank() => new(new PixelSize(8, 8), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+
+    [Fact]
+    public async Task Trocar_a_imagem_com_uma_carga_em_andamento_ignora_a_carga_velha_e_devolve_a_posse()
+    {
+        await fixture.Session.Dispatch<int>(
+            async () =>
+            {
+                var gated = new GatedSource();
+                VndbImages.Source = gated;
+                var a = new VndbImageRef("https://t.vndb.org/ch/12/a.jpg");
+                var b = new VndbImageRef("https://t.vndb.org/ch/12/b.jpg");
+                var portrait = new Portrait { Image = a, Seed = "A" };
+                var window = new Window { Width = 100, Height = 100, Content = portrait };
+                try
+                {
+                    window.Show();
+                    ScreenHost.Settle(window);
+                    portrait.Image = b;
+                    ScreenHost.Settle(window);
+                    Assert.Equal(2, gated.Requests);
+
+                    // A carga velha (A) chega depois da troca: não aparece e o bitmap dela é devolvido.
+                    var bitmapA = Blank();
+                    gated.Complete(a.Url, BitmapLease.Own(bitmapA));
+                    await WaitUntil(() =>
+                    {
+                        try
+                        {
+                            _ = bitmapA.PixelSize;
+                            return false;
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            return true;
+                        }
+                    });
+                    Assert.False(portrait.HasImage);
+
+                    var bitmapB = Blank();
+                    gated.Complete(b.Url, BitmapLease.Own(bitmapB));
+                    await WaitUntil(() => portrait.HasImage, window);
+                    Assert.Equal(8, bitmapB.PixelSize.Width);
+
+                    // Sem imagem, o controle devolve a posse e volta ao marcador.
+                    portrait.Image = null;
+                    ScreenHost.Settle(window);
+                    Assert.False(portrait.HasImage);
+                    Assert.Throws<ObjectDisposedException>(() => _ = bitmapB.PixelSize);
+                }
+                finally
+                {
+                    window.Close();
+                    VndbImages.Source = null;
+                }
+
+                return 0;
+            },
+            Ct);
+    }
 }

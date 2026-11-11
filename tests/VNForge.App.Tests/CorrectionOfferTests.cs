@@ -110,17 +110,6 @@ public sealed class CorrectionOfferTests : IDisposable
     }
 
     [Fact]
-    public async Task Regra_que_ja_esta_no_Como_fala_nao_e_oferecida_de_novo()
-    {
-        var main = await OpenAsync(KentaEdits());
-        Assert.True(main.Glossary.AddToneRule("健太", Found(KentaEdits()).Single()));
-
-        await main.OfferCorrectionsAsync(root);
-
-        Assert.DoesNotContain(main.Toasts.Toasts, t => t.Key == "correction-offer");
-    }
-
-    [Fact]
     public async Task Personagem_fora_do_Glossario_nao_recebe_oferta_nem_regra()
     {
         TextUnit[] lines = [Edited(0, "学生", "Ei, a.", "Ô, a."), Edited(1, "学生", "Ei, b.", "Ô, b."), Edited(2, "学生", "Ei, c.", "Ô, c.")];

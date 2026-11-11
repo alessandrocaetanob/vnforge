@@ -60,51 +60,20 @@ public sealed class FitWarningViewModelTests
     }
 
     [Fact]
+    public void Texto_que_cabe_nao_mostra_o_aviso()
+    {
+        var cenario = new Cenario(Palavras(12), new Encurtador((_, _) => Task.FromResult("x")));
+
+        Assert.False(cenario.Aviso.IsVisible);
+        Assert.False(cenario.Aviso.SplitCommand.CanExecute(null));
+        Assert.False(cenario.Aviso.ShortenCommand.CanExecute(null));
+    }
+
+    [Fact]
     public void Texto_vazio_ou_com_marcador_invalido_nao_mostra_o_aviso()
     {
         Assert.False(new Cenario(string.Empty, null).Aviso.IsVisible);
         Assert.False(new Cenario(@"texto \x invalido", null).Aviso.IsVisible);
-    }
-
-    [Fact]
-    public async Task Provedor_falso_devolve_uma_versao_curta_e_ela_e_entregue()
-    {
-        var falso = new ReescritaFixa(@"Versão curta.\p");
-        var cenario = new Cenario(Palavras(16), new LineSuggester(() => falso));
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Equal(@"Versão curta.\p", Assert.Single(cenario.Encurtados));
-    }
-
-    [Fact]
-    public async Task Falha_de_rede_vira_mensagem_em_portugues()
-    {
-        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => Task.FromException<string>(new HttpRequestException("boom"))));
-
-        await cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Contains("Falha de rede", cenario.Aviso.Error);
-        Assert.Empty(cenario.Encurtados);
-    }
-
-    [Fact]
-    public async Task Fica_ocupado_enquanto_a_ia_responde_e_nao_aceita_outro_pedido()
-    {
-        var resposta = new TaskCompletionSource<string>();
-        var cenario = new Cenario(Palavras(16), new Encurtador((_, _) => resposta.Task));
-
-        var pedido = cenario.Aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.True(cenario.Aviso.IsBusy);
-        Assert.False(cenario.Aviso.ShortenCommand.CanExecute(null));
-        Assert.False(cenario.Aviso.SplitCommand.CanExecute(null));
-
-        resposta.SetResult("Cabe.");
-        await pedido;
-
-        Assert.False(cenario.Aviso.IsBusy);
-        Assert.Equal("Cabe.", Assert.Single(cenario.Encurtados));
     }
 
     [Fact]

@@ -68,6 +68,44 @@ public sealed class TranslateDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Pedido_acima_do_valor_de_aviso_muda_o_botao_para_traduzir_mesmo_assim()
+    {
+        var vm = await OpenAsync(Project(), Settings(new BudgetLimits(null, 0.01m)));
+
+        Assert.True(vm.AboveWarning);
+        Assert.Equal("Traduzir mesmo assim", vm.StartLabel);
+        Assert.True(vm.CanStart);
+
+        var calm = await OpenAsync(Project("outro"), Settings());
+        Assert.False(calm.AboveWarning);
+        Assert.Equal("Traduzir", calm.StartLabel);
+    }
+
+    [Fact]
+    public async Task Reabrir_sem_cenas_escolhidas_volta_a_esta_cena()
+    {
+        var folder = Project();
+        var vm = await OpenAsync(folder, Settings(), chosen: ["yst00001", "yst00002"]);
+
+        await vm.OpenAsync(folder, "yst00001", Settings());
+
+        Assert.Equal(TranslationScope.Scene, vm.Scopes[0].Scope);
+    }
+
+    [Fact]
+    public async Task Cancelar_fecha_sem_pedir_nada()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        var started = false;
+        vm.StartRequested += (_, _) => started = true;
+
+        vm.CancelCommand.Execute(null);
+
+        Assert.False(vm.IsOpen);
+        Assert.False(started);
+    }
+
+    [Fact]
     public async Task A_frase_diz_o_que_vai_junto_no_pedido()
     {
         var folder = Project();
@@ -97,6 +135,63 @@ public sealed class TranslateDialogViewModelTests : IDisposable
         Assert.StartsWith("Não foi possível ler o projeto", vm.LoadError);
         Assert.All(vm.Scopes, scope => Assert.True(scope.IsAvailable));
         Assert.All(vm.Scopes, scope => Assert.Equal(string.Empty, scope.Summary));
+    }
+
+    [Fact]
+    public async Task Sem_cotacao_informada_o_aviso_diz_que_o_valor_e_de_exemplo()
+    {
+        var vm = new TranslateDialogViewModel();
+        await vm.OpenAsync(Project(), "yst00001", new TranslateDialogSettings(ExchangeRate.Placeholder, BudgetLimits.None, TranslationQuality.Careful, true));
+
+        Assert.Contains("exemplo", vm.RateNote);
+        Assert.Equal(string.Empty, (await OpenAsync(Project("outro"), Settings())).RateNote);
+    }
+
+    [Fact]
+    public async Task Durante_a_noite_a_nota_cita_o_resumo_da_cena_na_biblia_quando_o_projeto_tem_um()
+    {
+        var folder = Project();
+        folder.SaveBible(VNForge.Core.Bible.GameBible.From([new VNForge.Core.Bible.BibleScene("yst00001") { Name = "Manhã de chuva", Summary = "Kenta e Ren chegam ao portão." }]));
+        var vm = await OpenAsync(folder, Settings());
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.EndsWith(" e do resumo da cena na bíblia.", vm.ContextText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task O_limite_de_gasto_vale_sobre_a_metade_do_preco_no_lote()
+    {
+        var folder = Project();
+        var normal = await OpenAsync(folder, Settings());
+        var careful = normal.Qualities.Single(q => q.Quality == TranslationQuality.Careful).Price;
+
+        // O limite cabe a metade do pedido caprichado, mas não o pedido inteiro.
+        var vm = await OpenAsync(folder, Settings(new BudgetLimits(careful * 0.6m, null)));
+        Assert.True(vm.IsOverLimit);
+
+        vm.SelectedWhen = vm.Whens[1];
+
+        Assert.False(vm.IsOverLimit);
+        Assert.True(vm.CanStart);
+    }
+
+    [Fact]
+    public async Task Iniciar_na_noite_pede_o_lote_e_a_cena_de_exemplo_nao_tem_a_escolha()
+    {
+        var vm = await OpenAsync(Project(), Settings());
+        TranslationRequest? asked = null;
+        vm.StartRequested += (_, request) => asked = request;
+        vm.SelectedWhen = vm.Whens[1];
+
+        vm.StartCommand.Execute(null);
+
+        Assert.True(asked!.Overnight);
+        Assert.False(vm.IsOpen);
+
+        var sample = await OpenAsync(Project("exemplo"), Settings() with { IsSample = true });
+        Assert.False(sample.ShowWhen);
+        Assert.False(sample.IsOvernight);
     }
 
     [Fact]

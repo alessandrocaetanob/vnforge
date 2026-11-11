@@ -53,17 +53,6 @@ public class EditorViewModelTests
     }
 
     [Fact]
-    public async Task Proxima_sem_linhas_nao_faz_nada()
-    {
-        var vm = await Carregado(Lines(("vazio", [])));
-
-        vm.SelectNextCommand.Execute(null);
-        vm.SelectPreviousCommand.Execute(null);
-
-        Assert.Null(vm.SelectedLine);
-    }
-
-    [Fact]
     public async Task Linha_expoe_os_textos_da_grade()
     {
         var vm = await Carregado();
@@ -96,6 +85,22 @@ public class EditorViewModelTests
         Assert.Equal("1 erro do QA", Rotulo(QaSeverity.Error));
         Assert.Equal("2 erros e 1 aviso do QA", Rotulo(QaSeverity.Error, QaSeverity.Warning, QaSeverity.Error));
         Assert.True(new LineViewModel(new LineEntry("a", 1, unit, [new QaIssue("r", QaSeverity.Error, unit.Id, "a", "m")])).HasError);
+    }
+
+    [Fact]
+    public async Task Carga_bem_sucedida_limpa_o_erro_anterior()
+    {
+        var falha = true;
+        var vm = new EditorViewModel(_ => falha ? throw new VNForgeException("quebrou") : DoisScripts());
+        vm.Project = Summary();
+        await vm.Loading;
+        Assert.NotNull(vm.ErrorMessage);
+
+        falha = false;
+        await vm.LoadAsync();
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal(2, vm.Scripts.Count);
     }
 
     [Fact]

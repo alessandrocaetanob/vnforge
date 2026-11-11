@@ -70,6 +70,23 @@ public sealed class LibraryExportTests : IDisposable
         Assert.Contains("Open Database License", html, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(AdultMode.Show, true)]
+    [InlineData(AdultMode.Blur, false)]
+    [InlineData(AdultMode.Hide, false)]
+    public async Task So_o_modo_Mostrar_poe_o_jogo_adulto_no_catalogo(AdultMode mode, bool included)
+    {
+        var (library, _) = await Loaded();
+        library.ChooseAdultMode(mode);
+        library.Export.Open();
+
+        await library.Export.ExportCommand.ExecuteAsync(null);
+
+        var html = await File.ReadAllTextAsync(Path.Combine(_out.Path, "index.html"), Ct);
+        Assert.Equal(included, html.Contains("Kuroneko Archive", StringComparison.Ordinal));
+        Assert.Contains("Amaoto no Hakoniwa", html, StringComparison.Ordinal);
+    }
+
     private sealed class BrokenSheets : ILibrarySheetSource
     {
         public LibrarySheet? SheetOf(LibraryGame game) => throw new InvalidOperationException("ficha quebrada");

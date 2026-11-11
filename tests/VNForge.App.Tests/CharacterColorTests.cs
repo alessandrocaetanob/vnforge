@@ -16,7 +16,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>A cor do personagem (#467): a paleta fixa com contraste nos dois temas, o Glossário que a troca e o nome pintado na grade, na placa da caixa do jogo e no Modo revisão.</summary>
-public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
+public sealed class CharacterColorTests
 {
     private const string Perfil = """{ "wrap": { "enabled": true, "maxWidth": 40, "maxLines": 3, "charWidth": "uniform" } }""";
 
@@ -117,32 +117,36 @@ public sealed class CharacterColorTests(HeadlessFixture fixture) : IClassFixture
     }
 
     [Fact]
-    public async Task Abrir_a_tela_do_Glossario_com_personagens_sem_cor_nao_suja_o_projeto()
+    public async Task Inspetor_e_Modo_revisao_trazem_a_cor_so_do_falante_cadastrado()
     {
         using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Approved);
-        ProjectFolder.Open(root).SaveCharacters([new CharacterEntry("美咲", "Misaki"), new CharacterEntry("健太", "Kenta", Color: "rose")]);
-        var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root) };
-        vm.SelectedTab = GlossaryTab.Characters;
+        var root = SampleProjects.Create(temp.Path, "Teste");
+        var projeto = ProjectFolder.Open(root);
+        projeto.SaveText("yst00001",
+        [
+            new TextUnit("yst00001:000000", TextUnitKind.Dialogue, "美咲", "「おはよう」", "Bom dia.", TranslationStatus.Machine),
+            new TextUnit("yst00001:000001", TextUnitKind.Dialogue, "犬井", "「うん」", "Aham.", TranslationStatus.Machine),
+            new TextUnit("yst00001:000002", TextUnitKind.Narration, null, "雨が降っている。", "Chove.", TranslationStatus.Machine),
+        ]);
+        projeto.SaveCharacters([new CharacterEntry("美咲", "Misaki", Color: "teal")]);
+        var vm = new EditorViewModel(postToUi: acao => acao());
+        vm.Project = EditorFixtures.Summary("Teste", root);
+        await vm.Loading;
 
-        await fixture.Session.Dispatch(
-            () =>
-            {
-                var window = new Window { Width = 1200, Height = 800, Content = new Views.GlossaryView { DataContext = vm } };
-                window.Show();
-                ScreenHost.Settle(window);
+        vm.SelectedLine = vm.Lines[0];
+        Assert.Same(CharacterPalette.Find("teal"), vm.Detail!.SpeakerColor);
+        Assert.Same(CharacterPalette.Find("teal"), vm.Lines[0].SpeakerColor);
+        vm.SelectedLine = vm.Lines[1];
+        Assert.Null(vm.Detail!.SpeakerColor);
+        Assert.Null(vm.Lines[1].SpeakerColor);
+        vm.SelectedLine = vm.Lines[2];
+        Assert.Null(vm.Detail!.SpeakerColor);
+        Assert.Null(vm.Lines[2].SpeakerColor);
 
-                var combos = window.GetVisualDescendants().OfType<ComboBox>().Where(c => Avalonia.Automation.AutomationProperties.GetName(c) == "Cor do personagem").ToList();
-                Assert.Equal(2, combos.Count);
-                Assert.Same(CharacterPalette.Resolve(null, "美咲"), combos[0].SelectedItem);
-                Assert.Same(CharacterPalette.Find("rose"), combos[1].SelectedItem);
-                Assert.False(vm.IsDirty);
-                Assert.Null(vm.Characters[0].ColorKey);
-                Assert.Equal(["Voltar à cor automática"], window.GetVisualDescendants().OfType<Button>()
-                    .Where(b => b.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(b) == "Voltar à cor automática")
-                    .Select(b => Avalonia.Automation.AutomationProperties.GetName(b)));
-                window.Close();
-            },
-            CancellationToken.None);
+        vm.SelectedLine = vm.Lines[0];
+        vm.StartReview();
+        Assert.Same(CharacterPalette.Find("teal"), vm.Review!.Detail!.SpeakerColor);
+        vm.Review.SkipCommand.Execute(null);
+        Assert.Null(vm.Review.Detail!.SpeakerColor);
     }
 }

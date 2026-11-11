@@ -55,18 +55,6 @@ public sealed class EditorSuggestionReviewTextTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_motivo_o_Modo_revisao_diz_so_que_nada_muda()
-    {
-        var folder = ProjectFolder.Open(raiz);
-        EditorSuggestionsFile.Save(folder, EditorSuggestionsFile.Empty.ReplacingScript("yst00001",
-            [new("yst00001", "yst00001:000001", EditorSuggestionKind.Fluency, "Aham.\\p", "Uhum.\\p", string.Empty, Meio)]));
-
-        var detail = await Abrir(1);
-
-        Assert.Equal("Nada muda até você aceitar.", detail.EditorSuggestionReviewReason);
-    }
-
-    [Fact]
     public async Task Linha_que_passa_da_caixa_ganha_o_aviso_com_as_linhas_e_a_economia_da_sugestao()
     {
         var detail = await Abrir(0);

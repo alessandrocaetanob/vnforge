@@ -42,6 +42,40 @@ public sealed class LineDoubtTests : IDisposable
     }
 
     [Fact]
+    public async Task A_grade_marca_so_as_linhas_com_duvida_e_a_dica_traz_o_tipo_e_a_frase()
+    {
+        var vm = await Abrir();
+
+        Assert.Equal([true, false, true, false], vm.Lines.Select(l => l.HasDoubt));
+        Assert.Equal("Sujeito oculto: O japonês não diz quem fala.", vm.Lines[0].DoubtTip);
+        Assert.Null(vm.Lines[1].DoubtTip);
+    }
+
+    [Fact]
+    public async Task O_inspetor_mostra_o_cartao_da_duvida_e_aprovar_a_linha_o_encerra_na_grade_no_arquivo_e_no_filtro()
+    {
+        var vm = await Abrir();
+        vm.SelectedLine = vm.Lines[0];
+        var detail = vm.Detail!;
+        var mudou = new List<string?>();
+        detail.PropertyChanged += (_, e) => mudou.Add(e.PropertyName);
+
+        Assert.True(detail.HasDoubt);
+        Assert.Equal("Dúvida · Sujeito oculto", detail.DoubtTitle);
+        Assert.Equal("O japonês não diz quem fala.", detail.DoubtNote);
+
+        detail.ApproveCommand.Execute(null);
+
+        Assert.False(detail.HasDoubt);
+        Assert.Equal(string.Empty, detail.DoubtTitle);
+        Assert.Contains(nameof(LineDetailViewModel.HasDoubt), mudou);
+        Assert.Null(Gravada(0).Doubt);
+        Assert.False(vm.Lines[0].HasDoubt);
+        Assert.Equal(1, vm.Filters.Single(f => f.Filter == LineStatusFilter.Doubt).Count);
+        Assert.Equal(1, vm.DoubtLines);
+    }
+
+    [Fact]
     public async Task Abrir_as_duvidas_fecha_o_leitor_de_cena()
     {
         var vm = await Abrir();

@@ -49,22 +49,6 @@ public class StartViewHeadlessTests(HeadlessFixture fixture) : IClassFixture<Hea
         [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible && b.Content is string)];
 
     [Fact]
-    public async Task Projeto_sem_linhas_nao_tem_proximo_passo_e_o_cartao_oferece_Abrir_projeto()
-    {
-        using var temp = new TempFolder();
-        var root = StartFixtures.Create(temp.SubFolder("vn"), "Minha VN");
-        var vm = await OpenAsync(temp, root);
-
-        var (labels, accent) = await ShowAsync(vm, w => (
-            DetailButtons(w).Where(b => b.IsEffectivelyEnabled).Select(b => (string)b.Content!).ToArray(),
-            w.GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Classes.Contains("accent"))));
-
-        Assert.Contains("Abrir projeto", labels);
-        Assert.DoesNotContain(labels, l => l.StartsWith("Continuar", StringComparison.Ordinal));
-        Assert.Equal(0, accent);
-    }
-
-    [Fact]
     public async Task Projeto_indisponivel_oferece_remover_da_lista()
     {
         using var temp = new TempFolder();

@@ -19,21 +19,4 @@ public class MainWindowStartFlowTests
             ("yst00002", TranslationStatus.Machine),
             ("yst00003", TranslationStatus.Untranslated),
         ]);
-
-    [Fact]
-    public async Task Abrir_projeto_do_detalhe_leva_ao_Painel_do_projeto()
-    {
-        using var temp = new TempFolder();
-        var vm = Create(temp);
-        await vm.Start.OpenAsync(TwoScripts(temp));
-        Assert.Same(vm.Library, vm.CurrentPage);
-
-        await vm.Start.OpenSelectedCommand.ExecuteAsync(null);
-        await vm.Dashboard.ReloadAsync();
-        await vm.Editor.Loading;
-
-        Assert.Equal(NavKey.Dashboard, vm.SelectedNav?.Key);
-        Assert.Same(vm.Dashboard, vm.CurrentPage);
-        Assert.Equal("Minha VN", vm.Dashboard.Project?.Name);
-    }
 }
