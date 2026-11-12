@@ -210,7 +210,7 @@ public static class PatchInstaller
         return new UndoStep(status.Path, null, null);
     }
 
-    private static void VerifyWritten(string gameDirectory, List<string> written, IReadOnlyDictionary<string, PatchFileEntry> entries, IProgress<PatchProgress>? progress)
+    private static void VerifyWritten(string gameDirectory, List<string> written, Dictionary<string, PatchFileEntry> entries, IProgress<PatchProgress>? progress)
     {
         for (var i = 0; i < written.Count; i++)
         {

@@ -351,7 +351,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         (newLocal, newRemote) = MergeLabelFields(options, sides, newLocal, newRemote, pulled, pushed);
 
         var update = BuildUpdate(remote, LibraryListFields.Normalize(newRemote));
-        var newState = new LibraryListState(game.VndbId!, LibraryListFields.Normalize(newLocal), state?.ModifiedAt ?? entry?.LastModified ?? now)
+        var newState = new LibraryListState(game.VndbId!, LibraryListFields.Normalize(newLocal), ModifiedAtOf(state, entry, now))
         {
             Base = NewBase(newLocal, newRemote, baseFields),
             SyncedAt = now,
@@ -362,6 +362,9 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed, HasLocalEdits = state?.Pending ?? false };
         return new LibrarySyncStep(item, newState, changed, update);
     }
+
+    private static DateTimeOffset ModifiedAtOf(LibraryListState? state, VndbListEntry? entry, DateTimeOffset now) =>
+        state?.ModifiedAt ?? entry?.LastModified ?? now;
 
     private sealed record Sides(LibraryListFields Local, LibraryListFields Remote, LibraryListFields Base, bool HasBase);
 

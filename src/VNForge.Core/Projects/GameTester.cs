@@ -59,11 +59,11 @@ public static class GameTestFailure
         return InnerOf(failure).Select(StepOf).FirstOrDefault(s => s is not null);
     }
 
-    private static IReadOnlyList<Exception> InnerOf(Exception failure)
+    private static Exception[] InnerOf(Exception failure)
     {
         if (failure is AggregateException aggregate)
         {
-            return aggregate.InnerExceptions;
+            return [.. aggregate.InnerExceptions];
         }
 
         return failure.InnerException is { } one ? [one] : [];
