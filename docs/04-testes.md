@@ -49,7 +49,7 @@ O script roda o projeto de testes sob o `dotnet-coverage`, instrumenta só o dll
 
 O código de produção medido é o do projeto que o teste tem o mesmo nome. Os testes do Cli não somam à cobertura do Core, por exemplo. É mais exigente do que a soma que o Sonar mostra, e é o piso de cada tarefa.
 
-O App leva uns 17 minutos com cobertura e passa do limite de 10 minutos de um comando em primeiro plano. Para ele, divida em fatias, uma por chamada, e some no fim:
+O App leva uns 90 segundos com cobertura (`bash tools/cobertura.sh App`, em um processo só, na máquina de desenvolvimento) e cabe em um comando em primeiro plano; é essa medição, exata, que se compara com a base do App. As fatias só servem a quem medir numa máquina bem mais lenta, uma por chamada, somadas no fim:
 
 ```bash
 VNFORGE_FATIAS=3 VNFORGE_FATIA=0 bash tools/cobertura.sh App

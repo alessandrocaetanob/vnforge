@@ -4,7 +4,7 @@ Fecha a maratona da #620 (tarefa T8, #662). Compara a base de [base-2026-11-11.m
 
 ## Resultado
 
-A suíte foi de 9.729 para 4.212 testes. A cobertura de linhas e de ramos de cada projeto ficou igual ou maior que a base. O alvo de cerca de 1.500 testes não fechou: pela regra do plano a cobertura vence, e cada tarefa registrou quanto passou do alvo e por quê. O job `linux` caiu de 24,5 min (na main, antes da T2) para menos de 5 min, e o passo Testes de uns 18 min para 2 min 12 s em contêiner com os limites do job.
+A suíte foi de 9.729 para 4.212 testes. A cobertura de linhas e de ramos de cada projeto ficou igual ou maior que a base. O alvo de cerca de 1.500 testes não fechou: pela regra do plano a cobertura vence, e cada tarefa registrou quanto passou do alvo e por quê. O job `linux` caiu de 24,5 min (na main, antes da T2) para 5 min 54 s no runner, e o passo Testes de uns 18 min para 2 min 15 s. A prova pedia o job em até 5 min: a meta só fecha com o tempo do App abaixo (ver "Tempo do job linux").
 
 ## Por projeto, no Windows
 
@@ -13,7 +13,7 @@ Cobertura de `tools/cobertura.sh` (só os testes do próprio projeto, com as exc
 | Projeto | Testes antes | Testes depois | Tempo antes | Tempo depois | Linhas antes | Linhas depois | Ramos antes | Ramos depois |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Core | 3.441 | 1.562 | 7,4 s | 4,0 s | 90,62% | 90,63% (17.025 de 18.785) | 84,42% | 84,42% (11.079 de 13.123) |
-| App | 3.118 | 1.334 | 1.023 s em 3 fatias | 133 s em 1 processo | 94,18% | 94,46% (19.926 de 21.094) | 85,35% | 85,47% (10.851 de 12.696) |
+| App | 3.118 | 1.334 | 1.023 s em 3 fatias | 80 a 86 s em 1 processo | 94,18% | 94,46% (19.926 de 21.094) | 85,35% | 85,47% (10.851 de 12.696) |
 | Cli | 1.308 | 566 | 15,0 s | 8,4 s | 93,84% | 93,84% (7.444 de 7.933) | 80,68% | 80,68% (3.202 de 3.969) |
 | Engines.YuRis | 1.011 | 277 | 3,2 s | 2,1 s | 95,90% | 95,90% (2.481 de 2.587) | 93,36% | 93,36% (1.462 de 1.566) |
 | AI | 571 | 304 | 1,6 s | 2,4 s | 94,01% | 94,01% (2.762 de 2.938) | 89,63% | 89,68% (1.582 de 1.764) |
@@ -29,29 +29,34 @@ Os números de depois são os que cada tarefa registrou em `docs/plans/2026-11-1
 
 O passo Piso de cobertura mede o `coverage.xml` do `dotnet-coverage`, que junta os testes de todos os projetos, e conta só os arquivos de `src/VNForge.<projeto>/` que o Sonar considera (fora o `sonar.coverage.exclusions` e o código gerado em `obj/`). É outra medida que a da base: o Core, por exemplo, ganha cobertura dos testes do App e da Cli, e o código gerado do `System.Text.Json` não entra, então o total de linhas é menor. Por isso o piso do Linux não se compara com a base do Windows, e a prova de que a cobertura não caiu é a tabela acima.
 
-Medido duas vezes num contêiner `mcr.microsoft.com/dotnet/sdk:10.0` com 4 CPUs e 6 GB (os limites do job `linux`), com `dotnet-coverage collect "bash .circleci/run-tests.sh"` e `bash .circleci/piso-cobertura.sh`:
+Medido em duas rodadas num contêiner `mcr.microsoft.com/dotnet/sdk:10.0` com 4 CPUs e 6 GB (os limites do job) e numa rodada do job `linux` no runner (job `ccac61e3`, PR #680):
 
-| Projeto | Linhas no Linux (2 rodadas) | Piso | Linhas no Windows, mesma medida |
-|---|---:|---:|---:|
-| AI | 96,49% (2.835 de 2.938) | 96,49% | 96,83% |
-| App | 95,17% e 95,19% (19.849 e 19.853 de 20.855) | 95,15% | 95,20% |
-| Cli | 95,29% (6.941 de 7.284) | 95,29% | 95,29% |
-| Core | 96,93% (14.274 de 14.725) | 96,93% | 96,96% |
-| Engines.YuRis | 96,09% (2.486 de 2.587) | 96,09% | 96,28% |
-| Installer | 96,44% (1.411 de 1.463) | 96,44% | 96,51% |
-| Patching | 88,95% (475 de 534) | 88,95% | 90,07% |
-| Platform.Windows | 21,03% (65 de 309) | 21,03% | 66,34% |
-| Vndb | 96,39% (535 de 555) | 96,39% | 98,37% |
+| Projeto | Contêiner (2 rodadas) | Runner | Piso | Windows, mesma medida |
+|---|---:|---:|---:|---:|
+| AI | 96,49% | 96,49% | 96,49% | 96,83% |
+| App | 95,17% e 95,19% | 95,19% | 95,09% | 95,20% |
+| Cli | 95,29% | 95,29% | 95,19% | 95,29% |
+| Core | 96,93% | 96,97% | 96,87% | 96,96% |
+| Engines.YuRis | 96,09% | 96,09% | 96,09% | 96,28% |
+| Installer | 96,44% | 96,44% | 96,44% | 96,51% |
+| Patching | 88,95% | 88,95% | 88,95% | 90,07% |
+| Platform.Windows | 21,03% | 21,03% | 21,03% | 66,34% |
+| Vndb | 96,39% | 96,39% | 96,39% | 98,37% |
 
-No Linux os testes que só valem no Windows pulam (11 dos 26 do Platform.Windows, 1 do Vndb e os de cofre DPAPI do AI), e a diferença da última coluna é isso: o Platform.Windows cai de 66,34% para 21,03%. O App variou 4 linhas entre as duas rodadas; o piso dele deixa 0,02 ponto de margem.
+O piso de App, Core e Cli fica 0,1 ponto abaixo do medido no runner, porque a cobertura deles varia algumas linhas entre rodadas (o App deu 4 linhas de diferença entre duas rodadas do contêiner, e o Core 96,93% no contêiner contra 96,97% no runner). Os outros seis estão exatamente no valor medido. No Linux os testes que só valem no Windows pulam (11 dos 26 do Platform.Windows, 1 do Vndb e os de cofre DPAPI do AI), e a diferença da última coluna é isso: o Platform.Windows cai de 66,34% para 21,03%.
 
 ## Tempo do job linux
 
-| | Antes (main, antes da T2) | PR #677 (T5) | Contêiner com os limites do job, após a T8 |
+| | Antes (main, antes da T2) | PR #677 (T5) | PR #680, runner (T8) |
 |---|---:|---:|---:|
-| Job | 24,5 min | 4 min 56 s | |
-| Build | | 1 min 45 s | 80 s |
-| Testes | uns 18 min (App em 3 fatias) | 1 min 23 s | 132 s |
-| Sonar end | | 57 s | |
+| Job | 24,5 min | 4 min 56 s | 5 min 54 s |
+| Checkout | | | 10 s |
+| Sonar begin | | | 27 s |
+| Build | | 1 min 45 s | 1 min 44 s |
+| Testes | uns 18 min (App em 3 fatias) | 1 min 23 s | 2 min 15 s |
+| Piso de cobertura | | | 2 s |
+| Sonar end | | 57 s | 1 min 7 s |
 
-O passo Testes ficou em 2 min 12 s com o App inteiro num processo (130 s), os outros oito projetos em paralelo ao lado dele e 4.212 testes, todos verdes. O `.circleci/run-tests.sh` sem fatias, sem `tempos-app.txt`, sem `-class` e sem `VNFORGE_RENDER_DIR` tem 109 linhas, contra 327.
+No PR #680 o App inteiro, num processo, levou 131 s e é o caminho crítico; Core e Cli levaram 15 s cada. O `.circleci/run-tests.sh` sem fatias, sem `tempos-app.txt`, sem `-class` e sem `VNFORGE_RENDER_DIR` tem 109 linhas, contra 327.
+
+Para baixar o App, o `BuildTestViewModelTests` (41 s em 18 testes no Windows) passou a gravar só os 16 scripts que a tela Build usa, com 20 linhas cada, em vez dos 312 com 48 mil linhas de `DemoProject`: cada teste gravava e relia a pasta inteira. A classe foi de 41 para 10 s e o App, no Windows, de 108 s para 80 a 86 s (sem cobertura, mesma máquina), com 1.334 testes e a cobertura do App em processo único com linhas 94,45% (19.924 de 21.094) e ramos 85,50% (10.855 de 12.696), acima do piso do plano (94,26% e 85,35%). Cortar também o `ScreenSmokeTests` (28 a 35 s, 40 janelas) para 40 linhas por capítulo ganhava 5 s mas custava 27 linhas e 0,26 ponto de ramos do App, e foi desfeito.
