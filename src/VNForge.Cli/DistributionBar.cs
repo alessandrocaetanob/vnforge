@@ -34,11 +34,12 @@ public static class DistributionBar
         ArgumentNullException.ThrowIfNull(counts);
         ArgumentOutOfRangeException.ThrowIfNegative(width);
 
-        var cells = new int[counts.Count];
-        if (cells.Length == 0)
+        if (counts.Count == 0)
         {
-            return cells;
+            return [];
         }
+
+        var cells = new int[counts.Count];
 
         var total = counts.Sum();
         if (total == 0)
