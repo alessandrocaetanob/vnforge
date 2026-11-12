@@ -87,8 +87,9 @@ public sealed partial class BuildViewModel : ObservableObject
     private RestorePlan? restorePlan;
     private InjectionPlan? confirmedInject;
     private RestorePlan? confirmedRestore;
-    private readonly object patchGate = new();
-    private readonly object stagingGate = new();
+    private const string DayMonthFormat = "dd/MM";
+    private readonly Lock patchGate = new();
+    private readonly Lock stagingGate = new();
     private IReadOnlyList<PatchPlan>? heldPatch;
     private PatchInfo lastPatch = PatchInfo.None;
     private bool applyingPatch;
@@ -1289,7 +1290,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
         QaBannerTitle = $"{ProjectLabels.Number(QaErrorCount)} {Plural(QaErrorCount, "erro novo impede", "erros novos impedem")} um build novo.";
         QaBannerDetail = state?.LastBuildAt is { } built
-            ? $"O build abaixo é de {built.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)} e continua válido para injetar."
+            ? $"O build abaixo é de {built.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)} e continua válido para injetar."
             : "Corrija os erros em Conferir a tradução para poder fazer o build.";
     }
 
@@ -1323,7 +1324,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
         var summary = $"{FormatSize(backups.Sum(b => b.SizeBytes))} no total";
         return backups.Max(b => b.Manifest?.CreatedAt) is { } newest
-            ? $"{summary} · mais recente em {newest.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}"
+            ? $"{summary} · mais recente em {newest.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)}"
             : summary;
     }
 
@@ -1360,10 +1361,10 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var manifest = backup.Manifest!;
-        parts.Add($"injeção de {manifest.CreatedAt.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}");
+        parts.Add($"injeção de {manifest.CreatedAt.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)}");
         if (manifest.RestoredAt is { } restored)
         {
-            parts.Add($"restaurado em {restored.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture)}");
+            parts.Add($"restaurado em {restored.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)}");
         }
 
         return string.Join(" · ", parts);

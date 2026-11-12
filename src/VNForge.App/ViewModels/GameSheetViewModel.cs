@@ -174,8 +174,18 @@ public sealed partial class GameSheetViewModel : ObservableObject
     }
 
     /// <summary>O modo adulto desta ficha: o da Biblioteca, ou Mostrar quando a pessoa revelou este jogo no modo Desfocar.</summary>
-    private AdultMode EffectiveAdult =>
-        data?.Privacy.Adult is { } mode ? mode == AdultMode.Blur && Reveals.IsRevealed(data.Game.VisualNovelId) ? AdultMode.Show : mode : AdultMode.Blur;
+    private AdultMode EffectiveAdult
+    {
+        get
+        {
+            if (data?.Privacy.Adult is not { } mode)
+            {
+                return AdultMode.Blur;
+            }
+
+            return mode == AdultMode.Blur && Reveals.IsRevealed(data.Game.VisualNovelId) ? AdultMode.Show : mode;
+        }
+    }
 
     /// <summary>O jogo está revelado nesta sessão: o retrato e a capa aparecem sem borrão.</summary>
     internal bool IsAdultRevealed => data is not null && data.Privacy.Adult == AdultMode.Blur && Reveals.IsRevealed(data.Game.VisualNovelId);
@@ -221,11 +231,31 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     public bool HasSynopsis => card?.Synopsis is not null;
 
-    public string SynopsisText => data?.Game.Synopsis is { } text && card?.Synopsis is { } shown
-        ? ShowOriginal ? SheetViewer.ShownSource(text, Visibility).Text : shown.Text
-        : "Este jogo não tem sinopse no VNDB.";
+    public string SynopsisText
+    {
+        get
+        {
+            if (data?.Game.Synopsis is not { } text || card?.Synopsis is not { } shown)
+            {
+                return "Este jogo não tem sinopse no VNDB.";
+            }
 
-    public SheetPill? SynopsisPill => card?.Synopsis is { } shown ? SheetPill.Of(shown.Translated ? shown.Status : TranslationStatus.Untranslated, feminine: true) : null;
+            return ShowOriginal ? SheetViewer.ShownSource(text, Visibility).Text : shown.Text;
+        }
+    }
+
+    public SheetPill? SynopsisPill
+    {
+        get
+        {
+            if (card?.Synopsis is not { } shown)
+            {
+                return null;
+            }
+
+            return SheetPill.Of(shown.Translated ? shown.Status : TranslationStatus.Untranslated, feminine: true);
+        }
+    }
 
     /// <summary>"Ver o original" só existe quando há tradução para alternar.</summary>
     public bool CanToggleOriginal => card?.Synopsis is { Translated: true };
@@ -452,7 +482,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
         var tiles = new List<CharacterTile>();
         foreach (var character in card.Characters)
         {
-            var kind = character.ImageHidden ? (character.Image is null ? TileKind.ImageHidden : TileKind.ImageBlurred) : character.Image is null ? TileKind.NoImage : TileKind.Portrait;
+            var kind = TileKindOf(character);
             var line = character.Traits.Count > 0 ? string.Join(", ", character.Traits.Select(t => t.Name)) : character.Description?.Text ?? string.Empty;
             tiles.Add(new CharacterTile(
                 character.Id,
@@ -463,7 +493,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 new SheetPill(SheetLabels.RoleBadge(character.RoleCode, character.Gender), character.RoleCode == "main" ? SheetTone.Approved : SheetTone.Pending),
                 character.Status is { } status ? SheetPill.Of(status) : null,
                 line,
-                kind == TileKind.NoImage ? "Sem imagem no VNDB" : kind == TileKind.ImageHidden ? "Imagem de conteúdo adulto escondida" : string.Empty,
+                TileNote(kind),
                 0,
                 revealed));
         }
@@ -471,6 +501,23 @@ public sealed partial class GameSheetViewModel : ObservableObject
         tiles.AddRange(card.HiddenCharacterCards.Select(h => new CharacterTile(h.Id, TileKind.Hidden, "Nome escondido", null, null, null, null, string.Empty, $"Spoiler de nível {h.Spoiler.ToString(CultureInfo.InvariantCulture)}", h.Spoiler)));
         return tiles;
     }
+
+    private static TileKind TileKindOf(SheetCharacterCard character)
+    {
+        if (character.ImageHidden)
+        {
+            return character.Image is null ? TileKind.ImageHidden : TileKind.ImageBlurred;
+        }
+
+        return character.Image is null ? TileKind.NoImage : TileKind.Portrait;
+    }
+
+    private static string TileNote(TileKind kind) => kind switch
+    {
+        TileKind.NoImage => "Sem imagem no VNDB",
+        TileKind.ImageHidden => "Imagem de conteúdo adulto escondida",
+        _ => string.Empty,
+    };
 
     private static List<SheetPill> BuildCountPills(SheetStatusCounts counts)
     {

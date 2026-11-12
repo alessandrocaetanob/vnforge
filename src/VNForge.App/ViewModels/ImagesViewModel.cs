@@ -174,6 +174,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     private static readonly string[] Editable = ["image/png"];
     private static readonly string[] SwatchPresets = ["#1d1d2a", "#f1eee6", "#5a4630"];
     private const string NoOutline = "Nenhum";
+    private const string White = "#ffffff";
 
     private readonly IReadOnlyList<IEngine> engines;
     private readonly IImageComposer composer;
@@ -346,13 +347,13 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
     public partial string OutlineText { get; set; } = NoOutline;
 
     [ObservableProperty]
-    public partial string OutlineColor { get; set; } = "#ffffff";
+    public partial string OutlineColor { get; set; } = White;
 
     [ObservableProperty]
     public partial bool UsesSolidErase { get; set; }
 
     [ObservableProperty]
-    public partial string EraseColor { get; set; } = "#ffffff";
+    public partial string EraseColor { get; set; } = White;
 
     [ObservableProperty]
     public partial int RegionX { get; set; }
@@ -1123,9 +1124,9 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         IsBold = edit.Bold;
         TextColor = edit.Color;
         HasOutline = edit.Outline is not null;
-        OutlineColor = edit.Outline ?? "#ffffff";
+        OutlineColor = edit.Outline ?? White;
         UsesSolidErase = edit.Erase == ImageEraseModes.Solid;
-        EraseColor = edit.EraseColor ?? "#ffffff";
+        EraseColor = edit.EraseColor ?? White;
         (RegionX, RegionY, RegionWidth, RegionHeight) = (edit.Region.X, edit.Region.Y, edit.Region.Width, edit.Region.Height);
         settingFields = false;
         IsMarked = edit.Marked;
@@ -1141,13 +1142,13 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         PixelHeight,
         new ImageRegion(RegionX, RegionY, Math.Max(1, RegionWidth), Math.Max(1, RegionHeight)),
         UsesSolidErase ? ImageEraseModes.Solid : ImageEraseModes.Surrounding,
-        UsesSolidErase ? Hex(EraseColor, "#ffffff") : null,
+        UsesSolidErase ? Hex(EraseColor, White) : null,
         Text,
         string.IsNullOrWhiteSpace(Font) ? "Zen Kaku Gothic New" : Font,
         FontSize is > 0 and <= 1000 ? FontSize : 18,
         IsBold,
         Hex(TextColor, "#000000"),
-        HasOutline ? Hex(OutlineColor, "#ffffff") : null,
+        HasOutline ? Hex(OutlineColor, White) : null,
         marked);
 
     private static string Hex(string value, string fallback) => ImageEditSerializer.IsColor(value) ? value.ToLowerInvariant() : fallback;
@@ -1164,7 +1165,8 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         var edit = Current(IsMarked);
         IsDirty = saved is null || !SameFields(saved, edit);
         ErasedText = $"{edit.Region.Width}×{edit.Region.Height} px, preenchida com {(edit.Erase == ImageEraseModes.Solid ? $"a cor {edit.EraseColor}" : "o fundo ao redor")}";
-        NewTextSummary = edit.Text.Length == 0 ? "nenhum" : $"\"{edit.Text}\" · {edit.Font}{(edit.Bold ? " Bold" : string.Empty)} {Pixels(edit.FontSize)} · cor {edit.Color.TrimStart('#')}";
+        var bold = edit.Bold ? " Bold" : string.Empty;
+        NewTextSummary = edit.Text.Length == 0 ? "nenhum" : $"\"{edit.Text}\" · {edit.Font}{bold} {Pixels(edit.FontSize)} · cor {edit.Color.TrimStart('#')}";
         Previewing = RenderPreviewAsync(edit, source, SelectedItem, ReplacePreviewToken(createNew: true));
     }
 
@@ -1207,11 +1209,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             token.ThrowIfCancellationRequested();
             PreviewPng = png;
             FitsRegion = edit.Text.Length == 0 || (width <= edit.Region.Width && height <= edit.Region.Height);
-            FitText = edit.Text.Length == 0
-                ? "Sem texto: a área só é apagada."
-                : FitsRegion
-                    ? $"Cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura"
-                    : $"Não cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura, {Plain(height)} de {Pixels(edit.Region.Height)} de altura";
+            FitText = FitTextOf(edit, width, height);
             PackageText = $"{item.Archive} · entrada {item.Path} · {Kilobytes(OriginalPng?.Length ?? 0)} para {Kilobytes(png.Length)}";
         }
         catch (OperationCanceledException)
@@ -1226,6 +1224,18 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
                 ErrorMessage = $"Não foi possível montar a prévia: {ex.Message}";
             }
         }
+    }
+
+    private string FitTextOf(ImageEdit edit, double width, double height)
+    {
+        if (edit.Text.Length == 0)
+        {
+            return "Sem texto: a área só é apagada.";
+        }
+
+        return FitsRegion
+            ? $"Cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura"
+            : $"Não cabe na placa · {Plain(width)} de {Pixels(edit.Region.Width)} de largura, {Plain(height)} de {Pixels(edit.Region.Height)} de altura";
     }
 
     // A imagem pronta e o image-edits.json andam juntos: o PNG vai primeiro para um .tmp, depois o JSON, e só então o .tmp toma o lugar do PNG.

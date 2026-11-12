@@ -189,19 +189,7 @@ public sealed partial class BuildViewModel
             var run = await RunAsync(
                 options.AccentTest ? "Testar os acentos no jogo" : "Testar no jogo",
                 GameTestStep.Check.Label(),
-                (reporter, ct) =>
-                {
-                    try
-                    {
-                        return tester.Run(project, options, new StepProgress(reporter), new TaskProgress(reporter), ct);
-                    }
-                    catch (OperationCanceledException e)
-                    {
-                        // RunAsync não guarda o cancelamento, e o passo em que ele foi percebido só está na exceção.
-                        cancelledStep = GameTestFailure.StepOf(e);
-                        throw;
-                    }
-                },
+                (reporter, ct) => RunTester(tester, project, options, reporter, ct),
                 onMessage: message =>
                 {
                     if (StepOf(message) is { } step)
@@ -252,6 +240,20 @@ public sealed partial class BuildViewModel
         if (mine == epoch)
         {
             RaiseNotice();
+        }
+    }
+
+    private GameTestResult RunTester(GameTester tester, ProjectFolder project, GameTestOptions options, IBackgroundTaskReporter reporter, CancellationToken ct)
+    {
+        try
+        {
+            return tester.Run(project, options, new StepProgress(reporter), new TaskProgress(reporter), ct);
+        }
+        catch (OperationCanceledException e)
+        {
+            // RunAsync não guarda o cancelamento, e o passo em que ele foi percebido só está na exceção.
+            cancelledStep = GameTestFailure.StepOf(e);
+            throw;
         }
     }
 
@@ -539,7 +541,7 @@ public sealed partial class BuildViewModel
         _ => $"Jogo com a tradução de {DateText(inGame.AppliedAt)}",
     };
 
-    private static string DateText(DateTimeOffset at) => at.ToLocalTime().ToString("dd/MM", CultureInfo.InvariantCulture);
+    private static string DateText(DateTimeOffset at) => at.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Os cinco passos e a legenda. Teste rodando: o passo atual em andamento, mesmo que a página seja relida no meio do teste. Teste que parou: onde parou.
@@ -603,7 +605,7 @@ public sealed partial class BuildViewModel
         var local = last.At.ToLocalTime();
         var total = TimeSpan.FromMilliseconds(last.Steps.Sum(s => s.Milliseconds));
         var kind = last.Kind == GameTestKind.AccentTest ? " · só os acentos" : string.Empty;
-        return $"Último teste · {local.ToString("dd/MM", CultureInfo.InvariantCulture)} às {local.ToString("HH:mm", CultureInfo.InvariantCulture)}{kind} · {FormatDuration(total)}";
+        return $"Último teste · {local.ToString(DayMonthFormat, CultureInfo.InvariantCulture)} às {local.ToString("HH:mm", CultureInfo.InvariantCulture)}{kind} · {FormatDuration(total)}";
     }
 
     private static GameTestStep? StepOf(string? message) =>

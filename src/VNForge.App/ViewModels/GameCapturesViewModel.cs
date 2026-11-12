@@ -318,10 +318,26 @@ public sealed partial class GameCapturesViewModel : ObservableObject
         }
 
         var elapsed = Clock.GetLocalNow() - at;
-        SavedText = elapsed.TotalSeconds < 1 ? "Salvo agora"
-            : elapsed < TimeSpan.FromMinutes(1) ? $"Salvo há {(int)elapsed.TotalSeconds} {((int)elapsed.TotalSeconds == 1 ? "segundo" : "segundos")}"
-            : elapsed < TimeSpan.FromHours(1) ? $"Salvo há {(int)elapsed.TotalMinutes} min"
-            : elapsed < TimeSpan.FromDays(1) ? $"Salvo há {(int)elapsed.TotalHours} h"
-            : $"Salvo há {(int)elapsed.TotalDays} dias";
+        SavedText = SavedAgo(elapsed);
+    }
+
+    private static string SavedAgo(TimeSpan elapsed)
+    {
+        if (elapsed.TotalSeconds < 1)
+        {
+            return "Salvo agora";
+        }
+
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return $"Salvo há {(int)elapsed.TotalSeconds} {((int)elapsed.TotalSeconds == 1 ? "segundo" : "segundos")}";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            return $"Salvo há {(int)elapsed.TotalMinutes} min";
+        }
+
+        return elapsed < TimeSpan.FromDays(1) ? $"Salvo há {(int)elapsed.TotalHours} h" : $"Salvo há {(int)elapsed.TotalDays} dias";
     }
 }

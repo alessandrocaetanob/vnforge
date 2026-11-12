@@ -55,6 +55,7 @@ public sealed class App : Application
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
             var suggester = LineSuggester.ForUser(configDirectory);
+            string RequireApiKey() => ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.");
             // Um só cliente: o limite de requisições por segundo do VNDB vale para a Biblioteca e para o assistente de novo projeto juntos.
             var vndb = VNForge.Vndb.VndbClient.Create(Path.Combine(configDirectory, "vndb-cache"));
             var library = CreateLibrary(configDirectory, picker, [new YuRisEngine()], a => Avalonia.Threading.Dispatcher.UIThread.Post(a), vndb);
@@ -85,7 +86,7 @@ public sealed class App : Application
                     ConfigDirectory = configDirectory,
                     CatalogFactory = () => vndb,
                     TranslatorFactory = () => ClaudeProviderFactory.CreateSheet(
-                        ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                        RequireApiKey(),
                         new ClaudeOptions { Model = LineSuggester.ReadModel(configDirectory), Effort = ClaudeEffort.Medium }),
                 },
                 Play =
@@ -100,26 +101,26 @@ public sealed class App : Application
                 {
                     HasApiKey = () => ApiKeyStatus.Resolve(configDirectory).Key is not null,
                     ReaderFactory = model => ClaudeProviderFactory.CreateImageReader(
-                        ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                        RequireApiKey(),
                         new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low, MaxTokens = 2000 }),
                 },
                 Glossary = { AutosaveClock = TimeProvider.System, PersonalStore = new PersonalGlossary(configDirectory), Suggester = UserGlossarySuggester.ForUser(configDirectory) },
                 TranslationProviderFactory = (model, effort) => ClaudeProviderFactory.Create(
-                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    RequireApiKey(),
                     new ClaudeOptions { Model = model, Effort = effort }),
                 EditorPassProviderFactory = (model, effort) => ClaudeProviderFactory.CreateEditorPass(
-                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    RequireApiKey(),
                     new ClaudeOptions { Model = model, Effort = effort }),
                 MessageBatchClientFactory = () => ClaudeProviderFactory.CreateBatchClient(
-                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.")),
+                    RequireApiKey()),
                 JudgeProviderFactory = model => ClaudeProviderFactory.CreateJudge(
-                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    RequireApiKey(),
                     new ClaudeOptions { Model = model, Effort = ClaudeEffort.Low }),
                 BibleProviderFactory = (model, effort) => ClaudeProviderFactory.CreateBible(
-                    ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA."),
+                    RequireApiKey(),
                     new ClaudeOptions { Model = model, Effort = effort }),
                 BatchRequestProviderFactory = (model, effort) => new ClaudeBatchRequestProvider(
-                    ClaudeProviderFactory.CreateClient(ApiKeyStatus.Resolve(configDirectory).Key ?? throw new InvalidOperationException("Falta a chave da IA.")),
+                    ClaudeProviderFactory.CreateClient(RequireApiKey()),
                     new ClaudeOptions { Model = model, Effort = effort }),
             };
             main.Conference.Shortener = suggester;
@@ -152,16 +153,19 @@ public sealed class App : Application
             file,
             picker,
             post,
-            scan,
-            new LibraryEditor(file, () => new LibraryMatcher(vndb)),
-            sheets: new SheetCatalogSource(new SheetStore(configDirectory)),
-            openFolder: MainWindowViewModel.OpenInFileManager,
-            tagsFile: new UserTagsFile(configDirectory),
-            player: new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
-            playLog: playLog,
-            switcher: new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
-            engines: engines,
-            portugueseChecker: () => new PortugueseTranslationChecker(vndb));
+            new LibraryServices
+            {
+                ScanService = scan,
+                Editor = new LibraryEditor(file, () => new LibraryMatcher(vndb)),
+                Sheets = new SheetCatalogSource(new SheetStore(configDirectory)),
+                OpenFolder = MainWindowViewModel.OpenInFileManager,
+                TagsFile = new UserTagsFile(configDirectory),
+                Player = new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
+                PlayLog = playLog,
+                Switcher = new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+                Engines = engines,
+                PortugueseChecker = () => new PortugueseTranslationChecker(vndb),
+            });
         library.Export.OpenFile = MainWindowViewModel.OpenInFileManager;
         return library;
     }

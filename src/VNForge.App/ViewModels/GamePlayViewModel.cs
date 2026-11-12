@@ -173,14 +173,14 @@ public sealed partial class GamePlayViewModel : ObservableObject
         startedAt = IsPlaying ? library.PlayingSince : null;
         startedViaLocale = library.PlayingViaLocale;
 
-        var sessions = game is null ? [] : library.Played.SessionsOf(game.Id);
+        var played = game is null ? [] : library.Played.SessionsOf(game.Id);
         var now = clock.GetUtcNow();
         var stats = game is null ? PlayStats.None : library.Played.StatsOf(game.Id);
-        this.sessions = sessions;
+        sessions = played;
         BuildRows();
         TotalText = stats.Sessions == 0 ? "0 min" : PlayTime.Format(stats.Total);
         AverageText = Describe(stats);
-        Bars = BarsOf(PlayHistory.PerWeek(sessions, now));
+        Bars = BarsOf(PlayHistory.PerWeek(played, now));
         Raise();
         PlayCommand.NotifyCanExecuteChanged();
     }

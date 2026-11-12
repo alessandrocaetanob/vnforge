@@ -21,7 +21,7 @@ public sealed class LibraryExportTests : IDisposable
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
         var opened = new List<string>();
-        var library = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(_out.Path), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, sheets: sheets ?? new LibrarySamples.Sheets());
+        var library = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(_out.Path), action => action(), new LibraryServices { Clock = new FixedClock(LibrarySamples.Now), ReadTranslation = LibrarySamples.Translation, Sheets = sheets ?? new LibrarySamples.Sheets() });
         library.Export.OpenFile = opened.Add;
         library.Export.Folder = _out.Path;
         await library.LoadAsync();

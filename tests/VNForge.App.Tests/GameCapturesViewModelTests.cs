@@ -106,7 +106,7 @@ public sealed class GameCapturesViewModelTests : IDisposable
         var game = Game with { ProjectPath = GameLibrary.NormalizeFolder(_data.SubFolder("projeto")) };
         var other = game with { Id = "g00000000", ProjectPath = null };
         var file = LibrarySamples.Save(_data.SubFolder("library"), new GameLibrary([other, game]));
-        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: _clock);
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = _clock });
         await library.LoadAsync();
 
         Assert.Equal(game.Id, library.GameOfProject(_data.Path + "/projeto/")?.Id);
@@ -131,7 +131,7 @@ public sealed class GameCapturesViewModelTests : IDisposable
         var root = SampleProjects.Create(_data.SubFolder("projeto"), "Minha VN", TranslationStatus.Machine);
         var game = Game with { ProjectPath = GameLibrary.NormalizeFolder(root) };
         var file = LibrarySamples.Save(_data.SubFolder("library"), new GameLibrary([game]));
-        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: _clock);
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = _clock });
         var start = new StartViewModel(new RecentProjectsFile(_data.SubFolder("recents")), new FakeFolderPicker(root), _clock);
         var shell = new MainWindowViewModel(start, library: library);
         shell.Play.CapturesFile = new GameCapturesFile(_data.SubFolder("captures"), _clock);

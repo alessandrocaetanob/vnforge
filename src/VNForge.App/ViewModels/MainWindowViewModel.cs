@@ -111,48 +111,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null, BuildViewModel? build = null, ImagesViewModel? images = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
-        Images = images ?? new();
+        Images = new();
         Library = library ?? LibraryViewModel.Detached();
-        Library.RecentProjects = () => recentProjects;
-        start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
-        Library.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(LibraryViewModel.StatusText))
-            {
-                OnPropertyChanged(nameof(LibraryCountText));
-            }
-        };
-        // A aba Jogar aberta antes de a Biblioteca carregar ainda não achou o jogo do projeto: procura de novo quando a lista chega.
-        Library.GamesLoaded += (_, _) =>
-        {
-            if (ReferenceEquals(CurrentPage, Play) && Play.HasNoGame && CurrentProject is { } project)
-            {
-                Play.Enter(Library.GameOfProject(project.Root));
-            }
-        };
-        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
-        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
-        Characters.PropertyChanged += (_, e) =>
-        {
-            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(CharactersViewModel.OpenName) or nameof(CharactersViewModel.StatusText))
-            {
-                OnPropertyChanged(nameof(Breadcrumb));
-                OnPropertyChanged(nameof(LibraryCountText));
-            }
-        };
-        Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
-        start.PropertyChanged += (_, e) =>
-        {
-            // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.
-            if (e.PropertyName == nameof(StartViewModel.ErrorMessage) && start.ErrorMessage is { Length: > 0 } problem)
-            {
-                Library.ReportProblem(problem);
-            }
-        };
+        WireLibrary(start, newProjectWizard);
         Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
@@ -168,22 +133,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Glossary.Rate = () => Settings.Rate;
         Bible.Rate = () => Settings.Rate;
         Bible.Limits = () => Settings.Budget;
-        Images.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(ImagesViewModel.CanOpenInventory))
-            {
-                OpenImagesInventoryCommand.NotifyCanExecuteChanged();
-            }
-        };
-        Images.Rate = () => Settings.Rate;
-        Images.Limits = () => Settings.Budget;
+        WireImages();
         Settings.RateChanged += (_, _) => Glossary.RefreshPrices();
         History = new BatchHistory(TaskService);
         History.Undone += (_, undone) => OnBatchUndone(undone);
         batchRequests = NewBatchRequestService();
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
-        Build = build ?? new BuildViewModel(TaskService);
+        Build = new BuildViewModel(TaskService);
         Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {
@@ -202,33 +159,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MoreSections = [releaseItem, bibleItem, imagesItem, proofsItem];
         lastTranslationItem = dashboardItem;
         Sheet = new GameSheetViewModel { Notify = (text, kind) => Toasts.Show(text, kind, key: "game-sheet"), Reveals = Library.Reveal };
-        Characters.Notify = (text, kind) => Toasts.Show(text, kind, key: "characters");
-        Characters.Reveals = Library.Reveal;
-        Sheet.CharacterRequested += (_, request) =>
-        {
-            Characters.Open(request.Id, request.RevealSpoilers);
-            SelectedNav = charactersItem;
-        };
-        Library.Reveal.Changed += (_, _) => OnPropertyChanged(nameof(GameCoverRevealed));
-        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode, () => Library.ErrorMessage);
-        Library.AdultModeChanged += (_, _) => Settings.Privacy?.Refresh();
-        // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
-        Library.GamesLoaded += (_, _) =>
-        {
-            if (Sheet.ListCard is null && CurrentProject is { } project)
-            {
-                Sheet.ListCard = Library.ListCardForProject(project.Root, Sheet.VisualNovelId);
-            }
-        };
-        Sheet.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))
-            {
-                OnPropertyChanged(nameof(ShowPlayButton));
-                OnPropertyChanged(nameof(ShowNextStepButton));
-                OnPropertyChanged(nameof(Breadcrumb));
-            }
-        };
+        WireSheet();
         var session = new GamePlayViewModel(Library);
         session.SettingsRequested += (_, _) =>
         {
@@ -301,25 +232,111 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Dashboard.StartRequested += (_, _) => SelectedNav = Nav[0];
         Dashboard.NavigationRequested += (_, request) => OpenFromDashboard(request);
         Dashboard.ChaptersRenamed += (_, _) => _ = Editor.RefreshChaptersAsync();
-        start.EditorRequested += (_, summary) =>
-        {
-            try
-            {
-                SetProject(summary);
-            }
-            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-            {
-                start.ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
-                return;
-            }
+        start.EditorRequested += (_, summary) => OpenProjectInEditor(start, summary);
+        start.DashboardRequested += (_, _) => SelectedNav = dashboardItem;
+    }
 
-            SelectedNav = editorItem;
-            if (summary.LastEditedScript is { } script)
+    private void WireLibrary(StartViewModel start, Func<NewProjectWizardViewModel>? newProjectWizard)
+    {
+        Library.RecentProjects = () => recentProjects;
+        start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
+        Library.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LibraryViewModel.StatusText))
             {
-                LineNavigation = ShowScriptAsync(script);
+                OnPropertyChanged(nameof(LibraryCountText));
             }
         };
-        start.DashboardRequested += (_, _) => SelectedNav = dashboardItem;
+        // A aba Jogar aberta antes de a Biblioteca carregar ainda não achou o jogo do projeto: procura de novo quando a lista chega.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (ReferenceEquals(CurrentPage, Play) && Play.HasNoGame && CurrentProject is { } project)
+            {
+                Play.Enter(Library.GameOfProject(project.Root));
+            }
+        };
+        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Characters.PropertyChanged += (_, e) =>
+        {
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(CharactersViewModel.OpenName) or nameof(CharactersViewModel.StatusText))
+            {
+                OnPropertyChanged(nameof(Breadcrumb));
+                OnPropertyChanged(nameof(LibraryCountText));
+            }
+        };
+        Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
+        start.PropertyChanged += (_, e) =>
+        {
+            // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.
+            if (e.PropertyName == nameof(StartViewModel.ErrorMessage) && start.ErrorMessage is { Length: > 0 } problem)
+            {
+                Library.ReportProblem(problem);
+            }
+        };
+    }
+
+    private void WireImages()
+    {
+        Images.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ImagesViewModel.CanOpenInventory))
+            {
+                OpenImagesInventoryCommand.NotifyCanExecuteChanged();
+            }
+        };
+        Images.Rate = () => Settings.Rate;
+        Images.Limits = () => Settings.Budget;
+    }
+
+    private void WireSheet()
+    {
+        Characters.Notify = (text, kind) => Toasts.Show(text, kind, key: "characters");
+        Characters.Reveals = Library.Reveal;
+        Sheet.CharacterRequested += (_, request) =>
+        {
+            Characters.Open(request.Id, request.RevealSpoilers);
+            SelectedNav = charactersItem;
+        };
+        Library.Reveal.Changed += (_, _) => OnPropertyChanged(nameof(GameCoverRevealed));
+        Settings.Privacy = new PrivacySettingsViewModel(() => Library.AdultMode, Library.ChooseAdultMode, () => Library.ErrorMessage);
+        Library.AdultModeChanged += (_, _) => Settings.Privacy?.Refresh();
+        // A Ficha aberta antes de a Biblioteca carregar ficou sem o cartão da lista do VNDB: ele aparece quando os jogos chegam.
+        Library.GamesLoaded += (_, _) =>
+        {
+            if (Sheet.ListCard is null && CurrentProject is { } project)
+            {
+                Sheet.ListCard = Library.ListCardForProject(project.Root, Sheet.VisualNovelId);
+            }
+        };
+        Sheet.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GameSheetViewModel.IsReviewing))
+            {
+                OnPropertyChanged(nameof(ShowPlayButton));
+                OnPropertyChanged(nameof(ShowNextStepButton));
+                OnPropertyChanged(nameof(Breadcrumb));
+            }
+        };
+    }
+
+    private void OpenProjectInEditor(StartViewModel start, ProjectSummary summary)
+    {
+        try
+        {
+            SetProject(summary);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            start.ErrorMessage = $"{e.Message} O projeto não pôde ser carregado.";
+            return;
+        }
+
+        SelectedNav = editorItem;
+        if (summary.LastEditedScript is { } script)
+        {
+            LineNavigation = ShowScriptAsync(script);
+        }
     }
 
     public StartViewModel Start { get; }
@@ -330,6 +347,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>A área Personagens da Biblioteca (d11, #558).</summary>
     public CharactersViewModel Characters { get; } = new();
 
+    private const string ReloadToastKey = "project-reload";
     private IReadOnlyList<string> recentProjects = [];
 
     /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
@@ -482,7 +500,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
 
             var columns = $"{profile.Wrap.MaxWidth} colunas";
-            return profile.Wrap.MaxLines is { } lines ? $"{columns} · {lines} {(lines == 1 ? "linha" : "linhas")}" : columns;
+            if (profile.Wrap.MaxLines is not { } lines)
+            {
+                return columns;
+            }
+
+            return $"{columns} · {lines} {(lines == 1 ? "linha" : "linhas")}";
         }
     }
 
@@ -492,8 +515,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public NavItemViewModel? SelectedTopNav
     {
-        // Dentro de um jogo a Biblioteca continua marcada: o jogo é um item dela.
-        get => selectedNav is { } item && TopNav.Contains(item) ? item : InGame ? TopNav[0] : null;
+        get
+        {
+            if (selectedNav is { } item && TopNav.Contains(item))
+            {
+                return item;
+            }
+
+            // Dentro de um jogo a Biblioteca continua marcada: o jogo é um item dela.
+            return InGame ? TopNav[0] : null;
+        }
+
         set => SelectFromRail(value);
     }
 
@@ -519,97 +551,106 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public NavItemViewModel? SelectedNav
     {
         get => selectedNav;
-        set
+        set => ChangeNav(value);
+    }
+
+    private void ChangeNav(NavItemViewModel? value)
+    {
+        if (value is null || !value.IsEnabled)
         {
-            if (value is null || !value.IsEnabled)
-            {
-                OnPropertyChanged();
-                return;
-            }
+            OnPropertyChanged(nameof(SelectedNav));
+            return;
+        }
 
-            if (!ReferenceEquals(value, selectedNav) && !CanSwitchTo(value.Key))
-            {
-                OnPropertyChanged();
-                return;
-            }
+        if (!ReferenceEquals(value, selectedNav) && !CanSwitchTo(value.Key))
+        {
+            OnPropertyChanged(nameof(SelectedNav));
+            return;
+        }
 
-            var wasInGame = InGame;
-            var leavingDashboard = selectedNav?.Key == NavKey.Dashboard && value.Key != NavKey.Dashboard;
-            if (SetProperty(ref selectedNav, value))
-            {
-                // O Painel sempre reabre na visão geral; só "Provas" do menu "Mais" o abre no banco de provas.
-                if (leavingDashboard)
-                {
-                    Dashboard.SelectedTab = 0;
-                }
+        var wasInGame = InGame;
+        var leavingDashboard = selectedNav?.Key == NavKey.Dashboard && value.Key != NavKey.Dashboard;
+        if (SetProperty(ref selectedNav, value, nameof(SelectedNav)))
+        {
+            EnterNav(value, wasInGame, leavingDashboard);
+        }
+    }
 
-                if (GameTabOf(value.Key) == GameTab.Translation)
-                {
-                    lastTranslationItem = value;
-                }
+    private void EnterNav(NavItemViewModel value, bool wasInGame, bool leavingDashboard)
+    {
+        // O Painel sempre reabre na visão geral; só "Provas" do menu "Mais" o abre no banco de provas.
+        if (leavingDashboard)
+        {
+            Dashboard.SelectedTab = 0;
+        }
 
-                if (GameTabOf(value.Key) is not null)
-                {
-                    lastGameItem = value;
-                }
+        if (GameTabOf(value.Key) == GameTab.Translation)
+        {
+            lastTranslationItem = value;
+        }
 
-                RaiseShellChanged();
-                PrepareLeavingAndEntering(value.Key);
-                CurrentPage = value.Key switch
-                {
-                    NavKey.Sheet => Sheet,
-                    NavKey.Play => Play,
-                    NavKey.Dashboard => Dashboard,
-                    NavKey.Editor => Editor,
-                    NavKey.Conference => Conference,
-                    NavKey.Settings => Settings,
-                    NavKey.Glossary => Glossary,
-                    NavKey.Bible => Bible,
-                    NavKey.Images => Images,
-                    NavKey.Build => Build,
-                    NavKey.Release => Release,
-                    NavKey.Characters => Characters,
-                    _ => Library,
-                };
-                if (value.Key == NavKey.Dashboard)
-                {
-                    DashboardRefresh = Dashboard.ReloadAsync();
-                }
-                else if (!wasInGame && GameTabOf(value.Key) is not null)
-                {
-                    // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
-                    DashboardRefresh = Dashboard.ReloadAsync();
-                }
+        if (GameTabOf(value.Key) is not null)
+        {
+            lastGameItem = value;
+        }
 
-                if (value.Key is not (NavKey.Start or NavKey.Sheet or NavKey.Characters))
-                {
-                    // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca, da Ficha e dos Personagens.
-                    Library.Reveal.Clear();
-                }
+        RaiseShellChanged();
+        PrepareLeavingAndEntering(value.Key);
+        CurrentPage = PageOf(value.Key);
+        LoadForNav(value.Key, wasInGame);
+        OnPropertyChanged(nameof(BoxLimitsText));
+        OnPropertyChanged(nameof(StatusNote));
+    }
 
-                if (value.Key == NavKey.Start)
-                {
-                    // O andamento de cada jogo vem da pasta do projeto, que o Editor e a Conferência mudam; a lista de recentes também.
-                    _ = Start.LoadAsync();
-                    _ = Library.LoadAsync();
-                }
-                else if (value.Key == NavKey.Characters)
-                {
-                    _ = Characters.LoadAsync();
-                }
-                else if (value.Key == NavKey.Build)
-                {
-                    Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
-                    _ = Build.ReloadAsync();
-                }
-                else if (value.Key == NavKey.Release)
-                {
-                    _ = Release.ReloadAsync();
-                }
+    private object PageOf(NavKey key) => key switch
+    {
+        NavKey.Sheet => Sheet,
+        NavKey.Play => Play,
+        NavKey.Dashboard => Dashboard,
+        NavKey.Editor => Editor,
+        NavKey.Conference => Conference,
+        NavKey.Settings => Settings,
+        NavKey.Glossary => Glossary,
+        NavKey.Bible => Bible,
+        NavKey.Images => Images,
+        NavKey.Build => Build,
+        NavKey.Release => Release,
+        NavKey.Characters => Characters,
+        _ => Library,
+    };
 
-                OnPropertyChanged(nameof(BoxLimitsText));
-                OnPropertyChanged(nameof(StatusNote));
-            }
+    private void LoadForNav(NavKey key, bool wasInGame)
+    {
+        // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
+        if (key == NavKey.Dashboard || (!wasInGame && GameTabOf(key) is not null))
+        {
+            DashboardRefresh = Dashboard.ReloadAsync();
+        }
+
+        if (key is not (NavKey.Start or NavKey.Sheet or NavKey.Characters))
+        {
+            // O "Mostrar" do conteúdo adulto vale até sair da Biblioteca, da Ficha e dos Personagens.
+            Library.Reveal.Clear();
+        }
+
+        if (key == NavKey.Start)
+        {
+            // O andamento de cada jogo vem da pasta do projeto, que o Editor e a Conferência mudam; a lista de recentes também.
+            _ = Start.LoadAsync();
+            _ = Library.LoadAsync();
+        }
+        else if (key == NavKey.Characters)
+        {
+            _ = Characters.LoadAsync();
+        }
+        else if (key == NavKey.Build)
+        {
+            Build.SetOpenScene(Editor.SelectedScript?.Key, Editor.SelectedScript?.Name);
+            _ = Build.ReloadAsync();
+        }
+        else if (key == NavKey.Release)
+        {
+            _ = Release.ReloadAsync();
         }
     }
 
@@ -1092,7 +1133,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void ReviewSpeaker(string name) => LineNavigation = OpenReviewAsync(ReviewSource.OfSpeaker(name));
 
     /// <summary>
-    /// A paleta pede a lista a cada tecla e contar as linhas de risco alto pontua o projeto todo: a contagem roda uma vez por abertura, fora da thread da tela, e a
+    /// A paleta pede a lista a cada tecla e contar as linhas de risco alto pontua o projeto inteiro: a contagem roda uma vez por abertura, fora da thread da tela, e a
     /// paleta é refeita quando ela chega. Fechar a paleta descarta o número, que valeria só até a próxima gravação.
     /// </summary>
     private void RequestRiskCount()
@@ -1160,7 +1201,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             CancelRiskCount();
         }
     }
-    /// <summary>Leva ao Editor e abre o modo revisão na fila "o que mais precisa de você", de todo o projeto.</summary>
+    /// <summary>Leva ao Editor e abre o modo revisão na fila "o que mais precisa de você", do projeto inteiro.</summary>
     private void ReviewRisk() => LineNavigation = OpenReviewAsync(ReviewSource.Risk);
 
     private async Task OpenReviewAsync(ReviewSource source)
@@ -1302,13 +1343,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (Conference.IsBusy)
         {
-            Toasts.Show("A Conferência está trabalhando. Espere ela terminar para reler o projeto.", ToastKind.Warning, key: "project-reload");
+            Toasts.Show("A Conferência está trabalhando. Espere ela terminar para reler o projeto.", ToastKind.Warning, key: ReloadToastKey);
             return;
         }
 
         if (!Editor.FlushPendingEdits() || !Glossary.Flush())
         {
-            Toasts.Show("Há alterações que não foram gravadas. Resolva o erro na tela e tente reler de novo.", ToastKind.Warning, key: "project-reload");
+            Toasts.Show("Há alterações que não foram gravadas. Resolva o erro na tela e tente reler de novo.", ToastKind.Warning, key: ReloadToastKey);
             return;
         }
 
@@ -1323,12 +1364,42 @@ public sealed partial class MainWindowViewModel : ObservableObject
         await Task.WhenAll(Editor.Loading, Dashboard.ReloadAsync(), Conference.RefreshAsync());
         if (Editor.ErrorMessage is null && Conference.ErrorMessage is null)
         {
-            Toasts.Show("Projeto relido.", ToastKind.Success, key: "project-reload");
+            Toasts.Show("Projeto relido.", ToastKind.Success, key: ReloadToastKey);
         }
         else
         {
-            Toasts.Show("O projeto foi relido, mas houve erro ao ler os textos. Veja o aviso na tela.", ToastKind.Warning, key: "project-reload");
+            Toasts.Show("O projeto foi relido, mas houve erro ao ler os textos. Veja o aviso na tela.", ToastKind.Warning, key: ReloadToastKey);
         }
+    }
+
+    private void AddProjectEntries(List<PaletteEntry> entries, ProjectSummary project)
+    {
+        entries.Add(new PaletteEntry(PaletteGroup.Command, "Traduzir pendentes", "Mostra no Editor as linhas ainda sem tradução", () =>
+        {
+            if (GoTo(editorItem))
+            {
+                Editor.ShowPendingLines();
+            }
+        }));
+        entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
+        RequestRiskCount();
+        var riskSubtitle = riskHighLines switch
+        {
+            null => "O que mais precisa de você, no projeto todo",
+            0 => "O que mais precisa de você, nenhuma linha de risco alto",
+            1 => "O que mais precisa de você, 1 linha de risco alto",
+            { } n => $"O que mais precisa de você, {ProjectLabels.Number(n)} linhas de risco alto",
+        };
+        entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", riskSubtitle, ReviewRisk) { OnlyWhenSearching = true, Shortcut = "Ctrl+R" });
+        foreach (var speaker in Editor.ReviewableSpeakers)
+        {
+            var source = speaker.Source;
+            entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)) { OnlyWhenSearching = true });
+        }
+
+        entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
+        entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
+        entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
     }
 
     private List<PaletteEntry> PaletteNamedEntries()
@@ -1336,32 +1407,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var entries = new List<PaletteEntry>();
         if (CurrentProject is { } project)
         {
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Traduzir pendentes", "Mostra no Editor as linhas ainda sem tradução", () =>
-            {
-                if (GoTo(editorItem))
-                {
-                    Editor.ShowPendingLines();
-                }
-            }));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Reler o projeto", "Lê de novo os textos, o glossário e o estilo, se mudaram fora da app", () => ProjectReloading = ReloadProjectAsync()));
-            RequestRiskCount();
-            var riskSubtitle = riskHighLines switch
-            {
-                null => "O que mais precisa de você, no projeto todo",
-                0 => "O que mais precisa de você, nenhuma linha de risco alto",
-                1 => "O que mais precisa de você, 1 linha de risco alto",
-                { } n => $"O que mais precisa de você, {ProjectLabels.Number(n)} linhas de risco alto",
-            };
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Revisar por risco", riskSubtitle, ReviewRisk) { OnlyWhenSearching = true, Shortcut = "Ctrl+R" });
-            foreach (var speaker in Editor.ReviewableSpeakers)
-            {
-                var source = speaker.Source;
-                entries.Add(new PaletteEntry(PaletteGroup.Command, $"Revisar falas de {speaker.Name}", (speaker.Count == 1 ? "1 linha da IA" : $"{ProjectLabels.Number(speaker.Count)} linhas da IA") + " em todas as cenas", () => ReviewSpeaker(source)) { OnlyWhenSearching = true });
-            }
-
-            entries.Add(BuildEntry("Testar no jogo", "Confere, injeta e abre o jogo", Build.TestCommand));
-            entries.Add(BuildEntry("Novo build", "Gera a pasta de build do projeto", Build.BuildCommand));
-            entries.Add(new PaletteEntry(PaletteGroup.Command, "Abrir pasta do projeto", project.Root, () => openFolder(project.Root)));
+            AddProjectEntries(entries, project);
         }
 
         foreach (var item in Nav.Where(n => n.IsEnabled && n.IsVisible))

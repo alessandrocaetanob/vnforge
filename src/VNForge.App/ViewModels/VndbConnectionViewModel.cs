@@ -319,14 +319,32 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
         ListChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private static string? Count(int n, string word) => n == 0 ? null : n == 1 ? $"1 {word}" : $"{n} {word}s";
+    private static string? Count(int n, string word)
+    {
+        if (n == 0)
+        {
+            return null;
+        }
+
+        return n == 1 ? $"1 {word}" : $"{n} {word}s";
+    }
+
+    private string MaskOf(string? token)
+    {
+        if (token is { Length: >= 8 })
+        {
+            return "••••-••••-••••-" + token[^4..];
+        }
+
+        return HasToken ? "••••-••••" : "Nenhum token guardado";
+    }
 
     private void ShowToken()
     {
         var resolved = service.Token();
         HasToken = resolved.Token is not null;
         IsFromEnvironment = resolved.Source == VndbTokenSource.Environment;
-        TokenMask = resolved.Token is { Length: >= 8 } token ? "••••-••••-••••-" + token[^4..] : HasToken ? "••••-••••" : "Nenhum token guardado";
+        TokenMask = MaskOf(resolved.Token);
         TokenSourceText = resolved.Source switch
         {
             VndbTokenSource.Environment => $"O token vem da variável de ambiente {VndbTokenResolver.EnvironmentVariable}, que vale mais que o cofre.",
@@ -343,6 +361,16 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
 
         OnPropertyChanged(nameof(ChangeTokenLabel));
         ShowLastSync();
+    }
+
+    private static string DayText(DateTime day, DateTime today)
+    {
+        if (day == today)
+        {
+            return "hoje";
+        }
+
+        return day == today.AddDays(-1) ? "ontem" : "em " + day.ToString("dd/MM/yyyy", Portuguese);
     }
 
     private void ShowLastSync()
@@ -365,7 +393,7 @@ public sealed partial class VndbConnectionViewModel : ObservableObject
         {
             var local = TimeZoneInfo.ConvertTime(at, clock.LocalTimeZone);
             var today = clock.GetLocalNow().Date;
-            parts.Add("Última vez " + (local.Date == today ? "hoje" : local.Date == today.AddDays(-1) ? "ontem" : "em " + local.ToString("dd/MM/yyyy", Portuguese)) + " às " + local.ToString("HH:mm", Portuguese));
+            parts.Add("Última vez " + DayText(local.Date, today) + " às " + local.ToString("HH:mm", Portuguese));
         }
         else
         {

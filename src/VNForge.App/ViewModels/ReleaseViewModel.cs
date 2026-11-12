@@ -79,8 +79,15 @@ public sealed partial class ReleaseStepRow(ReleaseStep step, string label) : Obs
         _ => string.Empty,
     };
 
-    private static string Join(string first, string second) =>
-        first.Length == 0 ? second : second.Length == 0 ? first : first + " · " + second;
+    private static string Join(string first, string second)
+    {
+        if (first.Length == 0)
+        {
+            return second;
+        }
+
+        return second.Length == 0 ? first : first + " · " + second;
+    }
 }
 
 /// <summary>Uma conferência antes de gerar. <paramref name="IsOk"/> falso mostra o círculo vazio (ainda não conferido) ou o erro.</summary>
@@ -378,11 +385,20 @@ public sealed partial class ReleaseViewModel : ObservableObject
     /// O que o campo faz, em tooltip (a legenda sob o formulário é do número da versão e não pode crescer): vazio, vale a versão que o projeto guarda; sem
     /// versão guardada, o patch segue sem versão. É a precedência do Core (<see cref="ReleaseService.ResolveGameVersion"/>).
     /// </summary>
-    public string GameVersionHelp => !string.IsNullOrWhiteSpace(GameVersion)
-        ? "Fica gravada no projeto ao gerar."
-        : readiness?.ReferenceVersion is { Length: > 0 } saved
-            ? $"Vazio: vale a versão guardada no projeto ({saved})."
-            : "Vazio: o patch segue sem versão do jogo.";
+    public string GameVersionHelp
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(GameVersion))
+            {
+                return "Fica gravada no projeto ao gerar.";
+            }
+
+            return readiness?.ReferenceVersion is { Length: > 0 } saved
+                ? $"Vazio: vale a versão guardada no projeto ({saved})."
+                : "Vazio: o patch segue sem versão do jogo.";
+        }
+    }
 
     /// <summary>A legenda sob o campo, como no quadro: "Jogo de referência" com a versão preenchida e "Opcional" vazio.</summary>
     public string GameVersionLegend => string.IsNullOrWhiteSpace(GameVersion) ? "Opcional" : "Jogo de referência";
@@ -639,7 +655,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         Checks.Clear();
         Checks.Add(read.QaErrors == 0
             ? new ReleaseCheckRow("Conferir sem erros", true)
-            : new ReleaseCheckRow($"Conferir com {ProjectLabels.Number(read.QaErrors)} {(read.QaErrors == 1 ? "erro" : "erros")}", false, IsError: true));
+            : new ReleaseCheckRow($"Conferir com {Counted(read.QaErrors, "erro", "erros")}", false, IsError: true));
         Checks.Add(read.TestedAt is { } tested
             ? new ReleaseCheckRow($"Testado no jogo em {tested.ToLocalTime().ToString("dd/MM", Brazil)} às {tested.ToLocalTime().ToString("HH:mm", Brazil)}", true)
             : new ReleaseCheckRow("Ainda não testado no jogo", false));
@@ -656,7 +672,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         Scenes.Clear();
         foreach (var scene in read.Changes.Scenes)
         {
-            Scenes.Add(new ReleaseSceneRow($"Cena {scene.Number}", $"{ProjectLabels.Number(scene.Lines)} {(scene.Lines == 1 ? "linha" : "linhas")}"));
+            Scenes.Add(new ReleaseSceneRow($"Cena {scene.Number}", Counted(scene.Lines, "linha", "linhas")));
         }
 
         ChangeExamples.Clear();
@@ -670,7 +686,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         var moreLines = read.Changes.TotalLines - examples.Count;
         var moreScenes = read.Changes.Scenes.Count(s => s.Lines - (shownScenes.Contains(s.Number) ? 1 : 0) > 0);
         ChangesMore = examples.Count > 0 && moreLines > 0
-            ? $"e mais {ProjectLabels.Number(moreLines)} {(moreLines == 1 ? "linha" : "linhas")} em {ProjectLabels.Number(moreScenes)} {(moreScenes == 1 ? "cena" : "cenas")}"
+            ? $"e mais {Counted(moreLines, "linha", "linhas")} em {Counted(moreScenes, "cena", "cenas")}"
             : string.Empty;
         OnPropertyChanged(nameof(HasChangeExamples));
         OnPropertyChanged(nameof(HasSceneCounts));
@@ -684,15 +700,25 @@ public sealed partial class ReleaseViewModel : ObservableObject
         else
         {
             ChangesTitle = $"Mudou desde o patch {read.PreviousVersion}";
-            ChangesSubtitle = read.Changes.State == ChangesSinceTestState.Changed
-                ? $"{ProjectLabels.Number(read.Changes.TotalLines)} {(read.Changes.TotalLines == 1 ? "linha" : "linhas")} em {ProjectLabels.Number(read.Changes.Scenes.Count)} {(read.Changes.Scenes.Count == 1 ? "cena" : "cenas")} · vai para MUDANCAS.txt"
-                : read.Changes.State == ChangesSinceTestState.Unchanged
-                    ? "Nenhuma fala mudou · vai para MUDANCAS.txt"
-                    : "A lista de falas que mudaram não está disponível para a versão anterior";
+            ChangesSubtitle = ChangesSubtitleOf(read.Changes);
         }
 
         OnPropertyChanged(nameof(ShowChanges));
     }
+
+    private static string ChangesSubtitleOf(ChangesSinceTest changes)
+    {
+        if (changes.State == ChangesSinceTestState.Changed)
+        {
+            return $"{Counted(changes.TotalLines, "linha", "linhas")} em {Counted(changes.Scenes.Count, "cena", "cenas")} · vai para MUDANCAS.txt";
+        }
+
+        return changes.State == ChangesSinceTestState.Unchanged
+            ? "Nenhuma fala mudou · vai para MUDANCAS.txt"
+            : "A lista de falas que mudaram não está disponível para a versão anterior";
+    }
+
+    private static string Counted(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";
 
     private void ResetTexts()
     {
@@ -719,7 +745,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
     {
         Received.Clear();
         var files = result?.Files ?? readiness?.PreviousFiles;
-        string Size(long? size) => size is { } value ? FormatSize(value) : "ao gerar";
+        static string Size(long? size) => size is { } value ? FormatSize(value) : "ao gerar";
         Received.Add(new ReleaseReceivedRow("Instalador de um arquivo", Size(files is null ? null : InstallerFile(files)?.Size), "Icon.Box"));
         Received.Add(new ReleaseReceivedRow("Patch de diferença binária", Size(files?.FirstOrDefault(f => f.Name.EndsWith(".vnfpatch", StringComparison.OrdinalIgnoreCase))?.Size), "Icon.Box"));
         Received.Add(new ReleaseReceivedRow(
@@ -775,7 +801,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         }
 
         var more = (changed?.Count ?? 0) - ChecksumFiles.Count;
-        ChecksumMore = more > 0 ? $"e mais {ProjectLabels.Number(more)} {(more == 1 ? "arquivo alterado" : "arquivos alterados")}" : string.Empty;
+        ChecksumMore = more > 0 ? $"e mais {Counted(more, "arquivo alterado", "arquivos alterados")}" : string.Empty;
         OnPropertyChanged(nameof(HasChecksumFiles));
         OnPropertyChanged(nameof(HasChecksumMore));
     }
@@ -785,6 +811,28 @@ public sealed partial class ReleaseViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
     private Task GenerateAsync() => Generation = RunGenerationAsync();
+
+    private StepSink StepSinkFor(IBackgroundTaskReporter reporter, int epoch)
+    {
+        ReleaseStep? announced = null;
+        return new StepSink(progress =>
+        {
+            if (announced != progress.Step)
+            {
+                announced = progress.Step;
+                reporter.Report(null, LabelOf(progress.Step));
+            }
+
+            // O estado das etapas mora na thread da interface; o Core relata de outra.
+            tasks.Post(() =>
+            {
+                if (epoch == generationEpoch && IsGenerating)
+                {
+                    Observe(progress);
+                }
+            });
+        });
+    }
 
     private async Task RunGenerationAsync()
     {
@@ -818,25 +866,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         {
             try
             {
-                ReleaseStep? announced = null;
-                var sink = new StepSink(progress =>
-                {
-                    if (announced != progress.Step)
-                    {
-                        announced = progress.Step;
-                        reporter.Report(null, LabelOf(progress.Step));
-                    }
-
-                    // O estado das etapas mora na thread da interface; o Core relata de outra.
-                    tasks.Post(() =>
-                    {
-                        if (epoch == generationEpoch && IsGenerating)
-                        {
-                            Observe(progress);
-                        }
-                    });
-                });
-                result = publisher.Create(project.Root, options, sink, ct);
+                result = publisher.Create(project.Root, options, StepSinkFor(reporter, epoch), ct);
                 readMe = ReadText(Path.Combine(result.OutputDirectory, "LEIA-ME.txt"));
             }
             catch (Exception e) when (e is not OperationCanceledException)
@@ -984,9 +1014,9 @@ public sealed partial class ReleaseViewModel : ObservableObject
         BannerState = GameState.Translated;
         BannerTitle = $"Versão {result.Version} pronta";
         BannerMessage = $"Verificada numa cópia limpa: {ProjectLabels.Number(verification.Identical)} de {ProjectLabels.Number(count)} {(count == 1 ? "arquivo idêntico" : "arquivos idênticos")} ao build. Desinstalar devolve os originais byte a byte.";
-        VerificationText = $"Cópia limpa do jogo de referência: {ProjectLabels.Number(verification.Identical)} {(verification.Identical == 1 ? "arquivo alterado, idêntico" : "arquivos alterados, todos idênticos")} ao build. "
-            + $"Desinstalação testada: {ProjectLabels.Number(verification.RestoredToOriginal)} {(verification.RestoredToOriginal == 1 ? "arquivo" : "arquivos")} de volta ao original, byte a byte"
-            + (verification.RemovedCreated > 0 ? $", e {ProjectLabels.Number(verification.RemovedCreated)} {(verification.RemovedCreated == 1 ? "criado saiu" : "criados saíram")}." : ".");
+        VerificationText = $"Cópia limpa do jogo de referência: {Counted(verification.Identical, "arquivo alterado, idêntico", "arquivos alterados, todos idênticos")} ao build. "
+            + $"Desinstalação testada: {Counted(verification.RestoredToOriginal, "arquivo", "arquivos")} de volta ao original, byte a byte"
+            + (verification.RemovedCreated > 0 ? $", e {Counted(verification.RemovedCreated, "criado saiu", "criados saíram")}." : ".");
         VerificationTime = Steps.First(s => s.Step == ReleaseStep.Verify).TimeText;
         ReadMeText = readMe.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
         SetReceived(result);
@@ -1103,8 +1133,15 @@ public sealed partial class ReleaseViewModel : ObservableObject
     [GeneratedRegex(@"^(\d+)\.(\d+)(?:\.\d+)?$")]
     private static partial Regex SemanticVersion();
 
-    private string DefaultOutput(string version) =>
-        Project is null ? string.Empty : Path.Combine(Project.Root, ReleaseService.FolderName, IsValidVersion(version) ? version.Trim() : "versao");
+    private string DefaultOutput(string version)
+    {
+        if (Project is null)
+        {
+            return string.Empty;
+        }
+
+        return Path.Combine(Project.Root, ReleaseService.FolderName, IsValidVersion(version) ? version.Trim() : "versao");
+    }
 
     private string DefaultInstaller(string version)
     {

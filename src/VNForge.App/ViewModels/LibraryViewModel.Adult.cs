@@ -112,11 +112,13 @@ public sealed partial class LibraryViewModel
         {
             if (file is not null)
             {
-                library = file.Update(l =>
-                {
-                    l.Privacy = l.Privacy with { Adult = mode };
-                    return l;
-                });
+                library = file.Update(
+                    l =>
+                    {
+                        l.Privacy = l.Privacy with { Adult = mode };
+                        return l;
+                    },
+                    CancellationToken.None);
                 games = [.. library.Sorted()];
             }
             else

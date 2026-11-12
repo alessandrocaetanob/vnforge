@@ -40,7 +40,7 @@ public sealed class LibraryVersionTests : IDisposable
     {
         LibrarySamples.Save(_config, new GameLibrary([game]));
         var switcher = new LibraryTranslationSwitcher(new GameTester([new DemoBuildEngine()], new NoStarter(), new QaEngine([]), _clock));
-        var vm = new LibraryViewModel(new LibraryFile(_config), new FakeFolderPicker(null), action => action(), readTranslation: _ => null, switcher: switcher, engines: [new DemoBuildEngine()]);
+        var vm = new LibraryViewModel(new LibraryFile(_config), new FakeFolderPicker(null), action => action(), new LibraryServices { ReadTranslation = _ => null, Switcher = switcher, Engines = [new DemoBuildEngine()] });
         await vm.LoadAsync();
         vm.Select(vm.Cards.Single());
         return vm;

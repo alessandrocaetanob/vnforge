@@ -176,27 +176,26 @@ public sealed class GameTextbox : Control
             var lines = layout.Boxes[page].Lines;
             for (var n = 0; n < Math.Max(lines.Count, layout.MaxLines ?? 1); n++)
             {
-                if (n >= lines.Count)
+                if (DescribeLine(layout, lines, page, n, includeVacant) is { } row)
                 {
-                    if (!includeVacant)
-                    {
-                        continue;
-                    }
-
-                    rows.Add(new GameTextboxRow(GameTextboxRowKind.Vacant, page, null));
-                }
-                else if (lines[n].Overflow || (layout.MaxLines is { } max && n >= max))
-                {
-                    rows.Add(new GameTextboxRow(GameTextboxRowKind.Overflow, page, n, FirstOverflow: n == layout.MaxLines));
-                }
-                else
-                {
-                    rows.Add(new GameTextboxRow(GameTextboxRowKind.Text, page, n));
+                    rows.Add(row);
                 }
             }
         }
 
         return rows;
+    }
+
+    private static GameTextboxRow? DescribeLine(TextboxLayout layout, IReadOnlyList<TextboxLine> lines, int page, int n, bool includeVacant)
+    {
+        if (n >= lines.Count)
+        {
+            return includeVacant ? new GameTextboxRow(GameTextboxRowKind.Vacant, page, null) : null;
+        }
+
+        return lines[n].Overflow || (layout.MaxLines is { } max && n >= max)
+            ? new GameTextboxRow(GameTextboxRowKind.Overflow, page, n, FirstOverflow: n == layout.MaxLines)
+            : new GameTextboxRow(GameTextboxRowKind.Text, page, n);
     }
 
     /// <summary>
