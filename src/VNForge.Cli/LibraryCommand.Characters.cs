@@ -230,7 +230,7 @@ internal static partial class LibraryCommand
         var error = parseResult.InvocationConfiguration.Error;
         var progress = json ? null : new SyncProgress<LibraryCharacterSyncProgress>(p => error.WriteLine($"{p.Done}/{p.Total} jogos"));
         var result = await LibraryCharacterSync.SyncAsync(
-            cli.CreateVndbCatalog(), library, SheetStoreOf(cli), new GameEditionsFile(cli.UserConfigDirectory), parseResult.GetValue(CharactersAgainOption), cli.Clock, progress, token).ConfigureAwait(false);
+            cli.CreateVndbCatalog(), library, SheetStoreOf(cli), new GameEditionsFile(cli.UserConfigDirectory), new LibraryCharacterSyncOptions(parseResult.GetValue(CharactersAgainOption), cli.Clock, progress), token).ConfigureAwait(false);
         var output = parseResult.InvocationConfiguration.Output;
         var exit = result.Failures.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)

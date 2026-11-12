@@ -183,6 +183,15 @@ public sealed class ProjectBuilderTests : IDisposable
         Assert.Contains("latin9", ex.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Registro_de_encoders_das_opcoes_vale_no_lugar_do_padrao()
+    {
+        var ex = Assert.Throws<VNForgeException>(() =>
+            ProjectBuilder.Build(_project, [_engine], cancellationToken: TestContext.Current.CancellationToken, qa: new QaEngine([]), options: new BuildOptions(EncodingStrategy: "fold", Encoders: new TextEncoderRegistry())));
+
+        Assert.Contains("fold", ex.Message, StringComparison.Ordinal);
+    }
+
     private void SaveProfile(string json) => File.WriteAllText(_project.FormattingPath, json);
 
     private string BuiltContent() => File.ReadAllText(Path.Combine(_project.BuildDirectory, PackageFake));

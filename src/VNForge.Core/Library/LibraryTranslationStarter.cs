@@ -8,6 +8,11 @@ namespace VNForge.Core.Library;
 /// <summary>O projeto que "Traduzir este jogo" criou: o jogo da biblioteca já ligado a ele, o que o <see cref="ProjectInitializer"/> montou e a ficha do VNDB, se o jogo tinha casamento confirmado.</summary>
 public sealed record TranslationStartResult(LibraryGame Game, ProjectInitResult Project, VndbLink? Vndb);
 
+/// <summary>O que "Traduzir este jogo" aceita além do jogo e da biblioteca.</summary>
+/// <param name="Project">As escolhas da pessoa para o projeto; valem mais que o que a biblioteca sabe do jogo. Nulo: tudo vem do jogo.</param>
+/// <param name="PersonalGlossary">O glossário pessoal que semeia o <c>glossary.json</c> do projeto novo; nulo: o projeto nasce sem ele.</param>
+public sealed record TranslationStartOptions(ProjectInitOptions? Project = null, PersonalGlossary? PersonalGlossary = null);
+
 /// <summary>
 /// "Traduzir este jogo": cria o projeto de tradução de um jogo da biblioteca já preenchido com o que a biblioteca sabe (pasta, executável, título e, quando o jogo
 /// tem casamento confirmado, a ficha e os personagens do VNDB, como em <c>vnf init --vndb</c>) e liga o jogo ao projeto.
@@ -18,7 +23,7 @@ public static class LibraryTranslationStarter
 
     /// <summary>
     /// Cria o projeto em <paramref name="projectDir"/> e liga <paramref name="game"/> a ele na <paramref name="library"/>. O VNDB é consultado antes de criar qualquer coisa:
-    /// se ele falha, não fica projeto pela metade. O que <paramref name="options"/> traz vale mais que o que a biblioteca sabe do jogo.
+    /// se ele falha, não fica projeto pela metade. O que <see cref="TranslationStartOptions.Project"/> traz vale mais que o que a biblioteca sabe do jogo.
     /// </summary>
     /// <exception cref="LibraryException">O jogo já tem projeto ligado ou a engine dele ainda não é traduzida pelo app.</exception>
     /// <exception cref="VndbLinkException">O VNDB não tem o jogo confirmado.</exception>
@@ -30,8 +35,7 @@ public static class LibraryTranslationStarter
         string projectDir,
         IReadOnlyList<IEngine> engines,
         IVndbCatalog catalog,
-        ProjectInitOptions? options = null,
-        PersonalGlossary? personalGlossary = null,
+        TranslationStartOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(library);
@@ -51,13 +55,13 @@ public static class LibraryTranslationStarter
         }
 
         var link = game.VndbId is { } vndbId ? await VndbProjectLinker.BuildAsync(catalog, vndbId, cancellationToken).ConfigureAwait(false) : null;
-        options ??= new ProjectInitOptions();
+        var choices = options?.Project ?? new ProjectInitOptions();
         var project = ProjectInitializer.Initialize(
             projectDir,
             game.Folder,
             engines,
-            options with { Name = options.Name ?? game.Title, Exe = options.Exe ?? game.Exe, Vndb = link },
-            personalGlossary);
+            choices with { Name = choices.Name ?? game.Title, Exe = choices.Exe ?? game.Exe, Vndb = link },
+            options?.PersonalGlossary);
 
         var linked = LibraryProjectLinker.Link(library, game, project.Folder.Root);
         return new TranslationStartResult(linked, project, link);

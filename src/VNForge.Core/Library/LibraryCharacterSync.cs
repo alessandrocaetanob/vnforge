@@ -15,6 +15,12 @@ public sealed record LibraryCharacterSyncProgress(int Done, int Total, string Vi
 /// </summary>
 public sealed record LibraryCharacterSyncResult(int Games, int Fetched, int Cached, int Characters, int EditionsMatched, IReadOnlyList<LibraryCharacterSyncFailure> Failures, int EditionsIncomplete = 0);
 
+/// <summary>Como a sincronização roda.</summary>
+/// <param name="Again">Traz de novo o que já está guardado, em vez de pular.</param>
+/// <param name="Time">O relógio que carimba o que é guardado; nulo usa o do sistema.</param>
+/// <param name="Progress">Recebe um relato a cada jogo do VNDB concluído.</param>
+public sealed record LibraryCharacterSyncOptions(bool Again = false, TimeProvider? Time = null, IProgress<LibraryCharacterSyncProgress>? Progress = null);
+
 /// <summary>
 /// Enche o registro de personagens da Biblioteca. Para cada jogo do VNDB que a pessoa tem confirmado, traz a ficha (<see cref="SheetFetcher"/>: jogo, personagens com o campo
 /// <c>vns</c> e traços, sem perder tradução) e casa a edição de cada pasta com as edições do VNDB (<see cref="LibraryEditionMatcher"/>). O que já está guardado não volta ao VNDB
@@ -28,9 +34,7 @@ public static class LibraryCharacterSync
         GameLibrary library,
         SheetStore store,
         GameEditionsFile editionsFile,
-        bool again = false,
-        TimeProvider? time = null,
-        IProgress<LibraryCharacterSyncProgress>? progress = null,
+        LibraryCharacterSyncOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -38,13 +42,13 @@ public static class LibraryCharacterSync
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(editionsFile);
         var groups = library.Games.Where(g => g.VndbId is not null).GroupBy(g => g.VndbId!, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
-        var run = new Run(catalog, store, editionsFile, again, time ?? TimeProvider.System, cancellationToken);
+        var run = new Run(catalog, store, editionsFile, options?.Again ?? false, options?.Time ?? TimeProvider.System, cancellationToken);
         var done = 0;
         foreach (var group in groups)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await run.SyncGroupAsync(group).ConfigureAwait(false);
-            progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
+            options?.Progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
         }
 
         return run.ResultFor(groups.Count);

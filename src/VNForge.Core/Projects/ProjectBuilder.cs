@@ -16,16 +16,18 @@ namespace VNForge.Core.Projects;
 /// <param name="Lines">Unidades de texto trocadas.</param>
 public sealed record BuiltScript(string Key, string Name, int Lines);
 
-/// <summary>Opções do build que não são injeção de dependência (<see cref="ProjectBuilder.Build"/>).</summary>
+/// <summary>Opções do build (<see cref="ProjectBuilder.Build"/>) que não são a engine, o QA nem o relato de andamento.</summary>
 /// <param name="OnlyChanged">Build incremental (<c>--only-changed</c>): reaproveita o resultado do build anterior dos scripts cujas entradas não mudaram (<see cref="BuildState"/>) e, se nenhum mudou e <c>build/</c> está como o anterior o deixou, nem regrava os pacotes. <c>false</c> reconstrói tudo.</param>
 /// <param name="EncodingStrategy">Estratégia de codificação só deste build (<c>--encoding</c>); <c>null</c> usa a do <c>vnforge.json</c>, que não é alterado.</param>
 /// <param name="AfterCheck">Chamado quando o QA termina sem travar o build, antes de reconstruir o primeiro script; o teste no jogo marca aí o fim da Conferência.</param>
+/// <param name="Encoders">Estratégias de codificação disponíveis; <c>null</c> usa <see cref="TextEncoderRegistry.Default"/>.</param>
 /// <param name="SelectTexts">Troca os textos de <c>text/*.json</c> que o build e o QA veem (o teste no jogo usa para reconstruir só uma cena ou só a frase dos acentos); os arquivos em disco não mudam. <c>null</c> usa todos.</param>
 public sealed record BuildOptions(
     bool OnlyChanged = false,
     string? EncodingStrategy = null,
     Func<IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>, IReadOnlyDictionary<string, IReadOnlyList<TextUnit>>>? SelectTexts = null,
-    Action? AfterCheck = null);
+    Action? AfterCheck = null,
+    TextEncoderRegistry? Encoders = null);
 
 /// <summary>Resultado de <see cref="ProjectBuilder.Build"/>.</summary>
 /// <param name="GameDirectory">Pasta do jogo cujos pacotes serviram de base.</param>
@@ -101,7 +103,6 @@ public static class ProjectBuilder
     /// <param name="project">Projeto aberto, já extraído (<c>vnf extract</c>).</param>
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
     /// <param name="cancellationToken">Cancela entre um script e outro; um cancelamento não deixa <c>build/</c> pela metade.</param>
-    /// <param name="encoders">Estratégias disponíveis; o padrão é <see cref="TextEncoderRegistry.Default"/>.</param>
     /// <param name="qa">Regras de QA que rodam antes de reconstruir; o padrão é <see cref="QaEngine.Default"/>.</param>
     /// <param name="allowWarnings">Libera o build com avisos de QA (<c>--allow-warnings</c>); erro de QA bloqueia sempre, e aviso de linha sem tradução (<see cref="UntranslatedQaRule"/>) nunca bloqueia.</param>
     /// <param name="options">Build incremental e estratégia de codificação só deste build; <c>null</c> reconstrói tudo com a estratégia do <c>vnforge.json</c>.</param>
@@ -113,7 +114,7 @@ public static class ProjectBuilder
     /// <see cref="EncodingReportException"/> com todos os casos; marcador inválido, original divergente) ou falha ao gravar. A mensagem, em
     /// português, cita o script e, quando a falha é de uma linha, o id dela. Em qualquer erro o <c>build/</c> anterior continua como estava.
     /// </exception>
-    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, TextEncoderRegistry? encoders = null, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
+    public static BuildResult Build(ProjectFolder project, IReadOnlyList<IEngine> engines, QaEngine? qa = null, bool allowWarnings = false, BuildOptions? options = null, IProgress<ScriptWorkProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(engines);
@@ -126,7 +127,7 @@ public static class ProjectBuilder
             throw new VNForgeException($"A engine {engine.DisplayName} ainda não suporta o build.");
         }
 
-        var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
+        var encoder = (options?.Encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
         RequireFolders(project, gameDirectory);
