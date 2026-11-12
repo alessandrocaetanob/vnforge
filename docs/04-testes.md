@@ -49,7 +49,7 @@ O script roda o projeto de testes sob o `dotnet-coverage`, instrumenta só o dll
 
 O código de produção medido é o do projeto que o teste tem o mesmo nome. Os testes do Cli não somam à cobertura do Core, por exemplo. É mais exigente do que a soma que o Sonar mostra, e é o piso de cada tarefa.
 
-O App leva uns 17 minutos com cobertura e passa do limite de 10 minutos de um comando em primeiro plano. Para ele, divida em fatias, uma por chamada, e some no fim:
+O App leva uns 90 segundos com cobertura (`bash tools/cobertura.sh App`, em um processo só, na máquina de desenvolvimento) e cabe em um comando em primeiro plano; é essa medição, exata, que se compara com a base do App. As fatias só servem a quem medir numa máquina bem mais lenta, uma por chamada, somadas no fim:
 
 ```bash
 VNFORGE_FATIAS=3 VNFORGE_FATIA=0 bash tools/cobertura.sh App
@@ -60,7 +60,7 @@ VNFORGE_FATIAS=3 VNFORGE_FATIA=juntar bash tools/cobertura.sh App
 
 Com fatias, o `dotnet-coverage merge` descarta os ramos e o script só sabe quantos ramos cada fatia cobriu, não quais. A saída traz então um mínimo (o número principal) e um máximo. Um App que cabe em um processo só (`VNFORGE_FATIAS=1`) dá o valor exato, e é com ele que se compara a base do App (85,35% de ramos). Se o processo único passar do limite de uma chamada, rode-o como puder e resuma o XML gravado com `VNFORGE_SO_RESUMIR=.tmp/cobertura/VNForge.App.Tests.0.cobertura.xml bash tools/cobertura.sh App`, que não roda teste.
 
-A base de `testes/base-2026-11-11.md` é do Windows e vale para as tarefas locais. Os testes que só valem no Windows pulam no Linux (Platform.Windows sobretudo), então meça no mesmo sistema da base. O gate do CI (T8) compara com uma base medida no job `linux`, que a T8 grava na primeira rodada verde, não com a do Windows.
+A base de `testes/base-2026-11-11.md` é do Windows e vale para as tarefas locais. Os testes que só valem no Windows pulam no Linux (Platform.Windows sobretudo), então meça no mesmo sistema da base. O piso do CI (`.circleci/piso-cobertura.txt`, conferido pelo passo Piso de cobertura) é uma medição do job `linux`, não a do Windows; ele conta a cobertura de todos os testes juntos e fica em `docs/testes/depois.md` ao lado da base.
 
 As fatias de uma medição têm que ser da mesma partição (o número de fatias e a divisão das classes). O script grava a partição ao lado das medições, apaga as medições de outra partição e recusa o `juntar` se faltar fatia ou se a partição não bater.
 
@@ -74,11 +74,15 @@ pwsh tools/medir-testes.ps1 -Dll tests/VNForge.Core.Tests/bin/Release/net10.0/VN
 
 Ele imprime a saída, o tempo de parede, o pico do conjunto de trabalho do processo e a contagem do JUnit. No Linux, `/usr/bin/time -v dotnet <dll> -noLogo` dá o pico em "Maximum resident set size". Meça sem cobertura (a cobertura aumenta a memória) e com a máquina parada: outros processos pesados distorcem o tempo.
 
-Para o App, rode uma fatia de cada vez com `-ClassesFile` (um nome de classe por linha; `tools/cobertura.sh` grava as três fatias em `.tmp/cobertura/VNForge.App.Tests.slice-N.classes`) e `-RenderDir` dentro de `.tmp`. O tempo por classe sai da soma do `time` dos `<testcase>` do JUnit, como em `.circleci/run-tests.sh` (`junit_class_times`).
+O App roda inteiro num processo, com uns 2 minutos sem cobertura. Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
+
+### O trait Tipo=Tela
+
+O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está em `ScreenSmokeTests`, `ClippedTextHeadlessTests` e `ReviewModeKeyTests`, as três que mais gastam tempo de janela; só serve para equilibrar as metades (uns 48 s e 45 s no Windows). Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
 
 ### Prova da tarefa
 
-`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo).
+`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo). Com cobertura, como o job: `dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml`, e depois `bash .circleci/piso-cobertura.sh coverage.xml` confere o piso. No Windows, o `dotnet-coverage` precisa receber o Git Bash pelo caminho curto (`cygpath -w -s $(command -v bash)`), porque o `bash` do PATH do Windows pode ser o do WSL.
 
 ## Relatório de cada tarefa
 

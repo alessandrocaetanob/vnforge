@@ -8,6 +8,7 @@ namespace VNForge.App.Tests;
 /// que nenhum texto fica cortado. Sem comparação de pixel e sem medida: a lógica da tela é dos testes de ViewModel, e os PNG para o designer saem da
 /// ferramenta <c>tools/VNForge.Capturas</c>.
 /// </summary>
+[Trait("Tipo", "Tela")]
 public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<ScreenSmokeTests.DemoFolderFixture>
 {
     public static TheoryData<string> StandaloneNames => [.. ScreenCatalog.Standalone.Select(s => s.Name)];

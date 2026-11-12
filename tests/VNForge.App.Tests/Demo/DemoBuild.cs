@@ -1,5 +1,6 @@
 using VNForge.Core.Demo;
 using VNForge.Core.Engines;
+using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
@@ -9,7 +10,7 @@ namespace VNForge.App.Tests.Demo;
 
 /// <summary>
 /// O estado da tela Build do artboard sobre o projeto de demonstração, em disco e sem arquivo de jogo comercial: uma pasta de jogo sintética
-/// com um pacote e o executável, os 312 scripts de <c>.cache/game</c>, e duas injeções antigas que deixaram os backups de 17/10 e 22/10.
+/// com um pacote e o executável, os scripts de <c>.cache/game</c> (os 16 que a tela usa, não os 312), e duas injeções antigas que deixaram os backups de 17/10 e 22/10.
 /// A engine é falsa: reconstrói de verdade só 14 scripts (os outros saem iguais ao original) e grava um pacote de ~4,2 MB.
 /// </summary>
 internal static class DemoBuild
@@ -17,6 +18,7 @@ internal static class DemoBuild
     public const string Archive = "ysbin.ypf";
     public const int OriginalBytes = 4 * 1024 * 1024;
     public const int RebuiltBytes = 4_404_019;
+    private const int LinesPerScript = 20;
 
     /// <summary>Os 14 scripts que o build desta demonstração reconstrói.</summary>
     public static readonly IReadOnlySet<string> Rebuilt = new HashSet<string>(StringComparer.Ordinal)
@@ -25,6 +27,9 @@ internal static class DemoBuild
         "yst00100", "yst00101", "yst00102", "yst00103", "yst00104", "yst00105",
     };
 
+    /// <summary>Os scripts que a pasta tem: os que o build reconstrói e os oito da tabela do Painel. Os outros 296 dos 312 não mudam nada para a tela Build.</summary>
+    private static readonly IReadOnlyList<string> Scripts = [.. Rebuilt.Concat(DemoProject.Named.Select(s => s.Key)).Distinct().Order(StringComparer.Ordinal)];
+
     /// <summary>Grava a pasta do projeto, a do jogo e os backups em <paramref name="root"/> e devolve a pasta do projeto. Com <paramref name="injected"/> falso o jogo fica como veio, sem backup.</summary>
     public static string Create(string root, bool injected = true)
     {
@@ -32,7 +37,7 @@ internal static class DemoBuild
         File.WriteAllBytes(Path.Combine(game, Archive), Payload(OriginalBytes, 1));
         File.WriteAllText(Path.Combine(game, "MinhaVN.exe"), "MZ");
 
-        var projectRoot = DemoProject.Create(Path.Combine(root, "projeto"), game);
+        var projectRoot = CreateProject(Path.Combine(root, "projeto"), game);
         var project = ProjectFolder.Open(projectRoot);
         WriteScripts(project.GameCacheDirectory);
 
@@ -47,13 +52,37 @@ internal static class DemoBuild
         return projectRoot;
     }
 
+    /// <summary>
+    /// A pasta do projeto só com o que a tela Build lê: a configuração, o estado, os nomes dos 312 scripts e os textos dos que a demonstração reconstrói ou
+    /// nomeia, cortados nas primeiras linhas. Os 312 textos inteiros (48.211 linhas) levavam 0,6 s para gravar e 0,45 s para reler a cada teste.
+    /// </summary>
+    private static string CreateProject(string parent, string gameDirectory)
+    {
+        var folder = ProjectFolder.Create(parent, new ProjectConfig(
+            DemoProject.Name,
+            new GameConfig(gameDirectory, "MinhaVN.exe"),
+            new EngineConfig("yuris", 500, "0xD36FAC96"),
+            new LanguagesConfig("ja", "pt-BR"),
+            new EncodingConfig("cp1252"),
+            AiConfig.Default));
+        foreach (var key in Scripts)
+        {
+            folder.SaveText(key, [.. DemoProject.Texts[key].Take(LinesPerScript)]);
+        }
+
+        folder.SaveState(new PipelineState([], new Dictionary<string, StageState> { [ProjectExtractor.ExtractStage] = new(StageStatus.Completed) }));
+        folder.SaveScriptNames(DemoProject.ChapterNames());
+        folder.SaveCharacters([.. DemoProject.Characters.Where(c => c.Japanese is not null).Select(c => new CharacterEntry(c.Japanese!, c.Portuguese))]);
+        return folder.Root;
+    }
+
     /// <summary>Os scripts de <c>.cache/game</c>: o que a extração deixa depois de descompactar.</summary>
     public static void WriteScripts(string cacheGameDirectory)
     {
         var scripts = Directory.CreateDirectory(Path.Combine(cacheGameDirectory, "pkg")).FullName;
-        for (var n = 1; n <= DemoProject.ScriptCount; n++)
+        foreach (var key in Scripts)
         {
-            File.WriteAllText(Path.Combine(scripts, $"yst{n:D5}.ybn"), $"script {n}");
+            File.WriteAllText(Path.Combine(scripts, $"{key}.ybn"), $"script {int.Parse(key.AsSpan(3), System.Globalization.CultureInfo.InvariantCulture)}");
         }
     }
 
