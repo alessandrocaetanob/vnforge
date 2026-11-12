@@ -1,6 +1,7 @@
 # Piso de cobertura de linhas por projeto, em %, medido no job linux (runner) com a rodada inteira (todos os testes juntos).
 # Uma linha por projeto de src/: nome e piso. Os projetos abaixo estão exatamente no valor medido, arredondado para baixo em 0,01.
 # App, Core e Cli estão 0,1 ponto abaixo do medido (95,19, 96,97 e 95,29), porque a cobertura deles varia algumas linhas entre rodadas.
+# Platform.Windows desceu de 21,03 para 20,90 com o #682: a refatoração criou duas linhas em código que só roda no Windows.
 # Para atualizar: bash .circleci/piso-cobertura.sh --gravar coverage.xml, ou o logs/piso-medido.txt dos artefatos do job linux.
 VNForge.AI 96.49
 VNForge.App 95.09
@@ -9,5 +10,5 @@ VNForge.Core 96.87
 VNForge.Engines.YuRis 96.09
 VNForge.Installer 96.44
 VNForge.Patching 88.95
-VNForge.Platform.Windows 21.03
+VNForge.Platform.Windows 20.90
 VNForge.Vndb 96.39
