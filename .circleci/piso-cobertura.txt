@@ -1,0 +1,11 @@
+# Piso de cobertura de linhas por projeto, medido no job linux (coverage.xml da rodada inteira).
+# Uma linha por projeto de src/: nome e piso em %. Provisório: a primeira rodada do CI mede e este arquivo recebe os valores.
+VNForge.AI 0.00
+VNForge.App 0.00
+VNForge.Cli 0.00
+VNForge.Core 0.00
+VNForge.Engines.YuRis 0.00
+VNForge.Installer 0.00
+VNForge.Patching 0.00
+VNForge.Platform.Windows 0.00
+VNForge.Vndb 0.00

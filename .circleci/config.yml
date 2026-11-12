@@ -109,11 +109,8 @@ jobs:
                   - ~/.nuget/packages
       - run:
           name: Testes
-          # O dotnet-coverage só imprime quando o comando termina, e a suíte do App roda calada por minutos: o limite
-          # padrão de 10 minutos sem saída derrubava o job sem nenhum teste vermelho. O script imprime a cada 2 minutos.
-          no_output_timeout: 30m
-          # O script roda as suítes em paralelo e divide a do App em três fatias pelo tempo de tempos-app.txt: um
-          # dotnet-coverage só, em volta dele, junta os processos filhos num coverage.xml para o Sonar.
+          # O script roda cada projeto de teste num processo, vários ao mesmo tempo: um dotnet-coverage só, em volta
+          # dele, junta os processos filhos num coverage.xml para o Sonar e para o piso de cobertura.
           command: |
             set -euo pipefail
             if [ -f .sonar-begun ]; then
@@ -121,14 +118,28 @@ jobs:
             else
               bash .circleci/run-tests.sh
             fi
+      - run:
+          name: Piso de cobertura
+          # Reprova quando a cobertura de linhas de um projeto de src/ cai abaixo de .circleci/piso-cobertura.txt. Sem
+          # coverage.xml (PR de fork, sem Sonar, ou build de tag) não há o que medir. A medição da rodada vai para
+          # Artifacts (logs/piso-medido.txt, no formato do arquivo de piso) mesmo quando o piso reprova.
+          command: |
+            set -euo pipefail
+            if [ ! -f .sonar-begun ]; then
+              echo 'Sem coverage.xml nesta rodada (sem análise do Sonar): piso não conferido.'
+              exit 0
+            fi
+            status=0
+            bash .circleci/piso-cobertura.sh coverage.xml || status=$?
+            bash .circleci/piso-cobertura.sh --gravar coverage.xml > test-results/logs/piso-medido.txt || true
+            exit "$status"
       # O store_test_results e o store_artifacts rodam mesmo com o passo Testes vermelho, mas não se o job for
       # cancelado ou estourar o tempo (https://circleci.com/docs/reference/configuration-reference/, "The when
       # attribute"). Por isso não levam `when`: a mesma página diz que, como passos comuns, eles não o aceitam.
       # Os JUnit alimentam a aba Tests e o Insights.
       - store_test_results:
           path: test-results
-      # A divisão do App, a saída de cada processo e o tempos-app.txt (os tempos medidos nesta rodada, que se copiam
-      # para .circleci/tempos-app.txt) ficam em Artifacts.
+      # A saída de cada processo de teste e a cobertura medida (piso-medido.txt) ficam em Artifacts.
       - store_artifacts:
           path: test-results/logs
           destination: logs

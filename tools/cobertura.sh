@@ -10,7 +10,7 @@
 #   VNFORGE_TEST_CONFIGURATION  padrão Release; o dll de tests/VNForge.<projeto>.Tests/bin/<configuração> já tem que existir
 #   VNFORGE_FATIAS              fatias do projeto, rodadas uma de cada vez; padrão 1. Serve para o App, cujo processo
 #                               inteiro com cobertura gasta muita memória e tempo. Cada fatia leva um -class por classe,
-#                               repartidas pelo tempo de .circleci/tempos-app.txt (sem o arquivo, em rodízio). O merge do
+#                               repartidas em rodízio, a maior primeiro (sem tempos, todas pesam 1). O merge do
 #                               dotnet-coverage descarta os ramos, então as fatias são unidas aqui: a linha vale se alguma
 #                               fatia a cobriu (exato). Os ramos de uma linha só se sabe a quantidade coberta por fatia, não
 #                               quais, então a saída traz um mínimo (o maior número coberto por uma só fatia, que é o número
@@ -122,8 +122,6 @@ slice_classes() {
   dotnet "$dll" -list classes | tr -d '\r' | sed -e '/^xUnit\.net /d' -e '/^[[:space:]]*$/d' | LC_ALL=C sort > "$list"
   [[ -s "$list" ]] || abort "o -list classes não devolveu nenhuma classe de $tests_name."
   rm -f "$out/$tests_name".slice-*.classes
-  local timings=/dev/null
-  [[ -f .circleci/tempos-app.txt ]] && timings=.circleci/tempos-app.txt
   LC_ALL=C awk -v n="$slices" -v prefix="$out/$tests_name.slice-" '
     FILENAME == ARGV[1] { if ($1 !~ /^#/ && NF >= 2) t[$1] = $2; next }
     { names[++count] = $1 }
@@ -138,7 +136,7 @@ slice_classes() {
         load[s] += w[best]
         print names[best] > (prefix s ".classes")
       }
-    }' "$timings" "$list"
+    }' /dev/null "$list"
 }
 
 # A partição é o número de fatias mais um hash das listas de classes de cada fatia. Fica gravada ao lado das medições:
