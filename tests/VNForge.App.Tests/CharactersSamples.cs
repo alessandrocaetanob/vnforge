@@ -38,7 +38,7 @@ internal static class CharactersSamples
     internal static FakeVndbCatalog Catalog(bool manyTraits, bool adultPortrait = false) => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
         [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = adultPortrait ? new VndbImage(SamplePaths.Portrait(101), null, 100, 140, 2, 0) : null },
+            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = adultPortrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 2, 0) : null },
             Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
             Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
             Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),

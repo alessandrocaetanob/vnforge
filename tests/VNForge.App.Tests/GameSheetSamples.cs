@@ -55,7 +55,7 @@ internal static class GameSheetSamples
 
     private static VndbTrait Trait(int n, string name, string group = "Hair", int spoiler = 0) => new($"i{n}", name, "i" + group, group, spoiler, false, Sexual: false);
 
-    private static VndbImage Image(int n) => new(SamplePaths.Portrait(n), null, 100, 140, 0, 0);
+    private static VndbImage Image(int n) => new($"https://t.vndb.org/ch/{n}.jpg", null, 100, 140, 0, 0);
 
     private static VndbCharacter Character(int n, string name, string? original, string? gender, string role, string? description, VndbTrait[] traits) =>
         new($"c{n}", name, original, [], description, Image(n), gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance(Id, role, 0, null)], traits);
@@ -91,7 +91,7 @@ internal static class GameSheetSamples
     {
         var game = Game() with { Tags = [.. Game().Tags, new VndbTag("g9", "Nudity", "ero", 2.5, 0, false)] };
         var characters = Characters();
-        characters[0] = characters[0] with { Image = new VndbImage(SamplePaths.Portrait(1), null, 100, 140, 2, 0) };
+        characters[0] = characters[0] with { Image = new VndbImage("https://t.vndb.org/ch/1.jpg", null, 100, 140, 2, 0) };
         return new FakeVndbCatalog([game], characters);
     }
 
