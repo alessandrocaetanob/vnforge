@@ -1,3 +1,5 @@
+using VNForge.Core.Projects;
+
 namespace VNForge.Core.Injection;
 
 /// <summary>Disco real. A cópia vai para um temporário ao lado do destino e só então o substitui.</summary>
@@ -9,19 +11,17 @@ public sealed class PhysicalInjectionFileSystem : IInjectionFileSystem
         var temporary = $"{destination}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.Copy(source, temporary);
-            File.Move(temporary, destination, overwrite: true);
+            // Antivírus ou indexador podem segurar o arquivo por instantes (origem, temporário ou destino): a espera é a do ProjectFileIo. O que é copiado e a ordem não mudam.
+            ProjectFileIo.Retry<int>(null, () =>
+            {
+                File.Copy(source, temporary, overwrite: true);
+                return 0;
+            });
+            ProjectFileIo.Move(temporary, destination, overwrite: true);
         }
         finally
         {
-            try
-            {
-                File.Delete(temporary);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // O temporário fica para trás, mas a falha original não pode ser mascarada.
-            }
+            ProjectFileIo.DeleteQuietly(temporary);
         }
     }
 
