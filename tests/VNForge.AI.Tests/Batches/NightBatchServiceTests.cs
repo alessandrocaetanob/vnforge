@@ -301,6 +301,46 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelamento_pedido_por_fora_aparece_na_consulta_e_fica_guardado()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        await _client.CancelAsync(state!.Id, TestContext.Current.CancellationToken);
+
+        var check = await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(NightBatchPhase.Canceling, check.State.Phase);
+        Assert.Equal(NightBatchPhase.Canceling, new NightBatchStore(_project).Find(state.Id)!.Phase);
+    }
+
+    [Fact]
+    public async Task Cancelar_um_lote_ja_gravado_devolve_o_estado_sem_chamar_a_API()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+        await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        var after = await Service().CancelAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(NightBatchPhase.Applied, after.Phase);
+        Assert.Equal(0, _client.Cancels);
+        Assert.Equal([state.Id], Service().All().Select(s => s.Id));
+    }
+
+    [Fact]
+    public async Task Linha_apagada_do_projeto_enquanto_o_lote_rodava_conta_como_pulada()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _project.SaveText(Key, [.. _project.LoadText(Key).Where(u => u.Id != Id(1))]);
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(43, applied.Outcome!.Translated);
+        Assert.Equal(1, applied.Outcome.Skipped);
+        Assert.DoesNotContain(_project.LoadText(Key), u => u.Id == Id(1));
+    }
+
+    [Fact]
     public async Task Cancelar_um_lote_que_a_API_ja_terminou_nao_chama_o_cancelamento_e_deixa_o_estado_aberto()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);

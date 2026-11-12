@@ -116,6 +116,30 @@ public sealed class EvalRunnerTests : IDisposable
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), bad), TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet, Sonnet), TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect())), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet with { Effort = "enorme" }), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(Request(Same(EvalProject.Perfect()), Sonnet with { ContextLines = EvalConfigParser.MaxContextLines + 1 }), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Juiz_sem_modelo_para_o_preco_e_recusado()
+    {
+        var request = Request(Same(EvalProject.Perfect()), Sonnet) with { Judge = new FakeJudgeProvider() };
+
+        var error = await Assert.ThrowsAsync<EvalException>(() => EvalRunner.RunAsync(request, TestContext.Current.CancellationToken));
+
+        Assert.Contains("precisa de um modelo", error.Message);
+    }
+
+    [Fact]
+    public async Task Juiz_que_falha_deixa_o_erro_no_relatorio_e_as_linhas_sem_nota()
+    {
+        var request = Request(Same(EvalProject.Perfect()), Sonnet) with { Judge = new BrokenJudge(), JudgeModel = ClaudeModels.Haiku };
+
+        var round = await EvalRunner.RunAsync(request, TestContext.Current.CancellationToken);
+
+        var report = round.Reports[0];
+        Assert.Contains("O juiz de IA falhou: sem rede", report.Error);
+        Assert.All(report.Lines, l => Assert.Null(l.JudgeScore));
     }
 
     [Fact]
@@ -198,6 +222,14 @@ public sealed class EvalRunnerTests : IDisposable
             Interlocked.Increment(ref _calls);
             return results;
         }
+    }
+
+    private sealed class BrokenJudge : IJudgeProvider
+    {
+        public ClaudeUsage? Usage => null;
+
+        public Task<IReadOnlyList<JudgeScore>> JudgeAsync(TranslationBatch batch, CancellationToken ct) =>
+            Task.FromException<IReadOnlyList<JudgeScore>>(new InvalidOperationException("sem rede"));
     }
 
     private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
