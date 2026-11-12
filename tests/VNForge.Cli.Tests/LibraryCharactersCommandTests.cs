@@ -41,7 +41,7 @@ public sealed class LibraryCharactersCommandTests : IDisposable
 
     private FakeVndbCatalog Prepare(string secondFolder = "Little Busters", bool confirmed = true)
     {
-        LibraryGame Owned(string id, string folder, string title, string? vndb) =>
+        static LibraryGame Owned(string id, string folder, string title, string? vndb) =>
             new(id, $"C:\\Jogos\\{folder}", null, LibraryEngine.Unknown, title, null, T0) { VndbId = vndb, Confirmation = vndb is null ? LibraryConfirmation.None : LibraryConfirmation.Manual };
 
         new LibraryFile(_cli.UserConfigDirectory).Save(new GameLibrary([Owned("g1", "CLANNAD", "CLANNAD", confirmed ? "v4" : null), Owned("g2", secondFolder, "Little Busters", confirmed ? "v5" : null)]));

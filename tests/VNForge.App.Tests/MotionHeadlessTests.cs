@@ -23,7 +23,7 @@ public class MotionHeadlessTests(HeadlessFixture fixture) : IClassFixture<Headle
 {
     private Task OnUi(Action test) => fixture.Session.Dispatch(test, TestContext.Current.CancellationToken);
 
-    private Task OnUi(Func<Task> test) => fixture.Session.Dispatch<int>(
+    private Task<int> OnUi(Func<Task> test) => fixture.Session.Dispatch<int>(
         async () =>
         {
             await test();

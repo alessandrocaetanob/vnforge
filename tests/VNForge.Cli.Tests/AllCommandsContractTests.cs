@@ -99,48 +99,53 @@ public sealed partial class AllCommandsContractTests
             using var harness = new CliHarness();
             var result = await harness.RunAsync([.. path.Split(' ', StringSplitOptions.RemoveEmptyEntries), "--json", "--yes"], TestContext.Current.CancellationToken);
 
-            var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (result.Error.Length > 0 || lines.Length != 1)
-            {
-                problems.Add($"'{path}': esperava uma linha de JSON e nada no erro; veio {lines.Length} linha(s) e erro '{result.Error}'.");
-                continue;
-            }
-
-            using var doc = JsonDocument.Parse(lines[0]);
-            var root = doc.RootElement;
-            if (result.ExitCode != root.GetProperty("exitCode").GetInt32())
-            {
-                problems.Add($"'{path}': exitCode do envelope difere do código de saída {result.ExitCode}.");
-            }
-
-            if (root.GetProperty("ok").GetBoolean())
-            {
-                if (root.TryGetProperty("error", out _))
-                {
-                    problems.Add($"'{path}': envelope de sucesso traz 'error'.");
-                }
-
-                continue;
-            }
-
-            var error = root.GetProperty("error");
-            if (!ErrorKinds.Contains(error.GetProperty("kind").GetString()))
-            {
-                problems.Add($"'{path}': kind de erro desconhecido.");
-            }
-
-            if (string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()))
-            {
-                problems.Add($"'{path}': erro sem mensagem.");
-            }
-
-            if (lines[0].Contains("   at ", StringComparison.Ordinal))
-            {
-                problems.Add($"'{path}': o envelope traz stack trace.");
-            }
+            CheckEnvelope(path, result, problems);
         }
 
         AssertNoProblems(problems);
+    }
+
+    private static void CheckEnvelope(string path, RunResult result, List<string> problems)
+    {
+        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (result.Error.Length > 0 || lines.Length != 1)
+        {
+            problems.Add($"'{path}': esperava uma linha de JSON e nada no erro; veio {lines.Length} linha(s) e erro '{result.Error}'.");
+            return;
+        }
+
+        using var doc = JsonDocument.Parse(lines[0]);
+        var root = doc.RootElement;
+        if (result.ExitCode != root.GetProperty("exitCode").GetInt32())
+        {
+            problems.Add($"'{path}': exitCode do envelope difere do código de saída {result.ExitCode}.");
+        }
+
+        if (root.GetProperty("ok").GetBoolean())
+        {
+            if (root.TryGetProperty("error", out _))
+            {
+                problems.Add($"'{path}': envelope de sucesso traz 'error'.");
+            }
+
+            return;
+        }
+
+        var error = root.GetProperty("error");
+        if (!ErrorKinds.Contains(error.GetProperty("kind").GetString()))
+        {
+            problems.Add($"'{path}': kind de erro desconhecido.");
+        }
+
+        if (string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()))
+        {
+            problems.Add($"'{path}': erro sem mensagem.");
+        }
+
+        if (lines[0].Contains("   at ", StringComparison.Ordinal))
+        {
+            problems.Add($"'{path}': o envelope traz stack trace.");
+        }
     }
 
     private static Command Find(CliHarness harness, string path)

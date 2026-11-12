@@ -39,6 +39,34 @@ public static class SuggestionText
 
     public static void SetShowRemoved(TextBlock block, bool value) => block.SetValue(ShowRemovedProperty, value);
 
+    private static void FillWithRemoved(InlineCollection inlines, string? currentText, string proposed)
+    {
+        // Como no quadro: o começo que não mudou fica sem marca; o resto da tradução de hoje vem riscado e o da proposta, em verde.
+        var current = currentText ?? string.Empty;
+        var prefix = CommonWordPrefix(current, proposed);
+        if (prefix.Length > 0)
+        {
+            inlines.Add(new Run(prefix));
+        }
+
+        var removed = current[prefix.Length..];
+        var added = proposed[prefix.Length..];
+        if (removed.Length > 0)
+        {
+            inlines.Add(Styled(removed, "sug-del"));
+        }
+
+        if (removed.Length > 0 && added.Length > 0)
+        {
+            inlines.Add(new Run(" "));
+        }
+
+        if (added.Length > 0)
+        {
+            inlines.Add(Styled(added, "ins"));
+        }
+    }
+
     private static void Fill(TextBlock block)
     {
         block.Text = null;
@@ -53,31 +81,7 @@ public static class SuggestionText
 
         if (GetShowRemoved(block))
         {
-            // Como no quadro: o começo que não mudou fica sem marca; o resto da tradução de hoje vem riscado e o da proposta, em verde.
-            current ??= string.Empty;
-            var prefix = CommonWordPrefix(current, proposed);
-            if (prefix.Length > 0)
-            {
-                block.Inlines.Add(new Run(prefix));
-            }
-
-            var removed = current[prefix.Length..];
-            var added = proposed[prefix.Length..];
-            if (removed.Length > 0)
-            {
-                block.Inlines.Add(Styled(removed, "sug-del"));
-            }
-
-            if (removed.Length > 0 && added.Length > 0)
-            {
-                block.Inlines.Add(new Run(" "));
-            }
-
-            if (added.Length > 0)
-            {
-                block.Inlines.Add(Styled(added, "ins"));
-            }
-
+            FillWithRemoved(block.Inlines, current, proposed);
             return;
         }
 

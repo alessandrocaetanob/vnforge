@@ -704,7 +704,7 @@ public sealed partial class BibleViewModel : ObservableObject
         }
     }
 
-    private static IEnumerable<string> SplitList(string text) =>
+    private static string[] SplitList(string text) =>
         text.Split([';', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static IEnumerable<BibleRelation> ParseRelations(string text) =>

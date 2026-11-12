@@ -67,7 +67,6 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
     /// <param name="suggester">Pede a sugestão da IA do painel (Ctrl+Espaço); o padrão usa o provedor falso, sem rede.</param>
     /// <param name="contextLoader">Lê os personagens e o glossário do projeto; o padrão lê <c>characters.json</c> e <c>glossary.json</c>.</param>
     /// <param name="scriptLabel">Dá o nome da cena pela chave dela; sem ele (ou nulo) vale o nome do <c>scripts.json</c> e, sem esse também, "Cena N".</param>
-    /// <param name="search">O painel de busca e substituição; o padrão cria o <see cref="SearchReplaceViewModel"/> do projeto.</param>
     /// <param name="layoutMemory">Onde o Editor lembra o arranjo escolhido (a coluna das cenas recolhida); nulo vale só até o app fechar.</param>
     public EditorViewModel(
         Func<string, ProjectLines>? loader = null,
@@ -76,13 +75,12 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         ILineSuggester? suggester = null,
         Func<string, EditorContext>? contextLoader = null,
         Func<string, string?>? scriptLabel = null,
-        SearchReplaceViewModel? search = null,
         EditorLayoutMemory? layoutMemory = null)
     {
         RestoreLayout(layoutMemory);
         this.contextLoader = contextLoader ?? EditorContext.Read;
         this.scriptLabel = scriptLabel ?? (_ => null);
-        Search = search ?? new SearchReplaceViewModel(clock);
+        Search = new SearchReplaceViewModel(clock);
         Search.FlushPendingEdits = FlushPendingEdits;
         Search.Applied += (_, _) => Reload();
         Search.ResultOpened += (_, row) => SearchNavigation = OpenSearchResultAsync(row);
@@ -1267,7 +1265,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var filter = FilterFor(statusFilter, SelectedSpeaker?.Value);
         var filtered = filter.Apply(entries);
 
-        IReadOnlyList<LineViewModel> next = scriptLines;
+        LineViewModel[] next = scriptLines;
         if (!ReferenceEquals(filtered, entries))
         {
             var picked = new LineViewModel[filtered.Count];
@@ -1281,7 +1279,7 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
         var keep = SelectedLine is { } current && filter.Matches(current.Entry) ? current : null;
         Lines = next;
-        SelectedLine = keep ?? (next.Count > 0 ? next[0] : null);
+        SelectedLine = keep ?? (next.Length > 0 ? next[0] : null);
     }
 
     private void Move(int delta)

@@ -128,7 +128,7 @@ public partial class AddressTermsAiTests
     [Fact]
     public void O_cache_de_traducao_muda_quando_o_tratamento_muda()
     {
-        string Key(params AddressTerm[] terms) =>
+        static string Key(params AddressTerm[] terms) =>
             TranslationCache.ContextFor("claude-haiku-5-5", new TranslationBatchBuilder([], Cast, addressTerms: terms).Build([Unit("a", "x", "健太")]));
 
         var chan = Key(new AddressTerm("健太", "美咲", "美咲ちゃん", "Misaki-chan"));

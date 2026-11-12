@@ -33,8 +33,6 @@ internal static class VndbSamples
         string? gender,
         string role = "side",
         string? description = null,
-        string visualNovelId = VisualNovelId,
-        VndbImage? image = null,
         params string[] aliases) =>
         new(
             id,
@@ -42,9 +40,9 @@ internal static class VndbSamples
             original,
             aliases,
             description,
-            image,
+            null,
             gender is null ? null : new VndbGender(gender, gender),
-            [new VndbCharacterAppearance(visualNovelId, role, 0, null)],
+            [new VndbCharacterAppearance(VisualNovelId, role, 0, null)],
             []);
 
     public static VndbCharacter[] Cast { get; } =

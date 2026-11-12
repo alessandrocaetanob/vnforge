@@ -1067,7 +1067,7 @@ public sealed partial class ConferenceViewModel : ObservableObject
     private static string Plural(int n, string one, string many) => $"{ProjectLabels.Number(n)} {(n == 1 ? one : many)}";
 
     /// <summary>Mantém o problema aberto se ainda está na lista (mesma regra e linha); senão, o que ficou no lugar dele, ou o último.</summary>
-    private static ConferenceIssueRowViewModel? Reselect(IReadOnlyList<ConferenceIssueRowViewModel> rows, ConferenceIssueRowViewModel? previous, int previousIndex)
+    private static ConferenceIssueRowViewModel? Reselect(List<ConferenceIssueRowViewModel> rows, ConferenceIssueRowViewModel? previous, int previousIndex)
     {
         if (rows.Count == 0)
         {

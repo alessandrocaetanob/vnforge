@@ -111,8 +111,12 @@ public sealed partial class EditorViewModel
         var log = OpenApprovalLog();
         var now = clock.GetUtcNow();
         var zone = clock.LocalTimeZone;
-        riskCancel?.Cancel();
+        var previous = riskCancel;
         using var source = riskCancel = new CancellationTokenSource();
+        if (previous is not null)
+        {
+            await previous.CancelAsync();
+        }
         RiskReview risk;
         try
         {

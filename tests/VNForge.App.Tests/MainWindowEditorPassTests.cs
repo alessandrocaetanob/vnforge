@@ -36,10 +36,10 @@ public sealed class MainWindowEditorPassTests : IDisposable
         return (vm, root);
     }
 
-    private static IEditorPassProvider Firm() =>
+    private static FakeEditorPassProvider Firm() =>
         new FakeEditorPassProvider(u => new EditorPassProposal(u.Id, EditorSuggestionKind.Fluency, u.Translation + "!", "Mais firme."));
 
-    private async Task Translate(MainWindowViewModel vm)
+    private static async Task Translate(MainWindowViewModel vm)
     {
         vm.Editor.TranslatePendingCommand.Execute(null);
         await vm.TranslateOpening;

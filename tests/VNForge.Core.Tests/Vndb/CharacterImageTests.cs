@@ -14,7 +14,7 @@ public sealed class CharacterImageTests
 
     private static FakeVndbCatalog Catalog() =>
         new([VndbSamples.Game()], [
-            VndbSamples.Character("c1", "Kenta Aizawa", "相沢 健太", "m", "main", image: new VndbImage("https://t.vndb.org/ch/12/3412.jpg", null, 256, 300, 0, 0.3)),
+            VndbSamples.Character("c1", "Kenta Aizawa", "相沢 健太", "m", "main") with { Image = new VndbImage("https://t.vndb.org/ch/12/3412.jpg", null, 256, 300, 0, 0.3) },
             VndbSamples.Character("c2", "Aoi Sakura", "佐倉 葵", "f"),
         ]);
 

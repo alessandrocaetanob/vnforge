@@ -46,7 +46,7 @@ public sealed class LibraryVersionTests : IDisposable
         return vm;
     }
 
-    private async Task SwitchToAsync(LibraryViewModel vm, bool translated)
+    private static async Task SwitchToAsync(LibraryViewModel vm, bool translated)
     {
         vm.Drawer!.SelectedVersion = vm.Drawer.Versions.Single(v => v.Translated == translated);
         await vm.Switching;

@@ -450,15 +450,7 @@ public abstract class EngineConformanceTests : IDisposable
 
             var again = Extract(new Subject(subject.Script, subject.Format, new ScriptFile(subject.File.Name, rebuilt)), _context.Value);
             Assert.Equal(original.Select(u => u.Id), again.Select(u => u.Id));
-            for (var i = 0; i < original.Count; i++)
-            {
-                var expected = subject.Script.Units[i];
-                var picked = rewritten.Contains(i);
-                var wanted = picked ? expected.Translation! : original[i].Source;
-                var wantedSpeaker = picked && speaker != SpeakerChange.Keep ? expected.SpeakerTranslation : original[i].Speaker;
-                Assert.Equal(subject.Describe($"{original[i].Id}|{original[i].Kind}|{wantedSpeaker}|{wanted}"), subject.Describe($"{again[i].Id}|{again[i].Kind}|{again[i].Speaker}|{again[i].Source}"));
-                Assert.All(expected.Markers, marker => Assert.Contains(marker, again[i].Source, StringComparison.Ordinal));
-            }
+            AssertUnitsRead(subject, original, again, rewritten, speaker);
 
             var back = again.Select((u, i) => rewritten.Contains(i) ? u with { Translation = original[i].Source, Speaker = original[i].Speaker, Status = TranslationStatus.Translated } : u).ToList();
             // Os bytes não voltam iguais: a reescrita mínima da engine pode acrescentar o texto novo e deixar o antigo órfão (o YSTB cresce a
@@ -477,6 +469,19 @@ public abstract class EngineConformanceTests : IDisposable
     /// A regra 3 do <c>CLAUDE.md</c> vista de dentro do script: pelas faixas de <see cref="DescribeScript"/>, só as das unidades reescritas, os campos
     /// compartilhados e as áreas que crescem podem diferir. O resto, inclusive o argumento de uma unidade que a tradução não tocou, sai igual.
     /// </summary>
+    private static void AssertUnitsRead(Subject subject, List<TextUnit> original, List<TextUnit> again, HashSet<int> rewritten, SpeakerChange speaker)
+    {
+        for (var i = 0; i < original.Count; i++)
+        {
+            var expected = subject.Script.Units[i];
+            var picked = rewritten.Contains(i);
+            var wanted = picked ? expected.Translation! : original[i].Source;
+            var wantedSpeaker = picked && speaker != SpeakerChange.Keep ? expected.SpeakerTranslation : original[i].Speaker;
+            Assert.Equal(subject.Describe($"{original[i].Id}|{original[i].Kind}|{wantedSpeaker}|{wanted}"), subject.Describe($"{again[i].Id}|{again[i].Kind}|{again[i].Speaker}|{again[i].Source}"));
+            Assert.All(expected.Markers, marker => Assert.Contains(marker, again[i].Source, StringComparison.Ordinal));
+        }
+    }
+
     private void AssertOnlyRewrittenChanged(Subject subject, ReadOnlyMemory<byte> before, ReadOnlyMemory<byte> after, List<TextUnit> units, HashSet<int> rewritten)
     {
         var old = DescribeScript(new ScriptFile(subject.File.Name, before), units);
