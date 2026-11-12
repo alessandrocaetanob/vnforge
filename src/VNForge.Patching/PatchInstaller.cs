@@ -134,21 +134,7 @@ public static class PatchInstaller
             var status = todo[i];
             var entry = entries[status.Path];
             progress?.Report(new PatchProgress(PatchPhase.Backup, status.Path, i, todo.Count));
-            var target = GamePaths.Resolve(gameDirectory, status.Path);
-            if (!entry.Created && status.State == PatchFileState.Original)
-            {
-                BackUp(target, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256!);
-                undo.Add(new UndoStep(status.Path, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256));
-            }
-            else if (status.State == PatchFileState.Upgrade)
-            {
-                undo.Add(Preserve(target, previousRoot, status.Path, status.Found!));
-            }
-            else
-            {
-                undo.Add(new UndoStep(status.Path, null, null));
-            }
-
+            undo.Add(PrepareUndo(gameDirectory, backupRoot, previousRoot, status, entry));
             records[status.Path] = new InstallRecord(
                 status.Path,
                 Existed: !entry.Created,
@@ -180,15 +166,7 @@ public static class PatchInstaller
             installManifest = RestoreSuperseded(gameDirectory, backupRoot, previousRoot, installManifest, entries, undo);
             WriteManifest(gameDirectory, installManifest);
 
-            for (var i = 0; i < written.Count; i++)
-            {
-                progress?.Report(new PatchProgress(PatchPhase.Verify, written[i], i, written.Count));
-                var target = GamePaths.Resolve(gameDirectory, written[i]);
-                if (GamePaths.ShaOrNull(target) != entries[written[i]].ResultSha256)
-                {
-                    throw new PatchException($"O arquivo {written[i]} não ficou como o patch previa.");
-                }
-            }
+            VerifyWritten(gameDirectory, written, entries, progress);
         }
         catch (Exception ex)
         {
@@ -212,6 +190,37 @@ public static class PatchInstaller
         DeleteFolderQuietly(previousRoot);
         progress?.Report(new PatchProgress(PatchPhase.Verify, null, written.Count, written.Count));
         return new PatchInstallResult(written, backupRoot);
+    }
+
+    /// <summary>Guarda o que a troca do arquivo vai apagar (o original, ou a versão anterior do patch) e devolve como desfazer.</summary>
+    private static UndoStep PrepareUndo(string gameDirectory, string backupRoot, string previousRoot, PatchFileStatus status, PatchFileEntry entry)
+    {
+        var target = GamePaths.Resolve(gameDirectory, status.Path);
+        if (!entry.Created && status.State == PatchFileState.Original)
+        {
+            BackUp(target, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256!);
+            return new UndoStep(status.Path, GamePaths.Resolve(backupRoot, status.Path), entry.OriginalSha256);
+        }
+
+        if (status.State == PatchFileState.Upgrade)
+        {
+            return Preserve(target, previousRoot, status.Path, status.Found!);
+        }
+
+        return new UndoStep(status.Path, null, null);
+    }
+
+    private static void VerifyWritten(string gameDirectory, List<string> written, IReadOnlyDictionary<string, PatchFileEntry> entries, IProgress<PatchProgress>? progress)
+    {
+        for (var i = 0; i < written.Count; i++)
+        {
+            progress?.Report(new PatchProgress(PatchPhase.Verify, written[i], i, written.Count));
+            var target = GamePaths.Resolve(gameDirectory, written[i]);
+            if (GamePaths.ShaOrNull(target) != entries[written[i]].ResultSha256)
+            {
+                throw new PatchException($"O arquivo {written[i]} não ficou como o patch previa.");
+            }
+        }
     }
 
     /// <summary>Devolve os originais guardados. Arquivo que mudou depois da instalação fica como está e vai em <see cref="PatchUninstallResult.Kept"/>.</summary>
@@ -275,49 +284,59 @@ public static class PatchInstaller
         var broken = new List<string>();
         foreach (var record in manifest.Files)
         {
-            var target = GamePaths.Resolve(gameDirectory, record.Path);
-            var current = GamePaths.ShaOrNull(target);
-            if (!record.Existed)
+            switch (UninstallActionOf(gameDirectory, backupRoot, record))
             {
-                if (current is null)
-                {
-                    continue;
-                }
-
-                if (current == record.InstalledSha256)
-                {
+                case UninstallAction.Restore:
+                    restore.Add(record);
+                    break;
+                case UninstallAction.Remove:
                     remove.Add(record);
-                }
-                else
-                {
+                    break;
+                case UninstallAction.Keep:
                     kept.Add(record.Path);
-                }
-
-                continue;
-            }
-
-            if (current == record.OriginalSha256)
-            {
-                continue;
-            }
-
-            if (current is not null && current != record.InstalledSha256)
-            {
-                kept.Add(record.Path);
-                continue;
-            }
-
-            if (GamePaths.ShaOrNull(GamePaths.Resolve(backupRoot, record.Path)) == record.OriginalSha256)
-            {
-                restore.Add(record);
-            }
-            else
-            {
-                broken.Add(record.Path);
+                    break;
+                case UninstallAction.Broken:
+                    broken.Add(record.Path);
+                    break;
             }
         }
 
         return (restore, remove, kept, broken);
+    }
+
+    private enum UninstallAction
+    {
+        Skip,
+        Restore,
+        Remove,
+        Keep,
+        Broken,
+    }
+
+    private static UninstallAction UninstallActionOf(string gameDirectory, string backupRoot, InstallRecord record)
+    {
+        var current = GamePaths.ShaOrNull(GamePaths.Resolve(gameDirectory, record.Path));
+        if (!record.Existed)
+        {
+            if (current is null)
+            {
+                return UninstallAction.Skip;
+            }
+
+            return current == record.InstalledSha256 ? UninstallAction.Remove : UninstallAction.Keep;
+        }
+
+        if (current == record.OriginalSha256)
+        {
+            return UninstallAction.Skip;
+        }
+
+        if (current is not null && current != record.InstalledSha256)
+        {
+            return UninstallAction.Keep;
+        }
+
+        return GamePaths.ShaOrNull(GamePaths.Resolve(backupRoot, record.Path)) == record.OriginalSha256 ? UninstallAction.Restore : UninstallAction.Broken;
     }
 
     /// <summary>A versão instalada nesta pasta, se houver uma instalação nossa.</summary>

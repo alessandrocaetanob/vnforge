@@ -409,7 +409,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
     }
 
     private static Uri EnsureTrailingSlash(Uri uri) =>
-        uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + '/');
+        uri.AbsoluteUri.EndsWith('/') ? uri : new Uri($"{uri.AbsoluteUri}/");
 
     private sealed record Reply(HttpStatusCode Status, string Text, TimeSpan? RetryAfter);
 }

@@ -231,15 +231,9 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             {
                 done.Add(step.Item with { Action = LibrarySyncAction.Failed, Error = e.Message });
                 failures++;
-                if (e.StatusCode == 401)
+                abort = AbortReason(e, failures);
+                if (abort is not null)
                 {
-                    abort = "O VNDB não aceitou o token. Gere outro em vndb.org/u/tokens e rode vnf vndb token set.";
-                    break;
-                }
-
-                if (failures >= 3)
-                {
-                    abort = "O VNDB falhou 3 vezes seguidas; a sincronização parou. Tente de novo mais tarde.";
                     break;
                 }
 
@@ -248,11 +242,7 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
 
             if (step.NewState is not null && step.StateChanged && !keep(step.Item.Game, step.NewState))
             {
-                done.Add(step.Item with
-                {
-                    Action = LibrarySyncAction.Failed,
-                    Error = "O jogo mudou aqui enquanto a sincronização esperava o VNDB; o estado não foi atualizado" + (step.Update is null ? "." : " (o envio foi feito). Rode de novo."),
-                });
+                done.Add(KeepRefused(step));
                 continue;
             }
 
@@ -260,6 +250,26 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         }
 
         return new LibrarySyncReport(plan.Account, done, plan.RemoteOnly, cancelled, abort);
+    }
+
+    private static string? AbortReason(VndbException e, int failures)
+    {
+        if (e.StatusCode == 401)
+        {
+            return "O VNDB não aceitou o token. Gere outro em vndb.org/u/tokens e rode vnf vndb token set.";
+        }
+
+        return failures >= 3 ? "O VNDB falhou 3 vezes seguidas; a sincronização parou. Tente de novo mais tarde." : null;
+    }
+
+    private static LibrarySyncItem KeepRefused(LibrarySyncStep step)
+    {
+        var tail = step.Update is null ? "." : " (o envio foi feito). Rode de novo.";
+        return step.Item with
+        {
+            Action = LibrarySyncAction.Failed,
+            Error = "O jogo mudou aqui enquanto a sincronização esperava o VNDB; o estado não foi atualizado" + tail,
+        };
     }
 
     /// <summary>
@@ -336,15 +346,42 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         var pulled = new List<string>();
         var pushed = new List<string>();
         var conflicts = new List<LibrarySyncConflict>();
-        var newLocal = local;
-        var newRemote = remote;
+        var sides = new Sides(local, remote, baseFields, hasBase);
+        var (newLocal, newRemote) = MergeScalars(game, options, sides, localNewer, pulled, pushed, conflicts);
+        (newLocal, newRemote) = MergeLabelFields(options, sides, newLocal, newRemote, pulled, pushed);
 
+        var update = BuildUpdate(remote, LibraryListFields.Normalize(newRemote));
+        var newState = new LibraryListState(game.VndbId!, LibraryListFields.Normalize(newLocal), state?.ModifiedAt ?? entry?.LastModified ?? now)
+        {
+            Base = NewBase(newLocal, newRemote, baseFields),
+            SyncedAt = now,
+            OnVndb = entry is not null || update is not null,
+        };
+        var changed = StateChanged(state, oldBase, newState);
+        var action = ActionOf(pulled, pushed);
+        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed, HasLocalEdits = state?.Pending ?? false };
+        return new LibrarySyncStep(item, newState, changed, update);
+    }
+
+    private sealed record Sides(LibraryListFields Local, LibraryListFields Remote, LibraryListFields Base, bool HasBase);
+
+    private static (LibraryListFields Local, LibraryListFields Remote) MergeScalars(
+        LibraryGame game,
+        LibrarySyncOptions options,
+        Sides sides,
+        bool localNewer,
+        List<string> pulled,
+        List<string> pushed,
+        List<LibrarySyncConflict> conflicts)
+    {
+        var newLocal = sides.Local;
+        var newRemote = sides.Remote;
         foreach (var scalar in Scalars.Where(s => options.Fields.HasFlag(s.Group)))
         {
-            var l = scalar.Get(local);
-            var r = scalar.Get(remote);
+            var l = scalar.Get(sides.Local);
+            var r = scalar.Get(sides.Remote);
             LibrarySyncWinner? chosen = options.Resolutions.TryGetValue((game.Id, scalar.Name), out var decided) ? decided : null;
-            switch (DecideScalar(scalar, new ScalarValues(l, r, scalar.Get(baseFields), hasBase), direction, localNewer, conflicts, chosen))
+            switch (DecideScalar(scalar, new ScalarValues(l, r, scalar.Get(sides.Base), sides.HasBase), options.Direction, localNewer, conflicts, chosen))
             {
                 case Move.Pull:
                     newLocal = scalar.Set(newLocal, r);
@@ -357,11 +394,15 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             }
         }
 
+        return (newLocal, newRemote);
+    }
+
+    private static (LibraryListFields Local, LibraryListFields Remote) MergeLabelFields(
+        LibrarySyncOptions options, Sides sides, LibraryListFields newLocal, LibraryListFields newRemote, List<string> pulled, List<string> pushed)
+    {
         var (labelsLocal, labelsRemote, labelsPulled, labelsPushed) = options.Fields.HasFlag(LibrarySyncFields.Labels)
-            ? MergeLabels(local, remote, baseFields, hasBase, direction)
-            : (local.Labels, remote.Labels, false, false);
-        newLocal = newLocal with { Labels = labelsLocal };
-        newRemote = newRemote with { Labels = labelsRemote };
+            ? MergeLabels(sides.Local, sides.Remote, sides.Base, sides.HasBase, options.Direction)
+            : (sides.Local.Labels, sides.Remote.Labels, false, false);
         if (labelsPulled)
         {
             pulled.Insert(0, "rótulos");
@@ -372,29 +413,24 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             pushed.Insert(0, "rótulos");
         }
 
-        var update = BuildUpdate(remote, LibraryListFields.Normalize(newRemote));
-        var newState = new LibraryListState(game.VndbId!, LibraryListFields.Normalize(newLocal), state?.ModifiedAt ?? entry?.LastModified ?? now)
-        {
-            Base = NewBase(newLocal, newRemote, baseFields),
-            SyncedAt = now,
-            OnVndb = entry is not null || update is not null,
-        };
-        var changed = state is null
-            || oldBase is null
-            || !state.Fields.SameAs(newState.Fields)
-            || !state.Fields.Labels.SequenceEqual(newState.Fields.Labels)
-            || !oldBase.SameAs(newState.Base)
-            || state.OnVndb != newState.OnVndb;
-        var action = (pulled.Count > 0, pushed.Count > 0) switch
-        {
-            (true, true) => LibrarySyncAction.Merged,
-            (true, false) => LibrarySyncAction.Pulled,
-            (false, true) => LibrarySyncAction.Pushed,
-            _ => LibrarySyncAction.Unchanged,
-        };
-        var item = new LibrarySyncItem(game, action, pulled, pushed, conflicts) { RemovedOnSite = removed, HasLocalEdits = state?.Pending ?? false };
-        return new LibrarySyncStep(item, newState, changed, update);
+        return (newLocal with { Labels = labelsLocal }, newRemote with { Labels = labelsRemote });
     }
+
+    private static bool StateChanged(LibraryListState? state, LibraryListFields? oldBase, LibraryListState newState) =>
+        state is null
+        || oldBase is null
+        || !state.Fields.SameAs(newState.Fields)
+        || !state.Fields.Labels.SequenceEqual(newState.Fields.Labels)
+        || !oldBase.SameAs(newState.Base)
+        || state.OnVndb != newState.OnVndb;
+
+    private static LibrarySyncAction ActionOf(List<string> pulled, List<string> pushed) => (pulled.Count > 0, pushed.Count > 0) switch
+    {
+        (true, true) => LibrarySyncAction.Merged,
+        (true, false) => LibrarySyncAction.Pulled,
+        (false, true) => LibrarySyncAction.Pushed,
+        _ => LibrarySyncAction.Unchanged,
+    };
 
     private sealed record ScalarValues(object? Local, object? Remote, object? Base, bool HasBase);
 
@@ -406,44 +442,10 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             return Move.Keep;
         }
 
-        Move wanted;
-        var conflict = false;
-        if (hasBase)
-        {
-            var localChanged = !Equals(l, b);
-            var remoteChanged = !Equals(r, b);
-            wanted = (localChanged, remoteChanged) switch
-            {
-                (true, false) => Move.Push,
-                (false, true) => Move.Pull,
-                _ => Move.Keep,
-            };
-            conflict = localChanged && remoteChanged;
-        }
-        else if (r is null)
-        {
-            wanted = Move.Push;
-        }
-        else if (l is null)
-        {
-            wanted = Move.Pull;
-        }
-        else
-        {
-            wanted = Move.Keep;
-            conflict = true;
-        }
-
+        var (wanted, conflict) = Baseline(l, r, b, hasBase);
         if (conflict)
         {
-            wanted = (chosen, direction) switch
-            {
-                (LibrarySyncWinner.Local, _) => Move.Push,
-                (LibrarySyncWinner.Remote, _) => Move.Pull,
-                (_, LibrarySyncDirection.Pull) => Move.Pull,
-                (_, LibrarySyncDirection.Push) => Move.Push,
-                _ => localNewer ? Move.Push : Move.Pull,
-            };
+            wanted = ConflictMove(chosen, direction, localNewer);
             conflicts.Add(new LibrarySyncConflict(scalar.Name, scalar.Show(l), scalar.Show(r), wanted == Move.Push ? LibrarySyncWinner.Local : LibrarySyncWinner.Remote));
         }
 
@@ -453,6 +455,38 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             _ => wanted,
         };
     }
+
+    private static (Move Wanted, bool Conflict) Baseline(object? l, object? r, object? b, bool hasBase)
+    {
+        if (hasBase)
+        {
+            var localChanged = !Equals(l, b);
+            var remoteChanged = !Equals(r, b);
+            var wanted = (localChanged, remoteChanged) switch
+            {
+                (true, false) => Move.Push,
+                (false, true) => Move.Pull,
+                _ => Move.Keep,
+            };
+            return (wanted, localChanged && remoteChanged);
+        }
+
+        if (r is null)
+        {
+            return (Move.Push, false);
+        }
+
+        return l is null ? (Move.Pull, false) : (Move.Keep, true);
+    }
+
+    private static Move ConflictMove(LibrarySyncWinner? chosen, LibrarySyncDirection direction, bool localNewer) => (chosen, direction) switch
+    {
+        (LibrarySyncWinner.Local, _) => Move.Push,
+        (LibrarySyncWinner.Remote, _) => Move.Pull,
+        (_, LibrarySyncDirection.Pull) => Move.Pull,
+        (_, LibrarySyncDirection.Push) => Move.Push,
+        _ => localNewer ? Move.Push : Move.Pull,
+    };
 
     private static (IReadOnlyList<VndbListLabel> Local, IReadOnlyList<VndbListLabel> Remote, bool Pulled, bool Pushed) MergeLabels(
         LibraryListFields local,
@@ -478,26 +512,12 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
             if (push && direction != LibrarySyncDirection.Pull)
             {
                 pushed = true;
-                if (inLocal)
-                {
-                    newRemote[id] = local.Labels.First(l => l.Id == id);
-                }
-                else
-                {
-                    newRemote.Remove(id);
-                }
+                CopyOrRemove(newRemote, local.Labels, inLocal, id);
             }
             else if (!push && direction != LibrarySyncDirection.Push)
             {
                 pulled = true;
-                if (inRemote)
-                {
-                    newLocal[id] = remote.Labels.First(l => l.Id == id);
-                }
-                else
-                {
-                    newLocal.Remove(id);
-                }
+                CopyOrRemove(newLocal, remote.Labels, inRemote, id);
             }
         }
 
@@ -508,6 +528,18 @@ public sealed class LibraryListSynchronizer(IVndbUserList vndb, TimeProvider? ti
         }
 
         return ([.. newLocal.Values.OrderBy(l => l.Id)], [.. newRemote.Values.OrderBy(l => l.Id)], pulled, pushed);
+    }
+
+    private static void CopyOrRemove(Dictionary<int, VndbListLabel> target, IReadOnlyList<VndbListLabel> source, bool present, int id)
+    {
+        if (present)
+        {
+            target[id] = source.First(l => l.Id == id);
+        }
+        else
+        {
+            target.Remove(id);
+        }
     }
 
     private static LibraryListFields NewBase(LibraryListFields newLocal, LibraryListFields newRemote, LibraryListFields oldBase)

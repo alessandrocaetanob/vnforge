@@ -118,6 +118,7 @@ public static partial class LibraryCatalog
     private const string OdblUrl = "https://opendatacommons.org/licenses/odbl/1-0/";
     private const string DatabaseLicenseUrl = "https://vndb.org/d17";
     private const int RegexTimeoutMilliseconds = 500;
+    private const string ParagraphEnd = "</p>\n";
 
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -224,7 +225,7 @@ public static partial class LibraryCatalog
         html.Append("<h2>").Append(E(card.Title)).Append("</h2>\n");
         if (!string.IsNullOrWhiteSpace(card.OriginalTitle) && card.OriginalTitle != card.Title)
         {
-            html.Append("<p class=\"original\">").Append(E(card.OriginalTitle)).Append("</p>\n");
+            html.Append("<p class=\"original\">").Append(E(card.OriginalTitle)).Append(ParagraphEnd);
         }
 
         var facts = new List<string>();
@@ -262,32 +263,7 @@ public static partial class LibraryCatalog
 
     private static void AppendMine(StringBuilder html, LibraryGame game, LibraryCatalogOptions options, PlayStats stats, StatusCounts? counts, TimeSpan offset)
     {
-        var mine = new List<string>();
-        if (game.CurrentList is { } state)
-        {
-            var fields = state.Fields;
-            if (options.IncludeVote && fields.Vote is { } vote)
-            {
-                mine.Add("Sua nota: " + E(LibraryListRules.FormatVote(vote, PortugueseBrazil)));
-            }
-
-            if (options.IncludePlayed && fields.Labels.Count > 0)
-            {
-                mine.Add(E(string.Join(", ", fields.Labels.Select(LibraryListLabels.Display))));
-            }
-
-            if (options.IncludePlayed && fields.Started is { } started)
-            {
-                mine.Add("começou em " + Iso(started));
-            }
-
-            if (options.IncludePlayed && fields.Finished is { } finished)
-            {
-                mine.Add("terminou em " + Iso(finished));
-            }
-        }
-
-        AppendLine(html, "mine", mine);
+        AppendLine(html, "mine", MineFacts(game, options));
 
         if (options.IncludePlayed && stats.Sessions > 0)
         {
@@ -304,8 +280,40 @@ public static partial class LibraryCatalog
 
         if (options.IncludeNotes && game.CurrentList?.Fields.Notes is { Length: > 0 } notes)
         {
-            html.Append("<p class=\"notes\">").Append(E(notes)).Append("</p>\n");
+            html.Append("<p class=\"notes\">").Append(E(notes)).Append(ParagraphEnd);
         }
+    }
+
+    private static List<string> MineFacts(LibraryGame game, LibraryCatalogOptions options)
+    {
+        var mine = new List<string>();
+        if (game.CurrentList is not { } state)
+        {
+            return mine;
+        }
+
+        var fields = state.Fields;
+        if (options.IncludeVote && fields.Vote is { } vote)
+        {
+            mine.Add("Sua nota: " + E(LibraryListRules.FormatVote(vote, PortugueseBrazil)));
+        }
+
+        if (options.IncludePlayed && fields.Labels.Count > 0)
+        {
+            mine.Add(E(string.Join(", ", fields.Labels.Select(LibraryListLabels.Display))));
+        }
+
+        if (options.IncludePlayed && fields.Started is { } started)
+        {
+            mine.Add("começou em " + Iso(started));
+        }
+
+        if (options.IncludePlayed && fields.Finished is { } finished)
+        {
+            mine.Add("terminou em " + Iso(finished));
+        }
+
+        return mine;
     }
 
     private static void AppendSynopsis(StringBuilder html, LibraryGame game, LibraryPrivacy privacy, LibrarySheet? sheet)
@@ -362,42 +370,47 @@ public static partial class LibraryCatalog
         html.Append("<section class=\"characters\">\n<h3>Personagens</h3>\n<ul>\n");
         foreach (var character in characters)
         {
-            html.Append("<li>");
-            if (character.Image is { } image && VndbImageVisibility.IsAllowedSource(image.Url) && !VndbImageVisibility.IsHidden(image, privacy))
-            {
-                AppendImage(html, image.Url, "Retrato de " + character.Name, null);
-            }
-
-            html.Append("<div><strong>").Append(E(character.Name)).Append("</strong>");
-            if (!string.IsNullOrWhiteSpace(character.OriginalName) && character.OriginalName != character.Name)
-            {
-                html.Append(" <span class=\"original\">").Append(E(character.OriginalName)).Append("</span>");
-            }
-
-            if (!string.IsNullOrWhiteSpace(character.Role))
-            {
-                html.Append(" <em>").Append(E(character.Role)).Append("</em>");
-            }
-
-            var traits = character.Traits.Where(t => !SheetViewer.IsTraitHidden(t.Spoiler, t.Lie, t.Sexual, privacy)).Select(t => t.Name).ToList();
-            if (traits.Count > 0)
-            {
-                html.Append("<br />").Append(E(string.Join(", ", traits)));
-            }
-
-            if (!string.IsNullOrWhiteSpace(character.Description))
-            {
-                var description = LibraryVisibility.PlainSynopsis(character.Description, privacy.ShowSpoilers, out _);
-                if (description.Length > 0)
-                {
-                    html.Append("<br />").Append(E(description.Replace('\n', ' ').Replace('\r', ' ')));
-                }
-            }
-
-            html.Append("</div></li>\n");
+            AppendCharacter(html, privacy, character);
         }
 
         html.Append("</ul>\n</section>\n");
+    }
+
+    private static void AppendCharacter(StringBuilder html, LibraryPrivacy privacy, LibrarySheetCharacter character)
+    {
+        html.Append("<li>");
+        if (character.Image is { } image && VndbImageVisibility.IsAllowedSource(image.Url) && !VndbImageVisibility.IsHidden(image, privacy))
+        {
+            AppendImage(html, image.Url, "Retrato de " + character.Name, null);
+        }
+
+        html.Append("<div><strong>").Append(E(character.Name)).Append("</strong>");
+        if (!string.IsNullOrWhiteSpace(character.OriginalName) && character.OriginalName != character.Name)
+        {
+            html.Append(" <span class=\"original\">").Append(E(character.OriginalName)).Append("</span>");
+        }
+
+        if (!string.IsNullOrWhiteSpace(character.Role))
+        {
+            html.Append(" <em>").Append(E(character.Role)).Append("</em>");
+        }
+
+        var traits = character.Traits.Where(t => !SheetViewer.IsTraitHidden(t.Spoiler, t.Lie, t.Sexual, privacy)).Select(t => t.Name).ToList();
+        if (traits.Count > 0)
+        {
+            html.Append("<br />").Append(E(string.Join(", ", traits)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(character.Description))
+        {
+            var description = LibraryVisibility.PlainSynopsis(character.Description, privacy.ShowSpoilers, out _);
+            if (description.Length > 0)
+            {
+                html.Append("<br />").Append(E(description.Replace('\n', ' ').Replace('\r', ' ')));
+            }
+        }
+
+        html.Append("</div></li>\n");
     }
 
     private static void AppendFooter(StringBuilder html, DateTimeOffset generatedAt)
@@ -419,7 +432,7 @@ public static partial class LibraryCatalog
     {
         if (parts.Count > 0)
         {
-            html.Append("<p class=\"").Append(cssClass).Append("\">").Append(string.Join(" · ", parts)).Append("</p>\n");
+            html.Append("<p class=\"").Append(cssClass).Append("\">").Append(string.Join(" · ", parts)).Append(ParagraphEnd);
         }
     }
 
@@ -427,7 +440,7 @@ public static partial class LibraryCatalog
     {
         foreach (var paragraph in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            html.Append("<p>").Append(E(paragraph)).Append("</p>\n");
+            html.Append("<p>").Append(E(paragraph)).Append(ParagraphEnd);
         }
     }
 
@@ -447,12 +460,13 @@ public static partial class LibraryCatalog
         }
 
         var builder = new StringBuilder(text.Length + 8);
-        for (var i = 0; i < text.Length; i++)
+        var i = 0;
+        while (i < text.Length)
         {
-            var c = text[i];
-            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            var c = text[i++];
+            if (char.IsHighSurrogate(c) && i < text.Length && char.IsLowSurrogate(text[i]))
             {
-                builder.Append(c).Append(text[++i]);
+                builder.Append(c).Append(text[i++]);
                 continue;
             }
 

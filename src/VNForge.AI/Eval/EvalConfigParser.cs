@@ -31,35 +31,30 @@ public static class EvalConfigParser
         }
 
         var model = ModelFor(parts[0]);
-        var effort = "medium";
-        if (parts.Length > 1 && parts[1].Length > 0)
-        {
-            effort = ClaudeEffortText.TryParse(parts[1], out _)
-                ? parts[1].ToLowerInvariant()
-                : throw new EvalException($"Esforço desconhecido em '{spec}': '{parts[1]}'. Use low, medium ou high.");
-        }
-
-        var context = DefaultContextLines;
-        if (parts.Length > 2 && parts[2].Length > 0)
-        {
-            context = int.TryParse(parts[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) && n <= MaxContextLines
-                ? n
-                : throw new EvalException($"Contexto inválido em '{spec}': '{parts[2]}'. Use um número de 0 a {MaxContextLines}.");
-        }
-
-        var bible = false;
-        if (parts.Length > 3 && parts[3].Length > 0)
-        {
-            bible = parts[3].ToLowerInvariant() switch
-            {
-                "com-biblia" or "com-bíblia" or "biblia" or "bíblia" => true,
-                "sem-biblia" or "sem-bíblia" => false,
-                _ => throw new EvalException($"Bíblia inválida em '{spec}': '{parts[3]}'. Use com-biblia ou sem-biblia."),
-            };
-        }
-
+        var effort = Part(parts, 1) is { } effortText ? EffortOf(effortText, spec) : "medium";
+        var context = Part(parts, 2) is { } contextText ? ContextOf(contextText, spec) : DefaultContextLines;
+        var bible = Part(parts, 3) is { } bibleText && WithBible(bibleText, spec);
         return new EvalConfig(id, model, effort, context, bible);
     }
+
+    private static string? Part(string[] parts, int index) => parts.Length > index && parts[index].Length > 0 ? parts[index] : null;
+
+    private static string EffortOf(string text, string? spec) =>
+        ClaudeEffortText.TryParse(text, out _)
+            ? text.ToLowerInvariant()
+            : throw new EvalException($"Esforço desconhecido em '{spec}': '{text}'. Use low, medium ou high.");
+
+    private static int ContextOf(string text, string? spec) =>
+        int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) && n <= MaxContextLines
+            ? n
+            : throw new EvalException($"Contexto inválido em '{spec}': '{text}'. Use um número de 0 a {MaxContextLines}.");
+
+    private static bool WithBible(string text, string? spec) => text.ToLowerInvariant() switch
+    {
+        "com-biblia" or "com-bíblia" or "biblia" or "bíblia" => true,
+        "sem-biblia" or "sem-bíblia" => false,
+        _ => throw new EvalException($"Bíblia inválida em '{spec}': '{text}'. Use com-biblia ou sem-biblia."),
+    };
 
     /// <summary>Lê várias configurações e dá a cada uma a letra da posição (A, B, C...).</summary>
     public static IReadOnlyList<EvalConfig> ParseAll(IEnumerable<string> specs)
