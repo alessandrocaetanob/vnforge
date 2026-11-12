@@ -115,8 +115,14 @@ measured="$(LC_ALL=C awk -v excl="$exclusions" '
 [[ -n "$measured" ]] || abort "nenhuma linha de src/VNForge.* em $xml: o coverage.xml não é de uma rodada com testes?"
 
 # Centésimos de ponto, para baixo, sem ponto flutuante na comparação.
-hundredths() { awk -v c="$1" -v t="$2" 'BEGIN { printf "%d", int(c * 10000 / t) }'; }
-format() { awk -v h="$1" 'BEGIN { printf "%d.%02d", int(h / 100), h % 100 }'; }
+hundredths() {
+  local covered="$1" total="$2"
+  awk -v c="$covered" -v t="$total" 'BEGIN { printf "%d", int(c * 10000 / t) }'
+}
+format() {
+  local value="$1"
+  awk -v h="$value" 'BEGIN { printf "%d.%02d", int(h / 100), h % 100 }'
+}
 
 if [[ "$record" -eq 1 ]]; then
   echo "# Piso de cobertura de linhas por projeto, medido no job linux (coverage.xml da rodada inteira)."
