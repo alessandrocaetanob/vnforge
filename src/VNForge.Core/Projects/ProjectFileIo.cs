@@ -32,6 +32,14 @@ internal static class ProjectFileIo
             return bytes;
         });
 
+    /// <summary>Grava <paramref name="content"/> em <paramref name="path"/> (um arquivo novo, o temporário da troca), esperando quem o estiver segurando logo depois de criado.</summary>
+    internal static void WriteAllText(string path, string content, System.Text.Encoding encoding, Action<int> wait) =>
+        Retry(null, () =>
+        {
+            File.WriteAllText(path, content, encoding);
+            return 0;
+        }, wait);
+
     /// <summary>Move <paramref name="source"/> sobre <paramref name="destination"/>, esperando quem o estiver lendo.</summary>
     internal static void Move(string source, string destination, bool overwrite) =>
         Move(source, destination, overwrite, Thread.Sleep);
