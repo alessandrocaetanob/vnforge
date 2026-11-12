@@ -14,6 +14,7 @@ namespace VNForge.App.Tests;
 /// Pega texto cortado: um <see cref="TextBlock"/> sem quebra nem reticências que recebe menos largura do que o texto pede
 /// aparece com letras a menos ("Apro", "Conferênci"). A largura natural vem de um bloco igual medido sem limite.
 /// </summary>
+[Trait("Tipo", "Tela")]
 public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     private const double Tolerance = 0.5;

@@ -76,6 +76,10 @@ Ele imprime a saída, o tempo de parede, o pico do conjunto de trabalho do proce
 
 O App roda inteiro num processo, com uns 2 minutos sem cobertura. Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
 
+### O trait Tipo=Tela
+
+O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está em `ScreenSmokeTests`, `ClippedTextHeadlessTests` e `ReviewModeKeyTests`, as três que mais gastam tempo de janela; só serve para equilibrar as metades (uns 48 s e 45 s no Windows). Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
+
 ### Prova da tarefa
 
 `bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo). Com cobertura, como o job: `dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml`, e depois `bash .circleci/piso-cobertura.sh coverage.xml` confere o piso. No Windows, o `dotnet-coverage` precisa receber o Git Bash pelo caminho curto (`cygpath -w -s $(command -v bash)`), porque o `bash` do PATH do Windows pode ser o do WSL.

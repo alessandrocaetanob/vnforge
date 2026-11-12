@@ -13,7 +13,7 @@ Cobertura de `tools/cobertura.sh` (só os testes do próprio projeto, com as exc
 | Projeto | Testes antes | Testes depois | Tempo antes | Tempo depois | Linhas antes | Linhas depois | Ramos antes | Ramos depois |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Core | 3.441 | 1.562 | 7,4 s | 4,0 s | 90,62% | 90,63% (17.025 de 18.785) | 84,42% | 84,42% (11.079 de 13.123) |
-| App | 3.118 | 1.334 | 1.023 s em 3 fatias | 80 a 86 s em 1 processo | 94,18% | 94,46% (19.926 de 21.094) | 85,35% | 85,47% (10.851 de 12.696) |
+| App | 3.118 | 1.334 | 1.023 s em 3 fatias | 80 a 86 s em 1 processo, 48 e 45 s em 2 | 94,18% | 94,46% (19.926 de 21.094) | 85,35% | 85,47% (10.851 de 12.696) |
 | Cli | 1.308 | 566 | 15,0 s | 8,4 s | 93,84% | 93,84% (7.444 de 7.933) | 80,68% | 80,68% (3.202 de 3.969) |
 | Engines.YuRis | 1.011 | 277 | 3,2 s | 2,1 s | 95,90% | 95,90% (2.481 de 2.587) | 93,36% | 93,36% (1.462 de 1.566) |
 | AI | 571 | 304 | 1,6 s | 2,4 s | 94,01% | 94,01% (2.762 de 2.938) | 89,63% | 89,68% (1.582 de 1.764) |
@@ -47,16 +47,18 @@ O piso de App, Core e Cli fica 0,1 ponto abaixo do medido no runner, porque a co
 
 ## Tempo do job linux
 
-| | Antes (main, antes da T2) | PR #677 (T5) | PR #680, runner (T8) |
-|---|---:|---:|---:|
-| Job | 24,5 min | 4 min 56 s | 5 min 54 s |
-| Checkout | | | 10 s |
-| Sonar begin | | | 27 s |
-| Build | | 1 min 45 s | 1 min 44 s |
-| Testes | uns 18 min (App em 3 fatias) | 1 min 23 s | 2 min 15 s |
-| Piso de cobertura | | | 2 s |
-| Sonar end | | 57 s | 1 min 7 s |
+| | Antes (main, antes da T2) | PR #677 (T5) | PR #680, runner, ccac61e3 | PR #680, ff382b2b |
+|---|---:|---:|---:|---:|
+| Job | 24,5 min | 4 min 56 s | 5 min 54 s | 5 min 30 s |
+| Checkout | | | 10 s | |
+| Sonar begin | | | 27 s | 27 s |
+| Build | | 1 min 45 s | 1 min 44 s | 1 min 53 s |
+| Testes | uns 18 min (App em 3 fatias) | 1 min 23 s | 2 min 15 s | 1 min 47 s |
+| Piso de cobertura | | | 2 s | |
+| Sonar end | | 57 s | 1 min 7 s | 1 min 0 s |
 
 No PR #680 o App inteiro, num processo, levou 131 s e é o caminho crítico; Core e Cli levaram 15 s cada. O `.circleci/run-tests.sh` sem fatias, sem `tempos-app.txt`, sem `-class` e sem `VNFORGE_RENDER_DIR` tem 109 linhas, contra 327.
 
 Para baixar o App, o `BuildTestViewModelTests` (41 s em 18 testes no Windows) passou a gravar só os 16 scripts que a tela Build usa, com 20 linhas cada, em vez dos 312 com 48 mil linhas de `DemoProject`: cada teste gravava e relia a pasta inteira. A classe foi de 41 para 10 s e o App, no Windows, de 108 s para 80 a 86 s (sem cobertura, mesma máquina), com 1.334 testes e a cobertura do App em processo único com linhas 94,45% (19.924 de 21.094) e ramos 85,50% (10.855 de 12.696), acima do piso do plano (94,26% e 85,35%). Cortar também o `ScreenSmokeTests` (28 a 35 s, 40 janelas) para 40 linhas por capítulo ganhava 5 s mas custava 27 linhas e 0,26 ponto de ramos do App, e foi desfeito.
+
+O ff382b2b (PR #680) trouxe o passo Testes para 1 min 47 s com o `BuildTestViewModelTests` enxuto, mas o job ficou em 5 min 30 s e o App, em série num processo, seguia como caminho crítico. Depois dele o App passou a rodar em dois processos com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`ScreenSmokeTests`, `ClippedTextHeadlessTests` e `ReviewModeKeyTests` de um lado, 53 testes; os outros 1.281 do outro). No Windows, sem cobertura e um de cada vez: 48 s e 45 s, contra 80 s do processo único. Com o `dotnet-coverage` em volta de todo o script, os 10 processos juntos (4 por vez) levam 67 s, contra 139 s antes, com os mesmos 4.212 testes; a cobertura de linhas do App no `coverage.xml` fica em 95,20% e a de `bash tools/cobertura.sh App` (processo único, todos os testes) em 94,45% de linhas e 85,48% de ramos.

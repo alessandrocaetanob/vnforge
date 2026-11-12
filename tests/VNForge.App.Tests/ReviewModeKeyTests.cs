@@ -12,6 +12,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>As teclas do modo revisão (Enter, E, M, seta, Esc) pelos <c>KeyBinding</c> da tela, na janela do app e sem tocar no mouse.</summary>
+[Trait("Tipo", "Tela")]
 public sealed class ReviewModeKeyTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 25, 15, 0, 0, TimeSpan.Zero);
