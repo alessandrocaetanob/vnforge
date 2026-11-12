@@ -13,6 +13,8 @@ internal static class GameSheetSamples
 {
     public const string Id = "v31201";
 
+    private const string Personality = "Personality";
+
     public static readonly DateTimeOffset Now = new(2026, 11, 9, 15, 0, 0, TimeSpan.Zero);
 
     public static readonly IReadOnlyDictionary<string, string> Portuguese = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -53,10 +55,10 @@ internal static class GameSheetSamples
 
     private static VndbTrait Trait(int n, string name, string group = "Hair", int spoiler = 0) => new($"i{n}", name, "i" + group, group, spoiler, false, Sexual: false);
 
-    private static VndbImage Image(int n) => new($"https://t.vndb.org/ch/{n}.jpg", null, 100, 140, 0, 0);
+    private static VndbImage Image(int n) => new(SamplePaths.Portrait(n), null, 100, 140, 0, 0);
 
-    private static VndbCharacter Character(int n, string name, string? original, string? gender, string role, int spoiler, string? description, VndbTrait[] traits, bool image = true) =>
-        new($"c{n}", name, original, [], description, image ? Image(n) : null, gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance(Id, role, spoiler, null)], traits);
+    private static VndbCharacter Character(int n, string name, string? original, string? gender, string role, string? description, VndbTrait[] traits) =>
+        new($"c{n}", name, original, [], description, Image(n), gender is null ? null : new VndbGender(gender, gender), [new VndbCharacterAppearance(Id, role, 0, null)], traits);
 
     public static VndbVisualNovel Game() =>
         new(Id, "Amaoto no Hakoniwa", "雨音の箱庭", [], [], "ja", 0, "2019-05-31", ["ja"], ["win"], null, 3, 1080, 47,
@@ -68,14 +70,18 @@ internal static class GameSheetSamples
 
     public static VndbCharacter[] Characters() =>
     [
-        Character(1, "Kenta Aizawa", "相沢 健太", "m", "main", 0, "The protagonist.", [Trait(1, "Short Hair"), Trait(2, "Athlete", "Role")]),
-        Character(2, "Aoi Sakura", "佐倉 葵", "f", "primary", 0, "Kenta's classmate. She rarely speaks, reads on the roof on rainy days and keeps the key to the garden.",
-            [Trait(3, "Long Hair"), Trait(4, "Quiet", "Personality"), Trait(5, "Student", "Role"), Trait(6, "Bookworm", "Personality"), Trait(15, "Kenta's Sister", "Role", 2), Trait(16, "Mind", "Personality", 1)]),
-        Character(3, "Ren Hayase", "早瀬 蓮", "m", "primary", 0, "Kenta's childhood friend.", [Trait(7, "Glasses", "Clothes"), Trait(8, "Sarcastic", "Personality")]),
-        Character(4, "Misaki Tōdō", "藤堂 美咲", "f", "side", 0, "The reading club teacher.", [Trait(9, "Teacher", "Role"), Trait(10, "Strict", "Personality")]),
-        Character(5, "Tsubaki Inoue", "井上 椿", "f", "side", 0, "The student council president.", [Trait(11, "President", "Role"), Trait(12, "Serious", "Personality")]),
-        Character(6, "Haruto Mine", "峰 春人", "m", "side", 0, "A senior in the club.", [Trait(13, "Senior", "Role"), Trait(14, "Calm", "Personality")]),
-        Character(7, "Ghost", null, null, "side", 2, "Who is she? [spoiler]Aoi's sister.[/spoiler]", [], image: false),
+        Character(1, "Kenta Aizawa", "相沢 健太", "m", "main", "The protagonist.", [Trait(1, "Short Hair"), Trait(2, "Athlete", "Role")]),
+        Character(2, "Aoi Sakura", "佐倉 葵", "f", "primary", "Kenta's classmate. She rarely speaks, reads on the roof on rainy days and keeps the key to the garden.",
+            [Trait(3, "Long Hair"), Trait(4, "Quiet", Personality), Trait(5, "Student", "Role"), Trait(6, "Bookworm", Personality), Trait(15, "Kenta's Sister", "Role", 2), Trait(16, "Mind", Personality, 1)]),
+        Character(3, "Ren Hayase", "早瀬 蓮", "m", "primary", "Kenta's childhood friend.", [Trait(7, "Glasses", "Clothes"), Trait(8, "Sarcastic", Personality)]),
+        Character(4, "Misaki Tōdō", "藤堂 美咲", "f", "side", "The reading club teacher.", [Trait(9, "Teacher", "Role"), Trait(10, "Strict", Personality)]),
+        Character(5, "Tsubaki Inoue", "井上 椿", "f", "side", "The student council president.", [Trait(11, "President", "Role"), Trait(12, "Serious", Personality)]),
+        Character(6, "Haruto Mine", "峰 春人", "m", "side", "A senior in the club.", [Trait(13, "Senior", "Role"), Trait(14, "Calm", Personality)]),
+        Character(7, "Ghost", null, null, "side", "Who is she? [spoiler]Aoi's sister.[/spoiler]", []) with
+        {
+            Image = null,
+            Appearances = [new VndbCharacterAppearance(Id, "side", 2, null)],
+        },
     ];
 
     public static FakeVndbCatalog Catalog() => new([Game()], Characters());
@@ -85,14 +91,14 @@ internal static class GameSheetSamples
     {
         var game = Game() with { Tags = [.. Game().Tags, new VndbTag("g9", "Nudity", "ero", 2.5, 0, false)] };
         var characters = Characters();
-        characters[0] = characters[0] with { Image = new VndbImage("https://t.vndb.org/ch/1.jpg", null, 100, 140, 2, 0) };
+        characters[0] = characters[0] with { Image = new VndbImage(SamplePaths.Portrait(1), null, 100, 140, 2, 0) };
         return new FakeVndbCatalog([game], characters);
     }
 
     public static FakeSheetTranslator Translator() => new(item => Portuguese.GetValueOrDefault(item.Key) ?? "pt: " + item.Source);
 
     /// <summary>Busca e traduz a ficha com os provedores falsos e leva cada texto à etapa do quadro: Kenta aprovado, Aoi revisada, Ren traduzido à mão, os outros pela IA.</summary>
-    public static async Task SeedAsync(string configDirectory, bool translate = true, CancellationToken ct = default, IVndbCatalog? catalog = null)
+    public static async Task SeedAsync(string configDirectory, bool translate = true, IVndbCatalog? catalog = null, CancellationToken ct = default)
     {
         var store = new SheetStore(configDirectory);
         await SheetFetcher.FetchAsync(catalog ?? Catalog(), store, Id, new FixedClock(Now), ct);

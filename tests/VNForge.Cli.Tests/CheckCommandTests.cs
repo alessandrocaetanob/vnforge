@@ -7,7 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
-public sealed class CheckCommandTests : IDisposable
+public sealed partial class CheckCommandTests : IDisposable
 {
     private const string ScriptKey = "yst00001";
     private const string Forbidden = "proibida";
@@ -62,7 +62,7 @@ public sealed class CheckCommandTests : IDisposable
         Assert.Contains("yst00001:000001, yst00001:000002", result.Output);
         Assert.Contains("○ 1 linha  Olá ·mundo.", result.Output);
         Assert.Contains("○ 1 linha  Olá mundo⟨.⟩", result.Output);
-        Assert.Single(Regex.Matches(result.Output, "Mesmo original"));
+        Assert.Single(SameOriginHeading().Matches(result.Output));
         Assert.DoesNotContain("aparece traduzido como", result.Output);
         Assert.Contains("2 avisos", result.Output);
     }
@@ -275,7 +275,7 @@ public sealed class CheckCommandTests : IDisposable
 
         Assert.Equal(2, result.ExitCode);
         var lines = Lines(result);
-        Assert.Contains($"ERRO {GroupedEllipsis} [ajuste-nao-codificavel]", Regex.Replace(result.Output, @"\s+", " "));
+        Assert.Contains($"ERRO {GroupedEllipsis} [ajuste-nao-codificavel]", Whitespace().Replace(result.Output, " "));
         Assert.Equal(1, lines.Count(l => l.Contains("[ajuste-nao-codificavel]", StringComparison.Ordinal)));
         Assert.DoesNotContain("O ajuste Reticências", result.Output);
         Assert.Contains("Acentuação · 1.234 erros", lines);
@@ -345,6 +345,12 @@ public sealed class CheckCommandTests : IDisposable
         Assert.Equal("dots", changed.GetProperty("after").GetString());
         Assert.Equal(0, fixedData.GetProperty("settingConflicts").GetArrayLength());
     }
+
+    [GeneratedRegex("Mesmo original")]
+    private static partial Regex SameOriginHeading();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
 
     private static string[] Lines(RunResult result) =>
         [.. result.Output.TrimEnd().ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd())];

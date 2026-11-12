@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using VNForge.AI.Bible;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
@@ -9,7 +10,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-public sealed class BibleViewModelTests : IDisposable
+public sealed partial class BibleViewModelTests : IDisposable
 {
     private readonly TempFolder _temp = new();
     private readonly string _root;
@@ -220,7 +221,7 @@ public sealed class BibleViewModelTests : IDisposable
         var vm = Open();
         await vm.Loading;
         vm.SelectedRow = vm.Rows.Single(r => r.Key == "yst00002");
-        var chapter = System.Text.RegularExpressions.Regex.Replace(vm.SceneHeader[..vm.SceneHeader.IndexOf(" · cena", StringComparison.Ordinal)], @"^Capítulo \d+ · ", string.Empty);
+        var chapter = ChapterPrefix().Replace(vm.SceneHeader[..vm.SceneHeader.IndexOf(" · cena", StringComparison.Ordinal)], string.Empty);
         _project.SaveBible(GameBible.From([new BibleScene("yst00002") { Summary = "x" }]) with
         {
             Timeline = [new BibleTimelineEntry("antes", "a"), new BibleTimelineEntry(chapter, "b"), new BibleTimelineEntry("depois", "c")],
@@ -244,6 +245,9 @@ public sealed class BibleViewModelTests : IDisposable
             return Task.FromResult(reply());
         }
     }
+
+    [GeneratedRegex(@"^Capítulo \d+ · ")]
+    private static partial Regex ChapterPrefix();
 
     private BibleViewModel OpenWith(StubClient client, BudgetLimits? limits = null)
     {

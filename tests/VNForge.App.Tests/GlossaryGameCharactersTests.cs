@@ -72,7 +72,7 @@ public class GlossaryGameCharactersTests
         Assert.Equal(["Mayumi", null, "Mayumi"], units.Select(u => u.Translation));
         Assert.Equal(TranslationStatus.Translated, units[0].Status);
         Assert.Equal("Mayumi", folder.LoadCharacters().Single(c => c.Source == "真弓").Target);
-        Assert.Null(folder.LoadText("yst00001").First().Translation);
+        Assert.Null(folder.LoadText("yst00001")[0].Translation);
         Assert.Equal(1, changed);
     }
 }

@@ -11,6 +11,8 @@ public sealed partial class AllCommandsContractTests
 
     private static readonly string[] ErrorKinds = ["expected", "unexpected", "cancelled"];
 
+    private static readonly string[] RequiredHelp = ["Uso:", "--json", "--yes"];
+
     private static readonly string[] EnglishMarkers =
     [
         "Description:", "Usage:", "Options:", "Commands:", "Arguments:", "[options]", "Show help", "Show version",
@@ -62,7 +64,7 @@ public sealed partial class AllCommandsContractTests
                 problems.Add($"'{path}': saiu com {result.ExitCode}.");
             }
 
-            foreach (var expected in new[] { "Uso:", "--json", "--yes" }.Where(e => !result.Output.Contains(e, StringComparison.Ordinal)))
+            foreach (var expected in RequiredHelp.Where(e => !result.Output.Contains(e, StringComparison.Ordinal)))
             {
                 problems.Add($"'{path}': a ajuda não traz '{expected}'.");
             }

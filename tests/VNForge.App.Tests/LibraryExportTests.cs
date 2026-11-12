@@ -106,7 +106,7 @@ public sealed class LibraryExportTests : IDisposable
     [Fact]
     public async Task Dentro_da_pasta_de_um_jogo_o_dialogo_recusa_e_nao_grava_nada()
     {
-        var game = LibrarySamples.Games().First() with { Folder = _out.Path };
+        var game = LibrarySamples.Games()[0] with { Folder = _out.Path };
         var (library, opened) = await Loaded([game]);
         library.Export.Open();
 

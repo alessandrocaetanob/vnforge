@@ -73,7 +73,7 @@ public class ClippedTextHeadlessTests(HeadlessFixture fixture) : IClassFixture<H
         return false;
     }
 
-    private static Window Open(MainWindowViewModel vm, int width)
+    private static MainWindow Open(MainWindowViewModel vm, int width)
     {
         var window = new MainWindow { DataContext = vm, Width = width, Height = 900 };
         window.Show();

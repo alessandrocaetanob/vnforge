@@ -54,7 +54,11 @@ public class ToastsFromPagesTests : IDisposable
     private readonly FakeTimeProvider relogio = new(new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero));
     private readonly FakeTimeProvider avisos = new();
 
-    public void Dispose() => pasta.Dispose();
+    public void Dispose()
+    {
+        pasta.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private async Task<(MainWindowViewModel Vm, string Root)> Abrir(params TranslationStatus[] statuses)
     {

@@ -336,12 +336,12 @@ public sealed class ReleaseViewModelTests
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var calls = 0;
-        publisher.Blocker = _ =>
+        publisher.Blocker = ct =>
         {
             if (++calls == 4)
             {
                 reached.Set();
-                release.Wait(TimeSpan.FromMinutes(3));
+                release.Wait(TimeSpan.FromMinutes(3), ct);
             }
 
             return false;
@@ -519,12 +519,12 @@ public sealed class ReleaseViewModelTests
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var calls = 0;
-        publisher.Blocker = _ =>
+        publisher.Blocker = ct =>
         {
             if (++calls == 3)
             {
                 reached.Set();
-                release.Wait(TimeSpan.FromMinutes(3));
+                release.Wait(TimeSpan.FromMinutes(3), ct);
             }
 
             return false;

@@ -20,6 +20,7 @@
     <Compile Include="..\..\tests\VNForge.App.Tests\Screens\ScreenCatalog.cs" Link="Telas\ScreenCatalog.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\Screens\ScreenHost.cs" Link="Telas\ScreenHost.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\Support.cs" Link="Telas\Support.cs" />
+    <Compile Include="..\..\tests\VNForge.App.Tests\SamplePaths.cs" Link="Telas\SamplePaths.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\LibrarySamples.cs" Link="Telas\LibrarySamples.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\CharactersSamples.cs" Link="Telas\CharactersSamples.cs" />
     <Compile Include="..\..\tests\VNForge.App.Tests\GameSheetSamples.cs" Link="Telas\GameSheetSamples.cs" />

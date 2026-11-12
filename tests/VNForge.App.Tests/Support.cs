@@ -90,7 +90,7 @@ internal static class SampleProjects
     {
         var folder = ProjectFolder.Create(root, new ProjectConfig(
             name,
-            new GameConfig("D:/Jogos/Qualquer", "Qualquer.exe"),
+            new GameConfig(SamplePaths.Slashed('D', "Jogos", "Qualquer"), "Qualquer.exe"),
             new EngineConfig("yuris", 500, "0xD36FAC96"),
             new LanguagesConfig("ja", "pt-BR"),
             new EncodingConfig("fold"),
