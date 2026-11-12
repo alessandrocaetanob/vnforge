@@ -579,7 +579,7 @@ internal static class ScreenCatalog
         File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
         var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()], appSettings: new AppSettingsFile(config.SubFolder("ajustes")), clock: new FixedClock(ScreenHost.Now), vndb: WizardCatalog());
         var start = new StartViewModel(new RecentProjectsFile(config.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(ScreenHost.Now));
-        var host = ScreenHost.Show(new MainWindowViewModel(start, newProjectWizard: () => wizard), theme, config);
+        var host = ScreenHost.Show(new MainWindowViewModel(start) { NewProjectWizard = () => wizard }, theme, config);
         await Prepare(host, async () =>
         {
             start.NewProjectCommand.Execute(null);

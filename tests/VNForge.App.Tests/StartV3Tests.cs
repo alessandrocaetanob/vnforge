@@ -102,7 +102,7 @@ public class StartV3Tests
         var game = temp.SubFolder("jogo");
         File.WriteAllText(Path.Combine(game, "Jogo.exe"), "MZ");
         var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()]);
-        var vm = new MainWindowViewModel(Create(temp), newProjectWizard: () => wizard);
+        var vm = new MainWindowViewModel(Create(temp)) { NewProjectWizard = () => wizard };
 
         await vm.Start.DropFolderAsync(game);
 

@@ -111,13 +111,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
-    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, Func<NewProjectWizardViewModel>? newProjectWizard = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
+    public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
         Start = start;
         Images = new();
         Library = library ?? LibraryViewModel.Detached();
-        WireLibrary(start, newProjectWizard);
+        WireLibrary(start);
         Dashboard = new(clock: start.Clock);
         Toasts = toasts ?? new ToastService();
         Settings = settings ?? new SettingsViewModel(new MemoryApiKeyStore(), new AppSettingsFile(Path.Combine(Path.GetTempPath(), "VNForge-sem-ajustes", Guid.NewGuid().ToString("N"))));
@@ -217,12 +217,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             LineNavigation = ShowChangedSinceTestAsync(key);
         };
         start.ProjectOpened += (_, summary) => SetProject(summary);
-        start.NewProjectRequested += (_, _) => ShowWizard(newProjectWizard);
+        start.NewProjectRequested += (_, _) => ShowWizard(NewProjectWizard);
         Dashboard.Context = () => new DashboardContext(Settings.Rate, Settings.Budget, ApiKeyConfigured);
         Dashboard.Eval.TranslationProviderFactory = (model, effort) => TranslationProviderFactory(model, effort);
         Dashboard.Eval.JudgeProviderFactory = model => JudgeProviderFactory(model);
         start.Detail.Context = Dashboard.Context;
-        start.GameFolderChosen += (_, folder) => ShowWizard(newProjectWizard, folder);
+        start.GameFolderChosen += (_, folder) => ShowWizard(NewProjectWizard, folder);
         start.NextStepRequested += (_, request) => OpenFromDashboard(request);
         Bible.EditorRequested += (_, key) =>
         {
@@ -236,7 +236,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         start.DashboardRequested += (_, _) => SelectedNav = dashboardItem;
     }
 
-    private void WireLibrary(StartViewModel start, Func<NewProjectWizardViewModel>? newProjectWizard)
+    private void WireLibrary(StartViewModel start)
     {
         Library.RecentProjects = () => recentProjects;
         start.Recents.CollectionChanged += (_, _) => recentProjects = [.. start.Recents.Select(r => r.Path)];
@@ -255,8 +255,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 Play.Enter(Library.GameOfProject(project.Root));
             }
         };
-        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
-        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, newProjectWizard);
+        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, NewProjectWizard);
+        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, NewProjectWizard);
         Characters.PropertyChanged += (_, e) =>
         {
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(CharactersViewModel.OpenName) or nameof(CharactersViewModel.StatusText))
@@ -338,6 +338,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             LineNavigation = ShowScriptAsync(script);
         }
     }
+
+    /// <summary>Cria o assistente de novo projeto; lido quando a pessoa pede um projeto novo, então pode ser definido logo depois de criar a janela.</summary>
+    public Func<NewProjectWizardViewModel>? NewProjectWizard { get; init; }
 
     public StartViewModel Start { get; }
 

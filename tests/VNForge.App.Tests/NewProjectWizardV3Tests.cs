@@ -190,7 +190,7 @@ public sealed class NewProjectWizardV3Tests : IDisposable
         var settings = new SettingsViewModel(new MemoryApiKeyStore(), file, clock: new FixedClock(Today));
         var wizard = Create(file: file);
         var start = new StartViewModel(new RecentProjectsFile(temp.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(Today));
-        var main = new MainWindowViewModel(start, settings: settings, newProjectWizard: () => wizard);
+        var main = new MainWindowViewModel(start, settings: settings) { NewProjectWizard = () => wizard };
         start.NewProjectCommand.Execute(null);
         await wizard.SetGameFolderAsync(game);
         wizard.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
