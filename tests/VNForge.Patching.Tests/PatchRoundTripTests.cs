@@ -196,6 +196,69 @@ public class PatchRoundTripTests
     }
 
     [Fact]
+    public void Desinstalar_pula_o_arquivo_que_a_pessoa_ja_devolveu_ao_original_ou_apagou()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        PatchInstaller.Install(game.Game, package, null, Ct);
+        File.Copy(Path.Combine(game.Original, "Game/Game.exe"), Path.Combine(game.Game, "Game/Game.exe"), overwrite: true);
+        File.Delete(Path.Combine(game.Game, SyntheticGame.CreatedFile));
+
+        var plan = PatchInstaller.PlanUninstall(game.Game);
+        var result = PatchInstaller.Uninstall(game.Game, null, Ct);
+
+        Assert.Equal(["Game/script.ypf"], plan.Restore);
+        Assert.Empty(plan.Remove);
+        Assert.Empty(plan.Kept);
+        Assert.Empty(result.Kept);
+        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
+    }
+
+    [Fact]
+    public void Cancelar_no_meio_da_instalacao_devolve_o_jogo_ao_original()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        using var cts = new CancellationTokenSource();
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            PatchInstaller.Install(game.Game, package, new Progress(phase =>
+            {
+                if (phase == PatchPhase.Apply)
+                {
+                    cts.Cancel();
+                }
+            }), cts.Token));
+
+        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
+        Assert.Null(PatchInstaller.InstalledVersion(game.Game));
+    }
+
+    [Fact]
+    public void Arquivo_que_sumiu_ou_pasta_que_nao_existe_recusam_a_instalacao_dizendo_o_que_falta()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        File.Delete(Path.Combine(game.Game, "Game/Game.exe"));
+
+        var check = PatchInstaller.Check(game.Game, package);
+
+        Assert.Equal(PatchCheckState.WrongVersion, check.State);
+        Assert.Contains("Game/Game.exe: não encontrei o arquivo", PatchInstaller.DescribeMismatch(check));
+        Assert.Throws<PatchException>(() => PatchInstaller.Check(Path.Combine(game.Root, "nao-existe"), package));
+    }
+
+    [Fact]
+    public void Manifesto_de_instalacao_ilegivel_conta_como_jogo_sem_instalacao()
+    {
+        using var game = new SyntheticGame();
+        Directory.CreateDirectory(Path.Combine(game.Game, PatchInstaller.BackupFolderName));
+        File.WriteAllText(Path.Combine(game.Game, PatchInstaller.BackupFolderName, "manifest.json"), "{ isto não é json");
+
+        Assert.Null(PatchInstaller.InstalledVersion(game.Game));
+    }
+
+    [Fact]
     public void O_plano_da_desinstalacao_sem_instalacao_e_recusado()
     {
         using var game = new SyntheticGame();

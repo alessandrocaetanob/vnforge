@@ -119,6 +119,69 @@ public class PatchUpdateAndValidationTests
         Assert.Throws<PatchException>(() => PatchPackage.Open(package));
     }
 
+    [Theory]
+    [InlineData(" ", 0L, 4L)]
+    [InlineData("Game/a.bin", -1L, 4L)]
+    [InlineData("Game/a.bin", 0L, -1L)]
+    public void Entrada_sem_caminho_ou_com_tamanho_negativo_e_recusada(string path, long offset, long length)
+    {
+        var package = ManualPackage([Entry(path, offset, length)], payloadBytes: 8);
+
+        var error = Assert.Throws<PatchException>(() => PatchPackage.Open(package));
+
+        Assert.Contains("entrada inválida", error.Message);
+    }
+
+    [Fact]
+    public void Manifesto_sem_arquivos_ou_com_capa_grande_demais_e_recusado()
+    {
+        Assert.Contains("sem arquivos", Assert.Throws<PatchException>(() => PatchPackage.Open(ManualPackage([], payloadBytes: 8))).Message);
+
+        var bigCover = new byte[PatchPackage.MaxCoverBytes + 1];
+        Assert.Contains("capa grande demais", Assert.Throws<PatchException>(() => PatchPackage.Open(ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8, bigCover))).Message);
+    }
+
+    [Theory]
+    [InlineData(8, 2)]
+    [InlineData(12, 0)]
+    public void Cabecalho_de_outro_formato_ou_com_manifesto_de_tamanho_invalido_e_recusado(int position, byte value)
+    {
+        var bytes = ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8).ToArray();
+        bytes[position] = value;
+
+        Assert.Throws<PatchException>(() => PatchPackage.Open(new MemoryStream(bytes)));
+    }
+
+    [Fact]
+    public void Patch_novo_que_deixa_de_mexer_num_arquivo_devolve_o_original_dele_e_apaga_o_que_o_antigo_criou()
+    {
+        using var game = new SyntheticGame();
+        InstallFirstVersionAndChangeBuild(game);
+        using var second = PackageOf(SyntheticGame.Info("1.2.0", "1.1.0"), game.Sources()[0]);
+
+        PatchInstaller.Install(game.Game, second, null, Ct);
+
+        Assert.Equal(SyntheticGame.Sha(Path.Combine(game.Build, "Game/script.ypf")), SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
+        Assert.Equal(SyntheticGame.Sha(Path.Combine(game.Original, "Game/Game.exe")), SyntheticGame.Sha(Path.Combine(game.Game, "Game/Game.exe")));
+        Assert.False(File.Exists(Path.Combine(game.Game, SyntheticGame.CreatedFile)));
+        PatchInstaller.Uninstall(game.Game, null, Ct);
+        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
+    }
+
+    [Fact]
+    public void Patch_novo_que_deixa_de_mexer_num_arquivo_nao_desfaz_o_que_a_pessoa_mudou_nele()
+    {
+        using var game = new SyntheticGame();
+        InstallFirstVersionAndChangeBuild(game);
+        File.WriteAllBytes(Path.Combine(game.Game, "Game/Game.exe"), [1, 2, 3]);
+        using var second = PackageOf(SyntheticGame.Info("1.2.0", "1.1.0"), game.Sources()[0]);
+
+        PatchInstaller.Install(game.Game, second, null, Ct);
+
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(Path.Combine(game.Game, "Game/Game.exe")));
+        Assert.Equal(["Game/Game.exe"], PatchInstaller.Uninstall(game.Game, null, Ct).Kept);
+    }
+
     [Fact]
     public void Manifesto_valido_com_o_delta_dentro_do_pacote_abre()
     {
@@ -158,9 +221,16 @@ public class PatchUpdateAndValidationTests
     private static PatchFileEntry Entry(string path, long offset, long length) =>
         new(path, new string('a', 64), 10, new string('b', 64), 10, offset, length);
 
-    private static MemoryStream ManualPackage(List<PatchFileEntry> files, int payloadBytes)
+    private static PatchPackage PackageOf(PatchInfo info, params PatchSource[] sources)
     {
-        var manifest = new PatchManifest("Jogo", "1.0.0", null, null, null, files);
+        var stream = new MemoryStream();
+        PatchBuilder.Build(info, sources, stream, cancellationToken: Ct);
+        return PatchPackage.Open(new MemoryStream(stream.ToArray()));
+    }
+
+    private static MemoryStream ManualPackage(List<PatchFileEntry> files, int payloadBytes, byte[]? cover = null)
+    {
+        var manifest = new PatchManifest("Jogo", "1.0.0", null, null, null, files, Cover: cover);
         var stream = new MemoryStream();
         PatchPackage.Write(stream, manifest, new MemoryStream(new byte[payloadBytes]));
         stream.Position = 0;
