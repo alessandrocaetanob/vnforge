@@ -634,7 +634,7 @@ public sealed class ProjectFolder
     private void WriteConfig(string json, bool overwrite) =>
         WriteAtomically(ConfigPath, json, overwrite);
 
-    // newTemporaryPath existe para o teste prender o temporario antes da escrita: o nome real leva um Guid que ninguem conhece de antemao.
+    // newTemporaryPath existe para o teste prender o temporário antes da escrita: o nome real leva um Guid que ninguém conhece de antemão.
     internal static void WriteAtomically(string path, string content, bool overwrite, Action<int>? wait = null, Func<string>? newTemporaryPath = null)
     {
         var temporary = newTemporaryPath?.Invoke() ?? $"{path}.{Guid.NewGuid():N}.tmp";
@@ -646,7 +646,7 @@ public sealed class ProjectFolder
         }
         finally
         {
-            File.Delete(temporary);
+            ProjectFileIo.DeleteQuietly(temporary);
         }
     }
 }

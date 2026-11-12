@@ -155,14 +155,14 @@ public class ProjectFolderConcurrencyTests
     [Fact]
     public void WriteAtomically_espera_o_temporario_preso_e_conclui_quando_a_nova_tentativa_o_solta()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS abrir um arquivo ja aberto nao falha.");
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS abrir um arquivo já aberto não falha.");
 
         using var temp = new TempFolder();
         var destino = Path.Combine(temp.Path, "projeto.json");
         var temporario = destino + ".preso.tmp";
         File.WriteAllText(destino, "antigo");
 
-        // O antivirus ou o indexador segura o temporario logo depois de criado; aqui ele ja esta preso quando a escrita comeca.
+        // O antivírus ou o indexador segura o temporário logo depois de criado; aqui ele já está preso quando a escrita começa.
         var preso = new FileStream(temporario, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
         var esperas = new List<int>();
 

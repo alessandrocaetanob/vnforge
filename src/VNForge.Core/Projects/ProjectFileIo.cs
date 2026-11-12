@@ -40,6 +40,19 @@ internal static class ProjectFileIo
             return 0;
         }, wait);
 
+    /// <summary>Apaga o temporário sem deixar uma falha da limpeza (arquivo ainda preso) esconder a falha que já está subindo.</summary>
+    internal static void DeleteQuietly(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // O temporário que sobra é só lixo na pasta.
+        }
+    }
+
     /// <summary>Move <paramref name="source"/> sobre <paramref name="destination"/>, esperando quem o estiver lendo.</summary>
     internal static void Move(string source, string destination, bool overwrite) =>
         Move(source, destination, overwrite, Thread.Sleep);

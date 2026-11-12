@@ -134,12 +134,12 @@ public sealed record EditorSuggestionsFile(int Version, IReadOnlyList<EditorSugg
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temp, JsonSerializer.Serialize(file with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false));
+            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(file with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
             ProjectFileIo.Move(temp, path, overwrite: true);
         }
         finally
         {
-            File.Delete(temp);
+            ProjectFileIo.DeleteQuietly(temp);
         }
     }
 

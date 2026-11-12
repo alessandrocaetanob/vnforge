@@ -18,12 +18,17 @@ internal static class AtomicFile
         var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            writeTemporary(temporary);
-            ProjectFileIo.Move(temporary, path, overwrite: true, wait ?? Thread.Sleep);
+            var sleep = wait ?? Thread.Sleep;
+            ProjectFileIo.Retry<int>(null, () =>
+            {
+                writeTemporary(temporary);
+                return 0;
+            }, sleep);
+            ProjectFileIo.Move(temporary, path, overwrite: true, sleep);
         }
         finally
         {
-            File.Delete(temporary);
+            ProjectFileIo.DeleteQuietly(temporary);
         }
     }
 }

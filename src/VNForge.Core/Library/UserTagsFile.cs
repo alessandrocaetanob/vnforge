@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -102,7 +103,7 @@ public sealed class UserTagsFile(string directory)
         var temporary = $"{Path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temporary, Serialize(tags));
+            ProjectFileIo.WriteAllText(temporary, Serialize(tags), new UTF8Encoding(false), Thread.Sleep);
             ProjectFileIo.Move(temporary, Path, overwrite: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -111,20 +112,7 @@ public sealed class UserTagsFile(string directory)
         }
         finally
         {
-            DeleteQuietly(temporary);
-        }
-    }
-
-    /// <summary>Apaga o temporário sem deixar uma falha da limpeza esconder a falha que já está subindo.</summary>
-    private static void DeleteQuietly(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // O temporário que sobra é só lixo na pasta: a falha de limpeza não pode mascarar a que já está subindo.
+            ProjectFileIo.DeleteQuietly(temporary);
         }
     }
 
