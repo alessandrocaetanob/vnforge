@@ -95,12 +95,12 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temp, JsonSerializer.Serialize(sessions with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false));
+            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(sessions with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
             ProjectFileIo.Move(temp, path, overwrite: true);
         }
         finally
         {
-            File.Delete(temp);
+            ProjectFileIo.DeleteQuietly(temp);
         }
     }
 

@@ -289,12 +289,12 @@ public sealed class RestorePointStore
             var temporary = $"{manifest}.{Guid.NewGuid():N}.tmp";
             try
             {
-                File.WriteAllText(temporary, JsonSerializer.Serialize(new Manifest(CurrentVersion, point.Id, point.Title, point.CreatedAt, point.LineCount, point.Scripts, point.Formatting), Json), Utf8);
+                ProjectFileIo.WriteAllText(temporary, JsonSerializer.Serialize(new Manifest(CurrentVersion, point.Id, point.Title, point.CreatedAt, point.LineCount, point.Scripts, point.Formatting), Json), Utf8, Thread.Sleep);
                 ProjectFileIo.Move(temporary, manifest, overwrite: true);
             }
             finally
             {
-                File.Delete(temporary);
+                ProjectFileIo.DeleteQuietly(temporary);
             }
 
             Prune(now);
@@ -343,12 +343,12 @@ public sealed class RestorePointStore
         var temporary = $"{project.FormattingPath}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temporary, before, Utf8);
+            ProjectFileIo.WriteAllText(temporary, before, Utf8, Thread.Sleep);
             ProjectFileIo.Move(temporary, project.FormattingPath, overwrite: true);
         }
         finally
         {
-            File.Delete(temporary);
+            ProjectFileIo.DeleteQuietly(temporary);
         }
 
         return (true, false);

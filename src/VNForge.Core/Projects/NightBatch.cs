@@ -129,16 +129,12 @@ public sealed class NightBatchStore(ProjectFolder project)
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temp, JsonSerializer.Serialize(state, Json) + "\n", new UTF8Encoding(false));
-            File.Move(temp, path, overwrite: true);
+            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(state, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
+            ProjectFileIo.Move(temp, path, overwrite: true);
         }
         catch
         {
-            if (File.Exists(temp))
-            {
-                File.Delete(temp);
-            }
-
+            ProjectFileIo.DeleteQuietly(temp);
             throw;
         }
     }
