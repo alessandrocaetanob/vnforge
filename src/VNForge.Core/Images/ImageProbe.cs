@@ -113,7 +113,7 @@ public static class ImageProbe
             }
 
             // SOI/EOI/RSTn/TEM não têm tamanho; chegar ao EOI ou aos dados sem achar um SOF é arquivo sem tamanho.
-            if (marker is 0xD8 or 0x01 or (>= 0xD0 and <= 0xD7))
+            if (HasNoLength(marker))
             {
                 position += 2;
                 continue;
@@ -125,18 +125,9 @@ public static class ImageProbe
             }
 
             var length = BinaryPrimitives.ReadUInt16BigEndian(data[(position + 2)..]);
-            if (marker is >= 0xC0 and <= 0xCF and not 0xC4 and not 0xC8 and not 0xCC)
+            if (IsStartOfFrame(marker))
             {
-                // Segmento SOF: comprimento (2), precisão (1), altura (2), largura (2).
-                if (position + 9 > data.Length)
-                {
-                    return null;
-                }
-
-                return new ImageInfo(
-                    ImageFormat.Jpeg,
-                    BinaryPrimitives.ReadUInt16BigEndian(data[(position + 7)..]),
-                    BinaryPrimitives.ReadUInt16BigEndian(data[(position + 5)..]));
+                return ReadStartOfFrame(data, position);
             }
 
             if (length < 2)
@@ -148,6 +139,24 @@ public static class ImageProbe
         }
 
         return null;
+    }
+
+    private static bool HasNoLength(byte marker) => marker is 0xD8 or 0x01 or (>= 0xD0 and <= 0xD7);
+
+    private static bool IsStartOfFrame(byte marker) => marker is >= 0xC0 and <= 0xCF and not 0xC4 and not 0xC8 and not 0xCC;
+
+    // Segmento SOF: comprimento (2), precisão (1), altura (2), largura (2).
+    private static ImageInfo? ReadStartOfFrame(ReadOnlySpan<byte> data, int position)
+    {
+        if (position + 9 > data.Length)
+        {
+            return null;
+        }
+
+        return new ImageInfo(
+            ImageFormat.Jpeg,
+            BinaryPrimitives.ReadUInt16BigEndian(data[(position + 7)..]),
+            BinaryPrimitives.ReadUInt16BigEndian(data[(position + 5)..]));
     }
 
     private static ImageInfo? ReadWebP(ReadOnlySpan<byte> data)

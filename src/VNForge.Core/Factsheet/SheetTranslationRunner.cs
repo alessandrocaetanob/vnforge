@@ -280,27 +280,41 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                             s.SaveGame(game);
                             saved++;
                             break;
-                        case SheetFieldKind.Character when field.Id is { } characterId && s.LoadCharacter(characterId) is { Description: { } description } character && Fresh(description, item, force, overwrite):
-                            s.SaveCharacter(character with { Description = description.TranslatedByAi(target) });
+                        case SheetFieldKind.Character when SaveCharacter(s, field, item, target, force, overwrite):
                             saved++;
                             break;
-                        case SheetFieldKind.Tag or SheetFieldKind.Trait:
-                        {
-                            var kind = field.Kind == SheetFieldKind.Tag ? SheetTermKind.Tag : SheetTermKind.Trait;
-                            if (terms.Find(kind, field.Id!) is { } term && Fresh(term.Text, item, force, overwrite))
-                            {
-                                terms.Replace(kind, field.Id!, term.Text.TranslatedByAi(target));
-                                saved++;
-                            }
-
+                        case SheetFieldKind.Tag or SheetFieldKind.Trait when ReplaceTerm(terms, field, item, target, force, overwrite):
+                            saved++;
                             break;
-                        }
                     }
                 }
 
                 s.SaveTerms(terms);
                 return saved;
             });
+
+    private static bool SaveCharacter(SheetStore s, SheetField field, SheetTranslationItem item, string target, bool force, bool overwrite)
+    {
+        if (field.Id is not { } characterId || s.LoadCharacter(characterId) is not { Description: { } description } character || !Fresh(description, item, force, overwrite))
+        {
+            return false;
+        }
+
+        s.SaveCharacter(character with { Description = description.TranslatedByAi(target) });
+        return true;
+    }
+
+    private static bool ReplaceTerm(SheetTerms terms, SheetField field, SheetTranslationItem item, string target, bool force, bool overwrite)
+    {
+        var kind = field.Kind == SheetFieldKind.Tag ? SheetTermKind.Tag : SheetTermKind.Trait;
+        if (terms.Find(kind, field.Id!) is not { } term || !Fresh(term.Text, item, force, overwrite))
+        {
+            return false;
+        }
+
+        terms.Replace(kind, field.Id!, term.Text.TranslatedByAi(target));
+        return true;
+    }
 
     private static bool Fresh(SheetText current, SheetTranslationItem item, bool force, bool overwrite) =>
         string.Equals(current.Source, item.Source, StringComparison.Ordinal) && (overwrite || Needs(current, force));

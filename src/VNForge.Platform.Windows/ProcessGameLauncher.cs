@@ -52,7 +52,12 @@ public sealed class ProcessGameLauncher : IGameLauncher
     private static GameProcessState? PollGame(string launcherExecutable, string gameFolder, IReadOnlySet<int> before)
     {
         var ids = LauncherGameFinder.Find(Running(), launcherExecutable, gameFolder, before);
-        return ids.Count == 0 ? null : ids.All(JobGameProcess.IsSuspended) ? GameProcessState.Suspended : GameProcessState.Running;
+        if (ids.Count == 0)
+        {
+            return null;
+        }
+
+        return ids.All(JobGameProcess.IsSuspended) ? GameProcessState.Suspended : GameProcessState.Running;
     }
 
     [SupportedOSPlatform("windows")]

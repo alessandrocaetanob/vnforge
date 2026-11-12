@@ -134,15 +134,8 @@ public static class TextDiff
         return [.. tokens];
     }
 
-    private static void MiddleSteps(ReadOnlySpan<int> a, ReadOnlySpan<int> b, List<(TextDiffKind Kind, int Rune)> steps)
+    private static int[] LcsTable(ReadOnlySpan<int> a, ReadOnlySpan<int> b)
     {
-        if (a.Length == 0 || b.Length == 0 || (long)(a.Length + 1) * (b.Length + 1) > MaxCells)
-        {
-            steps.AddRange(a.ToArray().Select(r => (TextDiffKind.Missing, r)));
-            steps.AddRange(b.ToArray().Select(r => (TextDiffKind.Added, r)));
-            return;
-        }
-
         var width = b.Length + 1;
         var lcs = new int[(a.Length + 1) * width];
         for (var i = a.Length - 1; i >= 0; i--)
@@ -155,6 +148,20 @@ public static class TextDiff
             }
         }
 
+        return lcs;
+    }
+
+    private static void MiddleSteps(ReadOnlySpan<int> a, ReadOnlySpan<int> b, List<(TextDiffKind Kind, int Rune)> steps)
+    {
+        if (a.Length == 0 || b.Length == 0 || (long)(a.Length + 1) * (b.Length + 1) > MaxCells)
+        {
+            steps.AddRange(a.ToArray().Select(r => (TextDiffKind.Missing, r)));
+            steps.AddRange(b.ToArray().Select(r => (TextDiffKind.Added, r)));
+            return;
+        }
+
+        var width = b.Length + 1;
+        var lcs = LcsTable(a, b);
         int x = 0, y = 0;
         while (x < a.Length && y < b.Length)
         {

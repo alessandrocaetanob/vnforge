@@ -33,30 +33,7 @@ public static class SheetProjectBridge
         List<VndbLinkedCharacter> linked = [];
         foreach (var character in characters)
         {
-            var appearance = character.In(game.VisualNovelId);
-            string? description = null;
-            if (character.Description is { } text && (appearance?.WorstSpoiler ?? 0) == 0)
-            {
-                if (Ready(text, minimum))
-                {
-                    description = SheetMarkup.StripSpoilers(text.Target);
-                    original[character.Id] = [.. new[] { SheetMarkup.StripSpoilers(text.Source), VndbText.Clean(text.Source) }.OfType<string>()];
-                }
-                else
-                {
-                    notReady++;
-                }
-            }
-
-            linked.Add(new VndbLinkedCharacter(
-                character.Id,
-                character.Name,
-                character.Original,
-                character.Aliases,
-                VndbProjectLinker.GenderOf(character.Gender),
-                description,
-                appearance?.Role ?? "appears",
-                character.Image));
+            linked.Add(Link(character, game.VisualNovelId, minimum, original, ref notReady));
         }
 
         var applied = VndbProjectLinker.ApplyCharacters(
@@ -67,14 +44,7 @@ public static class SheetProjectBridge
         {
             if (Ready(synopsis, minimum))
             {
-                if (SheetMarkup.StripSpoilers(synopsis.Target) is { } plain)
-                {
-                    project.UpdateBible(bible =>
-                    {
-                        synopsisApplied = bible.Synopsis.Length == 0;
-                        return synopsisApplied ? bible.WithGeneratedOverview(plain, bible.Timeline) : bible;
-                    });
-                }
+                synopsisApplied = ApplySynopsis(project, synopsis);
             }
             else
             {
@@ -83,6 +53,51 @@ public static class SheetProjectBridge
         }
 
         return new SheetBridgeResult(applied, synopsisApplied, notReady, characters.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
+    }
+
+    private static VndbLinkedCharacter Link(
+        CharacterSheet character, string visualNovelId, TranslationStatus minimum, Dictionary<string, HashSet<string>> original, ref int notReady)
+    {
+        var appearance = character.In(visualNovelId);
+        string? description = null;
+        if (character.Description is { } text && (appearance?.WorstSpoiler ?? 0) == 0)
+        {
+            if (Ready(text, minimum))
+            {
+                description = SheetMarkup.StripSpoilers(text.Target);
+                original[character.Id] = [.. new[] { SheetMarkup.StripSpoilers(text.Source), VndbText.Clean(text.Source) }.OfType<string>()];
+            }
+            else
+            {
+                notReady++;
+            }
+        }
+
+        return new VndbLinkedCharacter(
+            character.Id,
+            character.Name,
+            character.Original,
+            character.Aliases,
+            VndbProjectLinker.GenderOf(character.Gender),
+            description,
+            appearance?.Role ?? "appears",
+            character.Image);
+    }
+
+    private static bool ApplySynopsis(ProjectFolder project, SheetText synopsis)
+    {
+        if (SheetMarkup.StripSpoilers(synopsis.Target) is not { } plain)
+        {
+            return false;
+        }
+
+        var applied = false;
+        project.UpdateBible(bible =>
+        {
+            applied = bible.Synopsis.Length == 0;
+            return applied ? bible.WithGeneratedOverview(plain, bible.Timeline) : bible;
+        });
+        return applied;
     }
 
     private static bool Ready(SheetText text, TranslationStatus minimum) => text.HasTarget && text.Status >= minimum;

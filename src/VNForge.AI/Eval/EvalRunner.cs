@@ -249,15 +249,7 @@ public static class EvalRunner
             error ??= judgeError;
         }
 
-        var lines = set.Lines
-            .Select(unit =>
-            {
-                var result = translations.GetValueOrDefault(unit.Id);
-                var refused = result is null || result.Refused || string.IsNullOrWhiteSpace(result.Translation);
-                var text = refused ? string.Empty : result!.Translation;
-                return new EvalLineResult(unit.Id, text, refused ? 0.0 : Chrf.Score(reference[unit.Id], text), judged.TryGetValue(unit.Id, out var score) ? score : null, refused);
-            })
-            .ToList();
+        var lines = set.Lines.Select(unit => LineResult(unit, translations.GetValueOrDefault(unit.Id), reference[unit.Id], judged.TryGetValue(unit.Id, out var score) ? score : null)).ToList();
 
         var usage = provider.Usage();
         return new EvalConfigReport(
@@ -272,6 +264,13 @@ public static class EvalRunner
             seconds,
             error,
             Chrf.Corpus(lines.Select(l => ((string?)reference[l.LineId], (string?)l.Translation))));
+    }
+
+    private static EvalLineResult LineResult(TextUnit unit, TranslationResult? result, string reference, double? judge)
+    {
+        var refused = result is null || result.Refused || string.IsNullOrWhiteSpace(result.Translation);
+        var text = refused ? string.Empty : result!.Translation;
+        return new EvalLineResult(unit.Id, text, refused ? 0.0 : Chrf.Score(reference, text), judge, refused);
     }
 
     private static string StoppedText(EvalRunRequest request, EvalConfig config, bool keptAny, int kept = 0, int asked = 0)

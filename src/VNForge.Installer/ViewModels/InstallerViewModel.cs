@@ -586,52 +586,59 @@ public sealed partial class InstallerViewModel : ObservableObject
 
     private void ShowAlreadyInstalled(PatchUninstallPlan plan)
     {
-        var count = plan.Restore.Count + plan.Remove.Count;
-        var restoreNames = plan.Restore.Select(InstallerText.FileName).ToList();
-        var removeNames = plan.Remove.Select(InstallerText.FileName).ToList();
-        InstallerCard card;
-        string intro;
-        if (plan.BrokenBackups.Count > 0)
-        {
-            var name = InstallerText.FileName(plan.BrokenBackups[0]);
-            card = new InstallerCard(InstallerCardKind.Error, $"A cópia do original de {name} não confere", "Sem ela o instalador não devolve o jogo. Nada foi alterado; instale o jogo de novo.");
-            intro = "Voltar ao original só é possível com as cópias que o instalador guardou na instalação.";
-        }
-        else
-        {
-            var restoreVerb = restoreNames.Count == 1 ? "volta" : "voltam";
-            var detail = count == 0
-                ? "Nenhum arquivo do jogo mudou desde a instalação."
-                : $"{InstallerText.NameList(restoreNames)} {restoreVerb} byte a byte.";
-            if ((restoreNames.Count == 0 && removeNames.Count > 0) || (count == 0 && plan.Kept.Count > 0))
-            {
-                detail = string.Empty;
-            }
-
-            if (removeNames.Count > 0)
-            {
-                detail = $"{detail} {InstallerText.NameList(removeNames)} {(removeNames.Count == 1 ? "sai" : "saem")} da pasta.".Trim();
-            }
-
-            if (plan.Kept.Count > 0)
-            {
-                var kept = plan.Kept.Count == 1;
-                detail = $"{detail} {InstallerText.NameList([.. plan.Kept.Select(InstallerText.FileName)])} {(kept ? "fica" : "ficam")} como {(kept ? "está" : "estão")}: {(kept ? "mudou" : "mudaram")} depois da instalação.".Trim();
-            }
-
-            card = new InstallerCard(InstallerCardKind.Ok, count == 0 ? "Nenhum arquivo para devolver" : $"{InstallerText.Files(count)} para devolver", detail);
-            var when = plan.InstalledAt is { } at
-                ? $", guardados em {TimeZoneInfo.ConvertTime(at, _time.LocalTimeZone).ToString("dd/MM 'às' HH:mm", System.Globalization.CultureInfo.InvariantCulture)},"
-                : string.Empty;
-            intro = $"Os arquivos originais{when} estão inteiros. Voltar ao original apaga a tradução do jogo e não mexe nos seus saves.";
-        }
-
+        var (card, intro) = plan.BrokenBackups.Count > 0 ? BrokenBackupView(plan) : RestorableView(plan);
         Screen = InstallerScreen.AlreadyInstalled;
         Title = $"A tradução {plan.Version} já está instalada";
         Intro = intro;
         Note = string.Empty;
         Card = card;
         ExitCode = InstallerApp.Ok;
+    }
+
+    private static (InstallerCard Card, string Intro) BrokenBackupView(PatchUninstallPlan plan)
+    {
+        var name = InstallerText.FileName(plan.BrokenBackups[0]);
+        return (
+            new InstallerCard(InstallerCardKind.Error, $"A cópia do original de {name} não confere", "Sem ela o instalador não devolve o jogo. Nada foi alterado; instale o jogo de novo."),
+            "Voltar ao original só é possível com as cópias que o instalador guardou na instalação.");
+    }
+
+    private (InstallerCard Card, string Intro) RestorableView(PatchUninstallPlan plan)
+    {
+        var count = plan.Restore.Count + plan.Remove.Count;
+        var card = new InstallerCard(InstallerCardKind.Ok, count == 0 ? "Nenhum arquivo para devolver" : $"{InstallerText.Files(count)} para devolver", RestorableDetail(plan));
+        var when = plan.InstalledAt is { } at
+            ? $", guardados em {TimeZoneInfo.ConvertTime(at, _time.LocalTimeZone).ToString("dd/MM 'às' HH:mm", System.Globalization.CultureInfo.InvariantCulture)},"
+            : string.Empty;
+        return (card, $"Os arquivos originais{when} estão inteiros. Voltar ao original apaga a tradução do jogo e não mexe nos seus saves.");
+    }
+
+    private static string RestorableDetail(PatchUninstallPlan plan)
+    {
+        var count = plan.Restore.Count + plan.Remove.Count;
+        var restoreNames = plan.Restore.Select(InstallerText.FileName).ToList();
+        var removeNames = plan.Remove.Select(InstallerText.FileName).ToList();
+        var restoreVerb = restoreNames.Count == 1 ? "volta" : "voltam";
+        var detail = count == 0
+            ? "Nenhum arquivo do jogo mudou desde a instalação."
+            : $"{InstallerText.NameList(restoreNames)} {restoreVerb} byte a byte.";
+        if ((restoreNames.Count == 0 && removeNames.Count > 0) || (count == 0 && plan.Kept.Count > 0))
+        {
+            detail = string.Empty;
+        }
+
+        if (removeNames.Count > 0)
+        {
+            detail = $"{detail} {InstallerText.NameList(removeNames)} {(removeNames.Count == 1 ? "sai" : "saem")} da pasta.".Trim();
+        }
+
+        return plan.Kept.Count > 0 ? $"{detail} {KeptSentence(plan.Kept)}".Trim() : detail;
+    }
+
+    private static string KeptSentence(IReadOnlyList<string> keptFiles)
+    {
+        var kept = keptFiles.Count == 1;
+        return $"{InstallerText.NameList([.. keptFiles.Select(InstallerText.FileName)])} {(kept ? "fica" : "ficam")} como {(kept ? "está" : "estão")}: {(kept ? "mudou" : "mudaram")} depois da instalação.";
     }
 
     private void ShowDone(string folder, PatchInstallResult result)

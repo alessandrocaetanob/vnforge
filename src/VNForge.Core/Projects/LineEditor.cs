@@ -15,7 +15,7 @@ public sealed class LineEditor
     private readonly ProjectFolder project;
     private readonly TimeProvider clock;
     private readonly Action<string, IReadOnlyList<TextUnit>> save;
-    private readonly object punctuationGate = new();
+    private readonly Lock punctuationGate = new();
     private (DateTime Stamp, long Length, KeyboardPunctuation? Value)? punctuation;
 
     public LineEditor(ProjectFolder project, TimeProvider clock)

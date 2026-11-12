@@ -10,8 +10,16 @@ namespace VNForge.Core.Vndb;
 public sealed record VndbImageRef([property: JsonRequired] string Url, double Sexual = 0, double Violence = 0)
 {
     /// <summary>A referência da capa: a miniatura quando o VNDB tem, que basta para as telas e pesa menos; nula sem imagem.</summary>
-    public static VndbImageRef? Cover(VndbImage? image) =>
-        image is null ? null : new VndbImageRef(string.IsNullOrEmpty(image.ThumbnailUrl) ? image.Url : image.ThumbnailUrl, image.Sexual, image.Violence);
+    public static VndbImageRef? Cover(VndbImage? image)
+    {
+        if (image is null)
+        {
+            return null;
+        }
+
+        var url = string.IsNullOrEmpty(image.ThumbnailUrl) ? image.Url : image.ThumbnailUrl;
+        return new VndbImageRef(url, image.Sexual, image.Violence);
+    }
 
     /// <summary>A referência do retrato: a imagem inteira (o VNDB não dá miniatura de personagem); nula sem imagem.</summary>
     public static VndbImageRef? Portrait(VndbImage? image) =>

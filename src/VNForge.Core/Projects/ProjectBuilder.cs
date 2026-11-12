@@ -70,6 +70,33 @@ public sealed record BuildResult(
 /// </remarks>
 public static class ProjectBuilder
 {
+    private static void RequireFolders(ProjectFolder project, string gameDirectory)
+    {
+        if (!Directory.Exists(gameDirectory))
+        {
+            throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
+        }
+
+        if (ProjectExtractor.IsInside(ProjectExtractor.ResolveLinks(gameDirectory), ProjectExtractor.ResolveLinks(project.BuildDirectory)))
+        {
+            throw new VNForgeException(
+                $"O build/ do projeto ('{project.BuildDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
+        }
+
+        if (!Directory.Exists(project.GameCacheDirectory))
+        {
+            throw new VNForgeException($"A pasta '{project.GameCacheDirectory}' não existe. Rode vnf extract antes do build.");
+        }
+    }
+
+    private static void AddProblem(List<string> warnings, string? problem)
+    {
+        if (problem is not null)
+        {
+            warnings.Add(problem);
+        }
+    }
+
     /// <summary>Reconstrói o jogo do <paramref name="project"/> em <c>build/</c>.</summary>
     /// <param name="project">Projeto aberto, já extraído (<c>vnf extract</c>).</param>
     /// <param name="engines">Engines conhecidas; vale a de <c>engine.id</c> do <c>vnforge.json</c>.</param>
@@ -102,21 +129,7 @@ public static class ProjectBuilder
         var encoder = (encoders ?? TextEncoderRegistry.Default).Create(options?.EncodingStrategy ?? config.Encoding.Strategy, config.Style.SpeakerDelimiter);
 
         var gameDirectory = Path.GetFullPath(config.Game.Path, project.Root);
-        if (!Directory.Exists(gameDirectory))
-        {
-            throw new VNForgeException($"A pasta do jogo não existe: {gameDirectory}");
-        }
-
-        if (ProjectExtractor.IsInside(ProjectExtractor.ResolveLinks(gameDirectory), ProjectExtractor.ResolveLinks(project.BuildDirectory)))
-        {
-            throw new VNForgeException(
-                $"O build/ do projeto ('{project.BuildDirectory}') fica dentro da pasta do jogo ('{gameDirectory}'): o VNForge não grava nada no jogo fora da injeção com backup.");
-        }
-
-        if (!Directory.Exists(project.GameCacheDirectory))
-        {
-            throw new VNForgeException($"A pasta '{project.GameCacheDirectory}' não existe. Rode vnf extract antes do build.");
-        }
+        RequireFolders(project, gameDirectory);
 
         var game = unpacker.Open(project.GameCacheDirectory);
         if (game.Scripts.Count == 0)
@@ -146,16 +159,9 @@ public static class ProjectBuilder
         // Depois do relatório de codificação: o erro específico (com a posição) vem antes do QA genérico. O QA vê só os scripts do jogo, como o relatório; texto de script que não existe mais não é gravado.
         var characters = project.LoadCharacters();
         var addressTerms = project.LoadAddressTermsOrEmpty(out var addressProblem);
-        if (addressProblem is not null)
-        {
-            warnings.Add(addressProblem);
-        }
-
+        AddProblem(warnings, addressProblem);
         var ignoredWords = project.LoadIgnoredWordsOrEmpty(out var ignoredProblem);
-        if (ignoredProblem is not null)
-        {
-            warnings.Add(ignoredProblem);
-        }
+        AddProblem(warnings, ignoredProblem);
 
         var qaReport = (qa ?? QaEngine.Default).Run(new QaContext(loaded.Where(t => gameKeys.Contains(t.Key)).ToDictionary(t => t.Key, t => t.Value), project.LoadGlossary(), characters, profile, encoder) { Style = config.Style, AddressTerms = addressTerms, IgnoredWords = ignoredWords, Dictionary = dictionary });
         if (qaReport.Blocks(allowWarnings))
