@@ -49,7 +49,7 @@ internal static class CharactersSamples
         new(id, $"C:\\Jogos\\{folder}", null, LibraryEngine.Unknown, title, null, Now) { VndbId = vndbId, Confirmation = LibraryConfirmation.Manual };
 
     /// <summary>Grava as fichas dos três jogos e uma Biblioteca com os dois primeiros; <paramref name="matched"/> casa a edição r1 com a pasta do jogo 1.</summary>
-    public static async Task SeedAsync(string configDirectory, bool matched = false, bool showSpoilers = false, CancellationToken ct = default, bool manyTraits = false, bool adultPortrait = false)
+    public static async Task SeedAsync(string configDirectory, bool matched = false, bool showSpoilers = false, bool manyTraits = false, bool adultPortrait = false, CancellationToken ct = default)
     {
         var store = new SheetStore(configDirectory);
         foreach (var id in new[] { Moon, Star, Outside })

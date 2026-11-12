@@ -26,9 +26,11 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
 
     private const string Original = "犬井";
 
+    private static readonly string[] SpeakerBlockNames = ["Falante", "Quem fala no contexto"];
+
     private static void AssertCopyMenu(SelectableTextBlock block)
     {
-        var flyout = Assert.IsAssignableFrom<MenuFlyout>(block.ContextFlyout);
+        var flyout = Assert.IsType<MenuFlyout>(block.ContextFlyout, exactMatch: false);
         Assert.Contains(flyout.Items.OfType<MenuItem>(), i => Equals(i.Header, "Copiar nome original"));
     }
 
@@ -39,7 +41,7 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
         window.MouseDown(center, MouseButton.Right);
         window.MouseUp(center, MouseButton.Right);
         Dispatcher.UIThread.RunJobs();
-        var flyout = Assert.IsAssignableFrom<MenuFlyout>(block.ContextFlyout);
+        var flyout = Assert.IsType<MenuFlyout>(block.ContextFlyout, exactMatch: false);
         Assert.True(flyout.IsOpen);
         return [.. flyout.Items.OfType<MenuItem>().Where(i => i.IsVisible)];
     }
@@ -115,7 +117,7 @@ public sealed class SpeakerCopyHeadlessTests(HeadlessFixture fixture) : IClassFi
                 var window = Show(new LineDetailView { DataContext = vm.Detail }, 420, 1000);
                 var blocks = window.GetVisualDescendants().OfType<SelectableTextBlock>().Where(b => b.IsEffectivelyVisible).ToList();
 
-                foreach (var name in new[] { "Falante", "Quem fala no contexto" })
+                foreach (var name in SpeakerBlockNames)
                 {
                     var block = Assert.Single(blocks, b => AutomationProperties.GetName(b) == name);
                     var items = RightClick(window, block);

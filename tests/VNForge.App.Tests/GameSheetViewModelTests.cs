@@ -31,7 +31,7 @@ public sealed class GameSheetViewModelTests : IDisposable
 
     private async Task<GameSheetViewModel> ReadyAsync(bool translate = true, string? directory = null)
     {
-        await GameSheetSamples.SeedAsync(directory ?? _config.Path, translate, Ct);
+        await GameSheetSamples.SeedAsync(directory ?? _config.Path, translate, ct: Ct);
         var vm = Create(directory: directory);
         vm.Open(GameSheetSamples.Id, "Amaoto no Hakoniwa");
         await vm.Loading;
@@ -55,7 +55,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal("Tentar de novo", vm.EmptyActionText);
 
         File.Delete(Store.GamePath(GameSheetSamples.Id));
-        await GameSheetSamples.SeedAsync(_config.Path, translate: false, Ct);
+        await GameSheetSamples.SeedAsync(_config.Path, translate: false, ct: Ct);
         vm.EmptyActionCommand!.Execute(null);
         await vm.Loading;
 
@@ -174,7 +174,7 @@ public sealed class GameSheetViewModelTests : IDisposable
     /// <summary>A mesma ficha com uma tag erótica e o retrato do primeiro personagem marcado como sexual, no modo adulto da Biblioteca.</summary>
     private async Task<GameSheetViewModel> AdultAsync(AdultMode mode, AdultReveal? reveals = null)
     {
-        await GameSheetSamples.SeedAsync(_config.Path, translate: false, Ct, GameSheetSamples.AdultCatalog());
+        await GameSheetSamples.SeedAsync(_config.Path, translate: false, catalog: GameSheetSamples.AdultCatalog(), ct: Ct);
         new LibraryFile(_config.Path).Save(new GameLibrary([new LibraryGame("g1", "C:\\Jogos\\Amaoto", null, LibraryEngine.Unknown, "Amaoto", null, GameSheetSamples.Now) { VndbId = GameSheetSamples.Id }], new LibraryPrivacy(Adult: mode)));
         var vm = Create();
         if (reveals is not null)
@@ -341,10 +341,10 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal(3d / 8, review.ProgressFraction, 5);
         Assert.Equal(["Tudo", "Só IA", "Só pendentes"], review.Filters.Select(f => f.Label));
         Assert.Contains("Amaoto no Hakoniwa", review.KeepText, StringComparison.Ordinal);
-        Assert.Single(review.Pairs);
-        Assert.Equal("Sinopse", review.Pairs[0].Title);
-        Assert.True(review.Pairs[0].CanEdit);
-        Assert.False(review.Pairs[0].HasHint);
+        var pair = Assert.Single(review.Pairs);
+        Assert.Equal("Sinopse", pair.Title);
+        Assert.True(pair.CanEdit);
+        Assert.False(pair.HasHint);
         Assert.True(review.CanAct);
     }
 

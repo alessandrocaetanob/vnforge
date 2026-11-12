@@ -24,7 +24,7 @@ public sealed class CharactersViewModelTests : IDisposable
 
     private async Task<CharactersViewModel> OpenAsync(bool matched = false, bool showSpoilers = false)
     {
-        await CharactersSamples.SeedAsync(_config.Path, matched, showSpoilers, Ct);
+        await CharactersSamples.SeedAsync(_config.Path, matched, showSpoilers, ct: Ct);
         var vm = new CharactersViewModel { ConfigDirectory = _config.Path };
         await vm.LoadAsync();
         return vm;
@@ -217,7 +217,7 @@ public sealed class CharactersViewModelTests : IDisposable
     [Fact]
     public async Task O_retrato_adulto_tem_uma_chave_so_na_lista_e_na_pagina_e_so_o_jogo_dela_o_revela()
     {
-        await CharactersSamples.SeedAsync(_config.Path, matched: true, showSpoilers: true, Ct, adultPortrait: true);
+        await CharactersSamples.SeedAsync(_config.Path, matched: true, showSpoilers: true, adultPortrait: true, ct: Ct);
         var reveals = new AdultReveal();
         var vm = new CharactersViewModel { ConfigDirectory = _config.Path, Reveals = reveals };
         await vm.LoadAsync();

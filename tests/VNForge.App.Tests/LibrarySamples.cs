@@ -28,28 +28,32 @@ internal static class LibrarySamples
         new("g9", "Segredos", "cont", 1.8, 0), new("g10", "Final trágico", "cont", 1.5, 2),
     ];
 
-    private static LibraryGame Game(string folder, string title, string original, LibraryEngine engine, int? length, int? minutes, bool confirmed = true, bool adult = false, string? project = null)
+    private static LibraryGame Local(string folder, string title, string original, LibraryEngine engine)
     {
         var path = Path.Combine("D:\\", "Jogos", "VN", folder);
-        var game = new LibraryGame(GameLibrary.IdFor(path), GameLibrary.NormalizeFolder(path), folder + ".exe", engine, title, original, Now.AddDays(-3))
+        return new LibraryGame(GameLibrary.IdFor(path), GameLibrary.NormalizeFolder(path), folder + ".exe", engine, title, original, Now.AddDays(-3))
         {
-            ProjectPath = project,
             SearchedAt = Now.AddDays(-3),
         };
-        return confirmed
-            ? game with
-            {
-                VndbId = "v31201",
-                Confirmation = LibraryConfirmation.Auto,
-                Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, adult ? [.. Tags(), new("g11", "Nudez", "ero", 2.4, 0)] : Tags(), adult),
-            }
-            : game;
     }
+
+    private static LibraryGame Game(string folder, string title, string original, LibraryEngine engine, int? length, int? minutes, bool adult = false)
+    {
+        LibraryTag[] tags = adult ? [.. Tags(), new LibraryTag("g11", "Nudez", "ero", 2.4, 0)] : Tags();
+        return Local(folder, title, original, engine) with
+        {
+            VndbId = "v31201",
+            Confirmation = LibraryConfirmation.Auto,
+            Info = new LibraryVndbInfo(title, original, "2019-04-12", "https://t.vndb.org/cv/" + folder + ".jpg", "Sinopse do VNDB.", length, minutes, 40, tags, adult),
+        };
+    }
+
+    private static LibraryGame InProject(LibraryGame game, string projectPath) => game with { ProjectPath = projectPath };
 
     /// <summary>Os 12 jogos: 5 sem suporte (Siglus, três KiriKiri, Ren'Py), um sem engine, um adulto, um a confirmar e três com projeto (38%, 100% e 12%).</summary>
     public static IReadOnlyList<LibraryGame> Games()
     {
-        var korin = Game("korin_no_mori", "Kōrin no Mori", "光輪の森", RenPy, null, null, confirmed: false) with
+        var korin = Local("korin_no_mori", "Kōrin no Mori", "光輪の森", RenPy) with
         {
             Exe = "game.exe",
             Candidates =
@@ -59,18 +63,18 @@ internal static class LibrarySamples
                 new LibraryCandidate("v9", "Kōrin", "光輪", "2014", 0.45, []) { Image = new VndbImageRef("https://t.vndb.org/cv/korin.jpg"), Length = 2, LengthMinutes = 180, Rating = 64 },
             ],
         };
-        var toge = Game("toge_no_kaji", "Tōge no Kaji", "峠の鍛冶", LibraryEngine.Unknown, null, null, confirmed: false) with { WindowTitle = "峠の鍛冶" };
+        var toge = Local("toge_no_kaji", "Tōge no Kaji", "峠の鍛冶", LibraryEngine.Unknown) with { WindowTitle = "峠の鍛冶" };
         return
         [
-            Game("amaoto_hakoniwa", "Amaoto no Hakoniwa", "雨音の箱庭", YuRis, 3, 1080, project: "C:\\Projetos\\amaoto"),
+            InProject(Game("amaoto_hakoniwa", "Amaoto no Hakoniwa", "雨音の箱庭", YuRis, 3, 1080), "C:\\Projetos\\amaoto"),
             Game("shirogane_st9", "Shirogane Station 9", "銀の九番線", Siglus, 4, 2520),
             Game("yugure_kissaten", "Yūgure Kissaten", "夕暮れ喫茶", KiriKiri, 2, 360),
             korin,
             Game("nanairo_ressha", "Nanairo Ressha", "七色列車", YuRis, 3, 840),
-            Game("hoshikuzu_diary", "Hoshikuzu Diary", "星屑日記", YuRis, 2, 420, project: "C:\\Projetos\\hoshikuzu"),
+            InProject(Game("hoshikuzu_diary", "Hoshikuzu Diary", "星屑日記", YuRis, 2, 420), "C:\\Projetos\\hoshikuzu"),
             Game("kuroneko_archive", "Kuroneko Archive", "黒猫", KiriKiri, 3, 660, adult: true),
             toge,
-            Game("namiuchigiwa", "Namiuchigiwa no Shiori", "波打ち際の栞", YuRis, 3, 1200, project: "C:\\Projetos\\namiuchigiwa"),
+            InProject(Game("namiuchigiwa", "Namiuchigiwa no Shiori", "波打ち際の栞", YuRis, 3, 1200), "C:\\Projetos\\namiuchigiwa"),
             Game("akatsuki_koro", "Akatsuki no Kōro", "暁の航路", YuRis, 4, 2160),
             Game("tsukiyo_hanabi", "Tsukiyo no Hanabi", "月夜の花火", YuRis, 2, 300),
             Game("fuyu_shiori", "Fuyu no Shiori", "冬の栞", KiriKiri, 3, 900),
@@ -110,8 +114,15 @@ internal static class LibrarySamples
 
         public event EventHandler? PrivacyChanged
         {
-            add { }
-            remove { }
+            add
+            {
+                // A privacidade desta fonte é fixa: ninguém precisa ser avisado.
+            }
+
+            remove
+            {
+                // Sem assinantes guardados, não há o que remover.
+            }
         }
 
         public BitmapLease? TryGet(VndbImageRef image) => BitmapLease.Own(Png(image.Url));
