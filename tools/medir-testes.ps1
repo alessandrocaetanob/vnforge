@@ -27,7 +27,7 @@ $sw = [Diagnostics.Stopwatch]::StartNew()
 $p = Start-Process -FilePath dotnet -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $log -WorkingDirectory $root
 $peak = 0
 while (-not $p.HasExited) {
-  try { $p.Refresh(); if ($p.PeakWorkingSet64 -gt $peak) { $peak = $p.PeakWorkingSet64 } } catch {}
+  try { $p.Refresh(); if ($p.PeakWorkingSet64 -gt $peak) { $peak = $p.PeakWorkingSet64 } } catch { Write-Verbose "Leitura do pico falhou: $($_.Exception.Message)" }
   Start-Sleep -Milliseconds 250
 }
 $sw.Stop()

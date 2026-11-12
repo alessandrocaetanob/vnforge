@@ -193,7 +193,7 @@ public sealed class TranslationRunner
         CancellationTokenSource stop)
     {
         private readonly ConcurrentDictionary<int, IReadOnlyList<TranslationResult>> _done = new();
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private int _completedLines;
         private Exception? _callbackError;
         private int _limitReached;

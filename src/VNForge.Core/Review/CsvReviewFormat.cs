@@ -63,7 +63,7 @@ internal sealed class CsvReviewFormat : IReviewFormat
         int Index(string name) => columns.IndexOf(name);
         var (id, kind, speaker, source, translation, status, notes) =
             (Index("id"), Index("kind"), Index("speaker"), Index("source"), Index("translation"), Index("status"), Index("notes"));
-        string Cell(List<string> fields, int index) => index < 0 ? string.Empty : fields[index];
+        static string Cell(List<string> fields, int index) => index < 0 ? string.Empty : fields[index];
 
         var rows = new List<ReviewRow>(records.Count - 1);
         foreach (var (line, fields) in records.Skip(1))

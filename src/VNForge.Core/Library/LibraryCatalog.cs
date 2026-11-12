@@ -58,7 +58,7 @@ public static class LibraryLength
     public static string? Short(int? minutes, int? category)
     {
         var votes = minutes is > 0 ? minutes : null;
-        var band = category is >= 1 and <= 5 ? category : votes is { } m ? CategoryOf(m) : null;
+        var band = BandOf(category, votes);
         if (band is null)
         {
             return null;
@@ -68,8 +68,35 @@ public static class LibraryLength
         return votes is { } minutesVoted ? $"{name} · {Hours(minutesVoted)}" : name;
     }
 
-    private static int CategoryOf(int minutes) =>
-        minutes < 120 ? 1 : minutes < 600 ? 2 : minutes < 1800 ? 3 : minutes < 3000 ? 4 : 5;
+    private static int? BandOf(int? category, int? votes)
+    {
+        if (category is >= 1 and <= 5)
+        {
+            return category;
+        }
+
+        return votes is { } minutes ? CategoryOf(minutes) : null;
+    }
+
+    private static int CategoryOf(int minutes)
+    {
+        if (minutes < 120)
+        {
+            return 1;
+        }
+
+        if (minutes < 600)
+        {
+            return 2;
+        }
+
+        if (minutes < 1800)
+        {
+            return 3;
+        }
+
+        return minutes < 3000 ? 4 : 5;
+    }
 
     private static string Hours(int minutes) =>
         minutes < 60 ? $"{minutes} min" : $"{((int)Math.Round(minutes / 60.0, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture)} h";
@@ -79,7 +106,7 @@ public static class LibraryLength
 /// O catálogo exportável (d10, #555): uma página HTML só, sem script, com as VNs da Biblioteca que têm jogo do VNDB confirmado. Cada jogo leva a ficha (capa, sinopse, tags, duração e a nota do VNDB),
 /// o que a pessoa jogou (<see cref="PlayLog"/>), a nota e os rótulos dela, e quanto traduziu (o projeto ligado pelo <see cref="LibraryProjectLinker"/>). A sinopse e os personagens vêm de
 /// <see cref="ILibrarySheetSource"/> e, sem ficha traduzida, é o texto original do VNDB que vale. Imagem nunca é copiada: entra como endereço do VNDB (HTTPS em <c>vndb.org</c>, conferido por
-/// <see cref="VndbImageVisibility.IsAllowedSource"/>), e a página declara uma política de conteúdo que só deixa imagem do VNDB carregar. Todo texto é escapado. O rodapé dá o crédito ao VNDB e à ODbL.
+/// <see cref="VndbImageVisibility.IsAllowedSource"/>), e a página declara uma política de conteúdo que só deixa imagem do VNDB carregar. Cada texto é escapado. O rodapé dá o crédito ao VNDB e à ODbL.
 /// O documento é XML bem formado (elementos vazios fechados), para abrir em qualquer navegador e passar por um leitor XML nos testes.
 /// </summary>
 public static partial class LibraryCatalog

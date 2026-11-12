@@ -85,7 +85,7 @@ public sealed class GameLauncher(IGameProcessStarter starter)
     private static void EnsureRegistered(ProjectFolder project, string configured, string gameDirectory)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         var wanted = Normalize(gameDirectory);
         var registered = new List<string>();
         if (project.LoadState().GameDirectory is { } extracted)
