@@ -130,35 +130,7 @@ internal static partial class LibraryCommand
 
         if (shown.Count > 0)
         {
-            List<TableColumn> columns = [CliViews.Column("#", right: true), CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Português no VNDB"), CliViews.Column("Texto"), CliViews.Column("Engine")];
-            if (all)
-            {
-                columns.Add(CliViews.Column("Situação"));
-            }
-
-            var table = CliViews.NewTable([.. columns]);
-            for (var i = 0; i < shown.Count; i++)
-            {
-                var entry = shown[i];
-                var length = LengthCell(entry.Game.Info);
-                List<IRenderable> cells =
-                [
-                    new Markup(CliFormat.Number(i + 1)),
-                    new Markup(entry.Game.Id),
-                    new Markup(CliViews.Escape(entry.Game.Title)),
-                    new Markup(CliViews.Escape(PortugueseCell(entry))),
-                    new Markup(length is null ? EmptyCell : CliViews.Escape(length)),
-                    new Markup(CliViews.Escape(entry.Game.Engine.Name)),
-                ];
-                if (all)
-                {
-                    cells.Add(new Markup(CliViews.Escape(StateText(entry.State))));
-                }
-
-                table.AddRow([.. cells]);
-            }
-
-            cli.Ansi.Write(table);
+            cli.Ansi.Write(QueueTable(shown, all));
         }
 
         foreach (var failure in run?.Failures.Take(10) ?? [])
@@ -190,6 +162,39 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine(VndbCredit.ShortText);
+    }
+
+    private static Table QueueTable(IReadOnlyList<TranslationQueueEntry> shown, bool all)
+    {
+        List<TableColumn> columns = [CliViews.Column("#", right: true), CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Português no VNDB"), CliViews.Column("Texto"), CliViews.Column("Engine")];
+        if (all)
+        {
+            columns.Add(CliViews.Column("Situação"));
+        }
+
+        var table = CliViews.NewTable([.. columns]);
+        for (var i = 0; i < shown.Count; i++)
+        {
+            var entry = shown[i];
+            var length = LengthCell(entry.Game.Info);
+            List<IRenderable> cells =
+            [
+                new Markup(CliFormat.Number(i + 1)),
+                new Markup(entry.Game.Id),
+                new Markup(CliViews.Escape(entry.Game.Title)),
+                new Markup(CliViews.Escape(PortugueseCell(entry))),
+                new Markup(length is null ? EmptyCell : CliViews.Escape(length)),
+                new Markup(CliViews.Escape(entry.Game.Engine.Name)),
+            ];
+            if (all)
+            {
+                cells.Add(new Markup(CliViews.Escape(StateText(entry.State))));
+            }
+
+            table.AddRow([.. cells]);
+        }
+
+        return table;
     }
 
     private static async Task<int> TranslateAsync(VnfCli cli, ParseResult parseResult, string reference, string? folderArgument, CancellationToken token)

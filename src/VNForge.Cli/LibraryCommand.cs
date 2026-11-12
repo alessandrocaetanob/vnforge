@@ -635,27 +635,7 @@ internal static partial class LibraryCommand
         var listed = privacy.Listed(library.Games);
         if (reference is not null)
         {
-            if (HasTagFilterOptions(parseResult))
-            {
-                throw new UsageException("--tag, --any, --not, --save e --saved valem para a lista; com um jogo, mostre as tags dele com vnf library tag list <jogo>.");
-            }
-
-            var game = library.Find(reference);
-            if (privacy.Hides(game))
-            {
-                throw new LibraryException($"O jogo '{game.Title}' é de conteúdo adulto e a biblioteca o esconde (vnf library privacy --adult). Use --show-adult para vê-lo só nesta chamada.");
-            }
-
-            if (json)
-            {
-                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
-            }
-            else
-            {
-                WriteSheet(output, game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id));
-            }
-
-            return ErrorHandler.OkExitCode;
+            return ListOne(cli, parseResult, library, privacy, played, tags, reference);
         }
 
         var filter = TagFilterOf(parseResult, tags);
@@ -688,37 +668,7 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var showTags = tags.Tags.Count > 0;
-        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo")];
-        if (showTags)
-        {
-            columns.Add(CliViews.Column("Minhas tags"));
-        }
-
-        var table = CliViews.NewTable([.. columns]);
-        foreach (var game in games)
-        {
-            var stats = played.StatsOf(game.Id);
-            List<IRenderable> cells =
-            [
-                new Markup(game.Id),
-                new Markup(CliViews.Escape(game.Title)),
-                new Markup(CliViews.Escape(game.Engine.Name)),
-                new Markup(CliViews.Escape(MatchText(game))),
-                new Markup(game.ProjectPath is null ? EmptyCell : "sim"),
-                new Markup(stats.Sessions == 0 ? EmptyCell : CliViews.Escape(PlayTime.Format(stats.Total))),
-                new Markup(stats.LastPlayedAt is null ? EmptyCell : CliViews.Escape(LastPlayedText(stats))),
-            ];
-            if (showTags)
-            {
-                var own = tags.TagsOf(game.Id);
-                cells.Add(new Markup(own.Count == 0 ? EmptyCell : CliViews.Escape(string.Join(", ", own))));
-            }
-
-            table.AddRow([.. cells]);
-        }
-
-        cli.Ansi.Write(table);
+        cli.Ansi.Write(ListTable(games, played, tags));
         if (!filter.IsEmpty)
         {
             output.WriteLine($"Filtro por tag: {DescribeFilter(shownFilter)}.{(saveFilter ? " Salvo." : string.Empty)}");
@@ -735,7 +685,72 @@ internal static partial class LibraryCommand
         {
             output.WriteLine($"{CliFormat.Count(library.Games.Count - listed.Count, "jogo adulto escondido", "jogos adultos escondidos")}; use --show-adult para vê-los só nesta chamada.");
         }
+
         return ErrorHandler.OkExitCode;
+    }
+
+    private static int ListOne(VnfCli cli, ParseResult parseResult, GameLibrary library, LibraryPrivacy privacy, PlayLog played, UserTags tags, string reference)
+    {
+        if (HasTagFilterOptions(parseResult))
+        {
+            throw new UsageException("--tag, --any, --not, --save e --saved valem para a lista; com um jogo, mostre as tags dele com vnf library tag list <jogo>.");
+        }
+
+        var game = library.Find(reference);
+        if (privacy.Hides(game))
+        {
+            throw new LibraryException($"O jogo '{game.Title}' é de conteúdo adulto e a biblioteca o esconde (vnf library privacy --adult). Use --show-adult para vê-lo só nesta chamada.");
+        }
+
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
+        }
+        else
+        {
+            WriteSheet(output, game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id));
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static Table ListTable(IReadOnlyList<LibraryGame> games, PlayLog played, UserTags tags)
+    {
+        var showTags = tags.Tags.Count > 0;
+        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo")];
+        if (showTags)
+        {
+            columns.Add(CliViews.Column("Minhas tags"));
+        }
+
+        var table = CliViews.NewTable([.. columns]);
+        foreach (var game in games)
+        {
+            table.AddRow(ListRow(game, played.StatsOf(game.Id), showTags ? tags.TagsOf(game.Id) : null));
+        }
+
+        return table;
+    }
+
+    private static IRenderable[] ListRow(LibraryGame game, PlayStats stats, IReadOnlyList<string>? ownTags)
+    {
+        List<IRenderable> cells =
+        [
+            new Markup(game.Id),
+            new Markup(CliViews.Escape(game.Title)),
+            new Markup(CliViews.Escape(game.Engine.Name)),
+            new Markup(CliViews.Escape(MatchText(game))),
+            new Markup(game.ProjectPath is null ? EmptyCell : "sim"),
+            new Markup(stats.Sessions == 0 ? EmptyCell : CliViews.Escape(PlayTime.Format(stats.Total))),
+            new Markup(stats.LastPlayedAt is null ? EmptyCell : CliViews.Escape(LastPlayedText(stats))),
+        ];
+        if (ownTags is not null)
+        {
+            cells.Add(new Markup(ownTags.Count == 0 ? EmptyCell : CliViews.Escape(string.Join(", ", ownTags))));
+        }
+
+        return [.. cells];
     }
 
     private static bool HasTagFilterOptions(ParseResult parseResult) =>
@@ -855,6 +870,11 @@ internal static partial class LibraryCommand
             return;
         }
 
+        WriteVndbCard(output, game, card);
+    }
+
+    private static void WriteVndbCard(TextWriter output, LibraryGame game, LibraryGameCard card)
+    {
         output.WriteLine($"  VNDB: {game.VndbId} (https://vndb.org/{game.VndbId})");
         if (card.OriginalTitle is not null && card.OriginalTitle != card.Title)
         {

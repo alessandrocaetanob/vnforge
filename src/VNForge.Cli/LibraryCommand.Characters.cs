@@ -119,23 +119,7 @@ internal static partial class LibraryCommand
         }
 
         var filtered = !string.IsNullOrWhiteSpace(text) || traits.Length > 0 || gameId is not null;
-        if (list.Characters.Count == 0)
-        {
-            output.WriteLine(filtered
-                ? "Nenhum personagem da biblioteca combina com a busca."
-                : "Nenhum personagem na biblioteca ainda. Traga-os do VNDB com vnf library characters sync.");
-        }
-        else
-        {
-            output.WriteLine($"{CliFormat.Count(list.Characters.Count, "personagem", "personagens")}{(filtered ? " na busca" : " na biblioteca")}:");
-            foreach (var character in list.Characters)
-            {
-                var games = string.Join(", ", character.AppearsIn.Select(a => $"{a.GameTitle} ({a.Role})"));
-                output.WriteLine($"  {character.Id}  {character.Name}{(character.Original is { } original ? $" ({original})" : string.Empty)} · {games}"
-                    + (character.HiddenAppearances > 0 ? $" (mais {CliFormat.Count(character.HiddenAppearances, "jogo escondido", "jogos escondidos")})" : string.Empty));
-            }
-        }
-
+        WriteCharacterLines(output, list, filtered);
         if (list.Hidden > 0)
         {
             output.WriteLine($"{CliFormat.Count(list.Hidden, "personagem escondido", "personagens escondidos")} por spoiler; --show-spoilers libera só esta chamada.");
@@ -143,6 +127,25 @@ internal static partial class LibraryCommand
 
         output.WriteLine(VndbCredit.ShortText);
         return ErrorHandler.OkExitCode;
+    }
+
+    private static void WriteCharacterLines(TextWriter output, LibraryCharacterList list, bool filtered)
+    {
+        if (list.Characters.Count == 0)
+        {
+            output.WriteLine(filtered
+                ? "Nenhum personagem da biblioteca combina com a busca."
+                : "Nenhum personagem na biblioteca ainda. Traga-os do VNDB com vnf library characters sync.");
+            return;
+        }
+
+        output.WriteLine($"{CliFormat.Count(list.Characters.Count, "personagem", "personagens")}{(filtered ? " na busca" : " na biblioteca")}:");
+        foreach (var character in list.Characters)
+        {
+            var games = string.Join(", ", character.AppearsIn.Select(a => $"{a.GameTitle} ({a.Role})"));
+            output.WriteLine($"  {character.Id}  {character.Name}{(character.Original is { } original ? $" ({original})" : string.Empty)} · {games}"
+                + (character.HiddenAppearances > 0 ? $" (mais {CliFormat.Count(character.HiddenAppearances, "jogo escondido", "jogos escondidos")})" : string.Empty));
+        }
     }
 
     private static int CharactersShow(VnfCli cli, ParseResult parseResult, string id)
@@ -185,12 +188,7 @@ internal static partial class LibraryCommand
 
         if (card.Description is { } description)
         {
-            output.WriteLine($"  Descrição ({SheetState(description)}):");
-            WriteIndented(output, description.Text, "    ");
-            if (description.HasHiddenSpoilers)
-            {
-                output.WriteLine("    (trechos de spoiler escondidos; use --show-spoilers)");
-            }
+            WriteCharacterDescription(output, description);
         }
 
         output.WriteLine("  Traços: " + (card.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", card.Traits.Select(t => t.Name)))
@@ -213,6 +211,16 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine("  " + VndbCredit.ShortText);
+    }
+
+    private static void WriteCharacterDescription(TextWriter output, SheetShownText description)
+    {
+        output.WriteLine($"  Descrição ({SheetState(description)}):");
+        WriteIndented(output, description.Text, "    ");
+        if (description.HasHiddenSpoilers)
+        {
+            output.WriteLine("    (trechos de spoiler escondidos; use --show-spoilers)");
+        }
     }
 
     private static async Task<int> CharactersSyncAsync(VnfCli cli, ParseResult parseResult, CancellationToken token)

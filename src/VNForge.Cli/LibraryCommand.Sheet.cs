@@ -272,13 +272,11 @@ internal static partial class LibraryCommand
 
     private static void WriteSheet(TextWriter output, GameSheetCard card, LibraryPrivacy privacy, bool ids)
     {
-        static string Id(bool show, string key) => show ? $" [{key}]" : string.Empty;
-
         output.WriteLine($"{card.Title} ({card.VisualNovelId}){(card.OriginalTitle is { } original && original != card.Title ? $" · {original}" : string.Empty)}");
         output.WriteLine($"  Duração: {card.Length}");
         if (card.Synopsis is { } synopsis)
         {
-            output.WriteLine($"  Sinopse ({SheetState(synopsis)}){Id(ids, SheetField.Synopsis.Key)}:");
+            output.WriteLine($"  Sinopse ({SheetState(synopsis)}){ShowId(ids, SheetField.Synopsis.Key)}:");
             WriteIndented(output, synopsis.Text, "    ");
             if (synopsis.HasHiddenSpoilers)
             {
@@ -286,7 +284,7 @@ internal static partial class LibraryCommand
             }
         }
 
-        output.WriteLine("  Tags: " + (card.Tags.Count == 0 ? "nenhuma" : string.Join(", ", card.Tags.Select(t => t.Name + Id(ids, SheetField.OfTag(t.Id).Key))))
+        output.WriteLine("  Tags: " + (card.Tags.Count == 0 ? "nenhuma" : string.Join(", ", card.Tags.Select(t => t.Name + ShowId(ids, SheetField.OfTag(t.Id).Key))))
             + (card.HiddenTags > 0 ? $" ({CliFormat.Count(card.HiddenTags, "tag escondida", "tags escondidas")}; spoiler e conteúdo adulto)" : string.Empty));
         output.WriteLine($"  Personagens: {card.Characters.Count}{(card.HiddenCharacters > 0 ? $" (mais {CliFormat.Count(card.HiddenCharacters, "escondido", "escondidos")} por spoiler; use --show-spoilers)" : string.Empty)}"
             + (card.CharactersTruncated ? "; o VNDB tem mais do que o limite trazido" : string.Empty));
@@ -297,28 +295,7 @@ internal static partial class LibraryCommand
 
         foreach (var character in card.Characters)
         {
-            output.WriteLine($"    {character.Name}{(character.Original is { } name ? $" ({name})" : string.Empty)}{Id(ids, SheetField.OfCharacter(character.Id).Key)} · {character.Role} · {character.Gender}"
-                + (character.RealGender is { } real ? $" (real: {real})" : string.Empty));
-            if (character.ImageHidden)
-            {
-                output.WriteLine("      Retrato: escondido (conteúdo adulto; use --show-adult)");
-            }
-            else if (character.Image is { } image)
-            {
-                output.WriteLine($"      Retrato: {image.Url}");
-            }
-
-            if (character.Description is { } description)
-            {
-                output.WriteLine($"      Descrição ({SheetState(description)}):");
-                WriteIndented(output, description.Text, "        ");
-            }
-
-            if (character.Traits.Count > 0 || character.HiddenTraits > 0)
-            {
-                output.WriteLine("      Traços: " + (character.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", character.Traits.Select(t => t.Name + Id(ids, SheetField.OfTrait(t.Id).Key))))
-                    + (character.HiddenTraits > 0 ? $" ({CliFormat.Count(character.HiddenTraits, "escondido", "escondidos")})" : string.Empty));
-            }
+            WriteSheetCharacter(output, character, ids);
         }
 
         var counts = card.Counts;
@@ -329,6 +306,34 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine("  " + VndbCredit.ShortText);
+    }
+
+    private static string ShowId(bool show, string key) => show ? $" [{key}]" : string.Empty;
+
+    private static void WriteSheetCharacter(TextWriter output, SheetCharacterCard character, bool ids)
+    {
+        output.WriteLine($"    {character.Name}{(character.Original is { } name ? $" ({name})" : string.Empty)}{ShowId(ids, SheetField.OfCharacter(character.Id).Key)} · {character.Role} · {character.Gender}"
+            + (character.RealGender is { } real ? $" (real: {real})" : string.Empty));
+        if (character.ImageHidden)
+        {
+            output.WriteLine("      Retrato: escondido (conteúdo adulto; use --show-adult)");
+        }
+        else if (character.Image is { } image)
+        {
+            output.WriteLine($"      Retrato: {image.Url}");
+        }
+
+        if (character.Description is { } description)
+        {
+            output.WriteLine($"      Descrição ({SheetState(description)}):");
+            WriteIndented(output, description.Text, "        ");
+        }
+
+        if (character.Traits.Count > 0 || character.HiddenTraits > 0)
+        {
+            output.WriteLine("      Traços: " + (character.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", character.Traits.Select(t => t.Name + ShowId(ids, SheetField.OfTrait(t.Id).Key))))
+                + (character.HiddenTraits > 0 ? $" ({CliFormat.Count(character.HiddenTraits, "escondido", "escondidos")})" : string.Empty));
+        }
     }
 
     private static string SheetState(SheetShownText text) =>
@@ -413,49 +418,56 @@ internal static partial class LibraryCommand
         var command = new Command("apply", "Leva a ficha ao projeto do jogo: personagens para o Glossário e sinopse para a bíblia.");
         command.Arguments.Add(game);
         command.Options.Add(IncludeMachineOption);
-        command.SetAction(parseResult =>
-        {
-            var (found, vndbId, _) = SheetGameOf(cli, parseResult.GetRequiredValue(game));
-            var folder = parseResult.GetValue(cli.Options.Project) ?? found.ProjectPath
-                ?? throw new LibraryException($"'{found.Title}' não está ligado a um projeto de tradução. Use --project <pasta> ou vnf library link.");
-            var project = ProjectFolder.Open(Path.GetFullPath(folder, cli.CurrentDirectory));
-            var store = SheetStoreOf(cli);
-            var sheet = store.LoadGame(vndbId) ?? throw new LibraryException($"{found.Title} ainda não tem ficha. Busque-a com vnf library sheet fetch {parseResult.GetRequiredValue(game)}.");
-            var minimum = parseResult.GetValue(IncludeMachineOption) ? TranslationStatus.Machine : TranslationStatus.Reviewed;
-            var result = SheetProjectBridge.Apply(project, sheet, store.LoadCharacters(sheet.CharacterIds), minimum);
-            var output = parseResult.InvocationConfiguration.Output;
-            if (parseResult.GetValue(cli.Options.Json))
-            {
-                output.WriteLine(JsonEnvelope.Result(new
-                {
-                    game = new { id = found.Id, title = found.Title },
-                    project = project.Root,
-                    matched = result.Characters.Matched,
-                    added = result.Characters.Added,
-                    filled = result.Characters.Filled,
-                    synopsisApplied = result.SynopsisApplied,
-                    notReady = result.NotReady,
-                    staleCharacters = result.StaleCharacters,
-                }));
-            }
-            else
-            {
-                output.WriteLine($"{found.Title}: {CliFormat.Count(result.Characters.Matched, "personagem casou", "personagens casaram")} com o projeto ({result.Characters.Added} novos, {result.Characters.Filled} completados).");
-                output.WriteLine(result.SynopsisApplied ? "Sinopse levada para a bíblia." : "A bíblia já tinha sinopse (ou não há sinopse pronta); nada mudou nela.");
-                if (result.StaleCharacters > 0)
-                {
-                    output.WriteLine($"{CliFormat.Count(result.StaleCharacters, "personagem ficou", "personagens ficaram")} sem descrição: a ficha é antiga e o nível de spoiler deles é desconhecido. Busque de novo com vnf library sheet fetch {parseResult.GetRequiredValue(game)}.");
-                }
-
-                if (result.NotReady > 0)
-                {
-                    output.WriteLine($"{CliFormat.Count(result.NotReady, "texto ficou", "textos ficaram")} de fora por ainda não {(minimum == TranslationStatus.Reviewed ? "estar revisado" : "ter tradução")}. Revise com vnf library sheet review {found.Id}.");
-                }
-            }
-
-            return ErrorHandler.OkExitCode;
-        });
+        command.SetAction(parseResult => SheetApply(cli, parseResult, parseResult.GetRequiredValue(game)));
         return command;
+    }
+
+    private static int SheetApply(VnfCli cli, ParseResult parseResult, string reference)
+    {
+        var (found, vndbId, _) = SheetGameOf(cli, reference);
+        var folder = parseResult.GetValue(cli.Options.Project) ?? found.ProjectPath
+            ?? throw new LibraryException($"'{found.Title}' não está ligado a um projeto de tradução. Use --project <pasta> ou vnf library link.");
+        var project = ProjectFolder.Open(Path.GetFullPath(folder, cli.CurrentDirectory));
+        var store = SheetStoreOf(cli);
+        var sheet = store.LoadGame(vndbId) ?? throw new LibraryException($"{found.Title} ainda não tem ficha. Busque-a com vnf library sheet fetch {reference}.");
+        var minimum = parseResult.GetValue(IncludeMachineOption) ? TranslationStatus.Machine : TranslationStatus.Reviewed;
+        var result = SheetProjectBridge.Apply(project, sheet, store.LoadCharacters(sheet.CharacterIds), minimum);
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                game = new { id = found.Id, title = found.Title },
+                project = project.Root,
+                matched = result.Characters.Matched,
+                added = result.Characters.Added,
+                filled = result.Characters.Filled,
+                synopsisApplied = result.SynopsisApplied,
+                notReady = result.NotReady,
+                staleCharacters = result.StaleCharacters,
+            }));
+        }
+        else
+        {
+            WriteSheetApplied(output, found, result, minimum, reference);
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static void WriteSheetApplied(TextWriter output, LibraryGame found, SheetBridgeResult result, TranslationStatus minimum, string reference)
+    {
+        output.WriteLine($"{found.Title}: {CliFormat.Count(result.Characters.Matched, "personagem casou", "personagens casaram")} com o projeto ({result.Characters.Added} novos, {result.Characters.Filled} completados).");
+        output.WriteLine(result.SynopsisApplied ? "Sinopse levada para a bíblia." : "A bíblia já tinha sinopse (ou não há sinopse pronta); nada mudou nela.");
+        if (result.StaleCharacters > 0)
+        {
+            output.WriteLine($"{CliFormat.Count(result.StaleCharacters, "personagem ficou", "personagens ficaram")} sem descrição: a ficha é antiga e o nível de spoiler deles é desconhecido. Busque de novo com vnf library sheet fetch {reference}.");
+        }
+
+        if (result.NotReady > 0)
+        {
+            output.WriteLine($"{CliFormat.Count(result.NotReady, "texto ficou", "textos ficaram")} de fora por ainda não {(minimum == TranslationStatus.Reviewed ? "estar revisado" : "ter tradução")}. Revise com vnf library sheet review {found.Id}.");
+        }
     }
 
     private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>

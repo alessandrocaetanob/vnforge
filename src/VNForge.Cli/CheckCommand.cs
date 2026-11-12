@@ -144,56 +144,65 @@ internal static class CheckCommand
 
         foreach (var category in ordered)
         {
-            var issues = byCategory[category].OrderByDescending(i => i.Severity).ToList();
-            var lines = new List<string>();
-            var untranslated = new List<QaIssue>();
-            var written = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var issue in issues)
-            {
-                if (settings.FirstOrDefault(g => g.Owns(issue)) is { } setting)
-                {
-                    if (written.Add(setting.Conflict.Field))
-                    {
-                        lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Summary())}  {RuleTag(issue.RuleId)}");
-                    }
+            yield return BuildGroup(category, byCategory[category], settings, inconsistent, listUntranslated);
+        }
+    }
 
-                    continue;
+    private static CategoryGroup BuildGroup(string category, List<QaIssue> categoryIssues, IReadOnlyList<SettingGroup> settings, IReadOnlyList<ConsistencyGroup> inconsistent, bool listUntranslated)
+    {
+        var issues = categoryIssues.OrderByDescending(i => i.Severity).ToList();
+        var lines = new List<string>();
+        var untranslated = new List<QaIssue>();
+        var written = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var issue in issues)
+        {
+            if (settings.FirstOrDefault(g => g.Owns(issue)) is { } setting)
+            {
+                if (written.Add(setting.Conflict.Field))
+                {
+                    lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(setting.Summary())}  {RuleTag(issue.RuleId)}");
                 }
 
-                // Um original com várias traduções é um bloco só (abaixo), não um aviso por linha.
-                if (issue.RuleId == InconsistentTranslationRule.RuleId && inconsistent.Count > 0)
-                {
-                    continue;
-                }
-
-                if (!listUntranslated && issue.RuleId == UntranslatedQaRule.RuleId)
-                {
-                    untranslated.Add(issue);
-                    continue;
-                }
-
-                lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(issue.UnitId)}  {CliViews.Escape(issue.Message)}  {RuleTag(issue.RuleId)}");
+                continue;
             }
 
-            if (category == QaCategories.Consistency)
+            // Um original com várias traduções é um bloco só (abaixo), não um aviso por linha.
+            if (issue.RuleId == InconsistentTranslationRule.RuleId && inconsistent.Count > 0)
             {
-                foreach (var group in inconsistent)
-                {
-                    lines.AddRange(DescribeGroup(group));
-                }
+                continue;
             }
 
-            foreach (var script in untranslated.GroupBy(i => i.ScriptKey, StringComparer.Ordinal))
+            if (!listUntranslated && issue.RuleId == UntranslatedQaRule.RuleId)
             {
-                lines.Add($"  {Label(QaSeverity.Warning)} {CliViews.Escape(script.Key)}  {CliFormat.Count(script.Count(), "linha sem tradução", "linhas sem tradução")}  {RuleTag(UntranslatedQaRule.RuleId)}");
+                untranslated.Add(issue);
+                continue;
             }
 
-            if (untranslated.Count > 0)
+            lines.Add($"  {Label(issue.Severity)} {CliViews.Escape(issue.UnitId)}  {CliViews.Escape(issue.Message)}  {RuleTag(issue.RuleId)}");
+        }
+
+        AppendConsistencyAndUntranslated(category, inconsistent, untranslated, lines);
+        return new CategoryGroup(category, issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning), lines);
+    }
+
+    private static void AppendConsistencyAndUntranslated(string category, IReadOnlyList<ConsistencyGroup> inconsistent, List<QaIssue> untranslated, List<string> lines)
+    {
+        if (category == QaCategories.Consistency)
+        {
+            foreach (var group in inconsistent)
             {
-                lines.Add($"  [dim]Para listar uma a uma: vnf check --rules {UntranslatedQaRule.RuleId}[/]");
+                lines.AddRange(DescribeGroup(group));
             }
+        }
 
-            yield return new CategoryGroup(category, issues.Count(i => i.Severity == QaSeverity.Error), issues.Count(i => i.Severity == QaSeverity.Warning), lines);
+        foreach (var script in untranslated.GroupBy(i => i.ScriptKey, StringComparer.Ordinal))
+        {
+            lines.Add($"  {Label(QaSeverity.Warning)} {CliViews.Escape(script.Key)}  {CliFormat.Count(script.Count(), "linha sem tradução", "linhas sem tradução")}  {RuleTag(UntranslatedQaRule.RuleId)}");
+        }
+
+        if (untranslated.Count > 0)
+        {
+            lines.Add($"  [dim]Para listar uma a uma: vnf check --rules {UntranslatedQaRule.RuleId}[/]");
         }
     }
 

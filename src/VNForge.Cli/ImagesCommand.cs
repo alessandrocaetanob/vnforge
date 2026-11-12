@@ -138,6 +138,15 @@ internal static class ImagesCommand
         }
 
         // O gasto entra na conta antes da gravação: a API já cobrou, e uma falha ao gravar o images.json não pode apagar essa conta.
+        var usage = PersistScan(project, model, existing, result);
+        var exitCode = result.Failed.Count > 0 || result.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
+        WriteResult(output, json, model, new ScanContext(listing, plan, estimate), result, usage, exitCode);
+        token.ThrowIfCancellationRequested();
+        return exitCode;
+    }
+
+    private static ClaudeUsage? PersistScan(ProjectFolder project, string model, IReadOnlyList<ImageTextEntry> existing, ImageScanResult result)
+    {
         var usage = result.InputTokens + result.OutputTokens > 0 ? new ClaudeUsage(result.InputTokens, result.OutputTokens, 0, 0) : null;
         if (usage is not null)
         {
@@ -149,10 +158,7 @@ internal static class ImagesCommand
             project.SaveImageInventory(result.Entries);
         }
 
-        var exitCode = result.Failed.Count > 0 || result.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
-        WriteResult(output, json, model, new ScanContext(listing, plan, estimate), result, usage, exitCode);
-        token.ThrowIfCancellationRequested();
-        return exitCode;
+        return usage;
     }
 
     private static string ReadModel(ParseResult parseResult)
