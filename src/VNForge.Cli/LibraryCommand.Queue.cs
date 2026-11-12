@@ -90,7 +90,7 @@ internal static partial class LibraryCommand
         var queued = entries.Count(e => e.State == TranslationQueueState.Queued);
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     total = library.Privacy.Listed(library.Games).Count,
@@ -103,7 +103,7 @@ internal static partial class LibraryCommand
                     abortReason = run?.AbortReason,
                     entries = shown.Select((e, i) => QueueData(e, i + 1)),
                 },
-                exitCode));
+                exitCode)).ConfigureAwait(false);
         }
         else
         {
@@ -213,7 +213,7 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 game = new { id = linked.Id, title = linked.Title, vndbId = linked.VndbId, project = linked.ProjectPath },
                 project = new
@@ -226,33 +226,33 @@ internal static partial class LibraryCommand
                     personalGlossaryProblem = result.Project.PersonalGlossaryProblem,
                 },
                 vndb = result.Vndb is null ? null : VndbCommand.Data(result.Vndb),
-            }));
+            })).ConfigureAwait(false);
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Projeto de {linked.Title} criado em {result.Project.Folder.Root}{Path.DirectorySeparatorChar}");
-        output.WriteLine($"Engine: {result.Project.Engine.DisplayName}. O jogo da biblioteca ficou ligado ao projeto.");
+        await output.WriteLineAsync($"Projeto de {linked.Title} criado em {result.Project.Folder.Root}{Path.DirectorySeparatorChar}").ConfigureAwait(false);
+        await output.WriteLineAsync($"Engine: {result.Project.Engine.DisplayName}. O jogo da biblioteca ficou ligado ao projeto.").ConfigureAwait(false);
         if (result.Vndb is { } link)
         {
-            output.WriteLine($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {CliFormat.Count(link.Characters.Count, "personagem", "personagens")}. Eles entram em characters.json no vnf extract.");
-            output.WriteLine(VndbCredit.ShortText);
+            await output.WriteLineAsync($"Jogo do VNDB: {link.Title} ({link.VisualNovelId}), {CliFormat.Count(link.Characters.Count, "personagem", "personagens")}. Eles entram em characters.json no vnf extract.").ConfigureAwait(false);
+            await output.WriteLineAsync(VndbCredit.ShortText).ConfigureAwait(false);
         }
         else
         {
-            output.WriteLine($"Aviso: {linked.Title} não tem o jogo do VNDB confirmado, então o projeto nasceu sem sinopse e personagens. Confirme com vnf library match e ligue com vnf vndb link <id> --project <pasta>.");
+            await output.WriteLineAsync($"Aviso: {linked.Title} não tem o jogo do VNDB confirmado, então o projeto nasceu sem sinopse e personagens. Confirme com vnf library match e ligue com vnf vndb link <id> --project <pasta>.").ConfigureAwait(false);
         }
 
         if (result.Project.SeededTerms > 0)
         {
-            output.WriteLine($"Glossário pessoal: {CliFormat.Count(result.Project.SeededTerms, "termo entrou", "termos entraram")} no glossário do projeto.");
+            await output.WriteLineAsync($"Glossário pessoal: {CliFormat.Count(result.Project.SeededTerms, "termo entrou", "termos entraram")} no glossário do projeto.").ConfigureAwait(false);
         }
 
         if (result.Project.PersonalGlossaryProblem is { } problem)
         {
-            output.WriteLine($"Aviso: {problem}");
+            await output.WriteLineAsync($"Aviso: {problem}").ConfigureAwait(false);
         }
 
-        output.WriteLine($"Próximo passo: vnf extract --project {result.Project.Folder.Root}");
+        await output.WriteLineAsync($"Próximo passo: vnf extract --project {result.Project.Folder.Root}").ConfigureAwait(false);
         return ErrorHandler.OkExitCode;
     }
 

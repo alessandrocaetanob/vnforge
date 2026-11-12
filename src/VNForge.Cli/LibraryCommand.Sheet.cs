@@ -86,25 +86,25 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new
+            await output.WriteLineAsync(JsonEnvelope.Result(new
             {
                 game = new { id = game.Id, title = game.Title, vndbId },
                 characters = result.Characters,
                 tags = result.Sheet.Tags.Count,
                 newTerms = result.NewTerms,
                 charactersTruncated = result.Sheet.CharactersTruncated,
-            }));
+            })).ConfigureAwait(false);
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"{game.Title}: ficha buscada no VNDB ({vndbId}): {CliFormat.Count(result.Characters, "personagem", "personagens")}, {CliFormat.Count(result.Sheet.Tags.Count, "tag", "tags")}.");
+        await output.WriteLineAsync($"{game.Title}: ficha buscada no VNDB ({vndbId}): {CliFormat.Count(result.Characters, "personagem", "personagens")}, {CliFormat.Count(result.Sheet.Tags.Count, "tag", "tags")}.").ConfigureAwait(false);
         if (result.Sheet.CharactersTruncated)
         {
-            output.WriteLine("O VNDB tem mais personagens do que o limite que o cliente traz; os últimos ficaram de fora.");
+            await output.WriteLineAsync("O VNDB tem mais personagens do que o limite que o cliente traz; os últimos ficaram de fora.").ConfigureAwait(false);
         }
 
-        output.WriteLine($"{CliFormat.Count(result.NewTerms, "nome de tag ou traço novo", "nomes de tag e traço novos")} para traduzir. Traduza com vnf library sheet translate {reference}.");
-        output.WriteLine(VndbCredit.ShortText);
+        await output.WriteLineAsync($"{CliFormat.Count(result.NewTerms, "nome de tag ou traço novo", "nomes de tag e traço novos")} para traduzir. Traduza com vnf library sheet translate {reference}.").ConfigureAwait(false);
+        await output.WriteLineAsync(VndbCredit.ShortText).ConfigureAwait(false);
         return ErrorHandler.OkExitCode;
     }
 
@@ -151,7 +151,7 @@ internal static partial class LibraryCommand
         if (budget.Limits.WarnAbove is { } warn && brl > warn
             && !ConfirmationPrompt.Confirm(parseResult, cli, $"Traduzir a ficha custa cerca de {AiCommandSupport.Brl(brl)}, acima do valor de aviso de {AiCommandSupport.Brl(warn)}. Continuar?"))
         {
-            output.WriteLine(json ? JsonEnvelope.Result(new { budgetStop = "declined" }, ErrorHandler.ErrorExitCode) : "O pedido não foi confirmado: nada foi enviado à IA.");
+            await output.WriteLineAsync(json ? JsonEnvelope.Result(new { budgetStop = "declined" }, ErrorHandler.ErrorExitCode) : "O pedido não foi confirmado: nada foi enviado à IA.").ConfigureAwait(false);
             return ErrorHandler.ErrorExitCode;
         }
 

@@ -227,7 +227,7 @@ internal static partial class LibraryCommand
         var exit = result.Failures.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     games = result.Games,
@@ -238,35 +238,35 @@ internal static partial class LibraryCommand
                     editionsIncomplete = result.EditionsIncomplete,
                     failed = result.Failures.Select(f => new { visualNovelId = f.VisualNovelId, error = f.Message }),
                 },
-                exit));
+                exit)).ConfigureAwait(false);
             return exit;
         }
 
         if (result.Games == 0)
         {
-            output.WriteLine("Nenhum jogo da biblioteca tem o jogo do VNDB confirmado. Use vnf library match.");
+            await output.WriteLineAsync("Nenhum jogo da biblioteca tem o jogo do VNDB confirmado. Use vnf library match.").ConfigureAwait(false);
             return exit;
         }
 
-        output.WriteLine($"{CliFormat.Count(result.Games, "jogo do VNDB", "jogos do VNDB")}: {result.Fetched} buscados, {result.Cached} já estavam guardados; "
-            + $"{CliFormat.Count(result.Characters, "personagem trazido", "personagens trazidos")} e {CliFormat.Count(result.EditionsMatched, "edição casada", "edições casadas")} com a pasta.");
+        await output.WriteLineAsync($"{CliFormat.Count(result.Games, "jogo do VNDB", "jogos do VNDB")}: {result.Fetched} buscados, {result.Cached} já estavam guardados; "
+            + $"{CliFormat.Count(result.Characters, "personagem trazido", "personagens trazidos")} e {CliFormat.Count(result.EditionsMatched, "edição casada", "edições casadas")} com a pasta.").ConfigureAwait(false);
         foreach (var failure in result.Failures)
         {
-            output.WriteLine($"Ficou de fora ({failure.VisualNovelId}): {failure.Message}");
+            await output.WriteLineAsync($"Ficou de fora ({failure.VisualNovelId}): {failure.Message}").ConfigureAwait(false);
         }
 
         if (result.Failures.Count > 0)
         {
-            output.WriteLine("Rode o comando de novo para tentar outra vez; o que já veio não volta a ser pedido.");
+            await output.WriteLineAsync("Rode o comando de novo para tentar outra vez; o que já veio não volta a ser pedido.").ConfigureAwait(false);
         }
 
         if (result.EditionsIncomplete > 0)
         {
-            output.WriteLine($"Aviso: o VNDB tem mais edições do que o limite trazido em {CliFormat.Count(result.EditionsIncomplete, "pasta", "pastas")}; a edição pode ter ficado de fora e só o papel depende dela (o spoiler não). vnf library characters sync --again refaz.");
+            await output.WriteLineAsync($"Aviso: o VNDB tem mais edições do que o limite trazido em {CliFormat.Count(result.EditionsIncomplete, "pasta", "pastas")}; a edição pode ter ficado de fora e só o papel depende dela (o spoiler não). vnf library characters sync --again refaz.").ConfigureAwait(false);
         }
 
-        output.WriteLine("Traduza as descrições e os traços de cada jogo com vnf library sheet translate; depois veja com vnf library characters list.");
-        output.WriteLine(VndbCredit.ShortText);
+        await output.WriteLineAsync("Traduza as descrições e os traços de cada jogo com vnf library sheet translate; depois veja com vnf library characters list.").ConfigureAwait(false);
+        await output.WriteLineAsync(VndbCredit.ShortText).ConfigureAwait(false);
         return exit;
     }
 }

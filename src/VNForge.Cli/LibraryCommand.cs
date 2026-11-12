@@ -472,11 +472,11 @@ internal static partial class LibraryCommand
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { confirmed = GameData(confirmed, library.Privacy) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new { confirmed = GameData(confirmed, library.Privacy) })).ConfigureAwait(false);
         }
         else
         {
-            output.WriteLine($"{GameLibrary.FolderName(confirmed)}: confirmado como {confirmed.VndbId} {confirmed.Title}.");
+            await output.WriteLineAsync($"{GameLibrary.FolderName(confirmed)}: confirmado como {confirmed.VndbId} {confirmed.Title}.").ConfigureAwait(false);
         }
 
         return ErrorHandler.OkExitCode;
@@ -505,7 +505,7 @@ internal static partial class LibraryCommand
         var exitCode = run.Failures.Count > 0 || run.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     searched = waiting,
@@ -517,7 +517,7 @@ internal static partial class LibraryCommand
                     cancelled = run.Cancelled,
                     abortReason = run.AbortReason,
                 },
-                exitCode));
+                exitCode)).ConfigureAwait(false);
         }
         else
         {
