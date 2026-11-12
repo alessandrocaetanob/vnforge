@@ -519,12 +519,14 @@ public sealed class ReleaseViewModelTests
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var calls = 0;
-        publisher.Blocker = ct =>
+        publisher.Blocker = _ =>
         {
             if (++calls == 3)
             {
                 reached.Set();
-                release.Wait(TimeSpan.FromMinutes(3), ct);
+
+                // Simula um publicador que não respeita o cancelamento: o resultado do projeto antigo chega depois da troca e só a guarda de época o descarta.
+                release.Wait(TimeSpan.FromMinutes(3), CancellationToken.None);
             }
 
             return false;
