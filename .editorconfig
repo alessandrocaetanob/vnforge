@@ -36,7 +36,7 @@ dotnet_diagnostic.S4144.severity = suggestion
 dotnet_diagnostic.S4487.severity = suggestion
 dotnet_diagnostic.S6618.severity = suggestion
 
-[src/VNForge.App/**.cs]
+[src/VNForge.App/{ViewModels,Views}/**.cs]
 
 # O Avalonia liga a tela ao ViewModel por nome (binding compilado) e o XAML chama manipuladores de evento: o membro precisa ser de instância
 # mesmo quando não usa o estado, então S2325 e CA1822 não valem aqui.
