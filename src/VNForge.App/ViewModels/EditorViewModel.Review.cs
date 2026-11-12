@@ -46,7 +46,7 @@ public sealed partial class EditorViewModel
 
     /// <summary>
     /// Abre o modo revisão na fonte pedida: a cena aberta, as falas de um personagem em todas as cenas ou as dúvidas da cena. Sem script ou sem como gravar, não faz nada.
-    /// A fila por risco não passa por aqui: lê arquivos e pontua o projeto todo, e por isso abre por <see cref="StartRiskReviewAsync"/>, longe da thread da tela.
+    /// A fila por risco não passa por aqui: lê arquivos e pontua o projeto inteiro, e por isso abre por <see cref="StartRiskReviewAsync"/>, longe da thread da tela.
     /// </summary>
     public void StartReviewOf(ReviewSource source)
     {
@@ -93,7 +93,7 @@ public sealed partial class EditorViewModel
     }
 
     /// <summary>
-    /// Abre o modo revisão na fila "o que mais precisa de você": todo o projeto, do maior risco ao menor. A fila é montada fora da thread da tela (lê
+    /// Abre o modo revisão na fila "o que mais precisa de você": o projeto inteiro, do maior risco ao menor. A fila é montada fora da thread da tela (lê
     /// <c>.cache/editor-suggestions.json</c> e <c>.cache/sessions.json</c> e pontua cada linha); a tela só tira uma cópia das linhas e, no fim, abre a revisão.
     /// Sem linhas esperando revisão, ou se a pessoa abriu outra revisão no meio do caminho, não abre nada.
     /// </summary>
@@ -111,8 +111,12 @@ public sealed partial class EditorViewModel
         var log = OpenApprovalLog();
         var now = clock.GetUtcNow();
         var zone = clock.LocalTimeZone;
-        riskCancel?.Cancel();
+        var previous = riskCancel;
         using var source = riskCancel = new CancellationTokenSource();
+        if (previous is not null)
+        {
+            await previous.CancelAsync();
+        }
         RiskReview risk;
         try
         {

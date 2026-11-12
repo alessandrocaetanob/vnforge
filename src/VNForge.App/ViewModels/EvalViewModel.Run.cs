@@ -199,7 +199,7 @@ public sealed partial class EvalViewModel
         return Running;
     }
 
-    private async Task RunCoreAsync(ProjectFolder project, IReadOnlyList<EvalConfig> chosen, bool judge, CancellationToken token)
+    private async Task RunCoreAsync(ProjectFolder project, List<EvalConfig> chosen, bool judge, CancellationToken token)
     {
         var context = Context();
         var request = new EvalRunRequest(project, chosen, Math.Min(DefaultSample, GoldLines), seed, Provider)

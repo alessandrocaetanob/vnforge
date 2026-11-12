@@ -209,8 +209,7 @@ internal static partial class LibraryCommand
             projectDir,
             KnownEngines.All,
             cli.CreateVndbCatalog(),
-            new ProjectInitOptions(Name: parseResult.GetValue(TranslateNameOption)),
-            new PersonalGlossary(cli.UserConfigDirectory),
+            new TranslationStartOptions(new ProjectInitOptions(Name: parseResult.GetValue(TranslateNameOption)), new PersonalGlossary(cli.UserConfigDirectory)),
             token).ConfigureAwait(false);
 
         var linked = LinkCreatedProject(file, game, result.Project.Folder.Root);

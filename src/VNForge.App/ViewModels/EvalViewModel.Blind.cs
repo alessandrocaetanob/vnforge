@@ -207,7 +207,7 @@ public sealed partial class EvalViewModel
         || string.Equals(entry.Target, name, StringComparison.OrdinalIgnoreCase)
         || string.Equals(entry.Romaji, name, StringComparison.OrdinalIgnoreCase);
 
-    private static string JoinNames(IReadOnlyList<string> names) =>
+    private static string JoinNames(List<string> names) =>
         names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
 
     private static string ContextFor(EvalSample sample) => (sample.Before.Length > 0, sample.After.Length > 0) switch

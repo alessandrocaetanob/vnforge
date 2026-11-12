@@ -115,7 +115,9 @@ public static partial class LibraryCatalog
     public const string PageTitle = "Catálogo de VNs";
 
     private const string VndbHome = "https://vndb.org/";
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1075:URIs should not be hardcoded", Justification="Endereço fixo da licença ODbL, citado na atribuição do catálogo.")]
     private const string OdblUrl = "https://opendatacommons.org/licenses/odbl/1-0/";
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1075:URIs should not be hardcoded", Justification="Endereço fixo da página de licença dos dados do VNDB, citado na atribuição do catálogo.")]
     private const string DatabaseLicenseUrl = "https://vndb.org/d17";
     private const int RegexTimeoutMilliseconds = 500;
     private const string ParagraphEnd = "</p>\n";

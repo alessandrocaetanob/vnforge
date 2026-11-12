@@ -108,6 +108,21 @@ public sealed class MainWindowTranslateTests : IDisposable
     }
 
     [Fact]
+    public async Task Projeto_que_deixou_de_existir_antes_de_traduzir_mostra_o_erro_e_nao_abre_tarefa()
+    {
+        var (vm, root) = await OpenAsync();
+        vm.Editor.TranslatePendingCommand.Execute(null);
+        await vm.TranslateOpening;
+        File.Delete(Path.Combine(root, ProjectFolder.ConfigFileName));
+
+        vm.Translate.StartCommand.Execute(null);
+        await vm.TranslationRun;
+
+        Assert.Contains("Não foi possível começar a tradução", Assert.Single(vm.Toasts.Toasts).Message, StringComparison.Ordinal);
+        Assert.Empty(vm.TaskService.Tasks);
+    }
+
+    [Fact]
     public async Task Painel_aberto_durante_a_traducao_rele_os_numeros_quando_ela_termina()
     {
         var (vm, _) = await OpenAsync();

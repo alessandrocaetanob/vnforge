@@ -189,7 +189,7 @@ public class CharacterSheetTests
         Assert.Equal(["いいえ", "はい"], vm.Sheet.Lines.Select(l => l.Source));
         Assert.Equal(2, vm.Sheet.AwaitingReview);
 
-        vm.Characters.Add(new CharacterRow("A子", "Ako", description: "Colega de turma.\nSempre atrasada."));
+        vm.Characters.Add(new CharacterRow("A子", "Ako") { Description = "Colega de turma.\nSempre atrasada." });
         await OpenSheetAsync(vm, "A子");
 
         Assert.Equal("2 falas", vm.Sheet!.UsesText);

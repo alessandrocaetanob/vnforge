@@ -1,0 +1,76 @@
+root = true
+
+# O SonarAnalyzer.CSharp roda em todo build (Directory.Build.props) e o TreatWarningsAsErrors faz de cada aviso um erro.
+# warning barra o build; suggestion só aparece no editor. Detalhes e contagens em docs/02-arquitetura.md.
+
+[*.cs]
+
+# Barram o build: o código de hoje já está em zero nelas.
+dotnet_diagnostic.S107.severity = warning
+dotnet_diagnostic.S1075.severity = warning
+dotnet_diagnostic.S1192.severity = warning
+dotnet_diagnostic.S2325.severity = warning
+dotnet_diagnostic.S2583.severity = warning
+dotnet_diagnostic.S2589.severity = warning
+dotnet_diagnostic.S3776.severity = warning
+dotnet_diagnostic.S6966.severity = warning
+dotnet_diagnostic.S8949.severity = warning
+dotnet_diagnostic.S9415.severity = warning
+dotnet_diagnostic.S9422.severity = warning
+dotnet_diagnostic.CA1822.severity = warning
+dotnet_diagnostic.CA1826.severity = warning
+dotnet_diagnostic.CA1859.severity = warning
+dotnet_diagnostic.CA1861.severity = warning
+dotnet_diagnostic.CA2016.severity = warning
+
+# Ainda acusadas no código de hoje: ficam como sugestão até zerar, e quando zerarem sobem para warning.
+dotnet_diagnostic.S1121.severity = suggestion
+dotnet_diagnostic.S1135.severity = suggestion
+dotnet_diagnostic.S1144.severity = suggestion
+dotnet_diagnostic.S1172.severity = suggestion
+dotnet_diagnostic.S3267.severity = suggestion
+dotnet_diagnostic.S3358.severity = suggestion
+dotnet_diagnostic.S3398.severity = suggestion
+dotnet_diagnostic.S3604.severity = suggestion
+dotnet_diagnostic.S4144.severity = suggestion
+dotnet_diagnostic.S4487.severity = suggestion
+dotnet_diagnostic.S6618.severity = suggestion
+
+[src/VNForge.App/{ViewModels,Views}/**.cs]
+
+# O Avalonia liga a tela ao ViewModel por nome (binding compilado) e o XAML chama manipuladores de evento: o membro precisa ser de instância
+# mesmo quando não usa o estado, então S2325 e CA1822 não valem aqui.
+dotnet_diagnostic.S2325.severity = none
+dotnet_diagnostic.CA1822.severity = none
+
+[src/VNForge.App/ViewModels/MainWindowViewModel.NightBatch.cs]
+
+# Débito conhecido: MainWindowViewModel.WatchAsync tem complexidade 49. Quebrar o método mexe na espera do lote noturno; fica para uma issue
+# própria, e a regra volta a barrar neste arquivo quando zerar.
+dotnet_diagnostic.S3776.severity = suggestion
+
+[tests/**.cs]
+
+# O build local trata tests/ como código de produção e o analisador acusa estas regras em testes que o SonarCloud não lista. Corrigir em massa
+# fugiria do escopo: ficam como sugestão e sobem para warning quando zerarem.
+dotnet_diagnostic.S108.severity = suggestion
+dotnet_diagnostic.S1117.severity = suggestion
+dotnet_diagnostic.S1215.severity = suggestion
+dotnet_diagnostic.S2094.severity = suggestion
+dotnet_diagnostic.S2551.severity = suggestion
+dotnet_diagnostic.S2933.severity = suggestion
+dotnet_diagnostic.S2971.severity = suggestion
+dotnet_diagnostic.S3218.severity = suggestion
+dotnet_diagnostic.S3220.severity = suggestion
+dotnet_diagnostic.S3241.severity = suggestion
+dotnet_diagnostic.S3878.severity = suggestion
+dotnet_diagnostic.S3881.severity = suggestion
+dotnet_diagnostic.S6562.severity = suggestion
+dotnet_diagnostic.S6608.severity = suggestion
+dotnet_diagnostic.S6966.severity = suggestion
+dotnet_diagnostic.S8949.severity = suggestion
+dotnet_diagnostic.S8969.severity = suggestion
+dotnet_diagnostic.S927.severity = suggestion
+
+# Caminhos e URLs de amostra em teste não são configuração: S1075 não vale em tests/.
+dotnet_diagnostic.S1075.severity = none

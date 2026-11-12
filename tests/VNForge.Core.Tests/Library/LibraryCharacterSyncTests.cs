@@ -21,7 +21,7 @@ public sealed class LibraryCharacterSyncTests : IDisposable
     private GameEditionsFile EditionsFile => new(_dir.Path);
 
     private Task<LibraryCharacterSyncResult> Sync(IVndbCatalog catalog, GameLibrary? library = null, bool again = false, IProgress<LibraryCharacterSyncProgress>? progress = null) =>
-        LibraryCharacterSync.SyncAsync(catalog, library ?? OwnedLibrary(), Store, EditionsFile, again, new FixedClock(Now), progress, Ct);
+        LibraryCharacterSync.SyncAsync(catalog, library ?? OwnedLibrary(), Store, EditionsFile, new LibraryCharacterSyncOptions(again, new FixedClock(Now), progress), Ct);
 
     [Fact]
     public async Task Jogo_que_o_VNDB_nao_tem_vira_falha_e_os_outros_seguem()

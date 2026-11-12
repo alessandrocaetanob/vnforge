@@ -7,6 +7,7 @@ namespace VNForge.Core.Vndb;
 public static class VndbCredit
 {
     /// <summary>A página do VNDB que descreve a licença dos dados.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1075:URIs should not be hardcoded", Justification="Endereço fixo da página de licença dos dados do VNDB, citado na atribuição.")]
     public const string LicenseUrl = "https://vndb.org/d17#4";
 
     /// <summary>Linha curta, para rodapé de tela.</summary>

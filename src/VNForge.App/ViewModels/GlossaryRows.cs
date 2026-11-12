@@ -68,11 +68,8 @@ public sealed partial class GlossaryTermRow : UsageRow
 /// <summary>Linha editável da tabela de personagens.</summary>
 public sealed partial class CharacterRow : UsageRow
 {
-    public CharacterRow(string source = "", string target = "", CharacterGender gender = CharacterGender.Unknown, string? tone = null, string? color = null, string? romaji = null, IReadOnlyList<string>? aliases = null, string? description = null)
+    public CharacterRow(string source = "", string target = "", CharacterGender gender = CharacterGender.Unknown, string? tone = null, string? color = null)
     {
-        Romaji = romaji;
-        Aliases = aliases;
-        Description = description;
         Source = source;
         Target = target;
         Gender = gender;
@@ -82,11 +79,11 @@ public sealed partial class CharacterRow : UsageRow
     }
 
     /// <summary>Romaji, apelidos e descrição que vieram do VNDB: a tela ainda não os edita, mas a linha os leva de volta ao <c>characters.json</c> para a gravação não apagá-los.</summary>
-    public string? Romaji { get; }
+    public string? Romaji { get; init; }
 
-    public IReadOnlyList<string>? Aliases { get; }
+    public IReadOnlyList<string>? Aliases { get; init; }
 
-    public string? Description { get; }
+    public string? Description { get; init; }
 
     /// <summary>O nome com que a linha nasceu: o lido do arquivo ou, depois de cada salvamento, o salvo. Os tratamentos que citam o personagem seguem dele para o nome atual ao salvar (#514).</summary>
     public string CommittedSource { get; set; }

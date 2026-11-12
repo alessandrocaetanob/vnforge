@@ -665,7 +665,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             var library = new LibraryFile(directory).Load();
             var catalog = CatalogFactory();
             var progress = new Progress<LibraryCharacterSyncProgress>(p => SyncText = $"Buscando no VNDB: {p.Done.ToString(CultureInfo.InvariantCulture)} de {p.Total.ToString(CultureInfo.InvariantCulture)}…");
-            var result = await Task.Run(() => LibraryCharacterSync.SyncAsync(catalog, library, new SheetStore(directory), new GameEditionsFile(directory), false, Clock, progress)).ConfigureAwait(true);
+            var result = await Task.Run(() => LibraryCharacterSync.SyncAsync(catalog, library, new SheetStore(directory), new GameEditionsFile(directory), new LibraryCharacterSyncOptions(Time: Clock, Progress: progress))).ConfigureAwait(true);
             if (result.Failures.Count > 0)
             {
                 Notify?.Invoke($"{GameSheetViewModel.Count(result.Failures.Count, "jogo ficou", "jogos ficaram")} sem personagens ({result.Failures[0].Message}). Tente de novo.", ToastKind.Warning);

@@ -40,7 +40,7 @@ public static class HeadlessEntry
 /// <summary>Uma sessão para o processo todo: o Avalonia só aceita uma instância de aplicativo por thread de UI, então as classes de teste a dividem.</summary>
 public sealed class HeadlessFixture
 {
-    private static readonly object Gate = new();
+    private static readonly Lock Gate = new();
     private static HeadlessUnitTestSession? shared;
 
     // Um Lazy guardaria a exceção da primeira tentativa e todo teste falharia igual, sem a causa; aqui uma falha de subida não fica guardada e

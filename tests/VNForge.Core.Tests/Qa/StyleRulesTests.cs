@@ -121,7 +121,7 @@ public sealed class StyleRulesTests
     [Fact]
     public void Os_avisos_de_estilo_nao_travam_o_build_mas_os_outros_avisos_e_os_erros_travam()
     {
-        QaReport Report(params QaIssue[] issues) => new(issues, [], []);
+        static QaReport Report(params QaIssue[] issues) => new(issues, [], []);
         var honorific = new QaIssue(HonorificsRule.RuleId, QaSeverity.Warning, "a:1", "a", "x");
         var gender = new QaIssue(GenderRule.RuleId, QaSeverity.Warning, "a:2", "a", "y");
         var spaces = new QaIssue("espaco-duplo", QaSeverity.Warning, "a:3", "a", "z");

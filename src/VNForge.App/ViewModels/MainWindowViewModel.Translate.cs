@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Eval;
@@ -71,6 +72,34 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    private bool TryOpenForTranslation(ProjectSummary project, TranslationRequest request, [NotNullWhen(true)] out ProjectFolder? folder, [NotNullWhen(true)] out IReadOnlyList<string>? editorPassScenes)
+    {
+        try
+        {
+            folder = ProjectFolder.Open(project.Root);
+            editorPassScenes = ScenesToEdit(folder, request);
+            return true;
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            Toasts.Show($"Não foi possível começar a tradução: {e.Message}", ToastKind.Error, key: ToastKey);
+            folder = null;
+            editorPassScenes = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A janela já mostrou o preço e a pessoa confirmou: a pergunta do valor de aviso, se viesse, seria a mesma.
+    /// A cena de exemplo traduz com a IA falsa: sem chave, sem rede e com custo zero.
+    /// </summary>
+    private TranslationJob CreateTranslationJob(ProjectFolder folder, ProjectSummary project) => new(
+        folder,
+        project.IsSample ? static (_, _) => SampleAi.CreateProvider() : TranslationProviderFactory,
+        new TranslationJobSettings(Settings.Rate, project.IsSample ? BudgetLimits.None : Settings.Budget, Settings.Concurrency),
+        (_, _) => Task.FromResult(true),
+        project.IsSample ? static _ => SampleAi.NoUsage : null);
+
     private async Task StartTranslation(TranslationRequest request)
     {
         if (CurrentProject is not { } project)
@@ -91,27 +120,12 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        ProjectFolder folder;
-        IReadOnlyList<string> editorPassScenes;
-        try
+        if (!TryOpenForTranslation(project, request, out var folder, out var editorPassScenes))
         {
-            folder = ProjectFolder.Open(project.Root);
-            editorPassScenes = ScenesToEdit(folder, request);
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            Toasts.Show($"Não foi possível começar a tradução: {e.Message}", ToastKind.Error, key: ToastKey);
             return;
         }
 
-        // A janela já mostrou o preço e a pessoa confirmou: a pergunta do valor de aviso, se viesse, seria a mesma.
-        // A cena de exemplo traduz com a IA falsa: sem chave, sem rede e com custo zero.
-        var job = new TranslationJob(
-            folder,
-            project.IsSample ? static (_, _) => SampleAi.CreateProvider() : TranslationProviderFactory,
-            new TranslationJobSettings(Settings.Rate, project.IsSample ? BudgetLimits.None : Settings.Budget, Settings.Concurrency),
-            (_, _) => Task.FromResult(true),
-            project.IsSample ? static _ => SampleAi.NoUsage : null);
+        var job = CreateTranslationJob(folder, project);
         TranslationJobResult? result = null;
         var canceled = false;
         string? failure = null;
@@ -178,13 +192,20 @@ public sealed partial class MainWindowViewModel
         }
 
         // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar; vale também com a Conferência aberta.
-        var header = InGame ? DashboardRefresh = Dashboard.ReloadAsync() : Task.CompletedTask;
+        var header = Task.CompletedTask;
+        if (InGame)
+        {
+            DashboardRefresh = Dashboard.ReloadAsync();
+            header = DashboardRefresh;
+        }
+
         if (!ReferenceEquals(CurrentPage, Conference))
         {
             return header;
         }
 
-        return Task.WhenAll(header, ConferenceLoading = Conference.RefreshAfterExternalChangeAsync());
+        ConferenceLoading = Conference.RefreshAfterExternalChangeAsync();
+        return Task.WhenAll(header, ConferenceLoading);
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch

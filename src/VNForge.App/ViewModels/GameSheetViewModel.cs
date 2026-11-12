@@ -37,7 +37,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
     private SheetPageData? data;
     private GameSheetCard? card;
     private IReadOnlyList<SheetBlock> blocks = [];
-    private IReadOnlyList<CharacterTile> tiles = [];
+    private List<CharacterTile> tiles = [];
     private bool levelPending = true;
     private int generation;
 

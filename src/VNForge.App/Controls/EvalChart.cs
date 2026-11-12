@@ -9,7 +9,7 @@ using VNForge.App.ViewModels;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// O gráfico "Custo e qualidade" do banco de provas: custo do jogo todo (R$) no eixo horizontal e chrF no vertical, um ponto por configuração com a letra da tabela
+/// O gráfico "Custo e qualidade" do banco de provas: custo do jogo inteiro (R$) no eixo horizontal e chrF no vertical, um ponto por configuração com a letra da tabela
 /// em cima. Os pontos são azuis; a escolhida para o M4 é verde, maior e com anel. A cor sozinha não distingue as configurações: a letra vai junto de cada ponto.
 /// </summary>
 public sealed class EvalChart : Control
@@ -58,16 +58,16 @@ public sealed class EvalChart : Control
         {
             var at = plot.Bottom - ((y - yMin) / (yMax - yMin) * plot.Height);
             context.DrawLine(grid, new Point(plot.Left, at), new Point(plot.Right, at));
-            Text(context, y.ToString("0", Pt), muted, new Point(plot.Left - 9, at), right: true, middle: true);
+            Text(context, y.ToString("0", Pt), muted, new Point(plot.Left - 9, at), TextAlignment.Right, middle: true);
         }
 
         foreach (var x in XTicks(xMax, xStep))
         {
             var at = plot.Left + (x / xMax * plot.Width);
-            Text(context, x.ToString("0", Pt), muted, new Point(at, plot.Bottom + 8), center: true);
+            Text(context, x.ToString("0", Pt), muted, new Point(at, plot.Bottom + 8), TextAlignment.Center);
         }
 
-        Text(context, "Custo do jogo todo (R$)", muted, new Point(plot.Left + (plot.Width / 2), plot.Bottom + 24), center: true);
+        Text(context, "Custo do jogo todo (R$)", muted, new Point(plot.Left + (plot.Width / 2), plot.Bottom + 24), TextAlignment.Center);
         var title = Format("chrF", muted, bold: false);
         using (context.PushTransform(Matrix.CreateRotation(-Math.PI / 2) * Matrix.CreateTranslation(7, plot.Top + (plot.Height / 2))))
         {
@@ -90,7 +90,7 @@ public sealed class EvalChart : Control
 
             var radius = point.IsChosen ? ChosenRadius : DotRadius;
             context.DrawEllipse(point.IsChosen ? accent : other, null, centre, radius, radius);
-            Text(context, point.Letter, ink, new Point(centre.X, centre.Y - LetterRise), center: true, middle: true, bold: true);
+            Text(context, point.Letter, ink, new Point(centre.X, centre.Y - LetterRise), TextAlignment.Center, middle: true, bold: true);
         }
     }
 
@@ -125,7 +125,7 @@ public sealed class EvalChart : Control
         return ticks;
     }
 
-    private static (double Min, double Max, double Step) YScale(IReadOnlyList<EvalChartPoint> points)
+    private static (double Min, double Max, double Step) YScale(List<EvalChartPoint> points)
     {
         if (points.Count == 0)
         {
@@ -146,10 +146,15 @@ public sealed class EvalChart : Control
     private static FormattedText Format(string text, IBrush brush, bool bold) =>
         new(text, Pt, FlowDirection.LeftToRight, new Typeface(FontFamily.Default, FontStyle.Normal, bold ? FontWeight.SemiBold : FontWeight.Normal), AxisFontSize, brush);
 
-    private static void Text(DrawingContext context, string text, IBrush brush, Point at, bool right = false, bool middle = false, bool center = false, bool bold = false)
+    private static void Text(DrawingContext context, string text, IBrush brush, Point at, TextAlignment align = TextAlignment.Left, bool middle = false, bool bold = false)
     {
         var formatted = Format(text, brush, bold);
-        var x = right ? at.X - formatted.Width : center ? at.X - (formatted.Width / 2) : at.X;
+        var x = align switch
+        {
+            TextAlignment.Right => at.X - formatted.Width,
+            TextAlignment.Center => at.X - (formatted.Width / 2),
+            _ => at.X,
+        };
         var y = middle ? at.Y - (formatted.Height / 2) : at.Y;
         context.DrawText(formatted, new Point(x, y));
     }
