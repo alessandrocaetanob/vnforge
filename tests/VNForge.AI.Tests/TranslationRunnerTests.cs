@@ -50,6 +50,21 @@ public class TranslationRunnerTests
     }
 
     [Fact]
+    public async Task Lote_que_nao_consegue_ser_montado_vira_falha_sem_chamar_o_provedor()
+    {
+        var provider = new ScriptedProvider((b, _, _) => Task.FromResult(Ok(b)));
+        var runner = new TranslationRunner(provider, NoWait(batchSize: 20));
+
+        var run = await runner.RunAsync(Units(40), lines => lines[0].Id == "u020" ? throw new InvalidOperationException("sem glossário") : Build(lines), ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(20, run.Results.Count);
+        Assert.Equal(1, provider.Calls);
+        var failure = Assert.Single(run.Failures);
+        Assert.Equal(Enumerable.Range(20, 20).Select(n => $"u{n:D3}"), failure.LineIds);
+        Assert.Equal(0, failure.Attempts);
+    }
+
+    [Fact]
     public async Task Erro_de_programacao_nao_e_repetido()
     {
         var provider = new ScriptedProvider((_, _, _) => throw new ArgumentException("lote inválido"));

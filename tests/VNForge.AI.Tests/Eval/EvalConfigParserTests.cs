@@ -19,6 +19,15 @@ public sealed class EvalConfigParserTests
         Assert.Equal(new EvalConfig("A", ClaudeModels.Opus, "medium", EvalConfigParser.DefaultContextLines, false), EvalConfigParser.Parse("opus", "A"));
         Assert.Equal(ClaudeModels.Fable, EvalConfigParser.Parse("claude-fable-5-1:high", "A").Model);
         Assert.Equal("high", EvalConfigParser.Parse("claude-fable-5-1:high", "A").Effort);
+        Assert.Equal(ClaudeModels.Fable, EvalConfigParser.Parse("fable", "A").Model);
+    }
+
+    [Fact]
+    public void Os_padroes_sao_os_tres_modelos_com_as_letras_A_a_C()
+    {
+        Assert.Equal(
+            [("A", ClaudeModels.Opus), ("B", ClaudeModels.Sonnet), ("C", ClaudeModels.Haiku)],
+            EvalConfigParser.Defaults.Select(c => (c.Id, c.Model)));
     }
 
     [Theory]
