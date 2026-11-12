@@ -43,10 +43,10 @@ dotnet_diagnostic.S6618.severity = suggestion
 dotnet_diagnostic.S2325.severity = none
 dotnet_diagnostic.CA1822.severity = none
 
-[src/VNForge.App/ViewModels/{ConferenceViewModel,MainWindowViewModel.NightBatch}.cs]
+[src/VNForge.App/ViewModels/MainWindowViewModel.NightBatch.cs]
 
-# Débito conhecido: ConferenceViewModel.Check tem complexidade 19 e MainWindowViewModel.WatchAsync tem 49. Quebrar o segundo mexe na espera do lote
-# noturno; fica para uma issue própria, e a regra volta a barrar nestes dois arquivos quando zerarem.
+# Débito conhecido: MainWindowViewModel.WatchAsync tem complexidade 49. Quebrar o método mexe na espera do lote noturno; fica para uma issue
+# própria, e a regra volta a barrar neste arquivo quando zerar.
 dotnet_diagnostic.S3776.severity = suggestion
 
 [tests/**.cs]

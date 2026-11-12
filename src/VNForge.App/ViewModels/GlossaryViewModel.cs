@@ -347,8 +347,16 @@ public sealed partial class GlossaryViewModel : ObservableObject
         RefreshVisible();
     }
 
-    private void ApplyUses(UsageRow row) =>
-        row.Uses = !usageLoaded ? null : row is CharacterRow ? usage.LinesSpokenBy(row.Key) : usage.LinesContaining(row.Key);
+    private void ApplyUses(UsageRow row)
+    {
+        if (!usageLoaded)
+        {
+            row.Uses = null;
+            return;
+        }
+
+        row.Uses = row is CharacterRow ? usage.LinesSpokenBy(row.Key) : usage.LinesContaining(row.Key);
+    }
 
     private void ReadFiles(ProjectFolder folder)
     {

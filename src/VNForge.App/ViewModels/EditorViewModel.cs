@@ -282,11 +282,23 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
 
     public string? EmptyActionText => HasStatusFilter ? "Ver todas as linhas" : null;
 
-    public string EmptyMessage =>
-        IsLoading ? "Lendo as linhas do projeto..."
-        : ErrorMessage is not null ? "Não há linhas para mostrar."
-        : Scripts.Count == 0 ? "Este projeto ainda não tem texto extraído. Rode vnf extract."
-        : "Nenhuma linha com este filtro.";
+    public string EmptyMessage
+    {
+        get
+        {
+            if (IsLoading)
+            {
+                return "Lendo as linhas do projeto...";
+            }
+
+            if (ErrorMessage is not null)
+            {
+                return "Não há linhas para mostrar.";
+            }
+
+            return Scripts.Count == 0 ? "Este projeto ainda não tem texto extraído. Rode vnf extract." : "Nenhuma linha com este filtro.";
+        }
+    }
 
     /// <summary>Lê as linhas do <see cref="Project"/> fora da thread da tela. Uma carga mais nova descarta o resultado de uma mais antiga.</summary>
     public async Task LoadAsync()
@@ -490,8 +502,6 @@ public sealed partial class EditorViewModel : ObservableObject, ILineNavigator
         var chosen = Scripts.Where(s => s.IsShown && marked.Contains(s)).Select(s => s.Key).ToList();
         TranslateRequested?.Invoke(this, chosen.Count > 0 ? chosen : [SelectedScript!.Key]);
     }
-
-    private bool HasScript() => SelectedScript is not null;
 
     // A janela oferece também o capítulo e o jogo inteiro, então abre mesmo quando a cena aberta não tem pendentes.
     private bool CanTranslatePending() => SelectedScript is not null;

@@ -9,7 +9,7 @@ using VNForge.App.ViewModels;
 namespace VNForge.App.Controls;
 
 /// <summary>
-/// O gráfico "Custo e qualidade" do banco de provas: custo do jogo todo (R$) no eixo horizontal e chrF no vertical, um ponto por configuração com a letra da tabela
+/// O gráfico "Custo e qualidade" do banco de provas: custo do jogo inteiro (R$) no eixo horizontal e chrF no vertical, um ponto por configuração com a letra da tabela
 /// em cima. Os pontos são azuis; a escolhida para o M4 é verde, maior e com anel. A cor sozinha não distingue as configurações: a letra vai junto de cada ponto.
 /// </summary>
 public sealed class EvalChart : Control

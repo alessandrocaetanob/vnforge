@@ -173,15 +173,38 @@ public sealed partial class ConferenceViewModel : ObservableObject
     public bool HasBanner => HasBlockingErrors || HasOnlyWarnings || IsClear;
 
     /// <summary>O ponto e o contorno da faixa: vermelho com erro, âmbar só com aviso, verde com a conferência limpa.</summary>
-    public GameState BannerState => HasBlockingErrors ? GameState.Blocked : HasOnlyWarnings ? GameState.Caution : GameState.Translated;
+    public GameState BannerState
+    {
+        get
+        {
+            if (HasBlockingErrors)
+            {
+                return GameState.Blocked;
+            }
+
+            return HasOnlyWarnings ? GameState.Caution : GameState.Translated;
+        }
+    }
 
     public string BannerTitle => HasBlockingErrors ? $"{BlockingCount} {BlockingRest.TrimEnd('.')}" : "Nada trava o teste no jogo";
 
-    public string BannerMessage => HasBlockingErrors
-        ? "Corrija estes antes de testar. Os avisos não travam nada."
-        : HasOnlyWarnings
-            ? "Os avisos não travam nada. Corrija quando puder."
-            : $"A tradução está pronta para testar. {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")} · {Plural(lineCount, "linha conferida", "linhas conferidas")}.";
+    public string BannerMessage
+    {
+        get
+        {
+            if (HasBlockingErrors)
+            {
+                return "Corrija estes antes de testar. Os avisos não travam nada.";
+            }
+
+            if (HasOnlyWarnings)
+            {
+                return "Os avisos não travam nada. Corrija quando puder.";
+            }
+
+            return $"A tradução está pronta para testar. {Plural(report.RulesRun.Count, "regra ativa", "regras ativas")} · {Plural(lineCount, "linha conferida", "linhas conferidas")}.";
+        }
+    }
 
     /// <summary>"Testar no jogo" só aparece na faixa da conferência limpa.</summary>
     public bool ShowTestButton => IsClear;
@@ -427,26 +450,31 @@ public sealed partial class ConferenceViewModel : ObservableObject
             }
         }
 
-        var consistency = new List<ConferenceConsistencyCardViewModel>();
-        if (grouped is not null)
+        List<ConferenceConsistencyCardViewModel> consistency = grouped is null ? [] : BuildConsistencyCards(context, grouped, sceneOf, positions, rows);
+
+        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards, consistency);
+    }
+
+    /// <summary>Os cards de tradução inconsistente; as linhas deles entram em <paramref name="rows"/>, que o chamador devolve na lista.</summary>
+    private List<ConferenceConsistencyCardViewModel> BuildConsistencyCards(QaContext context, ILookup<string, QaIssue> grouped, Func<string, string> sceneOf, Dictionary<string, int?> positions, List<ConferenceIssueRowViewModel> rows)
+    {
+        var cards = new List<ConferenceConsistencyCardViewModel>();
+        var description = engine.Find(InconsistentTranslationRule.RuleId)?.Description;
+        string Label(ConsistencyLine line) => positions.GetValueOrDefault(line.UnitId) is { } position ? $"{sceneOf(line.ScriptKey)} · {position.ToString(CultureInfo.InvariantCulture)}" : sceneOf(line.ScriptKey);
+        foreach (var group in ConsistencyGroups.Find(context).Where(g => !g.IsKept))
         {
-            var description = engine.Find(InconsistentTranslationRule.RuleId)?.Description;
-            string Label(ConsistencyLine line) => positions.GetValueOrDefault(line.UnitId) is { } position ? $"{sceneOf(line.ScriptKey)} · {position.ToString(CultureInfo.InvariantCulture)}" : sceneOf(line.ScriptKey);
-            foreach (var group in ConsistencyGroups.Find(context).Where(g => !g.IsKept))
+            var groupRows = group.Variants.Where(v => !v.IsReference).SelectMany(v => v.Lines)
+                .SelectMany(line => grouped[line.UnitId])
+                .Select(issue => new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(description, sceneOf(issue.ScriptKey), positions.GetValueOrDefault(issue.UnitId))) { InGroup = true })
+                .ToList();
+            if (groupRows.Count > 0)
             {
-                var groupRows = group.Variants.Where(v => !v.IsReference).SelectMany(v => v.Lines)
-                    .SelectMany(line => grouped[line.UnitId])
-                    .Select(issue => new ConferenceIssueRowViewModel(issue, labels: new ConferenceRowLabels(description, sceneOf(issue.ScriptKey), positions.GetValueOrDefault(issue.UnitId))) { InGroup = true })
-                    .ToList();
-                if (groupRows.Count > 0)
-                {
-                    consistency.Add(new ConferenceConsistencyCardViewModel(group, Label, groupRows, positions, new ConsistencyCardActions(UseVariantCommand, KeepDifferentCommand, OpenLineByIdCommand)));
-                    rows.AddRange(groupRows);
-                }
+                cards.Add(new ConferenceConsistencyCardViewModel(group, Label, groupRows, positions, new ConsistencyCardActions(UseVariantCommand, KeepDifferentCommand, OpenLineByIdCommand)));
+                rows.AddRange(groupRows);
             }
         }
 
-        return new Checked(result, rows, context.Texts.Values.Sum(list => list.Count), proposals.Count + cards.Sum(c => c.Count), cards, consistency);
+        return cards;
     }
 
     /// <summary>O nome da cena na tela. Sem nome, "Cena N" com N a posição do script entre todos do projeto (ordem de chave, de 1 em diante); script fora da lista fica só "Cena", sem inventar número.</summary>

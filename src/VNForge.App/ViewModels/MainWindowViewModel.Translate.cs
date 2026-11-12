@@ -192,13 +192,20 @@ public sealed partial class MainWindowViewModel
         }
 
         // O cabeçalho do jogo mostra o andamento e o próximo passo, que a tradução acabou de mudar; vale também com a Conferência aberta.
-        var header = InGame ? DashboardRefresh = Dashboard.ReloadAsync() : Task.CompletedTask;
+        var header = Task.CompletedTask;
+        if (InGame)
+        {
+            DashboardRefresh = Dashboard.ReloadAsync();
+            header = DashboardRefresh;
+        }
+
         if (!ReferenceEquals(CurrentPage, Conference))
         {
             return header;
         }
 
-        return Task.WhenAll(header, ConferenceLoading = Conference.RefreshAfterExternalChangeAsync());
+        ConferenceLoading = Conference.RefreshAfterExternalChangeAsync();
+        return Task.WhenAll(header, ConferenceLoading);
     }
 
     private static string TranslationTitle(TranslationScope scope) => scope switch

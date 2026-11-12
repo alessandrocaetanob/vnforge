@@ -87,6 +87,19 @@ public sealed class ReviewModeRiskTests : IDisposable
     }
 
     [Fact]
+    public async Task Pedir_a_fila_por_risco_de_novo_antes_da_primeira_terminar_cancela_a_primeira_e_abre_a_segunda()
+    {
+        var vm = await Abrir();
+
+        var first = vm.StartRiskReviewAsync();
+        var second = vm.StartRiskReviewAsync();
+        await Task.WhenAll(first, second);
+
+        Assert.NotNull(vm.Review);
+        Assert.Equal(4, vm.Review.UpNext.Count);
+    }
+
+    [Fact]
     public async Task A_lista_a_seguir_comeca_na_linha_de_agora_e_mostra_nivel_falante_e_sinais()
     {
         var vm = await Abrir();
