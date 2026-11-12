@@ -37,64 +37,94 @@ public static class LibraryCharacterSync
         ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(editionsFile);
-        var clock = time ?? TimeProvider.System;
         var groups = library.Games.Where(g => g.VndbId is not null).GroupBy(g => g.VndbId!, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
-        int fetched = 0, cached = 0, characters = 0, matched = 0, incomplete = 0, done = 0;
-        var failures = new List<LibraryCharacterSyncFailure>();
+        var run = new Run(catalog, store, editionsFile, again, time ?? TimeProvider.System, cancellationToken);
+        var done = 0;
         foreach (var group in groups)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            await run.SyncGroupAsync(group).ConfigureAwait(false);
+            progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
+        }
+
+        return run.ResultFor(groups.Count);
+    }
+
+    /// <summary>O estado de uma rodada: o que ela usa em cada jogo do VNDB e as contagens que o resultado devolve.</summary>
+    private sealed class Run(IVndbCatalog catalog, SheetStore store, GameEditionsFile editionsFile, bool again, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        private readonly List<LibraryCharacterSyncFailure> _failures = [];
+        private int _fetched;
+        private int _cached;
+        private int _characters;
+        private int _matched;
+        private int _incomplete;
+
+        public LibraryCharacterSyncResult ResultFor(int games) => new(games, _fetched, _cached, _characters, _matched, _failures, _incomplete);
+
+        public async Task SyncGroupAsync(IGrouping<string, LibraryGame> group)
+        {
             try
             {
-                if (!again && HasEditions(store, group.Key))
+                if (await FetchSheetAsync(group.Key).ConfigureAwait(false))
                 {
-                    cached++;
-                }
-                else if (await catalog.GetVisualNovelAsync(group.Key, cancellationToken).ConfigureAwait(false) is { } vn)
-                {
-                    var found = await catalog.GetCharactersAsync(group.Key, cancellationToken).ConfigureAwait(false);
-                    var now = clock.GetUtcNow();
-                    characters += store.Update(s => SheetFetcher.Merge(s, vn, found, now)).Characters;
-                    fetched++;
-                }
-                else
-                {
-                    failures.Add(new LibraryCharacterSyncFailure(group.Key, $"O VNDB não tem o jogo {group.Key}."));
-                    progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
-                    continue;
-                }
-
-                var pending = group.Where(g => again || !editionsFile.Load().IsCurrent(g)).ToList();
-                if (pending.Count > 0)
-                {
-                    var releases = await catalog.GetReleasesAsync(group.Key, cancellationToken).ConfigureAwait(false);
-                    var partial = releases.Truncated;
-                    var stamp = clock.GetUtcNow();
-                    editionsFile.Update(editions =>
-                    {
-                        foreach (var game in pending)
-                        {
-                            var found = LibraryEditionMatcher.Match(game, releases.Items);
-                            // Com a lista cortada a edição certa pode ter ficado de fora; o casamento só decide o papel, então vale, marcado como incompleto.
-                            editions.Set(game.Id, group.Key, found, stamp, partial);
-                            matched += found.Count > 0 ? 1 : 0;
-                            incomplete += partial ? 1 : 0;
-                        }
-                    });
+                    await MatchEditionsAsync(group).ConfigureAwait(false);
                 }
             }
             catch (VndbException e)
             {
-                failures.Add(new LibraryCharacterSyncFailure(group.Key, e.Message));
+                _failures.Add(new LibraryCharacterSyncFailure(group.Key, e.Message));
             }
-
-            progress?.Report(new LibraryCharacterSyncProgress(++done, groups.Count, group.Key));
         }
 
-        return new LibraryCharacterSyncResult(groups.Count, fetched, cached, characters, matched, failures, incomplete);
-    }
+        /// <summary>Falso quando o VNDB não tem o jogo: a falha fica registrada e as edições não são casadas.</summary>
+        private async Task<bool> FetchSheetAsync(string visualNovelId)
+        {
+            if (!again && HasEditions(visualNovelId))
+            {
+                _cached++;
+                return true;
+            }
 
-    /// <summary>A ficha está guardada e todas as aparições dos personagens nela já trazem as edições (as gravadas antes disso só têm o resumo, com o spoiler mais baixo, e precisam ser buscadas de novo).</summary>
-    private static bool HasEditions(SheetStore store, string visualNovelId) =>
-        store.LoadGame(visualNovelId) is { } sheet && store.LoadCharacters(sheet.CharacterIds).All(c => c.In(visualNovelId)?.Editions is { Count: > 0 } && c.AgeFetched);
+            if (await catalog.GetVisualNovelAsync(visualNovelId, cancellationToken).ConfigureAwait(false) is not { } vn)
+            {
+                _failures.Add(new LibraryCharacterSyncFailure(visualNovelId, $"O VNDB não tem o jogo {visualNovelId}."));
+                return false;
+            }
+
+            var found = await catalog.GetCharactersAsync(visualNovelId, cancellationToken).ConfigureAwait(false);
+            var now = clock.GetUtcNow();
+            _characters += store.Update(s => SheetFetcher.Merge(s, vn, found, now)).Characters;
+            _fetched++;
+            return true;
+        }
+
+        private async Task MatchEditionsAsync(IGrouping<string, LibraryGame> group)
+        {
+            var pending = group.Where(g => again || !editionsFile.Load().IsCurrent(g)).ToList();
+            if (pending.Count == 0)
+            {
+                return;
+            }
+
+            var releases = await catalog.GetReleasesAsync(group.Key, cancellationToken).ConfigureAwait(false);
+            var partial = releases.Truncated;
+            var stamp = clock.GetUtcNow();
+            editionsFile.Update(editions =>
+            {
+                foreach (var game in pending)
+                {
+                    var found = LibraryEditionMatcher.Match(game, releases.Items);
+                    // Com a lista cortada a edição certa pode ter ficado de fora; o casamento só decide o papel, então vale, marcado como incompleto.
+                    editions.Set(game.Id, group.Key, found, stamp, partial);
+                    _matched += found.Count > 0 ? 1 : 0;
+                    _incomplete += partial ? 1 : 0;
+                }
+            });
+        }
+
+        /// <summary>A ficha está guardada e todas as aparições dos personagens nela já trazem as edições (as gravadas antes disso só têm o resumo, com o spoiler mais baixo, e precisam ser buscadas de novo).</summary>
+        private bool HasEditions(string visualNovelId) =>
+            store.LoadGame(visualNovelId) is { } sheet && store.LoadCharacters(sheet.CharacterIds).All(c => c.In(visualNovelId)?.Editions is { Count: > 0 } && c.AgeFetched);
+    }
 }

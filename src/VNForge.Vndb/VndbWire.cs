@@ -256,16 +256,39 @@ internal static class VndbWire
         public ListVn? Vn { get; init; }
     }
 
-    public static VndbImage? ToCore(Image? image) =>
-        image is null || string.IsNullOrEmpty(image.Url)
-            ? null
-            : new VndbImage(
-                image.Url,
-                image.Thumbnail,
-                image.Dims is { Length: 2 } ? image.Dims[0] : null,
-                image.Dims is { Length: 2 } ? image.Dims[1] : null,
-                image.Sexual,
-                image.Violence);
+    public static VndbImage? ToCore(Image? image)
+    {
+        if (image is null || string.IsNullOrEmpty(image.Url))
+        {
+            return null;
+        }
+
+        int? width = null;
+        int? height = null;
+        if (image.Dims is { Length: 2 } dims)
+        {
+            width = dims[0];
+            height = dims[1];
+        }
+
+        return new VndbImage(
+            image.Url,
+            image.Thumbnail,
+            width,
+            height,
+            image.Sexual,
+            image.Violence);
+    }
+
+    private static VndbGender? ToCore(string?[]? gender)
+    {
+        if (gender is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        return new VndbGender(gender[0], gender.Length > 1 ? gender[1] : gender[0]);
+    }
 
     public static VndbVisualNovel ToCore(VisualNovel vn) =>
         new(
@@ -295,7 +318,7 @@ internal static class VndbWire
             [.. c.Aliases ?? []],
             c.Description,
             ToCore(c.Image),
-            c.Gender is { Length: > 0 } ? new VndbGender(c.Gender[0], c.Gender.Length > 1 ? c.Gender[1] : c.Gender[0]) : null,
+            ToCore(c.Gender),
             [.. (c.Vns ?? []).Select(v => new VndbCharacterAppearance(v.Id, v.Role, v.Spoiler, v.Release?.Id))],
             [.. (c.Traits ?? []).Select(t => new VndbTrait(t.Id, t.Name, t.GroupId, t.GroupName, t.Spoiler, t.Lie, t.Sexual))],
             c.Age);

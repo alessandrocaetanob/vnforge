@@ -9,7 +9,7 @@ using VNForge.Core.Vndb;
 namespace VNForge.Vndb;
 
 /// <summary>
-/// O cliente da API Kana do VNDB (<c>api.vndb.org/kana</c>). Todo pedido passa pela <see cref="VndbRequestQueue"/>, que o mantém dentro do limite da API, e as consultas de catálogo
+/// O cliente da API Kana do VNDB (<c>api.vndb.org/kana</c>). Cada pedido passa pela <see cref="VndbRequestQueue"/>, que o mantém dentro do limite da API, e as consultas de catálogo
 /// passam pelo <see cref="VndbCache"/>. O token da conta só entra como parâmetro dos métodos de lista e vai no cabeçalho <c>Authorization</c>: não é guardado no cliente, no cache nem no log.
 /// O limite do VNDB vale por endereço IP e não por cliente, então todos os clientes do processo devem dividir a mesma fila: <see cref="Create"/> faz isso.
 /// </summary>
@@ -280,7 +280,8 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
 
     private async Task<string> SendAsync(HttpMethod method, string path, string? body, string? token, CancellationToken ct)
     {
-        for (var throttled = 0; ; throttled++)
+        var throttled = 0;
+        while (true)
         {
             await _queue.WaitTurnAsync(ct).ConfigureAwait(false);
             var reply = await ExchangeAsync(method, path, body, token, ct).ConfigureAwait(false);
@@ -298,6 +299,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
             // O Retry-After, quando vem, manda; sem ele a espera cresce a cada tentativa. Nunca passa da janela da fila.
             var wait = reply.RetryAfter is { } asked && asked > TimeSpan.Zero ? asked : ThrottleWaits[throttled];
             _queue.BlockFor(wait < VndbRequestQueue.DefaultWindow ? wait : VndbRequestQueue.DefaultWindow);
+            throttled++;
         }
     }
 
@@ -407,7 +409,7 @@ public sealed class VndbClient : IVndbCatalog, IVndbUserList
     }
 
     private static Uri EnsureTrailingSlash(Uri uri) =>
-        uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + "/");
+        uri.AbsoluteUri.EndsWith('/') ? uri : new Uri($"{uri.AbsoluteUri}/");
 
     private sealed record Reply(HttpStatusCode Status, string Text, TimeSpan? RetryAfter);
 }

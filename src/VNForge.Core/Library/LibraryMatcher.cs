@@ -193,9 +193,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
     {
         ArgumentNullException.ThrowIfNull(library);
         options ??= new LibraryMatchOptions();
-        var queue = library.Games
-            .Where(g => !g.IsConfirmed && (onlyGame is not null ? g.Id == onlyGame : again || g.SearchedAt is null))
-            .ToList();
+        var queue = library.Games.Where(g => !g.IsConfirmed && IsQueued(g, again, onlyGame)).ToList();
 
         List<LibraryGame> confirmed = [];
         List<LibraryGame> pending = [];
@@ -218,19 +216,7 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
                 library.Replace(matched);
                 onMatched?.Invoke(matched);
                 consecutive = 0;
-                if (matched.IsConfirmed)
-                {
-                    confirmed.Add(matched);
-                }
-                else if (matched.Candidates.Count > 0)
-                {
-                    pending.Add(matched);
-                }
-                else
-                {
-                    notFound.Add(matched);
-                }
-
+                Bucket(matched, confirmed, pending, notFound).Add(matched);
                 progress?.Report(new LibraryMatchProgress(i + 1, queue.Count, matched));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -252,6 +238,19 @@ public sealed class LibraryMatcher(IVndbCatalog catalog, TimeProvider? time = nu
         }
 
         return new LibraryMatchRun(confirmed, pending, notFound, failures, cancelled, abort);
+    }
+
+    private static bool IsQueued(LibraryGame game, bool again, string? onlyGame) =>
+        onlyGame is not null ? game.Id == onlyGame : again || game.SearchedAt is null;
+
+    private static List<LibraryGame> Bucket(LibraryGame matched, List<LibraryGame> confirmed, List<LibraryGame> pending, List<LibraryGame> notFound)
+    {
+        if (matched.IsConfirmed)
+        {
+            return confirmed;
+        }
+
+        return matched.Candidates.Count > 0 ? pending : notFound;
     }
 
     /// <summary>A ficha que a Biblioteca guarda do jogo do VNDB.</summary>

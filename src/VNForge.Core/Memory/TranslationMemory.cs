@@ -21,7 +21,7 @@ public sealed class TranslationMemory(string directory)
     public const int DefaultLimit = 5;
 
     private readonly UserEntriesFile<MemoryEntry> file = new(System.IO.Path.Combine(directory, FileName), ValidateEntries);
-    private readonly object gate = new();
+    private readonly Lock gate = new();
     private Snapshot? cached;
 
     public string Path => file.Path;

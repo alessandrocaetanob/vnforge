@@ -5,6 +5,8 @@ namespace VNForge.Core.Projects;
 
 public static class ProjectConfigSerializer
 {
+    private const string VersionKey = "version";
+
     private static readonly JsonDocumentOptions ReadOptions = new()
     {
         CommentHandling = JsonCommentHandling.Skip,
@@ -56,7 +58,7 @@ public static class ProjectConfigSerializer
             writer.WriteString("exe", config.Game.Exe);
             if (config.Game.Version is { } gameVersion)
             {
-                writer.WriteString("version", gameVersion);
+                writer.WriteString(VersionKey, gameVersion);
             }
 
             if (config.Game.Title is { } title)
@@ -77,7 +79,7 @@ public static class ProjectConfigSerializer
             writer.WriteString("id", config.Engine.Id);
             if (config.Engine.Version is { } version)
             {
-                writer.WriteNumber("version", version);
+                writer.WriteNumber(VersionKey, version);
             }
 
             if (config.Engine.ScriptKey is { } scriptKey)
@@ -133,7 +135,7 @@ public static class ProjectConfigSerializer
         var game = reader.RequiredObject("game");
         var gamePath = game.RequiredString("path");
         var gameExe = game.RequiredString("exe");
-        var gameVersion = game.OptionalString("version");
+        var gameVersion = game.OptionalString(VersionKey);
         GameTitleConfig? gameTitle = null;
         if (game.OptionalObject("title") is { } titleReader)
         {
@@ -145,7 +147,7 @@ public static class ProjectConfigSerializer
 
         var engine = reader.RequiredObject("engine");
         var engineId = engine.RequiredString("id");
-        var engineVersion = engine.OptionalInt("version");
+        var engineVersion = engine.OptionalInt(VersionKey);
         var scriptKey = engine.OptionalString("scriptKey");
         engine.EnsureNoUnknownProperties();
 

@@ -19,6 +19,10 @@ namespace VNForge.Cli;
 /// </summary>
 internal static partial class LibraryCommand
 {
+    private const string EmptyCell = "[dim]·[/]";
+
+    private static string GameCount(int count) => CliFormat.Count(count, "jogo", "jogos");
+
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo("pt-BR");
 
     private static readonly string[] States = ["confirmed", "pending", "unmatched"];
@@ -308,11 +312,14 @@ internal static partial class LibraryCommand
             token);
 
         var recent = new RecentProjectsFile(cli.UserConfigDirectory).Load().Select(r => r.Path).ToList();
-        var (library, merge, linked) = file.Update(current =>
-        {
-            var merged = current.Merge(result.Games, root);
-            return (current, merged, LibraryProjectLinker.LinkAll(current, recent));
-        });
+        // None de propósito: com o Ctrl+C a varredura devolve o que achou até ali e isso ainda precisa ser gravado.
+        var (library, merge, linked) = file.Update(
+            current =>
+            {
+                var merged = current.Merge(result.Games, root);
+                return (current, merged, LibraryProjectLinker.LinkAll(current, recent));
+            },
+            CancellationToken.None);
 
         IReadOnlyList<LibraryGame> missing = result.Cancelled ? [] : merge.Missing;
         var known = result.Games.Count - merge.Added.Count - merge.Updated.Count;
@@ -335,25 +342,26 @@ internal static partial class LibraryCommand
         }
         else
         {
-            WriteScan(cli, output, root, result, merge, missing, linked, known, library.Games.Count, file.Path);
+            WriteScan(cli, output, new ScanReport(root, result, merge, missing, linked, known, library.Games.Count, file.Path));
         }
 
         token.ThrowIfCancellationRequested();
         return ErrorHandler.OkExitCode;
     }
 
-    private static void WriteScan(
-        VnfCli cli,
-        TextWriter output,
-        string root,
-        LibraryScanResult result,
-        LibraryMergeResult merge,
-        IReadOnlyList<LibraryGame> missing,
-        IReadOnlyList<LibraryProjectLink> linked,
-        int known,
-        int total,
-        string path)
+    private sealed record ScanReport(
+        string Root,
+        LibraryScanResult Result,
+        LibraryMergeResult Merge,
+        IReadOnlyList<LibraryGame> Missing,
+        IReadOnlyList<LibraryProjectLink> Linked,
+        int Known,
+        int Total,
+        string Path);
+
+    private static void WriteScan(VnfCli cli, TextWriter output, ScanReport report)
     {
+        var (root, result, merge, missing, linked, known, total, path) = report;
         if (result.Cancelled)
         {
             output.WriteLine("Varredura cancelada. O que já foi achado ficou na biblioteca; rode de novo para continuar.");
@@ -388,7 +396,7 @@ internal static partial class LibraryCommand
             output.WriteLine($"{CliFormat.Count(missing.Count, "jogo não foi achado", "jogos não foram achados")} nesta pasta e {(missing.Count == 1 ? "continua" : "continuam")} na biblioteca: {string.Join(", ", missing.Take(10).Select(g => g.Title))}{(missing.Count > 10 ? ", ..." : string.Empty)}.");
         }
 
-        output.WriteLine($"A biblioteca tem {CliFormat.Count(total, "jogo", "jogos")} ({path}).");
+        output.WriteLine($"A biblioteca tem {GameCount(total)} ({path}).");
         if (merge.Added.Count > 0)
         {
             output.WriteLine("Para casar com o VNDB: vnf library match");
@@ -420,7 +428,7 @@ internal static partial class LibraryCommand
             return await ConfirmAsync(cli, parseResult, file, library, confirm[0], confirm[1], token).ConfigureAwait(false);
         }
 
-        return await BatchAsync(cli, parseResult, file, library, auto, again, only, token).ConfigureAwait(false);
+        return await BatchAsync(cli, parseResult, file, library, new MatchBatch(auto, again, only), token).ConfigureAwait(false);
     }
 
     private static int Reset(VnfCli cli, ParseResult parseResult, LibraryFile file, string reference)
@@ -464,26 +472,31 @@ internal static partial class LibraryCommand
             throw new UsageException(e.Message);
         }
 
-        library = file.Update(current =>
-        {
-            current.Replace(confirmed);
-            return current;
-        });
+        library = file.Update(
+            current =>
+            {
+                current.Replace(confirmed);
+                return current;
+            },
+            token);
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { confirmed = GameData(confirmed, library.Privacy) }));
+            await output.WriteLineAsync(JsonEnvelope.Result(new { confirmed = GameData(confirmed, library.Privacy) })).ConfigureAwait(false);
         }
         else
         {
-            output.WriteLine($"{GameLibrary.FolderName(confirmed)}: confirmado como {confirmed.VndbId} {confirmed.Title}.");
+            await output.WriteLineAsync($"{GameLibrary.FolderName(confirmed)}: confirmado como {confirmed.VndbId} {confirmed.Title}.").ConfigureAwait(false);
         }
 
         return ErrorHandler.OkExitCode;
     }
 
-    private static async Task<int> BatchAsync(VnfCli cli, ParseResult parseResult, LibraryFile file, GameLibrary library, bool auto, bool again, string? onlyReference, CancellationToken token)
+    private sealed record MatchBatch(bool Auto, bool Again, string? OnlyReference);
+
+    private static async Task<int> BatchAsync(VnfCli cli, ParseResult parseResult, LibraryFile file, GameLibrary library, MatchBatch batch, CancellationToken token)
     {
+        var (auto, again, onlyReference) = batch;
         var output = parseResult.InvocationConfiguration.Output;
         var error = parseResult.InvocationConfiguration.Error;
         var json = parseResult.GetValue(cli.Options.Json);
@@ -505,7 +518,7 @@ internal static partial class LibraryCommand
         var exitCode = run.Failures.Count > 0 || run.AbortReason is not null ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     searched = waiting,
@@ -517,7 +530,7 @@ internal static partial class LibraryCommand
                     cancelled = run.Cancelled,
                     abortReason = run.AbortReason,
                 },
-                exitCode));
+                exitCode)).ConfigureAwait(false);
         }
         else
         {
@@ -622,27 +635,7 @@ internal static partial class LibraryCommand
         var listed = privacy.Listed(library.Games);
         if (reference is not null)
         {
-            if (HasTagFilterOptions(parseResult))
-            {
-                throw new UsageException("--tag, --any, --not, --save e --saved valem para a lista; com um jogo, mostre as tags dele com vnf library tag list <jogo>.");
-            }
-
-            var game = library.Find(reference);
-            if (privacy.Hides(game))
-            {
-                throw new LibraryException($"O jogo '{game.Title}' é de conteúdo adulto e a biblioteca o esconde (vnf library privacy --adult). Use --show-adult para vê-lo só nesta chamada.");
-            }
-
-            if (json)
-            {
-                output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
-            }
-            else
-            {
-                WriteSheet(output, game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id));
-            }
-
-            return ErrorHandler.OkExitCode;
+            return ListOne(cli, parseResult, library, privacy, played, tags, reference);
         }
 
         var filter = TagFilterOf(parseResult, tags);
@@ -675,37 +668,7 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        var showTags = tags.Tags.Count > 0;
-        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo")];
-        if (showTags)
-        {
-            columns.Add(CliViews.Column("Minhas tags"));
-        }
-
-        var table = CliViews.NewTable([.. columns]);
-        foreach (var game in games)
-        {
-            var stats = played.StatsOf(game.Id);
-            List<IRenderable> cells =
-            [
-                new Markup(game.Id),
-                new Markup(CliViews.Escape(game.Title)),
-                new Markup(CliViews.Escape(game.Engine.Name)),
-                new Markup(CliViews.Escape(MatchText(game))),
-                new Markup(game.ProjectPath is null ? "[dim]·[/]" : "sim"),
-                new Markup(stats.Sessions == 0 ? "[dim]·[/]" : CliViews.Escape(PlayTime.Format(stats.Total))),
-                new Markup(stats.LastPlayedAt is null ? "[dim]·[/]" : CliViews.Escape(LastPlayedText(stats))),
-            ];
-            if (showTags)
-            {
-                var own = tags.TagsOf(game.Id);
-                cells.Add(new Markup(own.Count == 0 ? "[dim]·[/]" : CliViews.Escape(string.Join(", ", own))));
-            }
-
-            table.AddRow([.. cells]);
-        }
-
-        cli.Ansi.Write(table);
+        cli.Ansi.Write(ListTable(games, played, tags));
         if (!filter.IsEmpty)
         {
             output.WriteLine($"Filtro por tag: {DescribeFilter(shownFilter)}.{(saveFilter ? " Salvo." : string.Empty)}");
@@ -716,13 +679,78 @@ internal static partial class LibraryCommand
         }
 
         output.WriteLine(games.Count == listed.Count
-            ? $"{CliFormat.Count(games.Count, "jogo", "jogos")} na biblioteca."
-            : $"{CliFormat.Count(games.Count, "jogo", "jogos")} de {CliFormat.Number(listed.Count)} na biblioteca.");
+            ? $"{GameCount(games.Count)} na biblioteca."
+            : $"{GameCount(games.Count)} de {CliFormat.Number(listed.Count)} na biblioteca.");
         if (listed.Count < library.Games.Count)
         {
             output.WriteLine($"{CliFormat.Count(library.Games.Count - listed.Count, "jogo adulto escondido", "jogos adultos escondidos")}; use --show-adult para vê-los só nesta chamada.");
         }
+
         return ErrorHandler.OkExitCode;
+    }
+
+    private static int ListOne(VnfCli cli, ParseResult parseResult, GameLibrary library, LibraryPrivacy privacy, PlayLog played, UserTags tags, string reference)
+    {
+        if (HasTagFilterOptions(parseResult))
+        {
+            throw new UsageException("--tag, --any, --not, --save e --saved valem para a lista; com um jogo, mostre as tags dele com vnf library tag list <jogo>.");
+        }
+
+        var game = library.Find(reference);
+        if (privacy.Hides(game))
+        {
+            throw new LibraryException($"O jogo '{game.Title}' é de conteúdo adulto e a biblioteca o esconde (vnf library privacy --adult). Use --show-adult para vê-lo só nesta chamada.");
+        }
+
+        var output = parseResult.InvocationConfiguration.Output;
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new { privacy, game = GameData(game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id)) }));
+        }
+        else
+        {
+            WriteSheet(output, game, privacy, played.StatsOf(game.Id), tags.TagsOf(game.Id));
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static Table ListTable(IReadOnlyList<LibraryGame> games, PlayLog played, UserTags tags)
+    {
+        var showTags = tags.Tags.Count > 0;
+        List<TableColumn> columns = [CliViews.Column("Id"), CliViews.Column("Título"), CliViews.Column("Engine"), CliViews.Column("VNDB"), CliViews.Column("Projeto"), CliViews.Column("Tempo"), CliViews.Column("Último jogo")];
+        if (showTags)
+        {
+            columns.Add(CliViews.Column("Minhas tags"));
+        }
+
+        var table = CliViews.NewTable([.. columns]);
+        foreach (var game in games)
+        {
+            table.AddRow(ListRow(game, played.StatsOf(game.Id), showTags ? tags.TagsOf(game.Id) : null));
+        }
+
+        return table;
+    }
+
+    private static IRenderable[] ListRow(LibraryGame game, PlayStats stats, IReadOnlyList<string>? ownTags)
+    {
+        List<IRenderable> cells =
+        [
+            new Markup(game.Id),
+            new Markup(CliViews.Escape(game.Title)),
+            new Markup(CliViews.Escape(game.Engine.Name)),
+            new Markup(CliViews.Escape(MatchText(game))),
+            new Markup(game.ProjectPath is null ? EmptyCell : "sim"),
+            new Markup(stats.Sessions == 0 ? EmptyCell : CliViews.Escape(PlayTime.Format(stats.Total))),
+            new Markup(stats.LastPlayedAt is null ? EmptyCell : CliViews.Escape(LastPlayedText(stats))),
+        ];
+        if (ownTags is not null)
+        {
+            cells.Add(new Markup(ownTags.Count == 0 ? EmptyCell : CliViews.Escape(string.Join(", ", ownTags))));
+        }
+
+        return [.. cells];
     }
 
     private static bool HasTagFilterOptions(ParseResult parseResult) =>
@@ -842,6 +870,11 @@ internal static partial class LibraryCommand
             return;
         }
 
+        WriteVndbCard(output, game, card);
+    }
+
+    private static void WriteVndbCard(TextWriter output, LibraryGame game, LibraryGameCard card)
+    {
         output.WriteLine($"  VNDB: {game.VndbId} (https://vndb.org/{game.VndbId})");
         if (card.OriginalTitle is not null && card.OriginalTitle != card.Title)
         {
@@ -1035,7 +1068,7 @@ internal static partial class LibraryCommand
         var table = CliViews.NewTable(CliViews.Column("Tag"), CliViews.Column("Cor"), CliViews.Column("Jogos", right: true));
         foreach (var (tag, games) in rows)
         {
-            table.AddRow(new Markup(CliViews.Escape(tag.Name)), new Markup(tag.Color ?? "[dim]·[/]"), new Markup(CliFormat.Number(games)));
+            table.AddRow(new Markup(CliViews.Escape(tag.Name)), new Markup(tag.Color ?? EmptyCell), new Markup(CliFormat.Number(games)));
         }
 
         cli.Ansi.Write(table);
@@ -1064,9 +1097,10 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine(!changed
-            ? $"A tag já se chama '{target}'."
-            : $"{(merged ? "Tag mesclada" : "Tag renomeada")}: '{source}' virou '{target}' em {CliFormat.Count(games, "jogo", "jogos")}.");
+        var verb = merged ? "Tag mesclada" : "Tag renomeada";
+        output.WriteLine(changed
+            ? $"{verb}: '{source}' virou '{target}' em {GameCount(games)}."
+            : $"A tag já se chama '{target}'.");
         WriteNotices(parseResult, notices);
         return ErrorHandler.OkExitCode;
     }
@@ -1078,7 +1112,7 @@ internal static partial class LibraryCommand
         var preview = TagsFileOf(cli).Load();
         var key = preview.Get(name).Name;
         var count = GamesInLibrary(preview, library, key);
-        if (count > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Apagar a tag '{key}'? Ela sai de {CliFormat.Count(count, "jogo", "jogos")}."))
+        if (count > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Apagar a tag '{key}'? Ela sai de {GameCount(count)}."))
         {
             output.WriteLine("Operação cancelada. Nada foi apagado.");
             return ErrorHandler.CancelledExitCode;
@@ -1095,7 +1129,7 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine($"Tag '{key}' apagada, de {CliFormat.Count(games, "jogo", "jogos")}.");
+        output.WriteLine($"Tag '{key}' apagada, de {GameCount(games)}.");
         WriteNotices(parseResult, notices);
         return ErrorHandler.OkExitCode;
     }
@@ -1189,7 +1223,7 @@ internal static partial class LibraryCommand
             }
             else if (value.Directories % Every == 0)
             {
-                error.WriteLine($"{CliFormat.Count(value.Directories, "pasta varrida", "pastas varridas")}, {CliFormat.Count(value.Games, "jogo", "jogos")}...");
+                error.WriteLine($"{CliFormat.Count(value.Directories, "pasta varrida", "pastas varridas")}, {GameCount(value.Games)}...");
             }
         }
     }

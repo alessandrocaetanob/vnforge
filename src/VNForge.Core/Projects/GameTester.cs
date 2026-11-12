@@ -56,8 +56,17 @@ public static class GameTestFailure
             return step;
         }
 
-        var inner = failure is AggregateException aggregate ? aggregate.InnerExceptions : failure.InnerException is { } one ? [one] : [];
-        return inner.Select(StepOf).FirstOrDefault(s => s is not null);
+        return InnerOf(failure).Select(StepOf).FirstOrDefault(s => s is not null);
+    }
+
+    private static Exception[] InnerOf(Exception failure)
+    {
+        if (failure is AggregateException aggregate)
+        {
+            return [.. aggregate.InnerExceptions];
+        }
+
+        return failure.InnerException is { } one ? [one] : [];
     }
 
     internal static void Tag(Exception failure, GameTestStep? step)

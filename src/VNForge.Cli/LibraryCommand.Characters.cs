@@ -119,23 +119,7 @@ internal static partial class LibraryCommand
         }
 
         var filtered = !string.IsNullOrWhiteSpace(text) || traits.Length > 0 || gameId is not null;
-        if (list.Characters.Count == 0)
-        {
-            output.WriteLine(filtered
-                ? "Nenhum personagem da biblioteca combina com a busca."
-                : "Nenhum personagem na biblioteca ainda. Traga-os do VNDB com vnf library characters sync.");
-        }
-        else
-        {
-            output.WriteLine($"{CliFormat.Count(list.Characters.Count, "personagem", "personagens")}{(filtered ? " na busca" : " na biblioteca")}:");
-            foreach (var character in list.Characters)
-            {
-                var games = string.Join(", ", character.AppearsIn.Select(a => $"{a.GameTitle} ({a.Role})"));
-                output.WriteLine($"  {character.Id}  {character.Name}{(character.Original is { } original ? $" ({original})" : string.Empty)} · {games}"
-                    + (character.HiddenAppearances > 0 ? $" (mais {CliFormat.Count(character.HiddenAppearances, "jogo escondido", "jogos escondidos")})" : string.Empty));
-            }
-        }
-
+        WriteCharacterLines(output, list, filtered);
         if (list.Hidden > 0)
         {
             output.WriteLine($"{CliFormat.Count(list.Hidden, "personagem escondido", "personagens escondidos")} por spoiler; --show-spoilers libera só esta chamada.");
@@ -143,6 +127,25 @@ internal static partial class LibraryCommand
 
         output.WriteLine(VndbCredit.ShortText);
         return ErrorHandler.OkExitCode;
+    }
+
+    private static void WriteCharacterLines(TextWriter output, LibraryCharacterList list, bool filtered)
+    {
+        if (list.Characters.Count == 0)
+        {
+            output.WriteLine(filtered
+                ? "Nenhum personagem da biblioteca combina com a busca."
+                : "Nenhum personagem na biblioteca ainda. Traga-os do VNDB com vnf library characters sync.");
+            return;
+        }
+
+        output.WriteLine($"{CliFormat.Count(list.Characters.Count, "personagem", "personagens")}{(filtered ? " na busca" : " na biblioteca")}:");
+        foreach (var character in list.Characters)
+        {
+            var games = string.Join(", ", character.AppearsIn.Select(a => $"{a.GameTitle} ({a.Role})"));
+            output.WriteLine($"  {character.Id}  {character.Name}{(character.Original is { } original ? $" ({original})" : string.Empty)} · {games}"
+                + (character.HiddenAppearances > 0 ? $" (mais {CliFormat.Count(character.HiddenAppearances, "jogo escondido", "jogos escondidos")})" : string.Empty));
+        }
     }
 
     private static int CharactersShow(VnfCli cli, ParseResult parseResult, string id)
@@ -185,12 +188,7 @@ internal static partial class LibraryCommand
 
         if (card.Description is { } description)
         {
-            output.WriteLine($"  Descrição ({SheetState(description)}):");
-            WriteIndented(output, description.Text, "    ");
-            if (description.HasHiddenSpoilers)
-            {
-                output.WriteLine("    (trechos de spoiler escondidos; use --show-spoilers)");
-            }
+            WriteCharacterDescription(output, description);
         }
 
         output.WriteLine("  Traços: " + (card.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", card.Traits.Select(t => t.Name)))
@@ -215,6 +213,16 @@ internal static partial class LibraryCommand
         output.WriteLine("  " + VndbCredit.ShortText);
     }
 
+    private static void WriteCharacterDescription(TextWriter output, SheetShownText description)
+    {
+        output.WriteLine($"  Descrição ({SheetState(description)}):");
+        WriteIndented(output, description.Text, "    ");
+        if (description.HasHiddenSpoilers)
+        {
+            output.WriteLine("    (trechos de spoiler escondidos; use --show-spoilers)");
+        }
+    }
+
     private static async Task<int> CharactersSyncAsync(VnfCli cli, ParseResult parseResult, CancellationToken token)
     {
         var library = FileOf(cli).Load();
@@ -227,7 +235,7 @@ internal static partial class LibraryCommand
         var exit = result.Failures.Count > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
         if (json)
         {
-            output.WriteLine(JsonEnvelope.Result(
+            await output.WriteLineAsync(JsonEnvelope.Result(
                 new
                 {
                     games = result.Games,
@@ -238,35 +246,35 @@ internal static partial class LibraryCommand
                     editionsIncomplete = result.EditionsIncomplete,
                     failed = result.Failures.Select(f => new { visualNovelId = f.VisualNovelId, error = f.Message }),
                 },
-                exit));
+                exit)).ConfigureAwait(false);
             return exit;
         }
 
         if (result.Games == 0)
         {
-            output.WriteLine("Nenhum jogo da biblioteca tem o jogo do VNDB confirmado. Use vnf library match.");
+            await output.WriteLineAsync("Nenhum jogo da biblioteca tem o jogo do VNDB confirmado. Use vnf library match.").ConfigureAwait(false);
             return exit;
         }
 
-        output.WriteLine($"{CliFormat.Count(result.Games, "jogo do VNDB", "jogos do VNDB")}: {result.Fetched} buscados, {result.Cached} já estavam guardados; "
-            + $"{CliFormat.Count(result.Characters, "personagem trazido", "personagens trazidos")} e {CliFormat.Count(result.EditionsMatched, "edição casada", "edições casadas")} com a pasta.");
+        await output.WriteLineAsync($"{CliFormat.Count(result.Games, "jogo do VNDB", "jogos do VNDB")}: {result.Fetched} buscados, {result.Cached} já estavam guardados; "
+            + $"{CliFormat.Count(result.Characters, "personagem trazido", "personagens trazidos")} e {CliFormat.Count(result.EditionsMatched, "edição casada", "edições casadas")} com a pasta.").ConfigureAwait(false);
         foreach (var failure in result.Failures)
         {
-            output.WriteLine($"Ficou de fora ({failure.VisualNovelId}): {failure.Message}");
+            await output.WriteLineAsync($"Ficou de fora ({failure.VisualNovelId}): {failure.Message}").ConfigureAwait(false);
         }
 
         if (result.Failures.Count > 0)
         {
-            output.WriteLine("Rode o comando de novo para tentar outra vez; o que já veio não volta a ser pedido.");
+            await output.WriteLineAsync("Rode o comando de novo para tentar outra vez; o que já veio não volta a ser pedido.").ConfigureAwait(false);
         }
 
         if (result.EditionsIncomplete > 0)
         {
-            output.WriteLine($"Aviso: o VNDB tem mais edições do que o limite trazido em {CliFormat.Count(result.EditionsIncomplete, "pasta", "pastas")}; a edição pode ter ficado de fora e só o papel depende dela (o spoiler não). vnf library characters sync --again refaz.");
+            await output.WriteLineAsync($"Aviso: o VNDB tem mais edições do que o limite trazido em {CliFormat.Count(result.EditionsIncomplete, "pasta", "pastas")}; a edição pode ter ficado de fora e só o papel depende dela (o spoiler não). vnf library characters sync --again refaz.").ConfigureAwait(false);
         }
 
-        output.WriteLine("Traduza as descrições e os traços de cada jogo com vnf library sheet translate; depois veja com vnf library characters list.");
-        output.WriteLine(VndbCredit.ShortText);
+        await output.WriteLineAsync("Traduza as descrições e os traços de cada jogo com vnf library sheet translate; depois veja com vnf library characters list.").ConfigureAwait(false);
+        await output.WriteLineAsync(VndbCredit.ShortText).ConfigureAwait(false);
         return exit;
     }
 }

@@ -270,6 +270,44 @@ internal static class EvalCommand
         return ErrorHandler.OkExitCode;
     }
 
+    private static object ConfigData(EvalRound round, EvalConfigReport r)
+    {
+        var blind = round.BlindScore(r.Config.Id);
+        return new
+        {
+            id = r.Config.Id,
+            model = r.Config.Model,
+            effort = r.Config.Effort,
+            contextLines = r.Config.ContextLines,
+            withBible = r.Config.WithBible,
+            chrf = r.MeanChrf,
+            judge = r.MeanJudge,
+            refusedLines = r.RefusedLines,
+            dollars = r.Dollars,
+            judgeDollars = r.JudgeDollars,
+            projectedDollars = r.ProjectedDollars(round.RemainingLines),
+            projectedBatchDollars = r.ProjectedBatchDollars(round.RemainingLines),
+            projectedSeconds = r.ProjectedTime(round.RemainingLines).TotalSeconds,
+            blindWins = blind.Wins,
+            blindPairs = blind.Total,
+            error = r.Error,
+        };
+    }
+
+    private static void WriteConfigReport(TextWriter output, EvalRound round, EvalConfigReport report, ExchangeRate rate, bool anyAnswered)
+    {
+        var (normal, batch) = EvalText.GameCost(report, round.RemainingLines, rate);
+        var judge = report.MeanJudge is { } score ? EvalText.Score(score) : "sem juiz";
+        var chosen = round.ChosenConfigId == report.Config.Id ? " · escolhida para o M4" : string.Empty;
+        output.WriteLine($"  {report.Config.Id}  {report.Config.ModelName} · {report.Config.Detail}{chosen}");
+        output.WriteLine(
+            $"      jogo todo {EvalText.Brl(normal)} (lote {EvalText.Brl(batch)}) · {EvalText.Duration(report.ProjectedTime(round.RemainingLines))} · chrF {EvalText.Score(report.MeanChrf)} · juiz {judge} · às cegas {EvalText.Blind(round.BlindScore(report.Config.Id), anyAnswered)}");
+        if (report.RefusedLines > 0 || report.Error is not null)
+        {
+            output.WriteLine($"      {Count(report.RefusedLines, "linha sem tradução", "linhas sem tradução")}{(report.Error is { } problem ? $": {problem}" : string.Empty)}");
+        }
+    }
+
     private static int WriteReport(TextWriter output, bool json, EvalRound round, ExchangeRate rate)
     {
         var recommended = EvalReading.Recommended(round);
@@ -290,29 +328,7 @@ internal static class EvalCommand
                 reading = EvalReading.Sentence(round),
                 partial = round.IsPartial,
                 partialNote = round.PartialNote,
-                configs = round.Reports.Select(r =>
-                {
-                    var blind = round.BlindScore(r.Config.Id);
-                    return new
-                    {
-                        id = r.Config.Id,
-                        model = r.Config.Model,
-                        effort = r.Config.Effort,
-                        contextLines = r.Config.ContextLines,
-                        withBible = r.Config.WithBible,
-                        chrf = r.MeanChrf,
-                        judge = r.MeanJudge,
-                        refusedLines = r.RefusedLines,
-                        dollars = r.Dollars,
-                        judgeDollars = r.JudgeDollars,
-                        projectedDollars = r.ProjectedDollars(round.RemainingLines),
-                        projectedBatchDollars = r.ProjectedBatchDollars(round.RemainingLines),
-                        projectedSeconds = r.ProjectedTime(round.RemainingLines).TotalSeconds,
-                        blindWins = blind.Wins,
-                        blindPairs = blind.Total,
-                        error = r.Error,
-                    };
-                }),
+                configs = round.Reports.Select(r => ConfigData(round, r)),
             }));
             return ErrorHandler.OkExitCode;
         }
@@ -325,16 +341,7 @@ internal static class EvalCommand
 
         foreach (var report in round.Reports)
         {
-            var (normal, batch) = EvalText.GameCost(report, round.RemainingLines, rate);
-            var judge = report.MeanJudge is { } score ? EvalText.Score(score) : "sem juiz";
-            var chosen = round.ChosenConfigId == report.Config.Id ? " · escolhida para o M4" : string.Empty;
-            output.WriteLine($"  {report.Config.Id}  {report.Config.ModelName} · {report.Config.Detail}{chosen}");
-            output.WriteLine(
-                $"      jogo todo {EvalText.Brl(normal)} (lote {EvalText.Brl(batch)}) · {EvalText.Duration(report.ProjectedTime(round.RemainingLines))} · chrF {EvalText.Score(report.MeanChrf)} · juiz {judge} · às cegas {EvalText.Blind(round.BlindScore(report.Config.Id), anyAnswered)}");
-            if (report.RefusedLines > 0 || report.Error is not null)
-            {
-                output.WriteLine($"      {Count(report.RefusedLines, "linha sem tradução", "linhas sem tradução")}{(report.Error is { } problem ? $": {problem}" : string.Empty)}");
-            }
+            WriteConfigReport(output, round, report, rate, anyAnswered);
         }
 
         output.WriteLine("chrF: quanto a tradução se parece com a aprovada, de 0 a 100. Juiz de IA: nota de 0 a 10, sem saber qual configuração gerou o texto.");

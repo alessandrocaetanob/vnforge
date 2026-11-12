@@ -30,7 +30,7 @@ public enum LibraryMatchState
 /// <summary>
 /// Um jogo como a grade o desenha. <paramref name="Chip"/> é a etiqueta de engine no pé da capa e <paramref name="ChipWarn"/> a pinta de aviso (engine que o VNForge não traduz).
 /// <paramref name="ProgressPercent"/> é a parte traduzida do projeto ligado (0 a 100), nula sem projeto. <paramref name="Subtitle"/> é a linha de baixo ("Média · 18 h · 38% traduzida").
-/// <paramref name="Adult"/> marca o jogo de conteúdo adulto (a capa leva o selo 18+ em todo modo); <paramref name="CoverBlurred"/> diz que o modo da privacidade pede a capa borrada.
+/// <paramref name="Adult"/> marca o jogo de conteúdo adulto (a capa leva o selo 18+ em qualquer modo); <paramref name="CoverBlurred"/> diz que o modo da privacidade pede a capa borrada.
 /// </summary>
 public sealed record LibraryCard(
     string Id,
@@ -66,11 +66,7 @@ public static class LibraryCards
         var adult = info is { Adult: true } || coverAdult;
         var blurred = coverAdult && privacy.Adult == AdultMode.Blur;
         var cover = image is null ? LibraryCoverKind.NoArt : LibraryCoverKind.Image;
-        var (match, matchText) = game.IsConfirmed
-            ? (LibraryMatchState.Matched, "Casado com o VNDB")
-            : game.Candidates.Count > 0
-                ? (LibraryMatchState.NeedsConfirmation, "Confirmar o casamento")
-                : (LibraryMatchState.Unmatched, game.SearchedAt is null ? "Ainda não procurado no VNDB" : "Sem casamento no VNDB");
+        var (match, matchText) = MatchOf(game);
         var parts = new List<string>();
         if (LibraryLength.Short(info?.LengthMinutes, info?.Length) is { } length)
         {
@@ -114,11 +110,31 @@ public static class LibraryCards
         };
     }
 
+    private static (LibraryMatchState State, string Text) MatchOf(LibraryGame game)
+    {
+        if (game.IsConfirmed)
+        {
+            return (LibraryMatchState.Matched, "Casado com o VNDB");
+        }
+
+        if (game.Candidates.Count > 0)
+        {
+            return (LibraryMatchState.NeedsConfirmation, "Confirmar o casamento");
+        }
+
+        return (LibraryMatchState.Unmatched, game.SearchedAt is null ? "Ainda não procurado no VNDB" : "Sem casamento no VNDB");
+    }
+
     private static VndbImageRef? CoverOf(LibraryGame game)
     {
         if (game.Info is { } info)
         {
-            return info.CoverUrl is { Length: > 0 } url ? new VndbImageRef(url, info.Adult ? VndbImageVisibility.AdultLevel : 0) : null;
+            if (info.CoverUrl is not { Length: > 0 } url)
+            {
+                return null;
+            }
+
+            return new VndbImageRef(url, info.Adult ? VndbImageVisibility.AdultLevel : 0);
         }
 
         return game.Candidates.Select(c => c.Image).FirstOrDefault(i => i is not null);

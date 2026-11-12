@@ -152,6 +152,38 @@ public class ProjectFolderConcurrencyTests
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
     }
 
+    [Fact]
+    public void WriteAtomically_espera_o_temporario_preso_e_conclui_quando_a_nova_tentativa_o_solta()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "No Linux e no macOS abrir um arquivo já aberto não falha.");
+
+        using var temp = new TempFolder();
+        var destino = Path.Combine(temp.Path, "projeto.json");
+        var temporario = destino + ".preso.tmp";
+        File.WriteAllText(destino, "antigo");
+
+        // O antivírus ou o indexador segura o temporário logo depois de criado; aqui ele já está preso quando a escrita começa.
+        var preso = new FileStream(temporario, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+        var esperas = new List<int>();
+
+        try
+        {
+            ProjectFolder.WriteAtomically(destino, "novo", overwrite: true, milissegundos =>
+            {
+                esperas.Add(milissegundos);
+                preso.Dispose();
+            }, () => temporario);
+        }
+        finally
+        {
+            preso.Dispose();
+        }
+
+        Assert.Equal([5], esperas);
+        Assert.Equal("novo", File.ReadAllText(destino));
+        Assert.False(File.Exists(temporario));
+    }
+
     private static Task EmThreadPropria(Action trabalho) =>
         Task.Factory.StartNew(trabalho, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 

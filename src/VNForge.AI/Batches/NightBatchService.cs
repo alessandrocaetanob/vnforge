@@ -224,10 +224,7 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
         var selected = selection.Pending.Select(u => u.Id).ToHashSet(StringComparer.Ordinal);
         var currentById = texts.Values.SelectMany(units => units).ToDictionary(u => u.Id, StringComparer.Ordinal);
 
-        var results = new List<TranslationResult>();
-        var failed = 0;
-        var refused = 0;
-        var unfinished = new List<string>();
+        var tally = new LineTally();
         var usage = new ClaudeUsage(0, 0, 0, 0);
         var hasUsage = false;
         foreach (var request in state.Requests)
@@ -240,28 +237,10 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
                 hasUsage = true;
             }
 
-            foreach (var lineId in request.Lines.Where(l => selected.Contains(l.Id)).Select(l => l.Id))
-            {
-                if (outcome.Results is { } read && read.FirstOrDefault(r => r.Id == lineId) is { } result)
-                {
-                    if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
-                    {
-                        refused++;
-                        unfinished.Add(lineId);
-                    }
-                    else
-                    {
-                        results.Add(result);
-                    }
-                }
-                else
-                {
-                    failed++;
-                    unfinished.Add(lineId);
-                }
-            }
+            tally.Add(request, outcome, selected);
         }
 
+        var (results, failed, refused, unfinished) = (tally.Results, tally.Failed, tally.Refused, tally.Unfinished);
         var skipped = state.LineCount - selected.Count;
         var origin = new TranslationOrigin(MachineTranslation.ProviderName, state.Model, clock.GetUtcNow());
         var recorder = RestoreScope.TryBegin(project, $"Tradução noturna · {state.Title}", state.ScriptKeys, RestorePointStore.IsAiWrite, clock);
@@ -291,6 +270,39 @@ public sealed class NightBatchService(IMessageBatchClient client, ProjectFolder 
     }
 
     private sealed record RequestRead(IReadOnlyList<TranslationResult>? Results, ClaudeUsage? Usage);
+
+    /// <summary>O que cada linha selecionada virou ao ler o lote: tradução aceita, recusa (ou texto vazio) ou falta de resposta.</summary>
+    private sealed class LineTally
+    {
+        public List<TranslationResult> Results { get; } = [];
+
+        public List<string> Unfinished { get; } = [];
+
+        public int Failed { get; private set; }
+
+        public int Refused { get; private set; }
+
+        public void Add(NightBatchRequest request, RequestRead outcome, HashSet<string> selected)
+        {
+            foreach (var lineId in request.Lines.Where(l => selected.Contains(l.Id)).Select(l => l.Id))
+            {
+                if (outcome.Results?.FirstOrDefault(r => r.Id == lineId) is not { } result)
+                {
+                    Failed++;
+                    Unfinished.Add(lineId);
+                }
+                else if (result.Refused || string.IsNullOrWhiteSpace(result.Translation))
+                {
+                    Refused++;
+                    Unfinished.Add(lineId);
+                }
+                else
+                {
+                    Results.Add(result);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// As traduções de um pedido, pelas mesmas regras da chamada de hoje: a resposta tem que trazer os ids do lote e passa pela validação e pela troca de pontuação.

@@ -41,7 +41,7 @@ public sealed class PersonalGlossary(string directory)
     public const string FileName = "personal-glossary.json";
 
     private readonly UserEntriesFile<PersonalTerm> file = new(System.IO.Path.Combine(directory, FileName), ValidateTerms);
-    private readonly object gate = new();
+    private readonly Lock gate = new();
 
     public string Path => file.Path;
 

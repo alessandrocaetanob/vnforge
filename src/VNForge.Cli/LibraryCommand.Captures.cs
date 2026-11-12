@@ -255,7 +255,7 @@ internal static partial class LibraryCommand
                 new Markup(capture.CapturedAt.ToString("g", PortugueseBrazil)),
                 new Markup($"{capture.Width}x{capture.Height}"),
                 new Markup(file),
-                new Markup(capture.Note is null ? "[dim]·[/]" : CliViews.Escape(capture.Note)));
+                new Markup(capture.Note is null ? EmptyCell : CliViews.Escape(capture.Note)));
         }
 
         output.WriteLine($"{game.Title}: {CliFormat.Count(rows.Count, "captura", "capturas")} em {Path.Combine(store.Directory, game.Id)}.");

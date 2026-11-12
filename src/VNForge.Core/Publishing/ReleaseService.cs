@@ -173,7 +173,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
                 .ToList();
             steps?.Report(new ReleaseProgress(ReleaseStep.Diff, Detail: $"{sources.Count} {(sources.Count == 1 ? "arquivo" : "arquivos")}"));
 
-            var result = Package(project, config, options, version, previous, output, stub, sources, changes, snapshot, texts, new PatchExtras(gameVersion, cover), steps, cancellationToken);
+            var result = Package(project, config, options, new ReleasePlan(version, previous, output, stub, sources, changes, snapshot, texts, new PatchExtras(gameVersion, cover)), steps, cancellationToken);
             RememberGameVersion(project, config, gameVersion);
             return result;
         }
@@ -274,22 +274,26 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
         }
     }
 
+    private sealed record ReleasePlan(
+        string Version,
+        ReleaseRecord? Previous,
+        string Output,
+        string Stub,
+        List<PatchSource> Sources,
+        ChangesSinceTest Changes,
+        TranslationSnapshot Snapshot,
+        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> Texts,
+        PatchExtras Extras);
+
     private ReleaseResult Package(
         ProjectFolder project,
         ProjectConfig config,
         ReleaseOptions options,
-        string version,
-        ReleaseRecord? previous,
-        string output,
-        string stub,
-        List<PatchSource> sources,
-        ChangesSinceTest changes,
-        TranslationSnapshot snapshot,
-        IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> texts,
-        PatchExtras extras,
+        ReleasePlan plan,
         IProgress<ReleaseProgress>? steps,
         CancellationToken cancellationToken)
     {
+        var (version, previous, output, stub, sources, changes, snapshot, texts, extras) = plan;
         var gameName = GameNameOf(config);
         var baseName = options.InstallerName ?? DefaultInstallerName(config, version);
         var credits = string.IsNullOrWhiteSpace(options.Credits) ? null : options.Credits.Trim();

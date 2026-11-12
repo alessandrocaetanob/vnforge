@@ -14,15 +14,7 @@ public static class BlindPairs
     {
         ArgumentNullException.ThrowIfNull(reports);
         var random = new Random(seed);
-        var combos = new List<(EvalConfigReport A, EvalConfigReport B)>();
-        for (var i = 0; i < reports.Count; i++)
-        {
-            for (var j = i + 1; j < reports.Count; j++)
-            {
-                combos.Add((reports[i], reports[j]));
-            }
-        }
-
+        var combos = Combinations(reports);
         if (combos.Count == 0 || count <= 0)
         {
             return [];
@@ -37,16 +29,7 @@ public static class BlindPairs
         while (pairs.Count < count && empty < combos.Count)
         {
             var c = k++ % combos.Count;
-            string? line = null;
-            while (cursor[c] < candidates[c].Count && line is null)
-            {
-                var candidate = candidates[c][cursor[c]++];
-                if (used.Add(candidate))
-                {
-                    line = candidate;
-                }
-            }
-
+            var line = NextUnused(candidates[c], cursor, c, used);
             if (line is null)
             {
                 empty++;
@@ -60,6 +43,34 @@ public static class BlindPairs
         }
 
         return pairs;
+    }
+
+    private static List<(EvalConfigReport A, EvalConfigReport B)> Combinations(IReadOnlyList<EvalConfigReport> reports)
+    {
+        var combos = new List<(EvalConfigReport A, EvalConfigReport B)>();
+        for (var i = 0; i < reports.Count; i++)
+        {
+            for (var j = i + 1; j < reports.Count; j++)
+            {
+                combos.Add((reports[i], reports[j]));
+            }
+        }
+
+        return combos;
+    }
+
+    private static string? NextUnused(List<string> candidates, int[] cursor, int index, HashSet<string> used)
+    {
+        while (cursor[index] < candidates.Count)
+        {
+            var candidate = candidates[cursor[index]++];
+            if (used.Add(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static List<string> CommonLines(EvalConfigReport a, EvalConfigReport b)

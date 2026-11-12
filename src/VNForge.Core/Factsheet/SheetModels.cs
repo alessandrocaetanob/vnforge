@@ -159,13 +159,28 @@ public static class SheetLabels
         }
 
         var text = string.Join(" · ", parts);
-        return votes > 0 ? $"{text} ({votes} {(votes == 1 ? "voto" : "votos")})" : text;
+        if (votes <= 0)
+        {
+            return text;
+        }
+
+        var unit = votes == 1 ? "voto" : "votos";
+        return $"{text} ({votes} {unit})";
     }
 
     /// <summary>"2019, em japonês": o ano do lançamento do VNDB (<c>2019-05-24</c>, <c>2019-05</c> ou <c>2019</c>) e a língua original; nulo quando o VNDB não diz nenhum dos dois.</summary>
     public static string? Released(string? released, string? language)
     {
-        var year = released is { Length: >= 4 } text && text[..4].All(char.IsAsciiDigit) ? text[..4] : string.Equals(released, "tba", StringComparison.OrdinalIgnoreCase) ? "A anunciar" : null;
+        string? year = null;
+        if (released is { Length: >= 4 } text && text[..4].All(char.IsAsciiDigit))
+        {
+            year = text[..4];
+        }
+        else if (string.Equals(released, "tba", StringComparison.OrdinalIgnoreCase))
+        {
+            year = "A anunciar";
+        }
+
         var name = LanguageName(language);
         return (year, name) switch
         {

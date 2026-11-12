@@ -15,7 +15,7 @@ internal sealed class FileLoggerProvider(string logDirectory) : ILoggerProvider
 
     private static readonly ConcurrentDictionary<string, bool> Failures = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
 
     public static bool WriteFailed(string directory) => Failures.ContainsKey(directory);
 

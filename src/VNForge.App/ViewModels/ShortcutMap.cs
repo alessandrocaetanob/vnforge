@@ -36,7 +36,7 @@ public static class ShortcutMap
         ]),
         new("Geral",
         [
-            new(["Ctrl", "+"], "Aumentar o texto do Editor (grade, inspetor e Modo revisão)"),
+            new(["Ctrl", "+"], "Aumentar o texto do Editor e do Modo revisão"),
             new(["Ctrl", "-"], "Diminuir o texto do Editor"),
             new(["Ctrl", "0"], "Voltar o texto do Editor a 100%"),
             new(["?"], "Abrir ou fechar este mapa"),
