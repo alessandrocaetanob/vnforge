@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace VNForge.Patching.Tests;
 
 public class PatchUpdateAndValidationTests
@@ -133,23 +135,36 @@ public class PatchUpdateAndValidationTests
     }
 
     [Fact]
-    public void Manifesto_sem_arquivos_ou_com_capa_grande_demais_e_recusado()
+    public void Manifesto_sem_arquivos_e_recusado()
     {
-        Assert.Contains("sem arquivos", Assert.Throws<PatchException>(() => PatchPackage.Open(ManualPackage([], payloadBytes: 8))).Message);
+        var error = Assert.Throws<PatchException>(() => PatchPackage.Open(ManualPackage([], payloadBytes: 8)));
 
-        var bigCover = new byte[PatchPackage.MaxCoverBytes + 1];
-        Assert.Contains("capa grande demais", Assert.Throws<PatchException>(() => PatchPackage.Open(ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8, bigCover))).Message);
+        Assert.Contains("sem arquivos", error.Message);
+    }
+
+    [Fact]
+    public void Manifesto_com_capa_grande_demais_e_recusado()
+    {
+        var package = ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8, new byte[PatchPackage.MaxCoverBytes + 1]);
+
+        var error = Assert.Throws<PatchException>(() => PatchPackage.Open(package));
+
+        Assert.Contains("capa grande demais", error.Message);
     }
 
     [Theory]
-    [InlineData(8, 2)]
-    [InlineData(12, 0)]
-    public void Cabecalho_de_outro_formato_ou_com_manifesto_de_tamanho_invalido_e_recusado(int position, byte value)
+    [InlineData(8, 2, "formato 2")]
+    [InlineData(12, 0, "manifesto inválido")]
+    [InlineData(12, -1, "manifesto inválido")]
+    [InlineData(12, int.MaxValue, "manifesto inválido")]
+    public void Cabecalho_de_outro_formato_ou_com_tamanho_de_manifesto_invalido_e_recusado(int position, int value, string message)
     {
         var bytes = ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8).ToArray();
-        bytes[position] = value;
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(position, 4), value);
 
-        Assert.Throws<PatchException>(() => PatchPackage.Open(new MemoryStream(bytes)));
+        var error = Assert.Throws<PatchException>(() => PatchPackage.Open(new MemoryStream(bytes)));
+
+        Assert.Contains(message, error.Message);
     }
 
     [Fact]

@@ -235,7 +235,7 @@ public class PatchRoundTripTests
     }
 
     [Fact]
-    public void Arquivo_que_sumiu_ou_pasta_que_nao_existe_recusam_a_instalacao_dizendo_o_que_falta()
+    public void Arquivo_que_sumiu_recusa_a_instalacao_dizendo_qual_falta()
     {
         using var game = new SyntheticGame();
         using var package = PatchPackage.Open(game.BuildPackage());
@@ -245,7 +245,18 @@ public class PatchRoundTripTests
 
         Assert.Equal(PatchCheckState.WrongVersion, check.State);
         Assert.Contains("Game/Game.exe: não encontrei o arquivo", PatchInstaller.DescribeMismatch(check));
-        Assert.Throws<PatchException>(() => PatchInstaller.Check(Path.Combine(game.Root, "nao-existe"), package));
+    }
+
+    [Fact]
+    public void Pasta_do_jogo_que_nao_existe_e_recusada_dizendo_qual()
+    {
+        using var game = new SyntheticGame();
+        using var package = PatchPackage.Open(game.BuildPackage());
+        var missing = Path.Combine(game.Root, "nao-existe");
+
+        var error = Assert.Throws<PatchException>(() => PatchInstaller.Check(missing, package));
+
+        Assert.Contains($"A pasta '{missing}' não existe", error.Message);
     }
 
     [Fact]

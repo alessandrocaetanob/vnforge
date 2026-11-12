@@ -55,7 +55,7 @@ public class TranslationRunnerTests
         var provider = new ScriptedProvider((b, _, _) => Task.FromResult(Ok(b)));
         var runner = new TranslationRunner(provider, NoWait(batchSize: 20));
 
-        var run = await runner.RunAsync(Units(40), lines => lines[0].Id == "u020" ? throw new InvalidOperationException("sem glossário") : Build(lines), ct: CancellationToken.None);
+        var run = await runner.RunAsync(Units(40), lines => lines[0].Id == "u020" ? throw new InvalidOperationException("sem glossário") : Build(lines), ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(20, run.Results.Count);
         Assert.Equal(1, provider.Calls);
