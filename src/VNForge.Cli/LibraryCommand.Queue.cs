@@ -147,7 +147,7 @@ internal static partial class LibraryCommand
                     new Markup(entry.Game.Id),
                     new Markup(CliViews.Escape(entry.Game.Title)),
                     new Markup(CliViews.Escape(PortugueseCell(entry))),
-                    new Markup(length is null ? "[dim]·[/]" : CliViews.Escape(length)),
+                    new Markup(length is null ? EmptyCell : CliViews.Escape(length)),
                     new Markup(CliViews.Escape(entry.Game.Engine.Name)),
                 ];
                 if (all)

@@ -135,7 +135,7 @@ internal static partial class LibraryCommand
 
         if (plan.IsEmpty)
         {
-            WriteSheetResult(output, json, game, settings, plan, null, null, null, dryRun: false);
+            WriteSheetResult(output, json, new SheetRun(game, settings, plan, null, null, null, DryRun: false));
             return ErrorHandler.OkExitCode;
         }
 
@@ -143,7 +143,7 @@ internal static partial class LibraryCommand
         var budget = TranslateCommand.ReadBudget(parseResult, cli, error);
         if (parseResult.GetValue(ai.DryRun))
         {
-            WriteSheetResult(output, json, game, settings, plan, estimate, null, null, dryRun: true, budget.Rate);
+            WriteSheetResult(output, json, new SheetRun(game, settings, plan, estimate, null, null, DryRun: true, budget.Rate));
             return ErrorHandler.OkExitCode;
         }
 
@@ -161,16 +161,27 @@ internal static partial class LibraryCommand
         var progress = json ? null : new SyncProgress<SheetTranslationProgress>(p => error.WriteLine($"{p.Done}/{p.Total} itens"));
         var result = await new SheetTranslationRunner(translator, store).RunAsync(vndbId, options, progress, token).ConfigureAwait(false);
         var usage = (translator as ClaudeSheetTranslator)?.Usage;
-        WriteSheetResult(output, json, game, settings, plan, estimate, result, usage, dryRun: false, budget.Rate);
+        WriteSheetResult(output, json, new SheetRun(game, settings, plan, estimate, result, usage, DryRun: false, budget.Rate));
         return result.Failed > 0 ? ErrorHandler.ErrorExitCode : ErrorHandler.OkExitCode;
     }
 
-    private static void WriteSheetResult(
-        TextWriter output, bool json, LibraryGame game, AiRunSettings settings, SheetTranslationPlan plan, SheetCostEstimate? estimate, SheetTranslationResult? result, ClaudeUsage? usage, bool dryRun, ExchangeRate? rate = null)
+    private sealed record SheetRun(
+        LibraryGame Game,
+        AiRunSettings Settings,
+        SheetTranslationPlan Plan,
+        SheetCostEstimate? Estimate,
+        SheetTranslationResult? Result,
+        ClaudeUsage? Usage,
+        bool DryRun,
+        ExchangeRate? Rate = null);
+
+    private static void WriteSheetResult(TextWriter output, bool json, SheetRun run)
     {
+        var (game, settings, plan, estimate, result, usage, dryRun, rate) = run;
         var dollars = RunCostTracker.DollarsFor(settings.Model, usage);
         if (json)
         {
+            var brl = estimate is not null && rate is not null ? estimate.Brl(rate) : (decimal?)null;
             output.WriteLine(JsonEnvelope.Result(
                 new
                 {
@@ -185,7 +196,7 @@ internal static partial class LibraryCommand
                         tags = plan.Count(SheetItemKind.TagName),
                         traits = plan.Count(SheetItemKind.TraitName),
                     },
-                    estimate = estimate is null ? null : new { calls = estimate.Calls, dollars = estimate.Dollars, brl = rate is null ? (decimal?)null : estimate.Brl(rate) },
+                    estimate = estimate is null ? null : new { calls = estimate.Calls, dollars = estimate.Dollars, brl },
                     translated = result?.Translated,
                     calls = result?.Calls,
                     failed = result?.Failures.Select(f => new { keys = f.Keys, error = f.Message }),
