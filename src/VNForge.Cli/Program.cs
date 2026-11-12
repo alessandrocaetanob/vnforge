@@ -29,7 +29,7 @@ void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
 }
 
 // A barra ao vivo esconde o cursor (ESC[?25l) e só o mostra ao terminar; Environment.Exit pula esse fim.
-void RestoreCursor()
+static void RestoreCursor()
 {
     if (!Console.IsOutputRedirected && !Console.IsErrorRedirected && Environment.GetEnvironmentVariable("TERM") != "dumb")
     {

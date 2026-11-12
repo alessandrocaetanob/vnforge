@@ -227,51 +227,21 @@ internal static class LibraryListCommands
         var file = new LibraryFile(cli.UserConfigDirectory);
         var update = ReadUpdate(parseResult);
         var edited = update is not null;
-        LibraryGame game;
-        if (update is null)
-        {
-            game = ConfirmedGame(file.Load(), reference);
-        }
-        else
-        {
-            game = file.Update(current =>
-            {
-                var found = ConfirmedGame(current, reference);
-                var changed = found with { List = Edit(found, update) };
-                current.Replace(changed);
-                return changed;
-            });
-        }
+        var game = update is null
+            ? ConfirmedGame(file.Load(), reference)
+            : EditGame(file, reference, update, cancellationToken);
 
         LibrarySyncItem? sent = null;
         string? sendNote = null;
         if (pushNow)
         {
-            if (game.CurrentList is null)
+            var pushed = await PushNowAsync(cli, parseResult, file, game, cancellationToken).ConfigureAwait(false);
+            if (pushed.Declined)
             {
-                throw new UsageException("Este jogo ainda não tem nada na lista para enviar. Mude algo com --label, --vote, --started, --finished ou --notes.");
-            }
-
-            var token = RequireToken(cli);
-            var synchronizer = new LibraryListSynchronizer(cli.CreateVndbUserList());
-            var plan = await synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = LibrarySyncDirection.Push, GameId = game.Id }, cancellationToken).ConfigureAwait(false);
-            if (plan.Items.FirstOrDefault(i => i.RemovedOnSite) is { } removed)
-            {
-                throw new UsageException(removed.HasLocalEdits
-                    ? $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e o jogo tem mudanças aqui. A edição ficou gravada, mas não foi enviada, para não recriar o que você apagou no site. Para recriar: vnf library sync --push --recreate."
-                    : $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e não há mudança aqui para enviar. Para trazer a exclusão para a biblioteca: vnf library sync.");
-            }
-
-            if (plan.PushCount > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de '{game.Title}' para a lista de {plan.Account.Username} no VNDB?"))
-            {
-                await output.WriteLineAsync("Operação cancelada. Nada foi enviado; a edição ficou gravada aqui.");
                 return ErrorHandler.CancelledExitCode;
             }
 
-            var report = await synchronizer.ApplyAsync(plan, token, (planned, state) => Keep(file, planned, state), null, cancellationToken).ConfigureAwait(false);
-            sent = report.Items.Count > 0 ? report.Items[0] : null;
-            sendNote = report.AbortReason ?? sent?.Error;
-            game = file.Load().Find(game.Id);
+            (game, sent, sendNote) = (pushed.Game, pushed.Sent, pushed.Note);
         }
 
         var failed = sendNote is not null;
@@ -292,11 +262,58 @@ internal static class LibraryListCommands
             return exitCode;
         }
 
-        await output.WriteLineAsync($"{game.Title} ({game.VndbId})");
+        WriteStatus(output, game, warning, sent, sendNote, edited);
+        return exitCode;
+    }
+
+    private static LibraryGame EditGame(LibraryFile file, string reference, VndbListUpdate update, CancellationToken cancellationToken) =>
+        file.Update(
+            current =>
+            {
+                var found = ConfirmedGame(current, reference);
+                var changed = found with { List = Edit(found, update) };
+                current.Replace(changed);
+                return changed;
+            },
+            cancellationToken);
+
+    private sealed record PushNowOutcome(LibraryGame Game, LibrarySyncItem? Sent, string? Note, bool Declined = false);
+
+    private static async Task<PushNowOutcome> PushNowAsync(VnfCli cli, ParseResult parseResult, LibraryFile file, LibraryGame game, CancellationToken cancellationToken)
+    {
+        if (game.CurrentList is null)
+        {
+            throw new UsageException("Este jogo ainda não tem nada na lista para enviar. Mude algo com --label, --vote, --started, --finished ou --notes.");
+        }
+
+        var token = RequireToken(cli);
+        var synchronizer = new LibraryListSynchronizer(cli.CreateVndbUserList());
+        var plan = await synchronizer.PlanAsync(file.Load(), token, new LibrarySyncOptions { Direction = LibrarySyncDirection.Push, GameId = game.Id }, cancellationToken).ConfigureAwait(false);
+        if (plan.Items.FirstOrDefault(i => i.RemovedOnSite) is { } removed)
+        {
+            throw new UsageException(removed.HasLocalEdits
+                ? $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e o jogo tem mudanças aqui. A edição ficou gravada, mas não foi enviada, para não recriar o que você apagou no site. Para recriar: vnf library sync --push --recreate."
+                : $"A entrada de '{game.Title}' foi apagada na sua lista do VNDB e não há mudança aqui para enviar. Para trazer a exclusão para a biblioteca: vnf library sync.");
+        }
+
+        if (plan.PushCount > 0 && !ConfirmationPrompt.Confirm(parseResult, cli, $"Enviar as mudanças de '{game.Title}' para a lista de {plan.Account.Username} no VNDB?"))
+        {
+            await parseResult.InvocationConfiguration.Output.WriteLineAsync("Operação cancelada. Nada foi enviado; a edição ficou gravada aqui.").ConfigureAwait(false);
+            return new PushNowOutcome(game, null, null, Declined: true);
+        }
+
+        var report = await synchronizer.ApplyAsync(plan, token, (planned, state) => Keep(file, planned, state), null, cancellationToken).ConfigureAwait(false);
+        var sent = report.Items.Count > 0 ? report.Items[0] : null;
+        return new PushNowOutcome(file.Load().Find(game.Id), sent, report.AbortReason ?? sent?.Error);
+    }
+
+    private static void WriteStatus(TextWriter output, LibraryGame game, string? warning, LibrarySyncItem? sent, string? sendNote, bool edited)
+    {
+        output.WriteLine($"{game.Title} ({game.VndbId})");
         WriteLines(output, game);
         if (warning is not null)
         {
-            await output.WriteLineAsync("Aviso: " + warning);
+            output.WriteLine("Aviso: " + warning);
         }
 
         if (sent is not null)
@@ -305,10 +322,8 @@ internal static class LibraryListCommands
         }
         else if (edited && game.CurrentList is { Pending: true })
         {
-            await output.WriteLineAsync("Gravado só aqui. Para enviar ao VNDB: vnf library sync --push (ou repita este comando com --push).");
+            output.WriteLine("Gravado só aqui. Para enviar ao VNDB: vnf library sync --push (ou repita este comando com --push).");
         }
-
-        return exitCode;
     }
 
     private static LibraryGame ConfirmedGame(GameLibrary library, string reference)
@@ -511,36 +526,7 @@ internal static class LibraryListCommands
 
         foreach (var item in items.Where(i => i.Action != LibrarySyncAction.Unchanged || i.RemovedOnSite))
         {
-            if (item.Action == LibrarySyncAction.Failed)
-            {
-                output.WriteLine($"  Falhou: {item.Game.Title}: {item.Error}");
-                continue;
-            }
-
-            if (item.Action == LibrarySyncAction.Unchanged)
-            {
-                output.WriteLine(item.HasLocalEdits
-                    ? $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e tem mudanças aqui; não foi recriado. Para recriar: vnf library sync --recreate."
-                    : $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e não há mudança aqui; --push não traz a exclusão. Para trazê-la: vnf library sync.");
-                continue;
-            }
-
-            var parts = new List<string>();
-            if (item.Pulled.Count > 0)
-            {
-                parts.Add($"{(dryRun ? "traria" : "trouxe")} {string.Join(", ", item.Pulled)}");
-            }
-
-            if (item.Pushed.Count > 0)
-            {
-                parts.Add($"{(dryRun ? "enviaria" : "enviou")} {string.Join(", ", item.Pushed)}");
-            }
-
-            output.WriteLine($"  {item.Game.Title}: {string.Join("; ", parts)}{(item.RemovedOnSite ? " (a entrada foi apagada no site)" : string.Empty)}");
-            foreach (var conflict in item.Conflicts)
-            {
-                output.WriteLine("    Aviso: " + ConflictText(item.Game, conflict));
-            }
+            WriteSyncItem(output, item, dryRun);
         }
 
         if (report.AbortReason is not null)
@@ -559,6 +545,40 @@ internal static class LibraryListCommands
         if (dryRun && (pulledGames > 0 || pushedGames > 0))
         {
             output.WriteLine("Para valer: rode o mesmo comando sem --dry-run.");
+        }
+    }
+
+    private static void WriteSyncItem(TextWriter output, LibrarySyncItem item, bool dryRun)
+    {
+        if (item.Action == LibrarySyncAction.Failed)
+        {
+            output.WriteLine($"  Falhou: {item.Game.Title}: {item.Error}");
+            return;
+        }
+
+        if (item.Action == LibrarySyncAction.Unchanged)
+        {
+            output.WriteLine(item.HasLocalEdits
+                ? $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e tem mudanças aqui; não foi recriado. Para recriar: vnf library sync --recreate."
+                : $"  Aviso: {item.Game.Title} foi apagado da sua lista do VNDB e não há mudança aqui; --push não traz a exclusão. Para trazê-la: vnf library sync.");
+            return;
+        }
+
+        var parts = new List<string>();
+        if (item.Pulled.Count > 0)
+        {
+            parts.Add($"{(dryRun ? "traria" : "trouxe")} {string.Join(", ", item.Pulled)}");
+        }
+
+        if (item.Pushed.Count > 0)
+        {
+            parts.Add($"{(dryRun ? "enviaria" : "enviou")} {string.Join(", ", item.Pushed)}");
+        }
+
+        output.WriteLine($"  {item.Game.Title}: {string.Join("; ", parts)}{(item.RemovedOnSite ? " (a entrada foi apagada no site)" : string.Empty)}");
+        foreach (var conflict in item.Conflicts)
+        {
+            output.WriteLine("    Aviso: " + ConflictText(item.Game, conflict));
         }
     }
 
