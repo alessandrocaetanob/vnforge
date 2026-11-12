@@ -23,10 +23,13 @@ public sealed class LibraryTagsViewModelTests : IDisposable
             new LibraryFile(_config.Path),
             new FakeFolderPicker(null),
             action => action(),
-            clock: new FixedClock(LibrarySamples.Now),
-            readTranslation: LibrarySamples.Translation,
-            sheets: new LibrarySamples.Sheets(),
-            tagsFile: TagsFile);
+            new LibraryServices
+            {
+                Clock = new FixedClock(LibrarySamples.Now),
+                ReadTranslation = LibrarySamples.Translation,
+                Sheets = new LibrarySamples.Sheets(),
+                TagsFile = TagsFile,
+            });
         await vm.LoadAsync();
         return vm;
     }
@@ -115,8 +118,13 @@ public sealed class LibraryTagsViewModelTests : IDisposable
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library());
         await File.WriteAllTextAsync(TagsFile.Path, "{ isto não é json", TestContext.Current.CancellationToken);
-        var vm = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now),
-            readTranslation: LibrarySamples.Translation, sheets: new LibrarySamples.Sheets(), tagsFile: TagsFile);
+        var vm = new LibraryViewModel(new LibraryFile(_config.Path), new FakeFolderPicker(null), action => action(), new LibraryServices
+        {
+            Clock = new FixedClock(LibrarySamples.Now),
+            ReadTranslation = LibrarySamples.Translation,
+            Sheets = new LibrarySamples.Sheets(),
+            TagsFile = TagsFile,
+        });
 
         await vm.LoadAsync();
 

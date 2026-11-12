@@ -65,8 +65,10 @@ public sealed class VndbListService(IVndbTokenStore store, IVndbUserList vndb, L
             },
             ct);
 
+    // O keep roda depois que o VNDB aceitou o push: gravar sem o token, para um cancelamento nesse instante não deixar
+    // o library.json com o estado de antes do envio.
     public Task<LibrarySyncReport> ApplyAsync(LibrarySyncPlan plan, string token, CancellationToken ct = default) =>
-        synchronizer.ApplyAsync(plan, token, (game, state) => file.Update(current => LibraryListSynchronizer.Keep(current, game, state)), null, ct);
+        synchronizer.ApplyAsync(plan, token, (game, state) => file.Update(current => LibraryListSynchronizer.Keep(current, game, state), CancellationToken.None), null, ct);
 
     /// <summary>Grava a mudança só aqui (como <c>vnf library status</c>): o VNDB só a recebe na próxima sincronização.</summary>
     /// <exception cref="LibraryException">O jogo não está confirmado no VNDB.</exception>

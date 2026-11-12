@@ -183,7 +183,7 @@ internal static class ScreenCatalog
                 PlaySamples(playLog);
             }
 
-            var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, userTags: Tags, sheets: new LibrarySamples.Sheets(), player: played ? new GamePlayer(new NoLauncher(), playLog) : null, playLog: playLog);
+            var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(LibrarySamples.Now), ReadTranslation = LibrarySamples.Translation, UserTags = Tags, Sheets = new LibrarySamples.Sheets(), Player = played ? new GamePlayer(new NoLauncher(), playLog) : null, PlayLog = playLog });
             var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(LibrarySamples.Now));
             var host = ScreenHost.Show(new MainWindowViewModel(start, library: library), theme, config, new RestoreImages(previous));
             await Prepare(host, async () =>
@@ -353,8 +353,16 @@ internal static class ScreenCatalog
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow - new TimeSpan(0, 42, 18));
         var options = new PlayTrackingOptions(TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2), TimeSpan.FromSeconds(10));
         var library = new LibraryViewModel(
-            file, new FakeFolderPicker(null), action => action(), clock: playing ? clock : new FixedClock(now), readTranslation: _ => null,
-            player: playing ? new GamePlayer(new StillRunningLauncher(), playLog, clock, options) : null, playLog: playLog);
+            file,
+            new FakeFolderPicker(null),
+            action => action(),
+            new LibraryServices
+            {
+                Clock = playing ? clock : new FixedClock(now),
+                ReadTranslation = _ => null,
+                Player = playing ? new GamePlayer(new StillRunningLauncher(), playLog, clock, options) : null,
+                PlayLog = playLog,
+            });
         await library.LoadAsync();
         var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(root), new FixedClock(now));
         var vm = new MainWindowViewModel(start, library: library) { Editor = new EditorViewModel(scriptLabel: DemoProject.Label) };
@@ -571,7 +579,7 @@ internal static class ScreenCatalog
         File.WriteAllText(Path.Combine(game, "Game.exe"), "MZ");
         var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()], appSettings: new AppSettingsFile(config.SubFolder("ajustes")), clock: new FixedClock(ScreenHost.Now), vndb: WizardCatalog());
         var start = new StartViewModel(new RecentProjectsFile(config.SubFolder("recentes")), new FakeFolderPicker(null), new FixedClock(ScreenHost.Now));
-        var host = ScreenHost.Show(new MainWindowViewModel(start, newProjectWizard: () => wizard), theme, config);
+        var host = ScreenHost.Show(new MainWindowViewModel(start) { NewProjectWizard = () => wizard }, theme, config);
         await Prepare(host, async () =>
         {
             start.NewProjectCommand.Execute(null);

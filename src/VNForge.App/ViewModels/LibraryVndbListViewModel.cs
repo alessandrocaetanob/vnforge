@@ -172,7 +172,12 @@ public sealed partial class LibraryVndbListViewModel : ObservableObject
     private VndbChange<string> NotesChange(string? current)
     {
         var text = NotesText.Trim();
-        return text == (current?.Trim() ?? string.Empty) ? default : text.Length == 0 ? VndbChange<string>.Clear : text;
+        if (text == (current?.Trim() ?? string.Empty))
+        {
+            return default;
+        }
+
+        return text.Length == 0 ? VndbChange<string>.Clear : text;
     }
 
     private Task EditAsync(VndbListUpdate update) => RunAsync(() => service.EditAsync(game.Id, update));
@@ -224,9 +229,16 @@ public sealed partial class LibraryVndbListViewModel : ObservableObject
     private string Age(DateTimeOffset at)
     {
         var elapsed = clock.GetUtcNow() - at;
-        return elapsed < TimeSpan.FromMinutes(1) ? "agora"
-            : elapsed < TimeSpan.FromHours(1) ? $"há {(int)elapsed.TotalMinutes} min"
-            : elapsed < TimeSpan.FromDays(1) ? $"há {(int)elapsed.TotalHours} h"
-            : $"há {(int)elapsed.TotalDays} dias";
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "agora";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            return $"há {(int)elapsed.TotalMinutes} min";
+        }
+
+        return elapsed < TimeSpan.FromDays(1) ? $"há {(int)elapsed.TotalHours} h" : $"há {(int)elapsed.TotalDays} dias";
     }
 }

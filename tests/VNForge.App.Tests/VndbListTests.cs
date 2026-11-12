@@ -311,7 +311,7 @@ public sealed class VndbListTests
     {
         using var setup = new Setup([Game("g1", "v4")], []);
         setup.Service.Edit("g1", new VndbListUpdate { LabelsSet = [LibraryListLabels.Playing], Vote = 80, Started = new DateOnly(2026, 10, 3), Notes = "Voltar na rota da Aoi." });
-        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(Later) }) { ListService = setup.Service };
         await library.LoadAsync();
 
         var card = library.ListCardForProject(null, "v4")!;
@@ -350,7 +350,7 @@ public sealed class VndbListTests
     public async Task O_cartao_segue_o_jogo_ligado_a_pasta_do_projeto_e_some_sem_confirmacao()
     {
         using var setup = new Setup([Game("g1", "v4") with { ProjectPath = "C:\\Projetos\\um" }, Game("g2", "v4") with { ProjectPath = "C:\\Projetos\\dois" }, Game("g3", "v9") with { VndbId = null, Confirmation = LibraryConfirmation.None }], []);
-        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(Later) }) { ListService = setup.Service };
         await library.LoadAsync();
 
         await library.ListCardForProject("c:\\projetos\\dois", "v4")!.ToggleLabelCommand.ExecuteAsync(new VndbLabelChip(LibraryListLabels.Playing, "Jogando", false));
@@ -392,7 +392,7 @@ public sealed class VndbListTests
     {
         var state = new LibraryListState("v4", new LibraryListFields { Notes = "Voltar na rota da Aoi.\n " }, T0) { Base = new LibraryListFields { Notes = "Voltar na rota da Aoi.\n " }, SyncedAt = T0, OnVndb = true };
         using var setup = new Setup([Game("g1", "v4") with { List = state }], []);
-        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(Later)) { ListService = setup.Service };
+        var library = new LibraryViewModel(setup.File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(Later) }) { ListService = setup.Service };
         await library.LoadAsync();
         var card = library.ListCardForProject(null, "v4")!;
 

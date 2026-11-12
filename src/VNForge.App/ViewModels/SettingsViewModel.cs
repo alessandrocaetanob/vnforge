@@ -666,7 +666,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     /// <summary>Texto de exemplo da prévia; o usuário pode trocar pelo seu.</summary>
     [ObservableProperty]
-    public partial string PreviewBefore { get; set; } = string.Empty;
+    public partial string PreviewBefore { get; set; }
 
     /// <summary>O exemplo depois das regras ligadas; o texto salvo no projeto não muda.</summary>
     [ObservableProperty]

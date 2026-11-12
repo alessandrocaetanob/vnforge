@@ -31,11 +31,14 @@ public sealed class LibraryPlayTests : IDisposable
             file,
             new FakeFolderPicker(null),
             action => action(),
-            editor: new LibraryEditor(file, () => throw new NotSupportedException()),
-            clock: _clock,
-            readTranslation: _ => null,
-            player: new GamePlayer(launcher, playLog, _clock, options),
-            playLog: playLog);
+            new LibraryServices
+            {
+                Editor = new LibraryEditor(file, () => throw new NotSupportedException()),
+                Clock = _clock,
+                ReadTranslation = _ => null,
+                Player = new GamePlayer(launcher, playLog, _clock, options),
+                PlayLog = playLog,
+            });
     }
 
     [Fact]

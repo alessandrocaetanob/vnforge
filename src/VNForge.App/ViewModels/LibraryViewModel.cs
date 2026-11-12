@@ -56,6 +56,7 @@ public sealed partial class LibraryViewModel : ObservableObject
 {
     private const int ContinueMax = 3;
     private static readonly TimeSpan ContinueWindow = TimeSpan.FromDays(30);
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly LibraryFile? file;
     private readonly IFolderPicker picker;
@@ -88,39 +89,24 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     /// <param name="file">O <c>library.json</c>; nulo é a Biblioteca sem arquivo (só os testes do shell), que fica vazia e não grava nada.</param>
     /// <param name="post">Leva uma ação à thread da tela: o progresso da varredura chega de outras threads e mexe em coleções ligadas à tela. A interface passa <c>Dispatcher.UIThread.Post</c>.</param>
-    public LibraryViewModel(
-        LibraryFile? file,
-        IFolderPicker picker,
-        Action<Action> post,
-        LibraryScanService? scanService = null,
-        LibraryEditor? editor = null,
-        TimeProvider? clock = null,
-        Func<LibraryGame, StatusCounts?>? readTranslation = null,
-        Func<UserTags>? userTags = null,
-        ILibrarySheetSource? sheets = null,
-        Action<string>? openFolder = null,
-        UserTagsFile? tagsFile = null,
-        GamePlayer? player = null,
-        PlayLogFile? playLog = null,
-        LibraryTranslationSwitcher? switcher = null,
-        IReadOnlyList<IEngine>? engines = null,
-        Func<PortugueseTranslationChecker>? portugueseChecker = null)
+    public LibraryViewModel(LibraryFile? file, IFolderPicker picker, Action<Action> post, LibraryServices? services = null)
     {
+        services ??= new LibraryServices();
         this.file = file;
         this.picker = picker;
-        this.scanService = scanService;
-        this.editor = editor;
-        this.clock = clock ?? TimeProvider.System;
-        this.readTranslation = readTranslation ?? LibraryCatalog.ReadTranslation;
-        this.tagsFile = tagsFile;
-        readUserTags = userTags ?? (tagsFile is null ? () => new UserTags() : tagsFile.Load);
-        this.sheets = sheets;
-        this.openFolder = openFolder ?? (_ => { });
-        this.switcher = switcher;
-        this.engines = engines ?? [];
-        this.player = player;
-        this.playLog = playLog;
-        this.portugueseChecker = portugueseChecker;
+        scanService = services.ScanService;
+        editor = services.Editor;
+        clock = services.Clock ?? TimeProvider.System;
+        readTranslation = services.ReadTranslation ?? LibraryCatalog.ReadTranslation;
+        tagsFile = services.TagsFile;
+        readUserTags = services.UserTags ?? (tagsFile is null ? () => new UserTags() : tagsFile.Load);
+        sheets = services.Sheets;
+        openFolder = services.OpenFolder ?? (_ => { });
+        switcher = services.Switcher;
+        engines = services.Engines ?? [];
+        player = services.Player;
+        playLog = services.PlayLog;
+        portugueseChecker = services.PortugueseChecker;
         this.post = post;
         Filters =
         [
@@ -266,7 +252,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             0 => "Nenhum jogo ainda",
             1 => "1 jogo na Biblioteca",
-            var n => $"{n.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos na Biblioteca",
+            var n => $"{n.ToString("N0", PtBr)} jogos na Biblioteca",
         };
 
     /// <summary>A privacidade em vigor (spoiler e adulto escondidos por padrão).</summary>
@@ -461,11 +447,13 @@ public sealed partial class LibraryViewModel : ObservableObject
         var current = file.Load();
         if (recent.Count > 0 && LibraryProjectLinker.LinkAll(current, recent).Count > 0)
         {
-            current = file.Update(l =>
-            {
-                LibraryProjectLinker.LinkAll(l, recent);
-                return l;
-            });
+            current = file.Update(
+                l =>
+                {
+                    LibraryProjectLinker.LinkAll(l, recent);
+                    return l;
+                },
+                CancellationToken.None);
         }
 
         var counts = new Dictionary<string, StatusCounts?>(StringComparer.Ordinal);
@@ -539,9 +527,9 @@ public sealed partial class LibraryViewModel : ObservableObject
         var selectedId = Selected?.Id;
         Cards.Clear();
         var entries = Arrange(shown);
-        foreach (var entry in entries)
+        foreach (var game in entries.Select(entry => entry.Game))
         {
-            Cards.Add(new LibraryCardViewModel(entry.Game, LibraryCards.Describe(entry.Game, PrivacyOf(entry.Game), translations.GetValueOrDefault(entry.Game.Id)), versions.GetValueOrDefault(entry.Game.Id), Tags.CardChips(entry.Game), Reveal.IsRevealed(RevealKey(entry.Game))) { IsPlaying = entry.Game.Id == PlayingId });
+            Cards.Add(new LibraryCardViewModel(game, LibraryCards.Describe(game, PrivacyOf(game), translations.GetValueOrDefault(game.Id)), versions.GetValueOrDefault(game.Id), Tags.CardChips(game), Reveal.IsRevealed(RevealKey(game))) { IsPlaying = game.Id == PlayingId });
         }
 
         RebuildRows(entries);
@@ -558,7 +546,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             var names = Tags.Active.Select(t => t.Text).ToList();
             var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
-            return $"{Cards.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} de {Listed.Count.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos · {joined}";
+            return $"{Cards.Count.ToString("N0", PtBr)} de {Listed.Count.ToString("N0", PtBr)} jogos · {joined}";
         }
 
         if (IsList && Sort == LibrarySort.Queue)
@@ -568,7 +556,7 @@ public sealed partial class LibraryViewModel : ObservableObject
 
         var folders = library.Roots.Count;
         var total = Listed.Count;
-        var left = total == 1 ? "1 jogo" : $"{total.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} jogos";
+        var left = total == 1 ? "1 jogo" : $"{total.ToString("N0", PtBr)} jogos";
         if (folders > 0)
         {
             left += folders == 1 ? " em 1 pasta" : $" em {folders} pastas";
@@ -597,7 +585,12 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
 
         var days = (int)elapsed.TotalDays;
-        return days == 1 ? "ontem" : days <= 30 ? $"há {days} dias" : "há mais de um mês";
+        if (days == 1)
+        {
+            return "ontem";
+        }
+
+        return days <= 30 ? $"há {days} dias" : "há mais de um mês";
     }
 
     /// <summary>Escolhe o jogo da grade e abre a gaveta dele; escolher o mesmo jogo de novo fecha a gaveta. Nulo fecha.</summary>
@@ -700,13 +693,10 @@ public sealed partial class LibraryViewModel : ObservableObject
     private async Task RememberJapaneseLocaleAsync(Task previous, string id, bool value)
     {
         await Task.WhenAny(previous);
-        if (editor is not null)
+        if (editor is not null && !await RunEditAsync(() => editor.SetJapaneseLocale(id, value), id))
         {
-            if (!await RunEditAsync(() => editor.SetJapaneseLocale(id, value), id))
-            {
-                // Não gravou: a gaveta nova volta o interruptor ao valor que está no library.json.
-                Select(Cards.FirstOrDefault(c => c.Id == id));
-            }
+            // Não gravou: a gaveta nova volta o interruptor ao valor que está no library.json.
+            Select(Cards.FirstOrDefault(c => c.Id == id));
         }
     }
 
@@ -893,7 +883,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         if (IsScanBusy)
         {
             waitingFolders.Clear();
-            scanning?.Cancel();
+            if (scanning is { } running)
+            {
+                await running.CancelAsync();
+            }
+
             await Scanning;
         }
 
@@ -902,10 +896,20 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     /// <summary>"Varrer de novo": lê de novo cada pasta guardada, em segundo plano, sem trocar a página.</summary>
     [RelayCommand(CanExecute = nameof(CanStartScan))]
-    private Task RescanAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(token => RescanAllAsync([.. library.Roots], token));
+    private Task RescanAsync() => RescanOf(() => [.. library.Roots]);
 
     /// <summary>Lê de novo as pastas que a pessoa marcou com "Ler a pasta toda de novo ao abrir o app". O shell chama ao abrir.</summary>
-    public Task RescanOnOpenAsync() => IsScanBusy ? Scanning : Scanning = RunExclusiveAsync(token => RescanAllAsync([.. library.Roots.Where(r => r.RescanOnOpen)], token));
+    public Task RescanOnOpenAsync() => RescanOf(() => [.. library.Roots.Where(r => r.RescanOnOpen)]);
+
+    private Task RescanOf(Func<IReadOnlyList<LibraryRoot>> roots)
+    {
+        if (IsScanBusy)
+        {
+            return Scanning;
+        }
+
+        return Scanning = RunExclusiveAsync(token => RescanAllAsync(roots(), token));
+    }
 
     /// <summary>
     /// O que o app faz quando a janela abre: lê os recentes (<paramref name="loadRecents"/>, porque a Biblioteca liga cada projeto ao jogo dele por essa lista), carrega o <c>library.json</c> e
@@ -1118,7 +1122,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         switch (Scan.Phase)
         {
             case LibraryScanPhase.Scanning or LibraryScanPhase.Matching:
-                scanning?.Cancel();
+                if (scanning is { } running)
+                {
+                    await running.CancelAsync();
+                }
+
                 break;
             case LibraryScanPhase.Paused:
                 await ScanFolderAsync(Scan.Folder);
@@ -1148,3 +1156,33 @@ public sealed partial class LibraryViewModel : ObservableObject
 
 /// <summary>Um item do controle segmentado Grade e Lista.</summary>
 public sealed record LibraryLayoutItem(LibraryLayout Layout, string Label);
+
+/// <summary>As dependências opcionais da <see cref="LibraryViewModel"/>; o que fica de fora segue o padrão: sem varredura nem edição, relógio do sistema e nenhuma ação de abrir pasta.</summary>
+public sealed record LibraryServices
+{
+    public LibraryScanService? ScanService { get; init; }
+
+    public LibraryEditor? Editor { get; init; }
+
+    public TimeProvider? Clock { get; init; }
+
+    public Func<LibraryGame, StatusCounts?>? ReadTranslation { get; init; }
+
+    public Func<UserTags>? UserTags { get; init; }
+
+    public ILibrarySheetSource? Sheets { get; init; }
+
+    public Action<string>? OpenFolder { get; init; }
+
+    public UserTagsFile? TagsFile { get; init; }
+
+    public GamePlayer? Player { get; init; }
+
+    public PlayLogFile? PlayLog { get; init; }
+
+    public LibraryTranslationSwitcher? Switcher { get; init; }
+
+    public IReadOnlyList<IEngine>? Engines { get; init; }
+
+    public Func<PortugueseTranslationChecker>? PortugueseChecker { get; init; }
+}

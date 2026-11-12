@@ -222,7 +222,13 @@ public sealed partial class NewProjectWizardViewModel
 {
     private readonly IVndbCatalog? vndb;
     private readonly Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?> gameCharacterNames;
-    private readonly Func<VndbLink, string?> translatedSynopsis;
+
+    /// <summary>
+    /// O ponto de ligação da sinopse em português (#554): devolve a sinopse que a IA já traduziu para o jogo confirmado, ou nulo. A ficha mostra o texto traduzido com o selo
+    /// "Traduzida pela IA, você revisa depois"; sem tradução fica o texto do VNDB, no idioma dele. O assistente não chama a IA: quem traduz é a #554.
+    /// </summary>
+    public Func<VndbLink, string?> TranslatedSynopsis { get; init; } = _ => null;
+
     private VndbLink? confirmedLink;
     private string? vndbSearchedFolder;
     private string? knownVndbId;
@@ -496,7 +502,7 @@ public sealed partial class NewProjectWizardViewModel
             }
 
             confirmedLink = link;
-            Preview = VndbPreview.From(link, gameNames, translatedSynopsis(link));
+            Preview = VndbPreview.From(link, gameNames, TranslatedSynopsis(link));
             Stage = VndbStage.Preview;
             return true;
         }

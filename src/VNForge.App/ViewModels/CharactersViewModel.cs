@@ -30,7 +30,7 @@ public sealed record CharacterSortOption(CharacterSort Sort, string Label);
 public sealed partial class CharactersViewModel : ObservableObject
 {
     private const int FirstTraits = 6;
-
+    private const string GamesPlural = "jogos";
     private static readonly CharacterSortOption[] Sorts = [new(CharacterSort.Name, "Nome"), new(CharacterSort.MostGames, "Mais jogos"), new(CharacterSort.Role, "Papel")];
     private static readonly string[] RoleCodes = ["main", "primary", "side", "appears"];
 
@@ -328,16 +328,24 @@ public sealed partial class CharactersViewModel : ObservableObject
         Items = [.. cards.Select(c => ItemOf(c, privacy.Adult))];
         BuildFacets(basis.Characters);
         var games = all.Characters.SelectMany(c => c.AppearsIn).Select(a => a.GameId).Distinct(StringComparer.Ordinal).Count();
-        StatusText = $"{GameSheetViewModel.Count(all.Characters.Count, "personagem", "personagens")} de {GameSheetViewModel.Count(games, "jogo", "jogos")}";
+        StatusText = $"{GameSheetViewModel.Count(all.Characters.Count, "personagem", "personagens")} de {GameSheetViewModel.Count(games, "jogo", GamesPlural)}";
         Subtitle = $"{Items.Count.ToString(CultureInfo.InvariantCulture)} de {all.Characters.Count.ToString(CultureInfo.InvariantCulture)} · só os dos jogos da sua Biblioteca"
             + (shown.Hidden > 0 ? $" · {GameSheetViewModel.Count(shown.Hidden, "escondido", "escondidos")} por spoiler" : string.Empty);
-        EmptyMessage = all.Characters.Count == 0
-            ? all.Hidden > 0
-                ? "Os personagens dos seus jogos têm spoiler e estão escondidos. Ligue \"Mostrar spoiler\" para vê-los."
-                : "Nenhum personagem ainda. Eles chegam com a ficha dos jogos da Biblioteca: busque a ficha de um jogo ligado ao VNDB, ou rode vnf library characters sync."
-            : Items.Count == 0 ? "Nenhum personagem com esse filtro." : string.Empty;
+        EmptyMessage = EmptyMessageFor(all);
         Page = openId is { } id ? BuildPage(data, privacy, id) : null;
         OnPropertyChanged(string.Empty);
+    }
+
+    private string EmptyMessageFor(LibraryCharacterList all)
+    {
+        if (all.Characters.Count > 0)
+        {
+            return Items.Count == 0 ? "Nenhum personagem com esse filtro." : string.Empty;
+        }
+
+        return all.Hidden > 0
+            ? "Os personagens dos seus jogos têm spoiler e estão escondidos. Ligue \"Mostrar spoiler\" para vê-los."
+            : "Nenhum personagem ainda. Eles chegam com a ficha dos jogos da Biblioteca: busque a ficha de um jogo ligado ao VNDB, ou rode vnf library characters sync.";
     }
 
     private List<LibraryCharacterCard> Sort(List<LibraryCharacterCard> cards) => SelectedSort.Sort switch
@@ -354,7 +362,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         card.AppearsIn.FirstOrDefault(a => selectedRoles.Contains(a.RoleCode)) ?? card.AppearsIn[0];
 
     private CharacterListItem ItemOf(LibraryCharacterCard card, AdultMode mode) =>
-        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", "jogos"), PortraitOf(card, mode));
+        new(card.Id, card.Name, card.Original, card.Image, RolePill(ShownAppearance(card).RoleCode, card.Gender), GameSheetViewModel.Count(card.AppearsIn.Count, "jogo", GamesPlural), PortraitOf(card, mode));
 
     /// <summary>
     /// O retrato tem uma chave só: o jogo do papel mais importante do personagem, igual na lista (com ou sem filtro de papel) e na página. O olho revela esse jogo e o retrato está
@@ -410,7 +418,15 @@ public sealed partial class CharactersViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(CharacterFacet.IsSelected))
             {
-                _ = facet.IsSelected ? selection.Add(key) : selection.Remove(key);
+                if (facet.IsSelected)
+                {
+                    selection.Add(key);
+                }
+                else
+                {
+                    selection.Remove(key);
+                }
+
                 Rebuild();
             }
         };
@@ -435,17 +451,6 @@ public sealed partial class CharactersViewModel : ObservableObject
         var raw = data.Characters.First(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
         var owned = data.Library.Games.Where(g => g.VndbId is not null).Select(g => g.VndbId!).ToHashSet(StringComparer.Ordinal);
         var outside = raw.Appearances.Select(a => a.VisualNovelId).Distinct(StringComparer.Ordinal).Count(v => !owned.Contains(v));
-        var notes = new List<string>();
-        if (card.HiddenAppearances > 0)
-        {
-            notes.Add($"{GameSheetViewModel.Count(card.HiddenAppearances, "jogo da sua Biblioteca fica escondido", "jogos da sua Biblioteca ficam escondidos")} por spoiler.");
-        }
-
-        if (outside > 0)
-        {
-            notes.Add($"{card.Name} também está em {GameSheetViewModel.Count(outside, "jogo", "jogos")} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Ele não entra na lista" : "Eles não entram na lista")}.");
-        }
-
         var description = card.Description;
         var status = description is { Translated: true } ? description.Status : TranslationStatus.Untranslated;
         var known = extras is { } read && string.Equals(read.Id, id, StringComparison.OrdinalIgnoreCase) ? read : null;
@@ -463,10 +468,26 @@ public sealed partial class CharactersViewModel : ObservableObject
             Tags(card, hiddenTraits),
             Groups(card, hiddenTraits),
             games,
-            $"{GameSheetViewModel.Count(games.Count, "jogo", "jogos")} da sua Biblioteca",
-            notes.Count > 0 ? string.Join(' ', notes) : null,
+            $"{GameSheetViewModel.Count(games.Count, "jogo", GamesPlural)} da sua Biblioteca",
+            PageNote(card, outside),
             PortraitOf(card, privacy.Adult),
             known?.Translation);
+    }
+
+    private static string? PageNote(LibraryCharacterCard card, int outside)
+    {
+        var notes = new List<string>();
+        if (card.HiddenAppearances > 0)
+        {
+            notes.Add($"{GameSheetViewModel.Count(card.HiddenAppearances, "jogo da sua Biblioteca fica escondido", "jogos da sua Biblioteca ficam escondidos")} por spoiler.");
+        }
+
+        if (outside > 0)
+        {
+            notes.Add($"{card.Name} também está em {GameSheetViewModel.Count(outside, "jogo", GamesPlural)} do VNDB que não {(outside == 1 ? "está" : "estão")} na sua Biblioteca. {(outside == 1 ? "Ele não entra na lista" : "Eles não entram na lista")}.");
+        }
+
+        return notes.Count > 0 ? string.Join(' ', notes) : null;
     }
 
     /// <summary>O que a página do personagem lê dos projetos: o andamento de cada jogo dele e o cartão "Na tradução". Lê-se uma vez ao abrir a página, fora da thread da tela, e a página reaproveita enquanto aberta.</summary>
@@ -563,7 +584,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             revealed);
     }
 
-    private static List<SheetChip> Tags(LibraryCharacterCard card, IReadOnlyList<VndbTrait> hidden)
+    private static List<SheetChip> Tags(LibraryCharacterCard card, List<VndbTrait> hidden)
     {
         var chips = new List<SheetChip>();
         if (card.Gender != SheetLabels.Gender(null))
@@ -606,7 +627,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         _ => vndbGroup,
     };
 
-    private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, IReadOnlyList<VndbTrait> hidden)
+    private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, List<VndbTrait> hidden)
     {
         var groups = card.Traits.GroupBy(t => GroupName(t.Group))
             .OrderBy(g => Array.IndexOf(GroupOrder, g.Key) is var rank and >= 0 ? rank : GroupOrder.Length)
@@ -651,7 +672,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             }
             else
             {
-                Notify?.Invoke($"{GameSheetViewModel.Count(result.Characters, "personagem trazido", "personagens trazidos")} de {GameSheetViewModel.Count(result.Games, "jogo", "jogos")}. {VndbCredit.ShortText}", ToastKind.Success);
+                Notify?.Invoke($"{GameSheetViewModel.Count(result.Characters, "personagem trazido", "personagens trazidos")} de {GameSheetViewModel.Count(result.Games, "jogo", GamesPlural)}. {VndbCredit.ShortText}", ToastKind.Success);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -664,7 +685,9 @@ public sealed partial class CharactersViewModel : ObservableObject
             SyncText = string.Empty;
         }
 
-        await (Loading = LoadCoreAsync(keepState: true)).ConfigureAwait(true);
+        var reload = LoadCoreAsync(keepState: true);
+        Loading = reload;
+        await reload.ConfigureAwait(true);
     }
 
     private bool CanSync() => !IsSyncing && ConfigDirectory is not null;

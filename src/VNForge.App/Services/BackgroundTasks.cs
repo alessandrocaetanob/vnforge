@@ -325,7 +325,7 @@ public sealed class BackgroundTaskService(Action<Action>? dispatch = null, TimeP
 
     private sealed class Reporter(BackgroundTaskService service, BackgroundTaskItem item) : IBackgroundTaskReporter
     {
-        private readonly object gate = new();
+        private readonly Lock gate = new();
         private decimal cost;
 
         public void Report(double? fraction, string? message = null)

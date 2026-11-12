@@ -46,7 +46,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     private const int ScriptLimit = 6;
     private const int LineLimit = 8;
 
-    private readonly object refreshGate = new();
+    private readonly Lock refreshGate = new();
     private readonly Func<IReadOnlyList<PaletteEntry>> namedEntries;
     private readonly Func<string, int, IReadOnlyList<PaletteEntry>> lineSearch;
     private readonly Func<string, PaletteEntry?>? requestEntry;

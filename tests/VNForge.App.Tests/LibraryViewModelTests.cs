@@ -45,7 +45,7 @@ public sealed class LibraryViewModelTests : IDisposable
             editor = new LibraryEditor(File, () => new LibraryMatcher(vndb, Clock));
         }
 
-        return new LibraryViewModel(File, picker ?? new FakeFolderPicker(null), post ?? (action => action()), scan, editor, Clock, LibrarySamples.Translation, null, new LibrarySamples.Sheets(), openFolder);
+        return new LibraryViewModel(File, picker ?? new FakeFolderPicker(null), post ?? (action => action()), new LibraryServices { ScanService = scan, Editor = editor, Clock = Clock, ReadTranslation = LibrarySamples.Translation, Sheets = new LibrarySamples.Sheets(), OpenFolder = openFolder });
     }
 
     private async Task<LibraryViewModel> Loaded(Action<LibraryViewModel>? configure = null, bool withServices = true, Action<string>? openFolder = null)
@@ -480,7 +480,7 @@ public sealed class LibraryViewModelTests : IDisposable
     public async Task Um_erro_inesperado_ao_abrir_vira_aviso_da_biblioteca_e_nao_derruba_o_app()
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library());
-        var vm = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), clock: Clock, readTranslation: _ => throw new InvalidOperationException("leitura quebrada"));
+        var vm = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = Clock, ReadTranslation = _ => throw new InvalidOperationException("leitura quebrada") });
 
         await vm.OpenAsync(() => Task.CompletedTask);
 
@@ -628,16 +628,19 @@ public sealed class LibraryViewModelTests : IDisposable
             File,
             new FakeFolderPicker(null),
             action => action(),
-            clock: Clock,
-            readTranslation: game =>
+            new LibraryServices
             {
-                if (Interlocked.Increment(ref calls) == 1)
+                Clock = Clock,
+                ReadTranslation = game =>
                 {
-                    firstRead.Set();
-                    release.Wait(Ct);
-                }
+                    if (Interlocked.Increment(ref calls) == 1)
+                    {
+                        firstRead.Set();
+                        release.Wait(Ct);
+                    }
 
-                return LibrarySamples.Translation(game);
+                    return LibrarySamples.Translation(game);
+                },
             });
 
         var older = vm.LoadAsync();

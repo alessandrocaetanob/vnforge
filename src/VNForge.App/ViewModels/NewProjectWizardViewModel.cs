@@ -135,16 +135,11 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     /// <param name="appSettings">O <c>app.json</c> do usuário, de onde vêm e para onde vão cotação, limite e qualidade; sem ele o assistente não grava nada fora do projeto.</param>
     /// <param name="clock">Dá o dia em que a cotação foi informada.</param>
     /// <param name="vndb">O catálogo do VNDB do passo "Ficha do VNDB"; sem ele o passo avisa que a busca não está disponível e deixa seguir.</param>
-    /// <param name="translatedSynopsis">
-    /// O ponto de ligação da sinopse em português (#554): devolve a sinopse que a IA já traduziu para o jogo confirmado, ou nulo. A ficha mostra o texto traduzido com o selo
-    /// "Traduzida pela IA, você revisa depois"; sem tradução fica o texto do VNDB, no idioma dele. O assistente não chama a IA: quem traduz é a #554.
-    /// </param>
     /// <param name="gameCharacterNames">Lê os nomes de personagem do jogo (<c>ES.CHAR.NAME</c>) para a ficha mostrar quais casam com o VNDB; por padrão <see cref="ProjectInitializer.ReadGameCharacterNames"/>.</param>
-    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameCharacterNames = null, Func<VndbLink, string?>? translatedSynopsis = null)
+    public NewProjectWizardViewModel(IFolderPicker picker, IReadOnlyList<IEngine> engines, BackgroundTaskService? tasks = null, AppSettingsFile? appSettings = null, TimeProvider? clock = null, IVndbCatalog? vndb = null, Func<GameInspection, string, CancellationToken, IReadOnlyList<string>?>? gameCharacterNames = null)
     {
         this.vndb = vndb;
         this.gameCharacterNames = gameCharacterNames ?? ProjectInitializer.ReadGameCharacterNames;
-        this.translatedSynopsis = translatedSynopsis ?? (_ => null);
         this.tasks = tasks;
         this.picker = picker;
         this.engines = engines;
@@ -267,10 +262,33 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public bool HasLibraryVndb => LibraryGame?.VndbId is not null;
 
     /// <summary>"VNDB v90001": o código do VNDB sem o "v" que ele já traz, para o "v" não sair duas vezes.</summary>
-    public string LibraryVndbLabel => LibraryGame?.VndbId is { } id ? $"VNDB {(id.StartsWith('v') ? id : "v" + id)}" : string.Empty;
+    public string LibraryVndbLabel
+    {
+        get
+        {
+            if (LibraryGame?.VndbId is not { } id)
+            {
+                return string.Empty;
+            }
+
+            return $"VNDB {(id.StartsWith('v') ? id : "v" + id)}";
+        }
+    }
 
     /// <summary>A linha sob o título no cabeçalho de "Jogo reconhecido" quando o jogo vem da Biblioteca: "Feito com o motor YU-RIS · VNDB v90001".</summary>
-    public string LibraryEngineLine => EngineName.Length == 0 ? string.Empty : $"Feito com o motor {EngineName.ToUpperInvariant()}" + (HasLibraryVndb ? $" · {LibraryVndbLabel}" : string.Empty);
+    public string LibraryEngineLine
+    {
+        get
+        {
+            if (EngineName.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var line = $"Feito com o motor {EngineName.ToUpperInvariant()}";
+            return HasLibraryVndb ? line + $" · {LibraryVndbLabel}" : line;
+        }
+    }
 
     public void SetLibraryGame(LibraryGameContext? game) => LibraryGame = game;
 
@@ -585,6 +603,16 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     private static readonly string[] StepPrompts =
         ["Reconhecido pela Biblioteca", "Jogo e personagens", "Japonês → PT-BR", "Como ficam os acentos", "Qualidade e limite de gasto"];
 
+    private static PipelineStepState StepStateOf(bool done, bool active)
+    {
+        if (done)
+        {
+            return PipelineStepState.Done;
+        }
+
+        return active ? PipelineStepState.Active : PipelineStepState.Pending;
+    }
+
     private void RefreshSteps()
     {
         var steps = new PipelineStep[StepTitles.Length];
@@ -592,7 +620,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         {
             var done = Step == WizardStep.Done || i < (int)Step;
             var active = !done && i == (int)Step;
-            var state = done ? PipelineStepState.Done : active ? PipelineStepState.Active : PipelineStepState.Pending;
+            var state = StepStateOf(done, active);
             // A legenda é fixa, como no quadro: o que ficou decidido aparece na tela de cada passo, não no passo a passo.
             steps[i] = new PipelineStep(i + 1, StepTitles[i], StepPrompts[i], state, done && Step != WizardStep.Done ? GoToStepCommand : null, (WizardStep)i);
         }

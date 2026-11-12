@@ -15,8 +15,10 @@ public class MainWindowViewModelTests
     {
         var wizard = new NewProjectWizardViewModel(new FakeFolderPicker(null), [new FakeEngine()]);
         var vm = new MainWindowViewModel(
-            new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)),
-            newProjectWizard: () => wizard);
+            new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)))
+        {
+            NewProjectWizard = () => wizard,
+        };
         return (vm, wizard);
     }
 

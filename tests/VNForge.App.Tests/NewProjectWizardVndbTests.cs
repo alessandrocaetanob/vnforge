@@ -240,8 +240,10 @@ public sealed class NewProjectWizardVndbTests : IDisposable
             new FakeFolderPicker(null),
             [new TitledEngine(Title)],
             vndb: Catalog(Vn("v1", "Amaoto no Hakoniwa", Title)),
-            gameCharacterNames: (_, _, _) => null,
-            translatedSynopsis: link => link.VisualNovelId == "v1" ? "  Numa cidade onde chove quase sempre.  " : null);
+            gameCharacterNames: (_, _, _) => null)
+        {
+            TranslatedSynopsis = link => link.VisualNovelId == "v1" ? "  Numa cidade onde chove quase sempre.  " : null,
+        };
         await vm.SetGameFolderAsync(game);
         vm.SetProjectDirectory(Path.Combine(temp.Path, "minha-vn"));
         await vm.NextCommand.ExecuteAsync(null);

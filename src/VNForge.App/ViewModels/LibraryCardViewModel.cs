@@ -29,7 +29,7 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
 
     public bool HasImage => Card.Cover == LibraryCoverKind.Image;
 
-    /// <summary>O jogo é de conteúdo adulto: a capa leva o selo 18+ em todo modo.</summary>
+    /// <summary>O jogo é de conteúdo adulto: a capa leva o selo 18+ em qualquer modo.</summary>
     public bool IsAdult => Card.Adult;
 
     /// <summary>A capa está borrada: o modo é Desfocar e a pessoa ainda não pediu para ver este jogo. A capa leva o botão "Mostrar".</summary>
@@ -70,7 +70,7 @@ public sealed partial class LibraryCardViewModel(LibraryGame game, LibraryCard c
     /// <summary>O que a pasta do jogo tem agora (original, com o patch do VNForge ou desconhecido); nulo quando o jogo não tem projeto ligado.</summary>
     public LibraryTranslationState? Version { get; } = version;
 
-    private LibraryVersionLabel? VersionLabel => Version is { } version && LibraryVersionLabel.IsKnown(version) ? LibraryVersionLabel.For(version) : null;
+    private LibraryVersionLabel? VersionLabel => Version is { } known && LibraryVersionLabel.IsKnown(known) ? LibraryVersionLabel.For(known) : null;
 
     /// <summary>A etiqueta sob o cartão: "PT-BR no jogo" ou "Original". Sem ela, o VNForge não afirma nada sobre a pasta.</summary>
     public bool HasVersionTag => VersionLabel is not null;

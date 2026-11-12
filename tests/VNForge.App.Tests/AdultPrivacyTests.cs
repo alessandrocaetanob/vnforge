@@ -17,7 +17,7 @@ public sealed class AdultPrivacyTests : IDisposable
     private async Task<(MainWindowViewModel Shell, LibraryViewModel Library)> ShellAsync(IEnumerable<LibraryGame>? games = null)
     {
         LibrarySamples.Save(_config.Path, LibrarySamples.Library(games));
-        var library = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), clock: new FixedClock(LibrarySamples.Now), readTranslation: LibrarySamples.Translation, sheets: new LibrarySamples.Sheets());
+        var library = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(LibrarySamples.Now), ReadTranslation = LibrarySamples.Translation, Sheets = new LibrarySamples.Sheets() });
         var start = new StartViewModel(new RecentProjectsFile(_config.Path), new FakeFolderPicker(null), new FixedClock(LibrarySamples.Now));
         var shell = new MainWindowViewModel(start, library: library);
         await library.LoadAsync();
