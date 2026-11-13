@@ -18,7 +18,7 @@ namespace VNForge.Core.Injection;
 /// </remarks>
 public sealed partial class GameInjector
 {
-    private static readonly StringComparison PathComparison =
+    internal static readonly StringComparison PathComparison =
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private static readonly StringComparer PathComparer =

@@ -94,6 +94,7 @@ public static class CommandExamples
         ["title show"] = ["vnf title show"],
         ["title set"] = ["vnf title set Minha_VN"],
         ["title clear"] = ["vnf title clear"],
+        ["game move"] = [@"vnf game move --game W:\VNs\MinhaVN"],
         ["vndb search"] = [@"vnf vndb search --game D:\Jogos\MinhaVN", "vnf vndb search Hakoniwa"],
         ["vndb link"] = ["vnf vndb link v17"],
         ["vndb show"] = ["vnf vndb show"],
