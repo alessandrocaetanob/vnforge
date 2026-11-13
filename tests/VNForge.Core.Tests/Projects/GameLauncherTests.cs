@@ -42,6 +42,8 @@ public sealed class GameLauncherTests : IDisposable
 
         Assert.Contains("game.path", erro.Message);
         Assert.Contains("registrou", erro.Message);
+        Assert.Contains("vnf game move", erro.Message);
+        Assert.DoesNotContain("vnf extract", erro.Message);
         Assert.Null(_starter.Executable);
     }
 

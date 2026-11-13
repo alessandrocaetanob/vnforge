@@ -915,21 +915,35 @@ internal static partial class LibraryCommand
             throw new UsageException(remove ? "--remove não leva --project." : "Informe o projeto com --project <pasta>, ou use --remove para desligar.");
         }
 
+        GameRelocation? moved = null;
         var (library, changed) = FileOf(cli).Update(current =>
         {
             var game = current.Find(reference);
-            return (current, remove
-                ? LibraryProjectLinker.Unlink(current, game)
-                : LibraryProjectLinker.Link(current, game, Path.GetFullPath(project!, cli.CurrentDirectory)));
+            if (remove)
+            {
+                return (current, LibraryProjectLinker.Unlink(current, game));
+            }
+
+            var (linked, relocation) = LibraryProjectLinker.LinkFollowingGame(current, game, Path.GetFullPath(project!, cli.CurrentDirectory));
+            moved = relocation;
+            return (current, linked);
         });
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
-            output.WriteLine(JsonEnvelope.Result(new { game = GameData(changed, library.Privacy, userTags: TagsFileOf(cli).Load().TagsOf(changed.Id)) }));
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                game = GameData(changed, library.Privacy, userTags: TagsFileOf(cli).Load().TagsOf(changed.Id)),
+                gameDirectoryMoved = moved is { Changed: true },
+            }));
         }
         else
         {
             output.WriteLine(remove ? $"{changed.Title}: projeto desligado." : $"{changed.Title}: ligado ao projeto {changed.ProjectPath}.");
+            if (moved is { Changed: true })
+            {
+                output.WriteLine($"O projeto passou a apontar para a pasta do jogo da biblioteca, {moved.GameDirectory} (o mesmo jogo, conferido pelos hashes). A pasta do jogo não foi alterada.");
+            }
         }
 
         return ErrorHandler.OkExitCode;

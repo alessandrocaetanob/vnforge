@@ -1,5 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using VNForge.Core.Library;
+using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -348,6 +351,34 @@ public sealed class LibraryCommandTests : IDisposable
         Assert.Contains("--project", neither.Error);
         Assert.Equal(1, notProject.ExitCode);
         Assert.Contains("não é um projeto", notProject.Error);
+    }
+
+    [Fact]
+    public async Task Link_de_jogo_movido_leva_o_projeto_para_a_pasta_da_biblioteca_ou_recusa_se_nao_for_o_mesmo_jogo()
+    {
+        await Run("library", "scan", Collection);
+        var folder = Saved("CLANNAD").Folder;
+        var project = ProjectFolder.Create(
+            Path.Combine(_cli.Root, "projeto"),
+            new ProjectConfig("Teste", new GameConfig(Path.Combine(_cli.Root, "antigo"), "CLANNAD.exe"), new EngineConfig("yuris"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
+        PipelineState State(string content) => new([new OriginalFile("data.xp3", 1, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content))))], new Dictionary<string, StageState>(), Path.Combine(_cli.Root, "antigo"));
+        project.SaveState(State("y"));
+
+        var refused = await Run("library", "link", "CLANNAD", "--project", project.Root);
+
+        Assert.Equal(1, refused.ExitCode);
+        Assert.Contains("data.xp3", refused.Error);
+        Assert.Null(Saved("CLANNAD").ProjectPath);
+        Assert.Equal(Path.Combine(_cli.Root, "antigo"), project.LoadState().GameDirectory);
+
+        project.SaveState(State("x"));
+        var linked = await Run("library", "link", "CLANNAD", "--project", project.Root);
+
+        Assert.Equal(0, linked.ExitCode);
+        Assert.Contains("passou a apontar", linked.Output);
+        Assert.NotNull(Saved("CLANNAD").ProjectPath);
+        Assert.Equal(folder, project.LoadState().GameDirectory);
+        Assert.Equal(folder.Replace('\\', '/'), project.LoadConfig().Game.Path);
     }
 
     private async Task Prepare()

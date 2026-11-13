@@ -96,9 +96,12 @@ public sealed class GameLauncher(IGameProcessStarter starter)
         registered.AddRange(GameInjector.RecordedGameDirectories(project));
         if (!registered.Any(r => string.Equals(Normalize(r), wanted, comparison)))
         {
+            var advice = registered.Count == 0
+                ? "Rode vnf extract (ou o assistente de novo projeto) com a pasta do jogo nesta máquina antes de abrir o jogo."
+                : "Se o jogo mudou de lugar, rode vnf game move --game <pasta nova>: ele confere que é o mesmo jogo e atualiza o projeto. "
+                  + "Não extraia de novo: com o jogo injetado, a extração leria a tradução como se fosse o original.";
             throw new VNForgeException(
-                $"O game.path do {ProjectFolder.ConfigFileName} ('{configured}') não é uma pasta de jogo que este projeto registrou, então o VNForge não abre o executável dela. "
-                + "Rode vnf extract (ou o assistente de novo projeto) com a pasta do jogo nesta máquina antes de abrir o jogo.");
+                $"O game.path do {ProjectFolder.ConfigFileName} ('{configured}') não é uma pasta de jogo que este projeto registrou, então o VNForge não abre o executável dela. {advice}");
         }
     }
 
