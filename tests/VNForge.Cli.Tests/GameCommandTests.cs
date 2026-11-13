@@ -55,5 +55,11 @@ public sealed class GameCommandTests : IDisposable
         Assert.Contains("Jogo movido", moved.Output);
         Assert.Equal(_newGame, _project.LoadState().GameDirectory);
         Assert.Equal(_newGame.Replace('\\', '/'), _project.LoadConfig().Game.Path);
+
+        var again = await Run("game", "move", "--game", _newGame);
+        var json = await Run("game", "move", "--game", _newGame, "--json");
+
+        Assert.Contains("Nada foi gravado", again.Output);
+        Assert.Contains("checkedFiles", json.Output);
     }
 }

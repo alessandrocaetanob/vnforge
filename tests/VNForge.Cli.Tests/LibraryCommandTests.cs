@@ -379,6 +379,10 @@ public sealed class LibraryCommandTests : IDisposable
         Assert.NotNull(Saved("CLANNAD").ProjectPath);
         Assert.Equal(folder, project.LoadState().GameDirectory);
         Assert.Equal(folder.Replace('\\', '/'), project.LoadConfig().Game.Path);
+
+        var again = Data(await Run("library", "link", "CLANNAD", "--project", project.Root, "--json"));
+
+        Assert.False(again.GetProperty("gameDirectoryMoved").GetBoolean());
     }
 
     private async Task Prepare()
