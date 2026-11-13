@@ -70,22 +70,21 @@ public static class LibraryProjectLinker
     }
 
     /// <summary>
-    /// Como <see cref="Link"/>, mas quando o <c>game.path</c> do projeto não é a pasta do jogo da biblioteca (o jogo foi movido) o projeto passa a apontar para a pasta da biblioteca,
-    /// pelo <see cref="ProjectGameRelocator"/>. Se o jogo de lá não é o do projeto, a exceção sobe antes de qualquer gravação no projeto e a biblioteca não é alterada.
+    /// Quando o <c>game.path</c> do projeto não é a pasta do jogo da biblioteca (o jogo foi movido), faz o projeto apontar para ela, pelo <see cref="ProjectGameRelocator"/>.
+    /// Confere o jogo inteiro pelos hashes, então rode antes de <see cref="Link"/> e fora da trava da biblioteca. Se o jogo de lá não é o do projeto, a exceção sobe antes de qualquer
+    /// gravação; se o <see cref="Link"/> falhar depois, repetir o comando conclui, porque o projeto já aponta para a pasta.
     /// </summary>
-    /// <returns>O jogo ligado e a troca de pasta feita; nula quando o projeto já apontava para a pasta do jogo ou o <c>vnforge.json</c> não pode ser lido (nada a trocar).</returns>
+    /// <returns>A troca feita; nula quando o projeto já apontava para a pasta do jogo ou o <c>vnforge.json</c> não pode ser lido (nada a trocar).</returns>
     /// <exception cref="LibraryException">A pasta não é um projeto do VNForge.</exception>
     /// <exception cref="VNForgeException">A pasta do jogo da biblioteca não existe ou não é o mesmo jogo do projeto.</exception>
-    public static (LibraryGame Game, GameRelocation? Relocation) LinkFollowingGame(GameLibrary library, LibraryGame game, string projectFolder)
+    public static GameRelocation? FollowGame(LibraryGame game, string projectFolder)
     {
-        ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(game);
         var root = RequireProject(projectFolder);
         var configured = TryReadGameFolder(root, out _);
-        var moved = configured is null || (GameLibrary.IsUnder(configured, game.Folder) && GameLibrary.IsUnder(game.Folder, configured))
+        return configured is null || (GameLibrary.IsUnder(configured, game.Folder) && GameLibrary.IsUnder(game.Folder, configured))
             ? null
             : ProjectGameRelocator.Move(ProjectFolder.Open(root), game.Folder);
-        return (Link(library, game, root), moved);
     }
 
     /// <summary>Tira a ligação do projeto. O projeto em si não é tocado.</summary>

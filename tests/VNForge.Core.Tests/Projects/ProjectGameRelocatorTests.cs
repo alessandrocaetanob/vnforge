@@ -100,6 +100,18 @@ public sealed class ProjectGameRelocatorTests : IDisposable
         Assert.Equal(Original, File.ReadAllText(Path.Combine(novo, YsbinYpf)));
     }
 
+    [Fact]
+    public void Game_path_relativo_continua_relativo_ao_projeto_depois_da_troca()
+    {
+        var novo = CopyGameTo("W-VNs");
+        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../antigo/jogo", "jogo.exe") });
+
+        ProjectGameRelocator.Move(_project, novo);
+
+        Assert.Equal("../W-VNs", _project.LoadConfig().Game.Path);
+        Assert.Equal(Path.Combine(novo, "jogo.exe"), GameLauncher.ResolveExecutable(_project));
+    }
+
     [Theory]
     [InlineData("diferente", "outro jogo")]
     [InlineData("ausente", null)]

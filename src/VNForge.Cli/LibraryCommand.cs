@@ -915,18 +915,20 @@ internal static partial class LibraryCommand
             throw new UsageException(remove ? "--remove não leva --project." : "Informe o projeto com --project <pasta>, ou use --remove para desligar.");
         }
 
+        // O hash do jogo inteiro roda antes da trava do library.json, senão o app e outros vnf desistem de esperar por ela.
         GameRelocation? moved = null;
+        if (!remove)
+        {
+            var projectFolder = Path.GetFullPath(project!, cli.CurrentDirectory);
+            moved = LibraryProjectLinker.FollowGame(FileOf(cli).Load().Find(reference), projectFolder);
+        }
+
         var (library, changed) = FileOf(cli).Update(current =>
         {
             var game = current.Find(reference);
-            if (remove)
-            {
-                return (current, LibraryProjectLinker.Unlink(current, game));
-            }
-
-            var (linked, relocation) = LibraryProjectLinker.LinkFollowingGame(current, game, Path.GetFullPath(project!, cli.CurrentDirectory));
-            moved = relocation;
-            return (current, linked);
+            return (current, remove
+                ? LibraryProjectLinker.Unlink(current, game)
+                : LibraryProjectLinker.Link(current, game, Path.GetFullPath(project!, cli.CurrentDirectory)));
         });
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))

@@ -1,5 +1,6 @@
 using VNForge.Core.Engines;
 using VNForge.Core.Injection;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Projects;
 
@@ -18,14 +19,12 @@ public sealed record GameRelocation(string GameDirectory, bool Changed, int Chec
 /// </summary>
 public static class ProjectGameRelocator
 {
-    private static readonly StringComparison PathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
     /// <exception cref="VNForgeException">A pasta não existe, o projeto não tem registro do jogo para comparar, ou um arquivo não confere (nada é gravado).</exception>
     public static GameRelocation Move(ProjectFolder project, string gameDirectory)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
-        var target = Normalize(gameDirectory);
+        var target = GameLibrary.NormalizeFolder(gameDirectory);
         if (!Directory.Exists(target))
         {
             throw new VNForgeException($"A pasta do jogo não existe: {target}");
@@ -34,27 +33,34 @@ public static class ProjectGameRelocator
         using var projectLock = ProjectLock.Acquire(project);
         var config = project.LoadConfig();
         var state = project.LoadState();
+        var configStale = !Same(Path.GetFullPath(config.Game.Path, project.Root), target);
+        var stateStale = state.GameDirectory is null ? state.Originals.Count > 0 : !Same(state.GameDirectory, target);
+        if (!configStale && !stateStale && !GameInjector.AnyManifestElsewhere(project, target))
+        {
+            return new GameRelocation(target, false, 0, 0);
+        }
+
         var checkedFiles = Verify(target, state.Originals, GameInjector.LatestUnrestoredEntries(project));
 
         var manifests = GameInjector.RetargetManifests(project, target);
-        var stateStale = state.GameDirectory is null ? state.Originals.Count > 0 : !Same(state.GameDirectory, target);
         if (stateStale)
         {
             project.SaveState(state with { GameDirectory = target });
         }
 
-        var configStale = !Same(Path.GetFullPath(config.Game.Path, project.Root), target);
         if (configStale)
         {
-            project.SaveConfig(config with { Game = config.Game with { Path = target.Replace(Path.DirectorySeparatorChar, '/') } });
+            project.SaveConfig(config with { Game = config.Game with { Path = ConfiguredPath(project, config.Game.Path, target) } });
         }
 
-        return new GameRelocation(target, manifests > 0 || stateStale || configStale, checkedFiles, manifests);
+        return new GameRelocation(target, true, checkedFiles, manifests);
     }
 
-    private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    // Quem escreveu o game.path relativo ao projeto continua com ele relativo; o absoluto continua absoluto, com "/" como o vnf init grava.
+    private static string ConfiguredPath(ProjectFolder project, string current, string target) =>
+        (Path.IsPathRooted(current) ? target : Path.GetRelativePath(project.Root, target)).Replace(Path.DirectorySeparatorChar, '/');
 
-    private static bool Same(string a, string b) => string.Equals(Normalize(a), Normalize(b), PathComparison);
+    private static bool Same(string a, string b) => string.Equals(GameLibrary.NormalizeFolder(a), GameLibrary.NormalizeFolder(b), GameInjector.PathComparison);
 
     private static int Verify(string target, IReadOnlyList<OriginalFile> originals, IReadOnlyDictionary<string, BackupEntry> latest)
     {
