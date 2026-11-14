@@ -73,6 +73,9 @@ public sealed partial class LibraryViewModel
     /// <summary>Uma ligação nova começou ou a pessoa fechou o diálogo sem ligar: o que o shell guardou para abrir depois da ligação anterior deixa de valer.</summary>
     public event EventHandler? LinkSuperseded;
 
+    /// <summary>O diálogo aberto é o de confirmar a ligação de <paramref name="game"/>; um diálogo de outro jogo ou uma recusa não conta.</summary>
+    public bool IsLinkDialogFor(LibraryGame game) => linkGame?.Id == game.Id && LinkDialog is { CanConfirm: true };
+
     [RelayCommand]
     private void CloseLinkDialog()
     {
@@ -106,17 +109,19 @@ public sealed partial class LibraryViewModel
         }
 
         LinkSuperseded?.Invoke(this, EventArgs.Empty);
-        var folder = projectFolder ?? await picker.PickFolderAsync("Pasta do projeto de tradução");
-        if (folder is null)
-        {
-            return;
-        }
 
-        ErrorMessage = null;
+        // Marcado antes do seletor: um segundo clique com o seletor aberto não abre outro nem corre uma segunda ligação.
         IsLinking = true;
         LibraryGame? linked;
         try
         {
+            var folder = projectFolder ?? await picker.PickFolderAsync("Pasta do projeto de tradução");
+            if (folder is null)
+            {
+                return;
+            }
+
+            ErrorMessage = null;
             GameRelocationPreview? preview;
             try
             {
@@ -125,11 +130,13 @@ public sealed partial class LibraryViewModel
             catch (LibraryException e)
             {
                 ErrorMessage = e.Message;
+                LinkSuperseded?.Invoke(this, EventArgs.Empty);
                 return;
             }
             catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
             {
                 LinkDialog = LinkRefusal(e.Message);
+                LinkSuperseded?.Invoke(this, EventArgs.Empty);
                 return;
             }
 
@@ -198,6 +205,7 @@ public sealed partial class LibraryViewModel
             LinkDialog = LinkRefusal(e.Message);
         }
 
+        LinkSuperseded?.Invoke(this, EventArgs.Empty);
         return null;
     }
 

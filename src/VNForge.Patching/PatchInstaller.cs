@@ -580,7 +580,7 @@ public static class PatchInstaller
     internal static InstallManifest? ReadManifest(string gameDirectory)
     {
         var path = Path.Combine(gameDirectory, BackupFolderName, ManifestFileName);
-        if (!File.Exists(path))
+        if (!FileSwap.ExistsOrRecover(path))
         {
             return null;
         }

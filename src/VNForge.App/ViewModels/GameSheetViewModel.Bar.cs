@@ -65,12 +65,12 @@ public sealed partial class GameSheetViewModel
         var tags = card is null ? 0 : card.Tags.Count + card.HiddenSpoilerTags + card.HiddenAdultTags;
         if (tags > 0)
         {
-            parts.Add(new SheetPart($"{(tags == 1 ? "a" : "as")} {tags.ToString(CultureInfo.InvariantCulture)} {(tags == 1 ? "tag" : "tags")}", tags > 1));
+            parts.Add(new SheetPart($"{tags.ToString(CultureInfo.InvariantCulture)} {(tags == 1 ? "tag" : "tags")}", tags > 1));
         }
 
         if (tiles.Count > 0)
         {
-            parts.Add(new SheetPart($"{(tiles.Count == 1 ? "o" : "os")} {tiles.Count.ToString(CultureInfo.InvariantCulture)} {(tiles.Count == 1 ? "personagem" : "personagens")}", tiles.Count > 1));
+            parts.Add(new SheetPart($"{tiles.Count.ToString(CultureInfo.InvariantCulture)} {(tiles.Count == 1 ? "personagem" : "personagens")}", tiles.Count > 1));
         }
 
         return parts;

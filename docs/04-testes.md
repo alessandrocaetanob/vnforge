@@ -35,7 +35,7 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 
 **Smoke por tela (R8).** O `ScreenSmokeTests` abre cada tela do catálogo e confere que não há exceção nem texto cortado. Sem pixel, sem medida e sem texto exato. A lógica da tela fica em teste de ViewModel.
 
-**Teste no ambiente real (manual, antes de cada pré-release). Planejado, #703.** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro ainda não existe: a #703 o cria em `docs/testes/roteiro-ambiente-real.md`.
+**Teste no ambiente real (manual, antes de cada pré-release).** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro está em [`docs/testes/roteiro-ambiente-real.md`](testes/roteiro-ambiente-real.md) (#703).
 
 ## O que sai e o que fica
 

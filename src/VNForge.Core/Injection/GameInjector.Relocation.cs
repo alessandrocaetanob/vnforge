@@ -60,7 +60,7 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal))
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath) || TryReadManifest(manifestPath).Manifest is not { } manifest)
+            if (!ManifestExists(manifestPath, out _) || TryReadManifest(manifestPath).Manifest is not { } manifest)
             {
                 continue;
             }
