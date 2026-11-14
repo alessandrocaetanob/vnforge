@@ -5,6 +5,9 @@ using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ystb.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ystl.Synthetic;
+using VNForge.Engines.YuRis.Ypf;
+using VNForge.Engines.YuRis.Yscm;
+using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Cli.Tests;
 
@@ -138,6 +141,48 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         Assert.False(Directory.Exists(_game));
         await Ok("inject", "--yes");
         Assert.Equal(injected, await File.ReadAllBytesAsync(Path.Combine(moved, YsbinYpf), TestContext.Current.CancellationToken));
+    }
+
+    private async Task<byte[]> FirstMessageOfBuiltScript(string script)
+    {
+        await using var stream = File.OpenRead(Path.Combine(ProjectPath, "build", YsbinYpf));
+        using var archive = (YpfArchive)new YpfArchiveFormat().Open(stream);
+        var entry = archive.Entries.Single(e => e.Path == script + ".ybn");
+        using var content = archive.OpenEntry(entry);
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, TestContext.Current.CancellationToken);
+        var ystb = YstbReader.Read(buffer.ToArray(), entry.Path, YscmReader.Read(Yscm.Bytes, "ysc.ybn"));
+        return ystb.GetResource(ystb.Instructions[0].Arguments[0]).ToArray();
+    }
+
+    [Fact]
+    [Trait("Risco", "R4")]
+    public async Task Cenario_texto_dificil_em_cp1252_sai_no_ybn_com_os_bytes_esperados()
+    {
+        var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
+        Assert.Equal(0, init.ExitCode);
+        var project = ProjectFolder.Open(ProjectPath);
+        project.SaveConfig(project.LoadConfig() with
+        {
+            Encoding = new EncodingConfig("cp1252"),
+            Style = project.LoadConfig().Style with { SpeakerDelimiter = SpeakerDelimiterStyle.Guillemets },
+        });
+        await File.WriteAllTextAsync(project.FormattingPath, """{ "wrap": { "enabled": true, "maxWidth": 6, "charWidth": "uniform" } }""", TestContext.Current.CancellationToken);
+        await Ok("extract");
+        project.SaveText("yst00001", [.. project.LoadText("yst00001").Select((u, i) => i == 0
+            ? u with { Speaker = "Inui", Translation = "Já\\nera tarde, até já", Status = TranslationStatus.Translated }
+            : u)]);
+        project.SaveText("yst00002", [.. project.LoadText("yst00002").Select((u, i) => i == 0
+            ? u with { Translation = "Ele já não sabia de nada", Status = TranslationStatus.Translated }
+            : u)]);
+
+        await Ok("build");
+
+        // cp1252: á E1, é E9, ã E3, « AB, » BB. EF F0 é a quebra de linha do jogo; depois de acento ela leva um 0x20 antes (#435), e a quebra automática da caixa de 6 colunas cai nos mesmos pontos.
+        byte[] dialogue = [.. "Inui"u8, 0xAB, .. "J"u8, 0xE1, 0x20, 0xEF, 0xF0, .. "era"u8, 0xEF, 0xF0, .. "tarde,"u8, 0xEF, 0xF0, .. "at"u8, 0xE9, 0x20, .. "j"u8, 0xE1, 0xBB];
+        byte[] narration = [.. "Ele j"u8, 0xE1, 0x20, 0xEF, 0xF0, .. "n"u8, 0xE3, .. "o"u8, 0xEF, 0xF0, .. "sabia"u8, 0xEF, 0xF0, .. "de"u8, 0xEF, 0xF0, .. "nada"u8];
+        Assert.Equal(dialogue, await FirstMessageOfBuiltScript("yst00001"));
+        Assert.Equal(narration, await FirstMessageOfBuiltScript("yst00002"));
     }
 }
 
