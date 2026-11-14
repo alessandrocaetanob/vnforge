@@ -93,7 +93,7 @@ Cada tarefa vira uma issue com o rótulo `infra`. O corte usa o `tester` em `mod
   - Testes: nenhum
   - Prova: `docs/04-testes.md` reescrito com a tabela de riscos, as camadas e as regras para issue nova; o passo Piso de cobertura sai de `.circleci/config.yml` e a cobertura fica só no relatório
   - Pronto: o documento substitui as regras da #620; nenhum job reprova por cobertura
-- [ ] **T2 · Sistema de arquivos com falha**
+- [x] **T2 · Sistema de arquivos com falha**
   - Issue: #699 (`infra`)
   - Testes: builder · até 15
   - Prova: `dotnet test tests/VNForge.Core.Tests`
