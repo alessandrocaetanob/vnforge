@@ -3,7 +3,6 @@ using Avalonia.Headless;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using VNForge.AI.Bible;
-using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.App.Views;
 using VNForge.Core.Demo;

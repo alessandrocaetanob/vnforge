@@ -8,6 +8,7 @@ namespace VNForge.App.Tests;
 /// A contagem de linhas de risco alto do subtítulo "Revisar por risco" na paleta: sem dados no Editor (texto carregando, ou a leitura falhou) ela volta na hora com
 /// nulo, e refazer a paleta por causa dela não pode chamar a contagem de novo, num ciclo sem fim.
 /// </summary>
+[Trait("Risco", "R6")]
 public sealed class PaletteRiskCountTests
 {
 

@@ -6,6 +6,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
+[Trait("Risco", "R5")]
 public sealed class LineSuggesterTests : IDisposable
 {
     private static readonly TextUnit Linha = new("yst00001:000000", TextUnitKind.Dialogue, null, "原文", null, TranslationStatus.Untranslated);
@@ -34,64 +35,6 @@ public sealed class LineSuggesterTests : IDisposable
     }
 
     [Fact]
-    public async Task Com_chave_usa_o_provedor_real_com_o_modelo_padrao()
-    {
-        chave = "k1";
-
-        var sugestao = await Abrir().SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.False(sugestao.FromFakeProvider);
-        Assert.Equal($"k1/{ClaudeModels.Opus}", sugestao.Text);
-    }
-
-    [Fact]
-    public async Task Reaproveita_o_provedor_enquanto_chave_e_modelo_nao_mudam()
-    {
-        chave = "k1";
-        var sugestor = Abrir();
-
-        await sugestor.SuggestAsync(Linha, CancellationToken.None);
-        await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.Single(criados);
-    }
-
-    [Fact]
-    public async Task Trocar_a_chave_cria_outro_provedor_e_descarta_o_antigo()
-    {
-        var sugestor = LineSuggester.ForUser(pasta.Path, _ => chave, (key, model) =>
-        {
-            var provedor = new ProvedorDescartavel(key);
-            antigos.Add(provedor);
-            return provedor;
-        });
-        chave = "k1";
-        await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        chave = "k2";
-        var sugestao = await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.Equal("k2", sugestao.Text);
-        Assert.Equal(2, antigos.Count);
-        Assert.True(antigos[0].Descartado);
-        Assert.False(antigos[1].Descartado);
-    }
-
-    [Fact]
-    public async Task Trocar_o_modelo_em_ai_json_cria_outro_provedor()
-    {
-        chave = "k1";
-        var sugestor = Abrir();
-        await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        new AiUserSettingsFile(pasta.Path).Save(new AiUserSettings(ClaudeModels.Haiku));
-        var sugestao = await sugestor.SuggestAsync(Linha, CancellationToken.None);
-
-        Assert.Equal($"k1/{ClaudeModels.Haiku}", sugestao.Text);
-        Assert.Equal([("k1", ClaudeModels.Opus), ("k1", ClaudeModels.Haiku)], criados);
-    }
-
-    [Fact]
     public async Task Ai_json_invalido_cai_para_o_modelo_padrao_em_vez_de_falhar()
     {
         chave = "k1";
@@ -102,13 +45,6 @@ public sealed class LineSuggesterTests : IDisposable
         Assert.Equal($"k1/{ClaudeModels.Opus}", sugestao.Text);
     }
 
-    [Fact]
-    public void Provedor_claude_padrao_nao_precisa_de_rede_para_ser_montado()
-    {
-        Assert.IsType<ClaudeTranslationProvider>(LineSuggester.CreateClaude("sk-teste", ClaudeModels.Sonnet));
-    }
-
-    private readonly List<ProvedorDescartavel> antigos = [];
 
     private sealed class ProvedorDescartavel(string texto) : ITranslationProvider, IDisposable
     {

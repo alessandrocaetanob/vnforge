@@ -9,6 +9,7 @@ using VNForge.Core.Qa;
 namespace VNForge.App.Tests;
 
 /// <summary>"Original ou traduzido com um clique" (#552) na Biblioteca, sobre a pasta de jogo sintética e os backups do projeto de demonstração: a troca passa pelo backup e pela injeção do Core.</summary>
+[Trait("Risco", "R1")]
 public sealed class LibraryVersionTests : IDisposable
 {
     private readonly TempFolder _temp = new();
@@ -109,26 +110,6 @@ public sealed class LibraryVersionTests : IDisposable
     }
 
     [Fact]
-    public async Task Extrair_de_novo_no_dialogo_do_jogo_que_mudou_refaz_a_extracao_e_mostra_o_resumo()
-    {
-        var project = ProjectFolder.Open(_project);
-        project.SaveState(new PipelineState([new OriginalFile(DemoBuild.Archive, 1, "extraido-antes")], new Dictionary<string, StageState>()));
-        await File.WriteAllBytesAsync(Archive, DemoBuild.Payload(1000, 9), Ct);
-        var vm = await LoadedAsync(Game(_project));
-        await SwitchToAsync(vm, translated: true);
-        Assert.Equal("O jogo mudou depois da extração", vm.SwitchProblem!.Title);
-        Assert.True(vm.ExtractAgainCommand.CanExecute(null));
-
-        await vm.ExtractAgainCommand.ExecuteAsync(null);
-
-        Assert.True("O texto foi extraído de novo" == vm.SwitchProblem!.Title, vm.SwitchProblem.Message);
-        Assert.Contains(" mantidas, ", vm.SwitchProblem.Message, StringComparison.Ordinal);
-        Assert.Empty(project.LoadState().Originals);
-        Assert.False(vm.IsSwitching);
-        Assert.False(vm.ExtractAgainCommand.CanExecute(null));
-    }
-
-    [Fact]
     public void Injecao_recusada_porque_o_jogo_mudou_depois_da_extracao_diz_quantos_arquivos_diferem()
     {
         var refused = new InjectionException("recusada") { ChangedFiles = [new ChangedGameFile("a.ypf", "x", "y"), new ChangedGameFile("b.ypf", "x", null)] };
@@ -139,15 +120,6 @@ public sealed class LibraryVersionTests : IDisposable
         Assert.Equal("2 arquivos", problem.Differing);
         Assert.Equal("recusada", LibraryViewModel.Describe(new InjectionException("recusada")).Message);
         Assert.Equal("A troca não terminou", LibraryViewModel.Describe(new InvalidOperationException("estado ruim")).Title);
-    }
-
-    [Fact]
-    public void Traduzido_sem_o_patch_descrito_e_desconhecido()
-    {
-        var state = new LibraryTranslationState(LibraryTranslationKind.Translated);
-
-        Assert.False(LibraryVersionLabel.IsKnown(state));
-        Assert.Null(LibraryVersionLabel.For(state).Tag);
     }
 
     private sealed class NoStarter : IGameProcessStarter

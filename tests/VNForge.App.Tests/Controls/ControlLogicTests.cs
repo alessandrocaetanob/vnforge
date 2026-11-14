@@ -1,8 +1,8 @@
 using VNForge.App.Controls;
-using VNForge.Core.Projects;
 
 namespace VNForge.App.Tests.Controls;
 
+[Trait("Risco", "R6")]
 public class ControlLogicTests
 {
     [Theory]

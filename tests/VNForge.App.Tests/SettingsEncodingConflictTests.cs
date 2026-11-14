@@ -1,4 +1,3 @@
-using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
@@ -8,6 +7,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>Ajustes desliga a opção de Reticências e de Aspas que a estratégia de acentuação do projeto não grava, e avisa quando a troca de estratégia deixa o ajuste atual em conflito.</summary>
+[Trait("Risco", "R4")]
 public class SettingsEncodingConflictTests
 {
     private static SettingsViewModel Create(TempFolder temp) =>

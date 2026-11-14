@@ -86,15 +86,6 @@ internal static class GameSheetSamples
 
     public static FakeVndbCatalog Catalog() => new([Game()], Characters());
 
-    /// <summary>A mesma ficha com uma tag erótica (Nudity) e o retrato de Kenta marcado como sexual, para o modo adulto da Biblioteca (#631).</summary>
-    public static FakeVndbCatalog AdultCatalog()
-    {
-        var game = Game() with { Tags = [.. Game().Tags, new VndbTag("g9", "Nudity", "ero", 2.5, 0, false)] };
-        var characters = Characters();
-        characters[0] = characters[0] with { Image = new VndbImage("https://t.vndb.org/ch/1.jpg", null, 100, 140, 2, 0) };
-        return new FakeVndbCatalog([game], characters);
-    }
-
     public static FakeSheetTranslator Translator() => new(item => Portuguese.GetValueOrDefault(item.Key) ?? "pt: " + item.Source);
 
     /// <summary>Busca e traduz a ficha com os provedores falsos e leva cada texto à etapa do quadro: Kenta aprovado, Aoi revisada, Ren traduzido à mão, os outros pela IA.</summary>

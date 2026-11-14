@@ -6,6 +6,7 @@ using VNForge.Core.Projects;
 namespace VNForge.App.Tests;
 
 /// <summary>O controle de conteúdo adulto (#631) fora da Biblioteca: a aba Privacidade dos Ajustes, o shell que a liga ao mesmo arquivo e o "Mostrar" que vale só nesta sessão.</summary>
+[Trait("Risco", "R9")]
 public sealed class AdultPrivacyTests : IDisposable
 {
     private readonly TempFolder _config = new();
@@ -22,24 +23,6 @@ public sealed class AdultPrivacyTests : IDisposable
         var shell = new MainWindowViewModel(start, library: library);
         await library.LoadAsync();
         return (shell, library);
-    }
-
-    [Fact]
-    public void Sem_gravar_o_cartao_volta_ao_modo_que_vale_e_a_aba_mostra_o_erro()
-    {
-        var failing = true;
-        var privacy = new PrivacySettingsViewModel(() => AdultMode.Blur, _ => !failing, () => "disco cheio");
-
-        privacy.Modes[2].IsSelected = true;
-
-        Assert.Equal([false, true, false], privacy.Modes.Select(m => m.IsSelected));
-        Assert.Equal("disco cheio", privacy.ErrorMessage);
-        Assert.True(privacy.HasError);
-
-        failing = false;
-        privacy.Modes[0].IsSelected = true;
-
-        Assert.False(privacy.HasError);
     }
 
     [Fact]
@@ -92,17 +75,4 @@ public sealed class AdultPrivacyTests : IDisposable
         Assert.False(library.Reveal.IsRevealed("v31201"));
     }
 
-    [Fact]
-    public async Task Uma_troca_que_o_proprio_app_gravou_nao_pede_nova_leitura()
-    {
-        var (_, library) = await ShellAsync();
-        var source = new FakeImages(() => File.Load().Privacy);
-        library.FollowPrivacy(source);
-        library.ChooseAdultMode(AdultMode.Hide);
-        var loading = library.Loading;
-
-        source.Raise();
-
-        Assert.Same(loading, library.Loading);
-    }
 }

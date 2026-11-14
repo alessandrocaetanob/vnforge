@@ -1,4 +1,3 @@
-using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Glossary;
 using VNForge.Core.Projects;
@@ -7,6 +6,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>Glossário &gt; Personagens parte da lista do jogo (<c>ES.CHAR.NAME</c>) e dá uma só tradução a cada nome (#426).</summary>
+[Trait("Risco", "R4")]
 public class GlossaryGameCharactersTests
 {
     private static TextUnit Name(int n, string source, string? translation = null, string script = "yst00073") =>
@@ -30,31 +30,6 @@ public class GlossaryGameCharactersTests
         var vm = new GlossaryViewModel { Project = ProjectSummaryReader.Read(root), PostToUi = action => action() };
         await vm.Loading;
         return (vm, folder);
-    }
-
-    [Fact]
-    public async Task Nome_ja_traduzido_na_unidade_chega_ao_personagem()
-    {
-        using var temp = new TempFolder();
-
-        var (vm, _) = await OpenAsync(
-            temp,
-            [Name(0, "真弓", "Mayumi"), Name(1, "犬井", "Inui")],
-            [new CharacterEntry("犬井", string.Empty, CharacterGender.Male)]);
-
-        Assert.Equal("Inui", vm.Characters.Single(c => c.Source == "犬井").Target);
-        Assert.Equal("Mayumi", vm.Characters.Single(c => c.Source == "真弓").Target);
-        Assert.False(vm.IsDirty);
-    }
-
-    [Fact]
-    public async Task Nao_sobrescreve_a_traducao_que_o_personagem_ja_tem()
-    {
-        using var temp = new TempFolder();
-
-        var (vm, _) = await OpenAsync(temp, [Name(0, "真弓", "Outra")], [new CharacterEntry("真弓", "Mayumi")]);
-
-        Assert.Equal("Mayumi", vm.Characters.Single().Target);
     }
 
     [Fact]

@@ -21,24 +21,6 @@ internal static class EditorFixtures
     public static ProjectLines Lines(QaReport report, params (string Key, TextUnit[] Units)[] scripts) =>
         ProjectLines.Create(Texts(scripts), report);
 
-    /// <summary>Um script com <paramref name="count"/> linhas: status em rodízio, quatro falantes (um é a narração) e um aviso de QA a cada 7 linhas.</summary>
-    public static ProjectLines Large(int count, string key = "yst00001")
-    {
-        string?[] speakers = [null, "美咲", "健", "Ana"];
-        var units = new TextUnit[count];
-        var issues = new List<QaIssue>();
-        for (var i = 0; i < count; i++)
-        {
-            units[i] = Unit(key, i + 1, speakers[i % speakers.Length], Statuses[i % Statuses.Length]);
-            if (i % 7 == 0)
-            {
-                issues.Add(new QaIssue("regra", QaSeverity.Warning, units[i].Id, key, "problema"));
-            }
-        }
-
-        return Lines(new QaReport(issues, [], ["regra"]), (key, units));
-    }
-
     private static Dictionary<string, IReadOnlyList<TextUnit>> Texts((string Key, TextUnit[] Units)[] scripts) =>
         scripts.ToDictionary(s => s.Key, s => (IReadOnlyList<TextUnit>)s.Units, StringComparer.Ordinal);
 }

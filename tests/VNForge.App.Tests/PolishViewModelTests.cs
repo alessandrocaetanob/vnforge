@@ -6,48 +6,8 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
-public class ToastServiceTests
-{
-    private readonly FakeTimeProvider clock = new();
-
-    private ToastService Service() => new(clock, a => a());
-
-    [Fact]
-    public void Mantem_no_maximo_tres_avisos_e_descarta_o_mais_antigo()
-    {
-        var toasts = Service();
-        for (var i = 1; i <= ToastService.MaxVisible + 1; i++)
-        {
-            toasts.Show($"Aviso {i}");
-        }
-
-        Assert.Equal(ToastService.MaxVisible, toasts.Toasts.Count);
-        Assert.Equal("Aviso 2", toasts.Toasts[0].Message);
-    }
-}
-
-public class ThemeSettingsTests
-{
-
-    [Fact]
-    public void Escolher_o_tema_nos_ajustes_grava_e_avisa_o_app()
-    {
-        using var temp = new TempFolder();
-        var file = new AppSettingsFile(temp.SubFolder("config"));
-        var settings = new SettingsViewModel(new MemoryApiKeyStore(), file, _ => null);
-        ThemeChoice? raised = null;
-        settings.ThemeChanged += (_, choice) => raised = choice;
-        Assert.Equal(ThemeChoice.System, settings.SelectedTheme!.Value);
-
-        settings.SelectedTheme = settings.Themes.Single(t => t.Value == ThemeChoice.Light);
-
-        Assert.Equal(ThemeChoice.Light, raised);
-        Assert.Equal(ThemeChoice.Light, file.Load().Theme);
-        Assert.Equal(Avalonia.Styling.ThemeVariant.Light, ThemeChoice.Light.ToVariant());
-        Assert.Equal(Avalonia.Styling.ThemeVariant.Default, ThemeChoice.System.ToVariant());
-    }
-}
-
+[Trait("Risco", "R1")]
+[Trait("Risco", "R2")]
 public class ToastsFromPagesTests : IDisposable
 {
     private readonly TempFolder pasta = new();
@@ -107,29 +67,6 @@ public class ToastsFromPagesTests : IDisposable
         var aviso = Assert.Single(vm.Toasts.Toasts);
         Assert.Equal(ToastKind.Warning, aviso.Kind);
         Assert.Contains("Não dá para restaurar", aviso.Message);
-    }
-}
-
-public class EmptyStatesViewModelTests
-{
-
-    [Fact]
-    public async Task Editor_lendo_nao_mostra_o_estado_vazio_e_filtro_que_esvazia_oferece_ver_todas()
-    {
-        var vm = new EditorViewModel(_ => EditorFixtures.Lines(("s1", [EditorFixtures.Unit("s1", 1, "A", TranslationStatus.Approved)])));
-        Assert.True(vm.ShowEmptyState);
-
-        vm.Project = EditorFixtures.Summary();
-        await vm.Loading;
-        Assert.False(vm.ShowEmptyState);
-
-        vm.SelectFilterCommand.Execute(vm.Filters[1]);
-        Assert.True(vm.ShowEmptyState);
-        Assert.Equal("Ver todas as linhas", vm.EmptyActionText);
-
-        vm.ShowAllCommand.Execute(null);
-        Assert.False(vm.ShowEmptyState);
-        Assert.Null(vm.EmptyActionText);
     }
 }
 

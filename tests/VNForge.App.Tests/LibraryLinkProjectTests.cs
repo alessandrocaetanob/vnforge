@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
@@ -9,6 +8,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>"Ligar a um projeto que já existe" (#688): a gaveta da Biblioteca liga o jogo a um projeto que o vnf library link também ligaria.</summary>
+[Trait("Risco", "R6")]
 public sealed class LibraryLinkProjectTests
 {
     private const string Ypf = "ysbin.ypf";

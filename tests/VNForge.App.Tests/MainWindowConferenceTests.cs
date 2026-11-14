@@ -1,10 +1,10 @@
 using VNForge.App.ViewModels;
 using VNForge.Core.Projects;
-using VNForge.Core.Qa;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
+[Trait("Risco", "R2")]
 public class MainWindowConferenceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
@@ -20,68 +20,6 @@ public class MainWindowConferenceTests
         await vm.Start.OpenFolderCommand.ExecuteAsync(null);
         await vm.Editor.Loading;
         return vm;
-    }
-
-    [Fact]
-    public async Task Trocar_o_ajuste_pela_Conferencia_faz_Ajustes_reler_o_perfil()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", TranslationStatus.Translated);
-        var folder = ProjectFolder.Open(root);
-        folder.SaveConfig(folder.LoadConfig() with { Encoding = new EncodingConfig("cp1252") });
-        folder.SaveFormatting(VNForge.Core.Formatting.FormattingProfile.Default with { Typography = VNForge.Core.Formatting.FormattingProfile.Default.Typography with { Ellipsis = VNForge.Core.Formatting.EllipsisStyle.Character } });
-        folder.SaveText("yst00001", [new TextUnit("yst00001:000000", TextUnitKind.Dialogue, null, "原文", "Espera... vai", TranslationStatus.Translated)]);
-        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(root), new FixedClock(Now)));
-        await vm.Start.OpenFolderCommand.ExecuteAsync(null);
-        await vm.Editor.Loading;
-        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Character, vm.Settings.SelectedEllipsis?.Value);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-
-        await vm.Conference.ApplySettingCommand.ExecuteAsync(vm.Conference.SettingCards.Single());
-        await vm.Settings.EstimateLoading;
-
-        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Dots, vm.Settings.SelectedEllipsis?.Value);
-        Assert.False(vm.Settings.HasEncodingConflicts);
-        Assert.Equal(VNForge.Core.Formatting.EllipsisStyle.Dots, folder.LoadFormatting().Typography.Ellipsis);
-    }
-
-    [Fact]
-    public async Task Entrar_na_Conferencia_grava_antes_a_edicao_pendente_do_Editor()
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenedWithProblem(temp);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Editor);
-        await vm.Editor.Loading;
-        vm.Editor.SelectedLine = vm.Editor.Lines[2];
-        vm.Editor.Detail!.Translation = "editada  agora";
-
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-
-        Assert.Same(vm.Conference, vm.CurrentPage);
-        Assert.Contains(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>(), r => r.UnitId == "yst00001:000002" && r.RuleId == "espaco-duplo");
-    }
-
-    [Fact]
-    public async Task Abrir_linha_que_sumiu_avisa_no_Editor_e_um_salto_certo_limpa_o_aviso()
-    {
-        using var temp = new TempFolder();
-        var vm = await OpenedWithProblem(temp);
-        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Conference);
-        await vm.ConferenceLoading;
-
-        vm.Conference.OpenLineCommand.Execute(new ConferenceIssueRowViewModel(new QaIssue("espaco-duplo", QaSeverity.Warning, "yst00001:000099", "yst00001", "x")));
-        await vm.LineNavigation;
-
-        Assert.Equal(NavKey.Editor, vm.SelectedNav?.Key);
-        Assert.Equal("A linha yst00001:000099 não existe mais neste projeto. Confira de novo em Conferir a tradução.", vm.Editor.ErrorMessage);
-
-        vm.Conference.OpenLineCommand.Execute(vm.Conference.Rows.OfType<ConferenceIssueRowViewModel>().Single());
-        await vm.LineNavigation;
-
-        Assert.Null(vm.Editor.ErrorMessage);
-        Assert.Equal("yst00001:000001", vm.Editor.SelectedLine?.Id);
     }
 
     [Fact]

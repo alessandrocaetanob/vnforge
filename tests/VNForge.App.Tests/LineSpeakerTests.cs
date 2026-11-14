@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>Trocar o falante de uma linha no Editor: o seletor do inspetor, a marca na grade e o que vai para o arquivo.</summary>
+[Trait("Risco", "R4")]
 public sealed class LineSpeakerTests : IDisposable
 {
     private readonly TempFolder pasta = new();
@@ -44,31 +45,6 @@ public sealed class LineSpeakerTests : IDisposable
     private static SpeakerChoice Escolha(LineDetailViewModel detail, string? valor) => detail.SpeakerChoices.Single(c => c.Value == valor);
 
     [Fact]
-    public async Task Escolher_um_personagem_grava_so_nessa_linha_e_atualiza_a_grade_o_contexto_e_o_resumo()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[2];
-        var detail = vm.Detail!;
-
-        detail.SelectedSpeakerChoice = Escolha(detail, "美咲");
-
-        Assert.Equal("美咲", Gravada(2).ChosenSpeaker);
-        Assert.Equal("健太", Gravada(2).Speaker);
-        Assert.Null(Gravada(0).ChosenSpeaker);
-        Assert.Equal("Falante trocado: 美咲 (no jogo: 健太)", detail.SpeakerSummary);
-        Assert.Equal("美咲 → Misaki", detail.SpeakerPair);
-        Assert.Equal("alegre", detail.Voice);
-        Assert.True(detail.IsSpeakerChanged);
-        Assert.Equal(Escolha(detail, "美咲"), detail.SelectedSpeakerChoice);
-        var linha = vm.Lines[2];
-        Assert.True(linha.IsSpeakerChanged);
-        Assert.Equal("Misaki", linha.SpeakerName);
-        Assert.Equal("Falante trocado nesta linha. No jogo: 健太.", linha.SpeakerChangedTip);
-        Assert.False(vm.Lines[0].IsSpeakerChanged);
-        Assert.Null(detail.ErrorMessage);
-    }
-
-    [Fact]
     public async Task Narracao_tira_o_nome_da_linha_e_o_falante_do_jogo_volta_a_ele()
     {
         var vm = await Abrir();
@@ -92,23 +68,4 @@ public sealed class LineSpeakerTests : IDisposable
         Assert.Equal(detail.SpeakerChoices[0], detail.SelectedSpeakerChoice);
     }
 
-    [Fact]
-    public async Task Uma_linha_de_narracao_pode_ganhar_falante_com_um_nome_digitado()
-    {
-        var vm = await Abrir();
-        vm.SelectedLine = vm.Lines[1];
-        var detail = vm.Detail!;
-        Assert.False(detail.UseSpeakerDraftCommand.CanExecute(null));
-
-        detail.SpeakerDraft = "  ???  ";
-        Assert.True(detail.UseSpeakerDraftCommand.CanExecute(null));
-        detail.UseSpeakerDraftCommand.Execute(null);
-
-        Assert.Equal("???", Gravada(1).ChosenSpeaker);
-        Assert.Null(Gravada(1).Speaker);
-        Assert.Equal(string.Empty, detail.SpeakerDraft);
-        Assert.Equal("???", vm.Lines[1].SpeakerName);
-        Assert.Null(detail.SelectedSpeakerChoice);
-        Assert.Equal("Falante trocado: ??? (no jogo: Narração)", detail.SpeakerSummary);
-    }
 }

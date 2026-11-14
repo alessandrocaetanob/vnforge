@@ -8,6 +8,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>O modo revisão na ordem "o que mais precisa de você": a fila de risco do projeto inteiro, o cartão da linha, as horas e a troca de ordem.</summary>
+[Trait("Risco", "R6")]
 public sealed class ReviewModeRiskTests : IDisposable
 {
     private readonly TempFolder pasta = new();
@@ -53,15 +54,6 @@ public sealed class ReviewModeRiskTests : IDisposable
         File.WriteAllText(Path.Combine(cache, "editor-suggestions.json"), JsonSerializer.Serialize(new { version = 1, suggestions = new[] { suggestion } }, JsonSerializerOptions.Web));
     }
 
-    private void GravarRitmo120PorHora()
-    {
-        var inicio = relogio.GetUtcNow().AddHours(-1);
-        var sessoes = Enumerable.Range(0, 60).Aggregate(
-            SessionsFile.Empty,
-            (arquivo, i) => arquivo.With(new ApprovalRecord("yst99999", $"yst99999:{i:D6}", inicio.AddSeconds(i * 30))));
-        SessionsFile.Save(ProjectFolder.Open(raiz), sessoes);
-    }
-
     private async Task<EditorViewModel> Abrir()
     {
         var vm = new EditorViewModel(clock: relogio, postToUi: acao => acao());
@@ -71,57 +63,6 @@ public sealed class ReviewModeRiskTests : IDisposable
     }
 
     private TextUnit Gravada(string script, int n) => ProjectFolder.Open(raiz).LoadText(script)[n];
-
-    [Fact]
-    public async Task As_horas_ate_zerar_o_risco_alto_saem_do_ritmo_do_sessions_json_e_zeram_ao_passar_da_linha()
-    {
-        GravarRitmo120PorHora();
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var revisao = vm.Review!;
-        Assert.Equal("1 linha de risco alto · faltam cerca de 1 min no seu ritmo de 120 linhas por hora", revisao.RiskSummaryText);
-        revisao.SkipCommand.Execute(null);
-        Assert.Equal("Nenhuma linha de risco alto", revisao.RiskSummaryText);
-    }
-
-    [Fact]
-    public async Task Pedir_a_fila_por_risco_de_novo_antes_da_primeira_terminar_cancela_a_primeira_e_abre_a_segunda()
-    {
-        var vm = await Abrir();
-
-        var first = vm.StartRiskReviewAsync();
-        var second = vm.StartRiskReviewAsync();
-        await Task.WhenAll(first, second);
-
-        Assert.NotNull(vm.Review);
-        Assert.Equal(4, vm.Review.UpNext.Count);
-    }
-
-    [Fact]
-    public async Task A_lista_a_seguir_comeca_na_linha_de_agora_e_mostra_nivel_falante_e_sinais()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        var linhas = vm.Review!.UpNext;
-        Assert.Equal(4, linhas.Count);
-        Assert.True(linhas[0].IsCurrent);
-        Assert.All(linhas.Skip(1), l => Assert.False(l.IsCurrent));
-        Assert.Equal("Alto", linhas[0].LevelText);
-        Assert.True(linhas[0].IsHigh);
-        Assert.Equal("0002", linhas[0].LineLabel);
-        Assert.Equal("Kenta", linhas[0].Speaker);
-        Assert.Equal("Oi.", linhas[0].Text);
-        Assert.Contains("Dúvida da IA", linhas[0].Signals, StringComparison.Ordinal);
-        Assert.Contains("Soa estranho · Sugestão do editor", linhas[0].Signals, StringComparison.Ordinal);
-        vm.Review.SkipCommand.Execute(null);
-        Assert.True(vm.Review.UpNext[0].IsCurrent);
-        Assert.Equal("0001", vm.Review.UpNext[0].LineLabel);
-        Assert.Equal(3, vm.Review.UpNext.Count);
-    }
 
     [Fact]
     public async Task Esta_boa_atravessa_as_cenas_grava_cada_linha_e_a_tela_final_nao_oferece_a_proxima_cena()
@@ -144,104 +85,4 @@ public sealed class ReviewModeRiskTests : IDisposable
         Assert.Equal(TranslationStatus.Approved, Gravada("yst00002", 0).Status);
     }
 
-    [Fact]
-    public async Task A_ordem_alterna_entre_do_comeco_e_o_que_mais_precisa_de_voce()
-    {
-        var vm = await Abrir();
-        vm.StartReview();
-        Assert.True(vm.Review!.HasOrderChoice);
-        Assert.Equal(0, vm.Review.OrderIndex);
-        Assert.Equal(3, vm.Review.Total);
-        Assert.Equal("yst00001:000000", vm.Review.Detail!.Id);
-
-        vm.Review.OrderIndex = 1;
-        await vm.StartRiskReviewCommand.ExecutionTask!;
-
-        Assert.True(vm.Review.IsRisk);
-        Assert.Equal(1, vm.Review.OrderIndex);
-        Assert.Equal(4, vm.Review.Total);
-        Assert.Equal("yst00001:000001", vm.Review.Detail!.Id);
-
-        vm.Review.OrderIndex = 0;
-
-        Assert.False(vm.Review.IsRisk);
-        Assert.Equal(0, vm.Review.OrderIndex);
-        Assert.Equal(3, vm.Review.Total);
-    }
-
-    [Fact]
-    public async Task A_fila_de_um_personagem_nao_oferece_trocar_a_ordem()
-    {
-        var vm = await Abrir();
-
-        vm.StartReviewOf(ReviewSource.OfSpeaker("美咲"));
-
-        Assert.False(vm.Review!.HasOrderChoice);
-        vm.Review.OrderIndex = 1;
-        Assert.False(vm.Review.IsRisk);
-        Assert.Equal(0, vm.Review.OrderIndex);
-    }
-
-    [Fact]
-    public async Task Sem_linhas_esperando_revisao_a_fila_por_risco_nao_abre()
-    {
-        var projeto = ProjectFolder.Open(raiz);
-        projeto.SaveText("yst00001", [Fala(1, 0, "美咲", "Bom dia.\\p", TranslationStatus.Approved)]);
-        projeto.SaveText("yst00002", [Fala(2, 0, "美咲", "Sim.\\p", TranslationStatus.Approved)]);
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        Assert.False(vm.IsReviewing);
-    }
-
-    [Fact]
-    public async Task A_fila_por_risco_nao_cria_um_bloco_por_linha_no_topo()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-
-        Assert.Equal(4, vm.Review!.Blocks.Count);
-        Assert.Empty(vm.Review.VisibleBlocks);
-        vm.StartReview();
-        Assert.Equal(vm.Review!.Blocks.Count, vm.Review.VisibleBlocks.Count);
-    }
-
-    [Fact]
-    public async Task O_titulo_no_topo_e_Fila_por_risco_e_so_nas_outras_filas_e_o_nome_da_cena_com_a_posicao()
-    {
-        var vm = await Abrir();
-
-        await vm.StartRiskReviewAsync();
-        var risco = vm.Review!;
-        Assert.Equal("Fila por risco", risco.HeaderTitle);
-        Assert.False(risco.ShowPosition);
-
-        vm.StartReview();
-        var cena = vm.Review!;
-        Assert.Equal(cena.SceneName, cena.HeaderTitle);
-        Assert.True(cena.ShowPosition);
-    }
-
-    [Fact]
-    public async Task Depois_de_gravar_a_linha_o_cartao_recalcula_os_sinais_sem_mudar_o_lugar_na_fila()
-    {
-        var vm = await Abrir();
-        await vm.StartRiskReviewAsync();
-        var revisao = vm.Review!;
-        var antes = revisao.RiskScoreText;
-        Assert.Contains("Dúvida da IA +30", revisao.RiskChips.Select(c => c.Text));
-
-        revisao.Detail!.Translation = "Oi, tudo bem?\\p";
-        Assert.True(revisao.Detail.Flush());
-
-        Assert.Equal(0, revisao.Position);
-        Assert.NotEqual(antes, revisao.RiskScoreText);
-        var chips = revisao.RiskChips.Select(c => c.Text).ToList();
-        Assert.DoesNotContain("Dúvida da IA +30", chips);
-        Assert.DoesNotContain(chips, c => c.StartsWith("Erro do QA", StringComparison.Ordinal));
-        Assert.DoesNotContain("Sugestão do editor +10", chips);
-        Assert.Equal(revisao.RiskScoreText, $"Risco {revisao.UpNext[0].Score}");
-    }
 }

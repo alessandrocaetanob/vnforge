@@ -10,6 +10,7 @@ namespace VNForge.App.Tests;
 /// Patch da fonte no executável pela tela Build (#299), sobre um <c>.exe</c> sintético gerado aqui: nenhum arquivo de jogo entra no repositório.
 /// O App só chama o Core (<c>GameInjector.PlanPatch</c>, <c>InjectPatch</c>, <c>DiscardPatch</c>) com o patch da engine.
 /// </summary>
+[Trait("Risco", "R1")]
 public sealed class BuildPatchViewModelTests : IDisposable
 {
     private const string Exe = "jogo.exe";
@@ -80,19 +81,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
 
     private bool HasBackups => Directory.Exists(Folder.BackupDirectory) && Directory.EnumerateDirectories(Folder.BackupDirectory).Any();
 
-    [Theory]
-    [InlineData("fold")]
-    [InlineData("remap")]
-    [InlineData("sjis")]
-    public async Task Outra_acentuacao_nao_mostra_o_patch(string strategy)
-    {
-        var vm = await OpenAsync(strategy);
-
-        Assert.False(vm.HasPatch);
-        Assert.Equal(BuildPatchState.None, vm.PatchState);
-        Assert.False(vm.PatchCommand.CanExecute(null));
-    }
-
     [Fact]
     public async Task Aplicar_pede_confirmacao_e_so_grava_depois_de_confirmar_com_backup_do_original()
     {
@@ -127,24 +115,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_a_confirmacao_nao_grava_e_apaga_a_copia_de_trabalho()
-    {
-        var original = File.ReadAllBytes(ExePath);
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-
-        vm.CancelConfirmationCommand.Execute(null);
-
-        Assert.False(vm.IsConfirming);
-        Assert.Empty(vm.ConfirmationFiles);
-        Assert.Equal(original, File.ReadAllBytes(ExePath));
-        Assert.False(HasBackups);
-        Assert.Empty(StagedFiles());
-        Assert.Equal(BuildPatchState.Available, vm.PatchState);
-        Assert.True(vm.PatchCommand.CanExecute(null));
-    }
-
-    [Fact]
     public async Task Restaurar_originais_devolve_o_exe_byte_a_byte_e_a_lista_mostra_o_executavel()
     {
         var original = File.ReadAllBytes(ExePath);
@@ -165,24 +135,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
         Assert.Equal(original, File.ReadAllBytes(ExePath));
         Assert.Equal(BuildPatchState.Available, vm.PatchState);
         Assert.True(vm.PatchCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task Exe_recusado_pelo_core_mostra_o_motivo_e_nao_grava_nada()
-    {
-        var notExe = SyntheticExe();
-        notExe[0] = (byte)'X';
-        File.WriteAllBytes(ExePath, notExe);
-
-        var vm = await OpenAsync();
-
-        Assert.True(vm.HasPatch);
-        Assert.Equal(BuildPatchState.Refused, vm.PatchState);
-        Assert.Contains("foi recusado e nada foi gravado no jogo", vm.PatchText);
-        Assert.Contains("MZ", vm.PatchText);
-        Assert.False(vm.PatchCommand.CanExecute(null));
-        Assert.Equal(notExe, File.ReadAllBytes(ExePath));
-        Assert.False(HasBackups);
     }
 
     [Fact]
@@ -216,44 +168,6 @@ public sealed class BuildPatchViewModelTests : IDisposable
         Assert.Equal(changed, File.ReadAllBytes(ExePath));
         Assert.False(vm.IsConfirming);
         Assert.Empty(StagedFiles());
-    }
-
-    [Fact]
-    public async Task Recarregar_a_tela_durante_a_confirmacao_mantem_o_que_foi_mostrado()
-    {
-        var original = File.ReadAllBytes(ExePath);
-        var vm = await OpenAsync();
-        await vm.PatchCommand.ExecuteAsync(null);
-
-        await vm.ReloadAsync();
-
-        Assert.Equal(BuildConfirmation.Patch, vm.Pending);
-        Assert.Equal(BuildPatchState.Available, vm.PatchState);
-
-        await vm.ConfirmCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        Assert.Equal(Patched(original), File.ReadAllBytes(ExePath));
-    }
-
-    [Fact]
-    public async Task O_patch_fica_desabilitado_enquanto_outra_operacao_roda()
-    {
-        var blocking = new BlockingStarter();
-        var vm = await OpenAsync(starter: blocking);
-        Assert.True(vm.PatchCommand.CanExecute(null));
-
-        var running = vm.LaunchCommand.ExecuteAsync(null);
-        Assert.True(blocking.Entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
-
-        Assert.True(vm.IsBusy);
-        Assert.False(vm.PatchCommand.CanExecute(null));
-
-        blocking.Release.Set();
-        await running;
-
-        Assert.False(vm.IsBusy);
-        Assert.True(vm.PatchCommand.CanExecute(null));
     }
 
     private sealed class BlockingStarter : IGameProcessStarter

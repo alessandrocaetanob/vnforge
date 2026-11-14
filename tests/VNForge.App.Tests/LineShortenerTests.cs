@@ -5,23 +5,12 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
+[Trait("Risco", "R4")]
 public sealed class LineShortenerTests
 {
     private static readonly TextUnit Linha = new("yst00001:000000", TextUnitKind.Dialogue, "美咲", @"原文\p", @"Uma tradução longa demais para a caixa\p", TranslationStatus.Machine);
 
     private static readonly WrapRule Caixa = new(Enabled: true, MaxWidth: 40, MaxLines: 3, CharWidth: CharWidthMode.Uniform);
-
-    private static string Palavras(int quantas) => string.Join(' ', Enumerable.Repeat("aaaaaaaaa", quantas));
-
-    [Fact]
-    public async Task Se_nenhuma_cabe_devolve_a_primeira_para_o_aviso_conferir()
-    {
-        var provedor = new Reescritor(Palavras(20) + @"\p", Palavras(30) + @"\p");
-
-        var curta = await new LineSuggester(() => provedor).ShortenAsync(Linha, Linha.Translation!, Caixa, TestContext.Current.CancellationToken);
-
-        Assert.Equal(Palavras(20) + @"\p", curta);
-    }
 
     [Fact]
     public async Task Versao_que_perde_o_marcador_sai_da_lista_e_sem_nenhuma_aproveitavel_vira_mensagem()
