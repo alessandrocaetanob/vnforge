@@ -228,6 +228,82 @@ public sealed partial class MainWindowViewModel
         return new LibraryGameContext(card?.Title ?? game.Title, game.VndbId, card is { HasImage: true } ? card.Image : null, card?.OriginalTitle);
     }
 
+    /// <summary>
+    /// "Ligar a um projeto que já existe": pede a pasta do projeto e liga ao jogo da Biblioteca, como o <c>vnf library link</c>. Serve à gaveta e à Ficha. Um erro ou o diálogo da pasta diferente
+    /// aparecem na Biblioteca, então a tela volta para ela quando a chamada vem de outra página; o sucesso vira um toast.
+    /// </summary>
+    [RelayCommand]
+    private async Task LinkExistingProjectAsync(LibraryGame? game)
+    {
+        if (game is null)
+        {
+            return;
+        }
+
+        openAfterLink = null;
+        await Library.LinkProjectAsync(game);
+        if (!ReferenceEquals(CurrentPage, Library) && (Library.HasLinkDialog || Library.ErrorMessage is { Length: > 0 }))
+        {
+            OpenLibrary();
+        }
+    }
+
+    /// <summary>
+    /// "Abrir este projeto" do assistente de novo projeto, com a pasta de um projeto que já existe: liga o projeto ao jogo da Biblioteca que tem a pasta do assistente e abre. Pasta do jogo
+    /// diferente no projeto abre antes o diálogo da Biblioteca, e o projeto abre quando a ligação é confirmada. Sem jogo na Biblioteca com essa pasta, só abre o projeto.
+    /// </summary>
+    private async Task LinkAndOpenAsync(string root, string? gameFolder)
+    {
+        openAfterLink = null;
+        var game = gameFolder is null ? null : Library.Games.FirstOrDefault(g => SameFolder(g.Folder, gameFolder));
+        if (game is null)
+        {
+            // Sem o jogo na Biblioteca não há conferência dos arquivos: só abre o projeto se ele já é deste jogo.
+            if (SameFolder(ProjectGameFolder(root), gameFolder))
+            {
+                await OpenCreatedProjectAsync(root);
+            }
+            else
+            {
+                Library.ReportProblem("Este projeto aponta para outra pasta de jogo e o jogo escolhido não está na Biblioteca. Adicione a pasta do jogo à Biblioteca e ligue o projeto por lá.");
+            }
+
+            return;
+        }
+
+        if (Library.IsLinking)
+        {
+            Library.ReportProblem("Já há uma ligação de projeto em andamento. Espere terminar e abra o projeto de novo.");
+            return;
+        }
+
+        await Library.LinkProjectAsync(game, root);
+        if (SameFolder(Library.Games.FirstOrDefault(g => g.Id == game.Id)?.ProjectPath, root))
+        {
+            await OpenLibraryProjectAsync(root, game.VndbId, game.Title);
+        }
+        else if (Library.HasLinkDialog)
+        {
+            openAfterLink = root;
+        }
+    }
+
+    private static string? ProjectGameFolder(string root)
+    {
+        try
+        {
+            var project = VNForge.Core.Projects.ProjectFolder.Open(root);
+            return Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool SameFolder(string? a, string? b) =>
+        a is not null && b is not null && string.Equals(GameLibrary.NormalizeFolder(a), GameLibrary.NormalizeFolder(b), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>
     private async Task OpenExistingProjectAsync()
     {

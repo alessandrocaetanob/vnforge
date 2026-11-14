@@ -65,6 +65,17 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
             return game;
         });
 
+    /// <summary>
+    /// O mesmo que o <c>vnf library link --project</c>: se o projeto aponta para outra pasta, troca para a do jogo (conferindo os hashes, fora da trava do <c>library.json</c>) e liga o projeto ao jogo.
+    /// </summary>
+    /// <exception cref="LibraryException">O jogo não existe, ou a pasta não é um projeto do VNForge.</exception>
+    /// <exception cref="VNForgeException">A pasta do jogo não é o jogo do projeto (nada foi gravado).</exception>
+    public LibraryGame LinkProject(string gameId, string projectFolder)
+    {
+        LibraryProjectLinker.FollowGame(Get(gameId), projectFolder);
+        return file.Update(library => LibraryProjectLinker.Link(library, library.Find(gameId), projectFolder));
+    }
+
     /// <summary>Tira o jogo da Biblioteca. A pasta dele não é tocada. Devolve se o jogo estava lá.</summary>
     public bool Remove(string gameId) => file.Update(library => library.Remove(gameId));
 

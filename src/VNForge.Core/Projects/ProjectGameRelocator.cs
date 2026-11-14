@@ -11,6 +11,35 @@ namespace VNForge.Core.Projects;
 /// <param name="ManifestsUpdated">Quantos manifestos de backup passaram a apontar para a pasta nova.</param>
 public sealed record GameRelocation(string GameDirectory, bool Changed, int CheckedFiles, int ManifestsUpdated);
 
+/// <summary>Em que estado o jogo está na pasta que o projeto vai passar a usar.</summary>
+public enum GameFolderState
+{
+    /// <summary>Os arquivos são os que a extração leu.</summary>
+    Original,
+
+    /// <summary>Algum arquivo é o que uma injeção do VNForge gravou e ainda não foi restaurada.</summary>
+    Applied,
+}
+
+/// <summary>Um arquivo da pasta nova que não confere com o projeto. <paramref name="Reason"/> é <c>diferente</c>, <c>ausente</c> ou <c>caminho fora da pasta</c>.</summary>
+public sealed record GameMismatch(string Path, string Reason)
+{
+    internal const string MissingReason = "ausente";
+
+    public bool IsMissing => Reason == MissingReason;
+
+    public override string ToString() => $"{Path} ({Reason})";
+}
+
+/// <summary>
+/// O que a troca de pasta acharia, sem gravar nada (<see cref="ProjectGameRelocator.Inspect"/>).
+/// <paramref name="Mismatches"/> vazio e <paramref name="Mixed"/> falso é uma pasta que serve; <paramref name="Mixed"/> é a pasta com arquivos originais e outros com a injeção aplicada; <paramref name="AppliedAt"/> é o momento da injeção mais nova ainda não restaurada, quando <paramref name="State"/> é <see cref="GameFolderState.Applied"/>.
+/// </summary>
+public sealed record GameRelocationPreview(string CurrentFolder, string TargetFolder, GameFolderState State, DateTimeOffset? AppliedAt, IReadOnlyList<GameMismatch> Mismatches, bool Mixed = false)
+{
+    public bool Accepted => Mismatches.Count == 0 && !Mixed;
+}
+
 /// <summary>
 /// Troca a pasta do jogo de um projeto quando o jogo muda de lugar (#689). A pasta nova só vale se tiver o mesmo jogo: cada arquivo que a extração leu (<c>state.originals</c>)
 /// bate com o hash do original ou com o da injeção mais nova ainda não restaurada, e cada arquivo dessas injeções que existe na pasta é o original ou o injetado.
@@ -19,16 +48,29 @@ public sealed record GameRelocation(string GameDirectory, bool Changed, int Chec
 /// </summary>
 public static class ProjectGameRelocator
 {
+    /// <summary>A recusa da pasta com arquivos originais e outros com a tradução aplicada, que o app e o CLI mostram igual.</summary>
+    public const string MixedMessage = "Os arquivos do jogo estão misturados: alguns são os originais e outros têm a tradução do VNForge aplicada. Restaure o jogo ao original, ou aplique a tradução de novo, antes de ligar.";
+
+    /// <summary>Confere a pasta como o <see cref="Move"/> faz e diz em que estado o jogo está, sem gravar nada. Arquivo que não confere vem em <see cref="GameRelocationPreview.Mismatches"/>.</summary>
+    /// <exception cref="VNForgeException">A pasta não existe ou o projeto não tem registro do jogo para comparar.</exception>
+    public static GameRelocationPreview Inspect(ProjectFolder project, string gameDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
+        var target = RequireFolder(gameDirectory);
+        var check = Check(target, project.LoadState().Originals, GameInjector.LatestUnrestoredEntries(project));
+        var state = check.InjectedFound ? GameFolderState.Applied : GameFolderState.Original;
+        var appliedAt = state == GameFolderState.Applied ? GameInjector.LatestUnrestoredInjectionAt(project) : null;
+        var current = GameLibrary.NormalizeFolder(Path.GetFullPath(project.LoadConfig().Game.Path, project.Root));
+        return new GameRelocationPreview(current, target, state, appliedAt, check.Mismatches, check.Mixed);
+    }
+
     /// <exception cref="VNForgeException">A pasta não existe, o projeto não tem registro do jogo para comparar, ou um arquivo não confere (nada é gravado).</exception>
     public static GameRelocation Move(ProjectFolder project, string gameDirectory)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
-        var target = GameLibrary.NormalizeFolder(gameDirectory);
-        if (!Directory.Exists(target))
-        {
-            throw new VNForgeException($"A pasta do jogo não existe: {target}");
-        }
+        var target = RequireFolder(gameDirectory);
 
         using var projectLock = ProjectLock.Acquire(project);
         var config = project.LoadConfig();
@@ -56,6 +98,12 @@ public static class ProjectGameRelocator
         return new GameRelocation(target, true, checkedFiles, manifests);
     }
 
+    private static string RequireFolder(string gameDirectory)
+    {
+        var target = GameLibrary.NormalizeFolder(gameDirectory);
+        return Directory.Exists(target) ? target : throw new VNForgeException($"A pasta do jogo não existe: {target}");
+    }
+
     // Quem escreveu o game.path relativo ao projeto continua com ele relativo; o absoluto continua absoluto, com "/" como o vnf init grava.
     private static string ConfiguredPath(ProjectFolder project, string current, string target) =>
         (Path.IsPathRooted(current) ? target : Path.GetRelativePath(project.Root, target)).Replace(Path.DirectorySeparatorChar, '/');
@@ -64,36 +112,61 @@ public static class ProjectGameRelocator
 
     private static int Verify(string target, IReadOnlyList<OriginalFile> originals, IReadOnlyDictionary<string, BackupEntry> latest)
     {
+        var check = Check(target, originals, latest);
+        if (check.Mismatches.Count > 0)
+        {
+            throw new VNForgeException(
+                $"A pasta '{target}' não é o mesmo jogo do projeto, então a troca foi recusada e nada foi gravado. Arquivos que não conferem: {string.Join(", ", check.Mismatches)}. "
+                + "A pasta nova tem de ter os arquivos como o projeto os viu, originais ou com a injeção do VNForge, sem mudança de fora (uma atualização do jogo, por exemplo).");
+        }
+
+        if (check.Mixed)
+        {
+            throw new VNForgeException($"A pasta '{target}' foi recusada e nada foi gravado. {MixedMessage}");
+        }
+
+        return check.CheckedFiles;
+    }
+
+    private enum FileState
+    {
+        Untracked,
+        Original,
+        Injected,
+    }
+
+    private sealed record FolderCheck(int CheckedFiles, bool InjectedFound, bool Mixed, IReadOnlyList<GameMismatch> Mismatches);
+
+    private static FolderCheck Check(string target, IReadOnlyList<OriginalFile> originals, IReadOnlyDictionary<string, BackupEntry> latest)
+    {
         if (originals.Count == 0 && latest.Count == 0)
         {
             throw new VNForgeException("O projeto não guardou nenhum arquivo do jogo (nem na extração, nem numa injeção), então não há como conferir que a pasta nova é o mesmo jogo. Rode vnf extract com a pasta nova.");
         }
 
-        var problems = new List<string>();
+        var problems = new List<GameMismatch>();
+        var counts = new int[3];
         foreach (var original in originals.OrderBy(o => o.Path, StringComparer.Ordinal))
         {
-            string?[] accepted = latest.TryGetValue(original.Path, out var injection) ? [original.Sha256, injection.InjectedSha256] : [original.Sha256];
-            AddProblem(problems, target, original.Path, accepted, mustExist: true);
+            var injection = latest.GetValueOrDefault(original.Path);
+            counts[(int)Matches(problems, target, original.Path, original.Sha256, injection?.InjectedSha256, mustExist: true)]++;
         }
 
         var known = originals.Select(o => o.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var others = latest.Values.Where(e => !known.Contains(e.Path)).OrderBy(e => e.Path, StringComparer.Ordinal).ToList();
         foreach (var entry in others)
         {
-            AddProblem(problems, target, entry.Path, [entry.OriginalSha256, entry.InjectedSha256], mustExist: false);
+            counts[(int)Matches(problems, target, entry.Path, entry.OriginalSha256, entry.InjectedSha256, mustExist: false)]++;
         }
 
-        if (problems.Count > 0)
-        {
-            throw new VNForgeException(
-                $"A pasta '{target}' não é o mesmo jogo do projeto, então a troca foi recusada e nada foi gravado. Arquivos que não conferem: {string.Join(", ", problems)}. "
-                + "A pasta nova tem de ter os arquivos como o projeto os viu, originais ou com a injeção do VNForge, sem mudança de fora (uma atualização do jogo, por exemplo).");
-        }
-
-        return originals.Count + others.Count;
+        return new FolderCheck(originals.Count + others.Count, counts[(int)FileState.Injected] > 0, counts[(int)FileState.Original] > 0 && counts[(int)FileState.Injected] > 0, problems);
     }
 
-    private static void AddProblem(List<string> problems, string target, string relative, string?[] accepted, bool mustExist)
+    /// <summary>
+    /// Confere um arquivo contra o hash do original e o da injeção. Só um arquivo que uma injeção mexeu (<paramref name="injectedHash"/> não nulo) diz se a pasta está original ou com a tradução;
+    /// o arquivo que a injeção criou e não existe na pasta conta como original.
+    /// </summary>
+    private static FileState Matches(List<GameMismatch> problems, string target, string relative, string? originalHash, string? injectedHash, bool mustExist)
     {
         string path;
         try
@@ -102,26 +175,35 @@ public static class ProjectGameRelocator
         }
         catch (ArgumentException)
         {
-            problems.Add($"{relative} (caminho fora da pasta)");
-            return;
+            problems.Add(new GameMismatch(relative, "caminho fora da pasta"));
+            return FileState.Untracked;
         }
 
         if (!File.Exists(path))
         {
             if (mustExist)
             {
-                problems.Add($"{relative} (ausente)");
+                problems.Add(new GameMismatch(relative, GameMismatch.MissingReason));
             }
 
-            return;
+            return injectedHash is not null && originalHash is null ? FileState.Original : FileState.Untracked;
         }
 
         try
         {
-            if (!accepted.Contains(FileHash.Sha256(path)))
+            var hash = FileHash.Sha256(path);
+            if (hash != originalHash && hash != injectedHash)
             {
-                problems.Add($"{relative} (diferente)");
+                problems.Add(new GameMismatch(relative, "diferente"));
+                return FileState.Untracked;
             }
+
+            if (injectedHash is null || injectedHash == originalHash)
+            {
+                return FileState.Untracked;
+            }
+
+            return hash == injectedHash ? FileState.Injected : FileState.Original;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

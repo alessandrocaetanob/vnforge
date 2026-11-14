@@ -266,6 +266,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         };
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
+        Library.LinkSuperseded += (_, _) => openAfterLink = null;
+        Library.ProjectLinked += (_, game) =>
+        {
+            Toasts.Show($"{game.Title} ligado ao projeto de tradução.", ToastKind.Success, key: "library-link");
+            if (openAfterLink is { } root && SameFolder(game.ProjectPath, root))
+            {
+                openAfterLink = null;
+                ProjectOpening = OpenLibraryProjectAsync(root, game.VndbId, game.Title);
+            }
+        };
         start.PropertyChanged += (_, e) =>
         {
             // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.
@@ -352,6 +362,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private const string ReloadToastKey = "project-reload";
     private IReadOnlyList<string> recentProjects = [];
+    private string? openAfterLink;
 
     /// <summary>Avisos curtos de gravação, build pronto e injeção.</summary>
     public ToastService Toasts { get; }
@@ -968,6 +979,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         wizard.BudgetSaved += (_, _) => Settings.ReloadAppSettings();
         wizard.Cancelled += (_, _) => CurrentPage = Library;
+        wizard.ExistingProjectChosen += (_, root) =>
+        {
+            CurrentPage = Library;
+            ProjectOpening = LinkAndOpenAsync(root, wizard.GameFolder);
+        };
         wizard.Completed += (_, root) =>
         {
             CurrentPage = Library;
