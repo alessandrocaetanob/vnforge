@@ -16,6 +16,7 @@ using VNForge.Core.Images;
 using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 using VNForge.Engines.YuRis;
+using VNForge.Patching;
 
 namespace VNForge.App.ViewModels;
 
@@ -1261,7 +1262,7 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
             folder.SaveImageEdits(next);
             try
             {
-                File.Move(temp, file, overwrite: true);
+                FileSwap.Replace(temp, file);
             }
             catch (Exception moveError)
             {

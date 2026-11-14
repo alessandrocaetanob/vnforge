@@ -17,6 +17,7 @@ using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Vndb;
+using VNForge.Patching;
 using VNForge.Platform.Windows;
 using VNForge.Vndb;
 
@@ -272,6 +273,7 @@ public sealed class VnfCli
                         }
 
                         ThrowIfProjectMissing(settings);
+                        await WarnIfProjectNotLocalAsync(settings, error).ConfigureAwait(false);
                         if (logger.IsEnabled(LogLevel.Debug))
                         {
                             logger.LogDebug("Executando: {Argumentos}", string.Join(' ', args));
@@ -335,6 +337,20 @@ public sealed class VnfCli
         if (!Directory.Exists(root))
         {
             throw new UsageException($"A pasta do projeto não existe: {root}", CliErrorHints.ProjectFolderMissing);
+        }
+    }
+
+    /// <summary>Projeto num disco de rede ou FUSE: a gravação ali é conferida e mais lenta, e o usuário precisa saber por quê. Vai para o stderr, que o <c>--json</c> não usa.</summary>
+    private async Task WarnIfProjectNotLocalAsync(GlobalSettings settings, TextWriter error)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Project) || settings.Quiet)
+        {
+            return;
+        }
+
+        if (ProjectDisk.NonLocalWarning(Path.GetFullPath(settings.Project, _currentDirectory)) is { } warning)
+        {
+            await error.WriteLineAsync(warning).ConfigureAwait(false);
         }
     }
 

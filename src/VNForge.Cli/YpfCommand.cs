@@ -5,6 +5,7 @@ using VNForge.Core;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Engines.YuRis.Ypf;
+using VNForge.Patching;
 
 namespace VNForge.Cli;
 
@@ -184,7 +185,7 @@ public static class YpfCommand
                 result = YpfFolder.Pack(archive, folder, stream, token);
             }
 
-            File.Move(temporary, target, overwrite);
+            FileSwap.Replace(temporary, target, overwrite);
             return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

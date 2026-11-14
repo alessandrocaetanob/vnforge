@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Eval;
@@ -87,9 +88,6 @@ public static class EvalStore
 
     private static void Write(string path, string content)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temp, content + "\n", new UTF8Encoding(false));
-        File.Move(temp, path, overwrite: true);
+        AtomicFile.WriteAllText(path, content + "\n");
     }
 }

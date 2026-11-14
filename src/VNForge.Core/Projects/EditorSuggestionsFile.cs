@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -131,16 +132,7 @@ public sealed record EditorSuggestionsFile(int Version, IReadOnlyList<EditorSugg
         }
 
         Directory.CreateDirectory(project.CacheDirectory);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(file with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
-            ProjectFileIo.Move(temp, path, overwrite: true);
-        }
-        finally
-        {
-            ProjectFileIo.DeleteQuietly(temp);
-        }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(file with { Version = CurrentVersion }, Json) + "\n");
     }
 
     /// <summary>
