@@ -40,10 +40,12 @@ public sealed class JourneyTests : IDisposable
         Assert.Same(wizard, vm.CurrentPage);
         var root = Path.Combine(temp.Path, "meu-projeto");
         wizard.SetProjectDirectory(root);
-        for (var step = 0; step < 5; step++)
+        for (var advances = 0; !wizard.IsDoneStep && wizard.NextCommand.CanExecute(null) && advances < 10; advances++)
         {
             await wizard.NextCommand.ExecuteAsync(null);
         }
+
+        Assert.True(wizard.IsDoneStep, $"O assistente parou no passo {wizard.Step} ({wizard.StepTitle}).");
 
         wizard.FinishCommand.Execute(null);
         await vm.ProjectOpening;
