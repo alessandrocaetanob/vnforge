@@ -355,6 +355,36 @@ public sealed class MainWindowShellTests
         Assert.False(vm.Nav.Single(n => n.Key == NavKey.Sheet).IsEnabled);
     }
 
+    [Fact]
+    public async Task Com_um_projeto_aberto_na_Ficha_abrir_um_jogo_sem_projeto_troca_o_cabecalho_para_o_do_jogo()
+    {
+        using var temp = new TempFolder();
+        var root = SampleProjects.Create(temp.SubFolder("vn"), "Minha VN", [TranslationStatus.Machine]);
+        var games = LibrarySamples.Games().Where(g => g.ProjectPath is null && g.Engine.Translatable).Take(2).ToList();
+        var withProject = games[0] with { ProjectPath = root };
+        var without = games[1];
+        var file = LibrarySamples.Save(temp.SubFolder("biblioteca"), LibrarySamples.Library([withProject, without]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+        await library.LoadAsync();
+        library.OpenGameCommand.Execute(library.Cards.Single(c => c.Id == withProject.Id));
+        await vm.ProjectOpening;
+        Assert.Same(vm.Sheet, vm.CurrentPage);
+        Assert.False(vm.InProjectlessGame);
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        library.OpenGameCommand.Execute(library.Cards.Single(c => c.Id == without.Id));
+
+        await vm.Sheet.Loading;
+        var notified = raised.ToList();
+
+        Assert.True(vm.InProjectlessGame);
+        Assert.Contains(nameof(MainWindowViewModel.GameHeaderTitle), notified);
+        Assert.Contains(nameof(MainWindowViewModel.InProjectlessGame), notified);
+        Assert.NotEqual(vm.ProjectTitle, vm.GameHeaderTitle);
+    }
+
     private sealed class ThrowingPicker(Exception error) : IFolderPicker
     {
         public Task<string?> PickFolderAsync(string title) => Task.FromException<string?>(error);

@@ -89,6 +89,28 @@ public sealed class LibraryLinkProjectTests
     }
 
     [Fact]
+    public async Task Ligar_pela_Ficha_sem_projeto_com_o_dialogo_da_pasta_diferente_abre_o_projeto_ao_confirmar()
+    {
+        using var temp = new TempFolder();
+        var game = GameIn(WriteGame(temp.SubFolder("jogo-novo")));
+        var root = ProjectOf(temp, temp.SubFolder("jogo-antigo"));
+        var (library, _) = LibraryOf(temp, game, root);
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(temp.SubFolder("config")), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+        await library.LoadAsync();
+        library.OpenGameCommand.Execute(library.Cards[0]);
+        Assert.True(vm.InProjectlessGame);
+
+        await vm.LinkExistingProjectCommand.ExecuteAsync(game);
+        Assert.True(library.HasLinkDialog);
+        Assert.Same(library, vm.CurrentPage);
+        await library.ConfirmLinkCommand.ExecuteAsync(null);
+        await vm.ProjectOpening;
+
+        Assert.Equal(root, vm.CurrentProject!.Root);
+        Assert.Same(vm.Sheet, vm.CurrentPage);
+    }
+
+    [Fact]
     public async Task Pasta_sem_vnforge_json_mostra_o_erro_em_portugues_e_nao_liga_nada()
     {
         using var temp = new TempFolder();

@@ -266,7 +266,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         };
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
-        Library.LinkSuperseded += (_, _) => openAfterLink = null;
+        Library.LinkSuperseded += (_, _) =>
+        {
+            openAfterLink = null;
+            openAfterLinkSheetGameId = null;
+        };
         Library.ProjectLinked += (_, game) => OnProjectLinked(game);
         start.PropertyChanged += (_, e) =>
         {
