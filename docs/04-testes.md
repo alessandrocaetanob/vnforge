@@ -16,6 +16,7 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 | R6 | Fluxo principal que trava o usuário | #688 (não liga projeto existente), #619 (erro ao abrir projeto), #689 (jogo mudou de pasta) | Uma jornada por fluxo principal, pelo ViewModel |
 | R7 | Arquivo externo estragado ou serviço fora do ar apaga ou esconde dado | #652 (pasta de projeto ilegível escondia os outros) | Arquivo ilegível e rede fora: recusa com aviso em português, nada é sobrescrito |
 | R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado). Os testes smoke por tela são os únicos que apontam R8; nenhum outro teste aponta R8, e a fidelidade ao quadro se prova pelo render, fora da suíte |
+| R9 | Conteúdo adulto aparece quando a pessoa escolheu esconder ou desfocar | Decisão de 14/11, sem bug registrado | A escolha (mostrar, desfocar, esconder) é gravada e respeitada; arquivo de configuração travado mantém o modo gravado; troca feita pelo CLI chega à grade; imagem adulta já na tela some ao desligar o ajuste, inclusive com o download em andamento; só o modo Mostrar põe o jogo adulto no catálogo exportado |
 
 ## Camadas da suíte
 
@@ -121,9 +122,13 @@ Ele imprime a saída, o tempo de parede, o pico do conjunto de trabalho do proce
 
 O App roda inteiro num processo, com uns 2 minutos sem cobertura. Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
 
+### O trait Risco
+
+Cada classe de teste do App leva um ou mais `[Trait("Risco", "R5")]` com o id da tabela de riscos (R1 a R9); o primeiro é o risco principal. Para rodar só um risco: `dotnet tests/VNForge.App.Tests/bin/Release/net10.0/VNForge.App.Tests.dll -trait "Risco=R5"`. Classe nova sem trait de risco não entra.
+
 ### O trait Tipo=Tela
 
-O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está em `ScreenSmokeTests`, `ClippedTextHeadlessTests` e `ReviewModeKeyTests`, as três que mais gastam tempo de janela; só serve para equilibrar as metades (uns 48 s e 45 s no Windows). Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
+O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está só em `ScreenSmokeTests`, a classe que mais gasta tempo de janela; só serve para equilibrar as metades. Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
 
 ### Prova da tarefa
 
@@ -131,7 +136,7 @@ O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Ti
 
 ## Relatório de cada tarefa
 
-O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo e, no App, a memória do processo. A cobertura de linhas e de ramos (do `tools/cobertura.sh`) entra como informação, sem meta. Para cada teste novo ou mantido, o relatório diz o risco (R1 a R8) que ele protege; teste sem risco sai. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
+O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo e, no App, a memória do processo. A cobertura de linhas e de ramos (do `tools/cobertura.sh`) entra como informação, sem meta. Para cada teste novo ou mantido, o relatório diz o risco (R1 a R9) que ele protege; teste sem risco sai. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
 
 ## Capturas das telas
 

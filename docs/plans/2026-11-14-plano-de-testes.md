@@ -28,6 +28,7 @@ Os riscos saem das regras inegociáveis do `CLAUDE.md` e dos bugs que já chegar
 | R6 | Fluxo principal que trava o usuário | #688 (não liga projeto existente), #619 (erro ao abrir projeto), #689 (jogo mudou de pasta) | Uma jornada por fluxo principal, pelo ViewModel |
 | R7 | Arquivo externo estragado ou serviço fora do ar apaga ou esconde dado | #652 (pasta de projeto ilegível escondia os outros) | Arquivo ilegível e rede fora: recusa com aviso em português, nada é sobrescrito |
 | R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado) |
+| R9 | Conteúdo adulto aparece quando a pessoa escolheu esconder ou desfocar | Decisão de 14/11, sem bug registrado | A escolha (mostrar, desfocar, esconder) é gravada e respeitada; arquivo de configuração travado mantém o modo gravado; troca feita pelo CLI chega à grade; imagem adulta já na tela some ao desligar o ajuste, inclusive com o download em andamento; só o modo Mostrar põe o jogo adulto no catálogo exportado |
 
 ## Camadas da suíte
 
