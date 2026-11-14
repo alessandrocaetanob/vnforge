@@ -116,7 +116,7 @@ Cada tarefa vira uma issue com o rótulo `infra`. O corte usa o `tester` em `mod
   - Prova: `bash .circleci/run-tests.sh`
   - Pronto: cada projeto perto do alvo da tabela, com os oráculos listados por nome no PR
   - Depende de: T1, T3
-- [ ] **T6 · Roteiro do ambiente real**
+- [x] **T6 · Roteiro do ambiente real**
   - Issue: #703 (`infra`)
   - Nível: leve
   - Testes: nenhum
