@@ -1,6 +1,7 @@
 using VNForge.AI.Translation;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Patching;
 using VNForge.Engines.YuRis.Tests.Yscm.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 using VNForge.Engines.YuRis.Tests.Ystb.Synthetic;
@@ -184,5 +185,35 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         Assert.Equal(dialogue, await FirstMessageOfBuiltScript("yst00001"));
         Assert.Equal(narration, await FirstMessageOfBuiltScript("yst00002"));
     }
+
+    [Fact]
+    [Trait("Risco", "R2")]
+    public async Task Cenario_projeto_gravado_num_disco_que_zera_o_rename_sai_com_erro_em_portugues_e_sem_arquivo_vazio()
+    {
+        var init = await _cli.RunAsync(["init", "minha-vn-ptbr", "--game", _game], TestContext.Current.CancellationToken);
+        Assert.Equal(0, init.ExitCode);
+        await Ok("extract");
+        var before = Snapshot(ProjectPath);
+
+        RunResult result;
+        using (ProjectDisk.Use(new ZeroingDisk(_ => true)))
+        {
+            result = await Run("translate");
+        }
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("depois de gravado", result.Error);
+        var after = Snapshot(ProjectPath);
+        Assert.DoesNotContain(after, file => file.Value.Length == 0);
+        // A cópia .bak que a troca deixa ao lado é esperada; o que conta é o arquivo do trabalho estar como estava.
+        foreach (var (name, content) in before.Where(f => f.Key.StartsWith("text", StringComparison.Ordinal)))
+        {
+            Assert.Equal(content, after[name]);
+        }
+    }
+
+    private static Dictionary<string, string> Snapshot(string directory) =>
+        Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .ToDictionary(f => Path.GetRelativePath(directory, f), f => File.ReadAllText(f));
 }
 
