@@ -3,6 +3,7 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Injection;
 
@@ -337,6 +338,7 @@ public sealed partial class GameInjector
     private void MarkRestored(string backupDirectory)
     {
         var manifestPath = Path.Combine(backupDirectory, BackupManifest.FileName);
+        FileSwap.ExistsOrRecover(manifestPath);
         var (manifest, problem) = TryReadManifest(manifestPath);
         if (manifest is null)
         {
@@ -639,7 +641,7 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath))
+            if (!FileSwap.ExistsOrRecover(manifestPath))
             {
                 continue;
             }
@@ -691,7 +693,7 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath))
+            if (!FileSwap.ExistsOrRecover(manifestPath))
             {
                 continue;
             }
@@ -717,7 +719,7 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory))
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (File.Exists(manifestPath) && TryReadManifest(manifestPath).Manifest is { } manifest)
+            if (FileSwap.ExistsOrRecover(manifestPath) && TryReadManifest(manifestPath).Manifest is { } manifest)
             {
                 yield return manifest.GameDirectory;
             }

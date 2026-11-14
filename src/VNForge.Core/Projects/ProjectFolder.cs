@@ -7,6 +7,7 @@ using VNForge.Core.Library;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 using VNForge.Core.Vndb;
+using VNForge.Patching;
 
 namespace VNForge.Core.Projects;
 
@@ -71,7 +72,7 @@ public sealed class ProjectFolder
     public static ProjectFolder Create(string root, ProjectConfig config)
     {
         var folder = new ProjectFolder(root);
-        if (File.Exists(folder.ConfigPath))
+        if (FileSwap.ExistsOrRecover(folder.ConfigPath))
         {
             throw new ProjectConfigException($"Já existe um {ConfigFileName} em '{folder.Root}'; o projeto não foi sobrescrito.");
         }
@@ -83,7 +84,7 @@ public sealed class ProjectFolder
             folder.WriteConfig(json, overwrite: false);
             folder.WriteGitIgnoreIfMissing();
         }
-        catch (IOException) when (File.Exists(folder.ConfigPath))
+        catch (IOException e) when (e is not FileWriteVerificationException && File.Exists(folder.ConfigPath))
         {
             throw new ProjectConfigException($"Já existe um {ConfigFileName} em '{folder.Root}'; o projeto não foi sobrescrito.");
         }
@@ -94,7 +95,7 @@ public sealed class ProjectFolder
     public static ProjectFolder Open(string root)
     {
         var folder = new ProjectFolder(root);
-        if (!File.Exists(folder.ConfigPath))
+        if (!FileSwap.ExistsOrRecover(folder.ConfigPath))
         {
             throw new ProjectConfigException($"{ConfigFileName} não encontrado em '{folder.Root}'; a pasta não é um projeto do VNForge.");
         }
@@ -107,6 +108,7 @@ public sealed class ProjectFolder
         string json;
         try
         {
+            FileSwap.ExistsOrRecover(ConfigPath);
             json = Utf8Estrito.GetString(ProjectFileIo.ReadAllBytes(ConfigPath));
         }
         catch (DecoderFallbackException)
@@ -392,7 +394,7 @@ public sealed class ProjectFolder
             Directory.CreateDirectory(CacheDirectory);
             if (File.Exists(BiblePath))
             {
-                File.Copy(BiblePath, PreviousBiblePath, overwrite: true);
+                AtomicFile.Copy(BiblePath, PreviousBiblePath);
             }
             else
             {
@@ -476,7 +478,7 @@ public sealed class ProjectFolder
     /// <exception cref="VNForgeException">Arquivo fora de UTF-8, malformado ou de uma versão que esta não conhece.</exception>
     public PipelineState LoadState()
     {
-        if (!File.Exists(StatePath))
+        if (!FileSwap.ExistsOrRecover(StatePath))
         {
             return PipelineState.Empty;
         }
@@ -497,7 +499,7 @@ public sealed class ProjectFolder
         ArgumentNullException.ThrowIfNull(state);
 
         var json = state.Serialize();
-        if (File.Exists(StatePath) && ProjectFileIo.ReadAllBytes(StatePath).AsSpan().SequenceEqual(Utf8SemBom.GetBytes(json)))
+        if (FileSwap.ExistsOrRecover(StatePath) && ProjectFileIo.ReadAllBytes(StatePath).AsSpan().SequenceEqual(Utf8SemBom.GetBytes(json)))
         {
             return;
         }

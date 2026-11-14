@@ -54,6 +54,14 @@ internal static class ProjectFileIo
         }
     }
 
+    /// <summary>Apaga <paramref name="path"/> esperando quem o estiver segurando; passado o limite, o erro original sobe.</summary>
+    internal static void Delete(string path, Action<int> wait) =>
+        Retry(path, () =>
+        {
+            File.Delete(path);
+            return 0;
+        }, wait);
+
     /// <summary>Move <paramref name="source"/> sobre <paramref name="destination"/>, esperando quem o estiver lendo.</summary>
     internal static void Move(string source, string destination, bool overwrite) =>
         Move(source, destination, overwrite, Thread.Sleep);

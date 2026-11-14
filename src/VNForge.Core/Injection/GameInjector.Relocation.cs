@@ -1,5 +1,6 @@
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Injection;
 
@@ -60,7 +61,7 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal))
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath) || TryReadManifest(manifestPath).Manifest is not { } manifest)
+            if (!FileSwap.ExistsOrRecover(manifestPath) || TryReadManifest(manifestPath).Manifest is not { } manifest)
             {
                 continue;
             }
