@@ -41,7 +41,7 @@ New-Item -ItemType Directory -Force $base, $w | Out-Null
 Get-Hashes $orig | Set-Content "$base-original.txt"
 ```
 
-Os blocos 1 a 3 usam cópias do jogo, para o original ficar intacto. Se o jogo for grande demais para copiar três vezes, copie só os arquivos do jogo que o projeto registra (os `.ypf` de scripts e o `game.exe`): a conferência do `vnf game move` olha só esses.
+Os blocos 1 a 3 usam cópias do jogo inteiro, para o original ficar intacto. Copie a pasta toda: as conferências por hash comparam a pasta inteira com a foto acima.
 
 Em qualquer falha, anexe à issue: o comando que rodou, a saída inteira, o log do comando (`<projeto>\.cache\logs\`, ou `%LOCALAPPDATA%\VNForge\logs\` quando a pasta não é um projeto) e, nos blocos 2 e 3, o trecho do `H:\RClone\games.log` da hora do teste. Os rótulos: `bug` mais a área (`área: cli`, `área: core`, `área: app` ou `área: yuris`); `infra` quando o defeito é do ambiente (rclone, disco, instalador); `no jogo` quando só aparece com o jogo real.
 
@@ -146,7 +146,7 @@ vnf status
 
 Esperado: a primeira linha não imprime nada (sem arquivo vazio, sem `.bak` ou `.tmp` sobrando); os dois JSON abrem sem erro; o `status` mostra os mesmos números do passo 1.3. Confira também que o `game.path` do `vnforge.json` e o `gameDirectory` do `state.json` apontam para `W:/VNF-Teste/jogo`.
 
-Se falhar: issue `bug` + `área: core`. Anexe o nome dos arquivos vazios, o `games.log` e a hora do passo 2.4. Se o arquivo vazio é um do projeto (`vnforge.json`, `state.json`, `text\*.json`), é a #697 de volta: avise o Alessandro antes de seguir com o pré-release.
+Se falhar: issue `bug` + `área: core`. Anexe o nome dos arquivos vazios, o `games.log` e a hora do passo 2.4. Se o arquivo vazio é um do projeto (`vnforge.json`, `state.json`, `text\*.json`), é a #697 de volta, e o projeto no W: não está seguro. Abra a issue na hora e anexe tudo.
 
 2.6. Espere de novo 10 minutos (o `game move` gravou arquivos, que sobem outra vez), leia tudo de novo e repita a conferência:
 
@@ -165,34 +165,40 @@ vnf build
 vnf inject --yes
 vnf restore --yes
 Compare-Object (Get-Hashes "$w\jogo") (Get-Content "$base-original.txt")
+Get-ChildItem -LiteralPath "$w\jogo", "$w\projeto" -Recurse -File | Where-Object Name -match '\.(bak|tmp)$'
 ```
 
-Esperado: igual ao passo 1.2: nenhuma saída do `Compare-Object`, `restore` com código 0. Na primeira vez no W:, o `Get-Hashes` lê o jogo todo: pode levar vários minutos.
+Esperado: igual ao passo 1.2: nenhuma saída do `Compare-Object`, `restore` com código 0. A última linha não imprime nada: `.bak` ou `.tmp` sobrando depois de um comando que terminou com sucesso é falha (um arquivo com esse nome que já existia no jogo original não conta; confira em `$orig`). Na primeira vez no W:, o `Get-Hashes` lê o jogo todo: pode levar vários minutos.
 
-Se falhar: issue `bug` + `área: core`, com a saída e o `games.log`.
+Se falhar: issue `bug` + `área: core`, com a saída, o nome dos arquivos sobrando e o `games.log`.
 
 ## 3. Pasta com japonês
 
-3.1. Repita o ciclo numa pasta com japonês no nome, nos dois discos. O nome de teste é `ゲーム テスト` (com espaço, para pegar as aspas também):
+3.1. Repita o ciclo numa pasta com japonês no nome, nos dois discos. O nome de teste é `ゲーム テスト` (com espaço, para pegar as aspas também). Parte A, em cada disco:
 
 ```powershell
-foreach ($raiz in 'H:\VNF-Teste-日本語', 'W:\VNF-Teste-日本語') {
-    New-Item -ItemType Directory -Force $raiz | Out-Null
-    $jogo = Join-Path $raiz 'ゲーム テスト'
-    Copy-Item -LiteralPath $orig -Destination $jogo -Recurse
-    vnf init (Join-Path $raiz 'プロジェクト') --game $jogo
-    Set-Location (Join-Path $raiz 'プロジェクト')
-    vnf extract
-    vnf build
-    vnf inject --yes
-    vnf restore --yes
-    Compare-Object (Get-Hashes $jogo) (Get-Content "$base-original.txt")
-}
+$raiz = 'H:\VNF-Teste-日本語'   # no W:, 'W:\VNF-Teste-日本語'
+New-Item -ItemType Directory -Force $raiz | Out-Null
+$jogo = Join-Path $raiz 'ゲーム テスト'
+Copy-Item -LiteralPath $orig -Destination $jogo -Recurse
+vnf init (Join-Path $raiz 'プロジェクト') --game $jogo
+Set-Location (Join-Path $raiz 'プロジェクト')
+vnf extract
 ```
 
-Esperado: nos dois discos, `init`, `extract`, `build`, `inject` e `restore` terminam com código 0 e o `Compare-Object` não imprime nada. Se o terminal mostrar `?` no lugar do japonês, é a fonte do terminal: o que vale é a pasta existir e o comando terminar certo. No `vnforge.json`, `game.path` guarda o caminho com os mesmos caracteres.
+No W:, entre a parte A e a B, repita a sequência da #697: espere 10 minutos pelo envio ao B2, leia tudo (`Get-Hashes $raiz | Out-Null`) e confira arquivo vazio e `ERROR` no `games.log`, como nos passos 2.2, 2.3 e 2.6. No H: siga direto. Parte B:
 
-Se falhar: issue `bug` + `área: core` (ou `área: cli`), dizendo em qual disco e em que comando; anexe o log e o caminho exato.
+```powershell
+vnf build
+vnf inject --yes
+vnf restore --yes
+Compare-Object (Get-Hashes $jogo) (Get-Content "$base-original.txt")
+Get-ChildItem -LiteralPath $raiz -Recurse -File | Where-Object { $_.Length -eq 0 -or $_.Name -match '\.(bak|tmp)$' }
+```
+
+Esperado: nos dois discos, `init`, `extract`, `build`, `inject` e `restore` terminam com código 0, o `Compare-Object` não imprime nada e a última linha também não (sem arquivo vazio e sem `.bak` ou `.tmp` sobrando). Se o terminal mostrar `?` no lugar do japonês, é a fonte do terminal: o que vale é a pasta existir e o comando terminar certo. No `vnforge.json`, `game.path` guarda o caminho com os mesmos caracteres.
+
+Se falhar: issue `bug` + `área: core` (ou `área: cli`), dizendo em qual disco e em que comando; anexe o log, o caminho exato e, no W:, o `games.log`.
 
 3.2. Mova o jogo do projeto de uma pasta com japonês para outra:
 
@@ -204,7 +210,7 @@ vnf game move --game (Join-Path $raiz 'ゲーム 移動')
 vnf status
 ```
 
-Esperado: código 0, `status` igual ao de antes.
+Esperado: código 0, `status` igual ao de antes. No W:, espere e leia tudo antes, como no 3.1.
 
 Se falhar: mesma issue do 3.1.
 
@@ -252,11 +258,13 @@ Esperado: o jogo abre; ao chegar na cena traduzida, o texto aparece em portuguê
 
 Se o jogo não abre, ou abre com tela preta ou com o texto errado: feche o jogo e, antes de qualquer outra coisa, rode o passo 4.4. Depois abra issue `bug` + `no jogo` + `área: yuris`, com o log, a saída de `vnf status` e uma foto da tela.
 
-4.4. Teste de acentos (opcional, mas rápido: ele isola a codificação):
+4.4. Teste de acentos (opcional, isola a codificação). Feche o jogo antes. Este comando grava no jogo real: pergunta `[s/N]`, injeta a frase de teste com backup e abre o jogo.
 
 ```powershell
 vnf test --accent-test
 ```
+
+Se a intenção é só diagnosticar e conferir pelo build, acrescente `--no-open` (ainda grava e pede confirmação). Depois feche o jogo e volte ao original com o `vnf restore --yes` do passo 4.5.
 
 Esperado: a primeira fala do primeiro script vira `Teste de acentos: ação, coração, é, avô, não.`, sem caractere trocado.
 
@@ -283,13 +291,17 @@ Se falhar: issue `bug` + `área: app`, com captura da tela e o log de `%LOCALAPP
 
 5.2. Ligar a um projeto que já existe (#688). Clique no cartão do jogo sem projeto. Na gaveta, "Ligar a um projeto que já existe" e escolha `$base\projeto`.
 
-Esperado: aparece o aviso "<jogo> ligado ao projeto de tradução." e o cartão passa a mostrar o projeto. Repita com um projeto cujo `game.path` aponta para outra pasta (por exemplo, o de `W:\VNF-Teste` antes do passo 2.4): o app troca a pasta do jogo do projeto para a da Biblioteca, com a mesma conferência do `vnf game move`. Quando a pasta do jogo do projeto é outra, o app pergunta ('Mudar a pasta e ligar'). Escolha o projeto de um jogo diferente: o app recusa com o motivo, sem gravar nada na Biblioteca nem no projeto.
+Esperado, nos três casos abaixo:
+
+- Projeto do mesmo jogo, na mesma pasta: o aviso "<título do jogo> ligado ao projeto de tradução." sobe, o app fica na Biblioteca com o cartão selecionado e o botão "Ligar a um projeto que já existe" some, porque o jogo agora tem projeto.
+- Projeto cujo `game.path` aponta para outra pasta (por exemplo, o de `W:\VNF-Teste` antes do passo 2.4): abre o diálogo "Mudar a pasta do jogo neste projeto?", com a pasta antiga, a pasta nova e o estado do jogo ("Sem patch no jogo" ou "Patch do VNForge no jogo"). "Mudar a pasta e ligar" faz a mesma troca e a mesma conferência de hash do `vnf game move`, e termina com o aviso de ligado. "Cancelar" não grava nada.
+- Projeto de outro jogo: o diálogo "Esta pasta não tem o jogo deste projeto", só com "Fechar", e nada é gravado na Biblioteca nem no projeto.
 
 Se falhar: issue `bug` + `área: app` (e `área: core` se o `vnf library link` pela CLI se comporta igual). Anexe o log e o `vnforge.json` do projeto.
 
 5.3. Ficha sem projeto (#690 e #691). Escolha na Biblioteca um jogo sem projeto ligado e casado com o VNDB (tire a ligação com `vnf library link <jogo> --remove`, se preciso) e clique em "Abrir jogo".
 
-Esperado: abre a Ficha do jogo, com a pílula neutra "Sem projeto" no cabeçalho, sinopse, gêneros e elenco com a descrição. Os retratos dos personagens aparecem nítidos, no tamanho da imagem de origem, sem ampliar e sem borrar. O cabeçalho oferece "Ligar a um projeto que já existe" e, para engine que o VNForge traduz, "Traduzir este jogo". Ligar o projeto por ali abre o projeto ligado, com a Ficha e as abas dele.
+Esperado: abre a Ficha do jogo, com a pílula neutra "Sem projeto" no cabeçalho, sinopse, gêneros e elenco com a descrição. Os retratos dos personagens aparecem nítidos, no tamanho da imagem de origem, sem ampliar e sem borrar. O cabeçalho oferece "Ligar a um projeto que já existe" e, para engine que o VNForge traduz, "Traduzir este jogo". Ligar o projeto por ali mostra o mesmo aviso de ligado e abre o projeto, com a Ficha e as abas dele (a pílula "Sem projeto" some).
 
 Se falhar: issue `bug` + `área: app`, com captura da tela. Se o visual está diferente do quadro aprovado, diga isso na issue.
 
@@ -299,6 +311,6 @@ Esperado: os jogos aparecem com o estado certo (`original` para o que ficou rest
 
 ## Depois do roteiro
 
-Registre o resultado na issue da pré-release: a data, o commit (`git rev-parse --short HEAD`), e uma linha por bloco com "passou" ou o número da issue aberta. Uma pré-release só segue com os blocos 2 e 4 passando.
+Registre o resultado na issue da pré-release: a data, o commit (`git rev-parse --short HEAD`), e uma linha por bloco com "passou" ou o número da issue aberta. O bloco 2 e o bloco 4 são os que protegem o projeto e o jogo do Alessandro: uma falha neles merece issue com a etiqueta `bug`, mas a decisão de seguir ou não com a pré-release é dele.
 
-Limpe as pastas de teste quando terminar (`$base`, `W:\VNF-Teste`, as pastas com japonês e o projeto do jogo real). Não apague a pasta do jogo real.
+Limpe as pastas de teste quando terminar (`$base`, `W:\VNF-Teste`, as pastas com japonês, o projeto do jogo real e os arquivos de hash `H:\VNF-Teste-original.txt` e `H:\VNF-Teste-real.txt`, que ficam fora de `$base`). Não apague a pasta do jogo real.
