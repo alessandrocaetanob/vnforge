@@ -10,6 +10,9 @@ public sealed partial class MainWindowViewModel
     private LibraryGame? projectless;
     private LibraryGameContext? projectlessContext;
 
+    // O diálogo da pasta diferente leva a tela à Biblioteca, que apaga o jogo sem projeto; o id guarda de onde a ligação saiu para abrir o projeto ao confirmar.
+    private string? openAfterLinkSheetGameId;
+
     /// <summary>O jogo da Biblioteca cuja Ficha está aberta sem projeto; nulo quando a Ficha é a de um projeto ou não há Ficha aberta.</summary>
     public LibraryGame? ProjectlessGame => InProjectlessGame ? projectless : null;
 
@@ -34,8 +37,9 @@ public sealed partial class MainWindowViewModel
             openAfterLink = null;
             ProjectOpening = OpenLibraryProjectAsync(root, game.VndbId, game.Title);
         }
-        else if (projectless?.Id == game.Id && game.ProjectPath is { } linked)
+        else if ((projectless?.Id == game.Id || openAfterLinkSheetGameId == game.Id) && game.ProjectPath is { } linked)
         {
+            openAfterLinkSheetGameId = null;
             ProjectOpening = OpenLinkedFromSheetAsync(game, linked);
         }
     }
@@ -78,7 +82,14 @@ public sealed partial class MainWindowViewModel
         Sheet.ListCard = Library.ListCardForProject(null, game.VndbId);
         OnPropertyChanged(nameof(GameCoverRevealed));
         sheetItem.IsEnabled = true;
+        var alreadyOnSheet = ReferenceEquals(selectedNav, sheetItem);
         SelectedNav = sheetItem;
+        if (alreadyOnSheet)
+        {
+            // Com a Ficha já aberta a navegação não muda, então nada avisaria o cabeçalho e as abas de que o jogo é outro.
+            RaiseShellChanged();
+        }
+
         TranslateProjectlessGameCommand.NotifyCanExecuteChanged();
     }
 

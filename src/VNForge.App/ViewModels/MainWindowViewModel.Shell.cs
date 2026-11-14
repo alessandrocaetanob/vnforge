@@ -251,9 +251,16 @@ public sealed partial class MainWindowViewModel
         }
 
         openAfterLink = null;
+        var fromSheet = projectless?.Id == game.Id;
         await Library.LinkProjectAsync(game);
         if (!ReferenceEquals(CurrentPage, Library) && (Library.HasLinkDialog || Library.ErrorMessage is { Length: > 0 }))
         {
+            // Ir à Biblioteca apaga o jogo sem projeto: guarda de onde a ligação saiu para o projeto abrir quando o diálogo for confirmado.
+            if (fromSheet && Library.HasLinkDialog)
+            {
+                openAfterLinkSheetGameId = game.Id;
+            }
+
             OpenLibrary();
         }
     }

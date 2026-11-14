@@ -106,17 +106,19 @@ public sealed partial class LibraryViewModel
         }
 
         LinkSuperseded?.Invoke(this, EventArgs.Empty);
-        var folder = projectFolder ?? await picker.PickFolderAsync("Pasta do projeto de tradução");
-        if (folder is null)
-        {
-            return;
-        }
 
-        ErrorMessage = null;
+        // Marcado antes do seletor: um segundo clique com o seletor aberto não abre outro nem corre uma segunda ligação.
         IsLinking = true;
         LibraryGame? linked;
         try
         {
+            var folder = projectFolder ?? await picker.PickFolderAsync("Pasta do projeto de tradução");
+            if (folder is null)
+            {
+                return;
+            }
+
+            ErrorMessage = null;
             GameRelocationPreview? preview;
             try
             {
