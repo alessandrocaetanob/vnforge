@@ -254,7 +254,14 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 return null;
             }
 
-            return SheetPill.Of(shown.Translated ? shown.Status : TranslationStatus.Untranslated, feminine: true);
+            if (!shown.Translated || shown.Status == TranslationStatus.Untranslated)
+            {
+                return new SheetPill("Em inglês", SheetTone.Pending);
+            }
+
+            // O quadro pinta o selo da sinopse revisada de verde, como o aprovado.
+            var pill = SheetPill.Of(shown.Status, feminine: true);
+            return shown.Status == TranslationStatus.Reviewed ? pill with { Tone = SheetTone.Approved } : pill;
         }
     }
 
@@ -454,7 +461,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     private static string TagsPillText(TranslationStatus status) => status switch
     {
-        TranslationStatus.Untranslated => "Sem tradução ainda, valem para todos os jogos",
+        TranslationStatus.Untranslated => "Em inglês",
         TranslationStatus.Machine => "Traduzidas pela IA, valem para todos os jogos",
         TranslationStatus.Translated => "Traduzidas, valem para todos os jogos",
         TranslationStatus.Reviewed => "Revisadas, valem para todos os jogos",
@@ -484,7 +491,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
         foreach (var character in card.Characters)
         {
             var kind = TileKindOf(character);
-            var line = character.Traits.Count > 0 ? string.Join(", ", character.Traits.Select(t => t.Name)) : character.Description?.Text ?? string.Empty;
+            var line = character.Description?.Text ?? string.Empty;
             tiles.Add(new CharacterTile(
                 character.Id,
                 kind,
@@ -492,7 +499,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 character.Original,
                 character.Image,
                 new SheetPill(SheetLabels.RoleBadge(character.RoleCode, character.Gender), character.RoleCode == "main" ? SheetTone.Approved : SheetTone.Pending),
-                character.Status is { } status ? SheetPill.Of(status) : null,
+                character.Status is { } status && status != TranslationStatus.Untranslated ? SheetPill.Of(status) : null,
                 line,
                 TileNote(kind),
                 0,

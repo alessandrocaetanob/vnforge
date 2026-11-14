@@ -116,7 +116,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.True(vm.IsReady);
         Assert.False(vm.ShowEmpty);
         Assert.Contains("Numa cidade onde chove", vm.SynopsisText, StringComparison.Ordinal);
-        Assert.Equal(new SheetPill("Revisada", SheetTone.Reviewed), vm.SynopsisPill);
+        Assert.Equal(new SheetPill("Revisada", SheetTone.Approved), vm.SynopsisPill);
         Assert.Equal("Média · 18 h (47 votos)", vm.DurationText);
         Assert.Equal("2019, em japonês", vm.ReleasedText);
         Assert.Equal("7,9 de 10", vm.RatingText);
@@ -242,7 +242,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         using var other = new TempFolder();
         var raw = await ReadyAsync(translate: false, other.Path);
         Assert.False(raw.CanToggleOriginal);
-        Assert.Equal(new SheetPill("Sem tradução", SheetTone.Pending), raw.SynopsisPill);
+        Assert.Equal(new SheetPill("Em inglês", SheetTone.Pending), raw.SynopsisPill);
         Assert.StartsWith("A town where it rains", raw.SynopsisText, StringComparison.Ordinal);
     }
 

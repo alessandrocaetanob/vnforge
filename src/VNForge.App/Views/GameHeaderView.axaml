@@ -110,8 +110,12 @@
                 <Border Classes="game-tag">
                   <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
                 </Border>
-                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
+                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}" IsVisible="{Binding !InProjectlessGame}">
                   <TextBlock Name="Progress" Text="{Binding GameProgressLabel}"/>
+                </Border>
+                <!-- Sem projeto não há andamento: a pílula é neutra, em peso normal, como o selo "pend" do quadro. -->
+                <Border Name="ProjectlessPill" Classes="game-pill none plain" IsVisible="{Binding InProjectlessGame}">
+                  <TextBlock Text="Sem projeto"/>
                 </Border>
               </StackPanel>
             </StackPanel>
