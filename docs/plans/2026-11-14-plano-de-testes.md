@@ -99,7 +99,7 @@ Cada tarefa vira uma issue com o rótulo `infra`. O corte usa o `tester` em `mod
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: a costura de sistema de arquivos cobre todo caminho de gravação do Core; os quatro tipos de falha (rename que zera, arquivo travado, disco cheio, somente leitura) rodam contra projeto, manifesto, backup e biblioteca
   - Depende de: #697
-- [ ] **T3 · Cenários de ponta a ponta**
+- [x] **T3 · Cenários de ponta a ponta**
   - Issue: #700 (`infra`)
   - Testes: builder · até 5
   - Prova: `dotnet test tests/VNForge.Cli.Tests --filter Cenario`

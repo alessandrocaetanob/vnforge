@@ -134,12 +134,18 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         var moved = Path.Combine(_cli.Root, "jogo-novo", "MinhaVN");
         Directory.CreateDirectory(Path.GetDirectoryName(moved)!);
         Directory.Move(_game, moved);
+        // Quem copia em vez de mover deixa o jogo, ainda com a tradução, na pasta antiga.
+        Directory.CreateDirectory(_game);
+        foreach (var file in Directory.GetFiles(moved))
+        {
+            File.Copy(file, Path.Combine(_game, Path.GetFileName(file)));
+        }
 
         await Ok("game", "move", "--game", moved);
 
         await Ok("restore", "--yes");
         Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(moved, YsbinYpf), TestContext.Current.CancellationToken));
-        Assert.False(Directory.Exists(_game));
+        Assert.Equal(injected, await File.ReadAllBytesAsync(GameFile(YsbinYpf), TestContext.Current.CancellationToken));
         await Ok("inject", "--yes");
         Assert.Equal(injected, await File.ReadAllBytesAsync(Path.Combine(moved, YsbinYpf), TestContext.Current.CancellationToken));
     }
