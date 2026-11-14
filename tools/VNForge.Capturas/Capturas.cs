@@ -13,12 +13,13 @@ namespace VNForge.Capturas;
 
 internal static class Capturas
 {
-    private const string Usage = "uso: VNForge.Capturas [--saida pasta] [--tela nome] [--tema escuro|claro]";
+    private const string Usage = "uso: VNForge.Capturas [--saida pasta] [--tela nome] [--tema escuro|claro] [--escala 1|1.5|2]";
 
     public static int Run(string[] args)
     {
         string output = Path.Combine(".tmp", "capturas");
         string? only = null;
+        scale = 1;
         var themes = new List<(string Name, ThemeVariant Variant)> { ("escuro", ThemeVariant.Dark), ("claro", ThemeVariant.Light) };
         var index = 0;
         while (index < args.Length)
@@ -31,6 +32,9 @@ internal static class Capturas
                     break;
                 case "--tela" when value is not null:
                     only = value;
+                    break;
+                case "--escala" when value is not null && double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed >= 1:
+                    scale = parsed;
                     break;
                 case "--tema" when value is "escuro" or "claro":
                     themes = [themes.Single(t => t.Name == value)];
@@ -90,10 +94,28 @@ internal static class Capturas
         return count;
     }
 
+    private static double scale = 1;
+
+    /// <summary>A escala do monitor: o Avalonia.Headless fixa a da janela em 1, e a ferramenta a troca como o Windows faz ao mover a janela para outro monitor (150 %, 200 %).</summary>
+    private static void ApplyScale(ScreenHost host)
+    {
+        if (scale < 1.01)
+        {
+            return;
+        }
+
+        var impl = host.Window.PlatformImpl ?? throw new InvalidOperationException("A janela não tem plataforma.");
+        var type = impl.GetType();
+        type.GetProperty("RenderScaling")!.SetValue(impl, scale);
+        (type.GetProperty("ScalingChanged")!.GetValue(impl) as Action<double>)?.Invoke(scale);
+    }
+
     private static void Save(ScreenHost host, string output, string name, string themeName)
     {
+        ApplyScale(host);
         host.Settle();
-        var path = Path.Combine(output, $"{name}-{themeName}.png");
+        var suffix = scale < 1.01 ? string.Empty : $"-{(int)Math.Round(scale * 100)}";
+        var path = Path.Combine(output, $"{name}-{themeName}{suffix}.png");
         using var frame = host.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("O Avalonia.Headless não devolveu o quadro; confira o UseSkia na sessão.");
         frame.Save(path, PngBitmapEncoderOptions.Default);
         Console.WriteLine(path);

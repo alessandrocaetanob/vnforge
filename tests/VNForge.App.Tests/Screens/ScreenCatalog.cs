@@ -271,7 +271,7 @@ internal static class ScreenCatalog
     private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null) => async (_, theme) =>
     {
         var config = new TempFolder();
-        await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits);
+        await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits, portrait: true);
         var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(config.Path), new FixedClock(CharactersSamples.Now));
         var vm = new MainWindowViewModel(start);
         vm.Characters.ConfigDirectory = config.Path;
