@@ -26,11 +26,19 @@ internal static class AtomicFile
         var sleep = wait ?? Thread.Sleep;
         try
         {
-            ProjectFileIo.Retry<int>(null, () =>
+            try
             {
-                File.WriteAllBytes(temporary, bytes);
-                return 0;
-            }, sleep);
+                ProjectFileIo.Retry<int>(null, () =>
+                {
+                    ProjectDisk.Current.WriteAllBytes(temporary, bytes);
+                    return 0;
+                }, sleep);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw FileWriteVerificationException.ForFailedWrite(path, e);
+            }
+
             Replace(temporary, path, overwrite, sleep);
         }
         finally

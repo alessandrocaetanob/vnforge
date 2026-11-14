@@ -2,7 +2,10 @@ using System.Security.Cryptography;
 
 namespace VNForge.Patching;
 
-/// <summary>A troca de um arquivo terminou sem erro do disco, mas o destino relido não tem o conteúdo gravado (vazio ou diferente).</summary>
+/// <summary>
+/// A gravação conferida não deu certo: o disco devolveu um erro (cheio, arquivo preso, pasta somente leitura) ou terminou sem erro mas o destino relido não tem
+/// o conteúdo gravado (vazio ou diferente). A mensagem é em português e diz que o que já estava gravado não foi alterado.
+/// </summary>
 public sealed class FileWriteVerificationException : IOException
 {
     public FileWriteVerificationException(string message)
@@ -14,6 +17,10 @@ public sealed class FileWriteVerificationException : IOException
         : base(message, innerException)
     {
     }
+
+    /// <summary>A falha do disco <paramref name="cause"/> ao gravar <paramref name="path"/>, na mensagem em português (a do sistema pode vir em inglês).</summary>
+    public static FileWriteVerificationException ForFailedWrite(string path, Exception cause) =>
+        new($"Não foi possível gravar '{path}': {cause.Message} O que já estava gravado não foi alterado.", cause);
 }
 
 /// <summary>
@@ -44,7 +51,16 @@ public static class FileSwap
         var existed = File.Exists(path);
         if (ProjectDisk.Current.IsLocal(path) || !existed || !overwrite)
         {
-            move(temporary, path, overwrite);
+            try
+            {
+                move(temporary, path, overwrite);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException && e is not FileWriteVerificationException && (overwrite || !File.Exists(path)))
+            {
+                // Sem overwrite, um destino que já existe é a recusa que quem chama trata (criar projeto onde há um): essa sobe como está.
+                throw FileWriteVerificationException.ForFailedWrite(path, e);
+            }
+
             try
             {
                 Verify(path, expected, $"O arquivo '{path}'");
@@ -73,7 +89,15 @@ public static class FileSwap
         try
         {
             var expected = Measure(source);
-            File.Copy(source, temporary, overwrite: true);
+            try
+            {
+                ProjectDisk.Current.Copy(source, temporary);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw FileWriteVerificationException.ForFailedWrite(destination, e);
+            }
+
             Replace(temporary, destination, overwrite: true, expected, move, delete);
         }
         finally
@@ -147,7 +171,16 @@ public static class FileSwap
     {
         // Nome único: um X.bak que já exista ao lado (na pasta do jogo, arquivo do usuário) nunca é sobrescrito nem apagado.
         var backup = $"{path}.{Guid.NewGuid():N}.bak";
-        File.Copy(path, backup, overwrite: true);
+        try
+        {
+            ProjectDisk.Current.Copy(path, backup);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            DeleteQuietly(backup);
+            throw FileWriteVerificationException.ForFailedWrite(path, e);
+        }
+
         // Só o tamanho: o SHA-256 do original e da cópia seria mais duas leituras do arquivo inteiro a cada gravação. A leitura completa fica para o caminho de falha (Restore).
         if (new FileInfo(backup).Length != new FileInfo(path).Length)
         {

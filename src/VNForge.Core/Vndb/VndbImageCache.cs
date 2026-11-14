@@ -176,7 +176,7 @@ public sealed class VndbImageCache : IDisposable
             try
             {
                 await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
-                File.Move(temporary, path, overwrite: true);
+                AtomicFile.Replace(temporary, path);
             }
             finally
             {

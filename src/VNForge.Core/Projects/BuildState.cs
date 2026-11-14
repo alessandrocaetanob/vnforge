@@ -140,8 +140,7 @@ internal sealed record BuildState(
     public static void WriteScript(ProjectFolder project, string key, string hash, byte[] content)
     {
         var path = ScriptPath(project, key, hash);
-        Directory.CreateDirectory(Path.Combine(project.CacheDirectory, ScriptsDirectoryName));
-        File.WriteAllBytes(path, content);
+        AtomicFile.WriteAllBytes(path, content);
     }
 
     /// <summary>Verdadeiro quando cada pacote do estado ainda está em <c>build/</c> com o tamanho registrado.</summary>
@@ -171,9 +170,7 @@ internal sealed record BuildState(
     {
         Directory.CreateDirectory(project.CacheDirectory);
         var path = Path.Combine(project.CacheDirectory, StateFileName);
-        var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, Json), Encoding.UTF8);
-        AtomicFile.Replace(temp, path);
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(this, Json));
 
         var directory = Path.Combine(project.CacheDirectory, ScriptsDirectoryName);
         if (!Directory.Exists(directory))

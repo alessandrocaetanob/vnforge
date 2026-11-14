@@ -1,5 +1,6 @@
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Injection;
 
@@ -13,11 +14,19 @@ public sealed class PhysicalInjectionFileSystem : IInjectionFileSystem
         try
         {
             // Antivírus ou indexador podem segurar o arquivo por instantes (origem, temporário ou destino): a espera é a do ProjectFileIo. O que é copiado e a ordem não mudam.
-            ProjectFileIo.Retry<int>(null, () =>
+            try
             {
-                File.Copy(source, temporary, overwrite: true);
-                return 0;
-            });
+                ProjectFileIo.Retry<int>(null, () =>
+                {
+                    ProjectDisk.Current.Copy(source, temporary);
+                    return 0;
+                });
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw FileWriteVerificationException.ForFailedWrite(destination, e);
+            }
+
             AtomicFile.Replace(temporary, destination);
         }
         finally

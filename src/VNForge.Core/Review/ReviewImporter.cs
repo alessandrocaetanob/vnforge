@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -140,7 +141,7 @@ public static class ReviewImporter
             // Falha de IO no meio: devolve os scripts já gravados para não deixar a importação pela metade.
             foreach (var key in written)
             {
-                File.WriteAllBytes(project.TextPath(key), originals[key]);
+                AtomicFile.WriteAllBytes(project.TextPath(key), originals[key]);
             }
 
             throw;
