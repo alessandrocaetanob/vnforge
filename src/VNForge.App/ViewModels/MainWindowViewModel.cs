@@ -266,6 +266,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         };
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
+        Library.LinkSuperseded += (_, _) => openAfterLink = null;
         Library.ProjectLinked += (_, game) =>
         {
             Toasts.Show($"{game.Title} ligado ao projeto de tradução.", ToastKind.Success, key: "library-link");

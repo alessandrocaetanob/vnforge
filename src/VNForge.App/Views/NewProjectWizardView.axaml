@@ -515,7 +515,7 @@
         <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}" IsVisible="{Binding ShowNext}"/>
         <Button Name="OpenExistingProjectButton" Classes="accent" Command="{Binding OpenExistingProjectCommand}" IsVisible="{Binding ShowOpenExisting}">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Link}"/>
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Open}"/>
             <TextBlock Text="Abrir este projeto"/>
           </StackPanel>
         </Button>

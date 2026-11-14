@@ -254,10 +254,26 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     private async Task LinkAndOpenAsync(string root, string? gameFolder)
     {
+        openAfterLink = null;
         var game = gameFolder is null ? null : Library.Games.FirstOrDefault(g => SameFolder(g.Folder, gameFolder));
         if (game is null)
         {
-            await OpenCreatedProjectAsync(root);
+            // Sem o jogo na Biblioteca não há conferência dos arquivos: só abre o projeto se ele já é deste jogo.
+            if (SameFolder(ProjectGameFolder(root), gameFolder))
+            {
+                await OpenCreatedProjectAsync(root);
+            }
+            else
+            {
+                Library.ReportProblem("Este projeto aponta para outra pasta de jogo e o jogo escolhido não está na Biblioteca. Adicione a pasta do jogo à Biblioteca e ligue o projeto por lá.");
+            }
+
+            return;
+        }
+
+        if (Library.IsLinking)
+        {
+            Library.ReportProblem("Já há uma ligação de projeto em andamento. Espere terminar e abra o projeto de novo.");
             return;
         }
 
@@ -269,6 +285,19 @@ public sealed partial class MainWindowViewModel
         else if (Library.HasLinkDialog)
         {
             openAfterLink = root;
+        }
+    }
+
+    private static string? ProjectGameFolder(string root)
+    {
+        try
+        {
+            var project = VNForge.Core.Projects.ProjectFolder.Open(root);
+            return Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
         }
     }
 

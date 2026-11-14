@@ -70,8 +70,17 @@ public sealed partial class LibraryViewModel
     /// <summary>Um projeto foi ligado ao jogo; o shell avisa com um toast.</summary>
     public event EventHandler<LibraryGame>? ProjectLinked;
 
+    /// <summary>Uma ligação nova começou ou a pessoa fechou o diálogo sem ligar: o que o shell guardou para abrir depois da ligação anterior deixa de valer.</summary>
+    public event EventHandler? LinkSuperseded;
+
     [RelayCommand]
     private void CloseLinkDialog()
+    {
+        ClearLinkDialog();
+        LinkSuperseded?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClearLinkDialog()
     {
         LinkDialog = null;
         linkGame = null;
@@ -96,6 +105,7 @@ public sealed partial class LibraryViewModel
             return;
         }
 
+        LinkSuperseded?.Invoke(this, EventArgs.Empty);
         var folder = projectFolder ?? await picker.PickFolderAsync("Pasta do projeto de tradução");
         if (folder is null)
         {
@@ -104,30 +114,43 @@ public sealed partial class LibraryViewModel
 
         ErrorMessage = null;
         IsLinking = true;
+        LibraryGame? linked;
         try
         {
-            var preview = await Task.Run(() => LibraryProjectLinker.PreviewFollowGame(game, folder), CancellationToken.None);
-            if (preview is null)
+            GameRelocationPreview? preview;
+            try
             {
-                await LinkNowAsync(game, folder);
+                preview = await Task.Run(() => LibraryProjectLinker.PreviewFollowGame(game, folder), CancellationToken.None);
+            }
+            catch (LibraryException e)
+            {
+                ErrorMessage = e.Message;
+                return;
+            }
+            catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+            {
+                LinkDialog = LinkRefusal(e.Message);
                 return;
             }
 
-            linkGame = game;
-            linkFolder = folder;
-            LinkDialog = DescribeLink(game, folder, preview);
-        }
-        catch (LibraryException e)
-        {
-            ErrorMessage = e.Message;
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            LinkDialog = LinkRefusal(e.Message);
+            if (preview is not null)
+            {
+                linkGame = game;
+                linkFolder = folder;
+                LinkDialog = DescribeLink(game, folder, preview);
+                return;
+            }
+
+            linked = await TryLinkAsync(game, folder);
         }
         finally
         {
             IsLinking = false;
+        }
+
+        if (linked is not null)
+        {
+            await FinishLinkAsync(linked);
         }
     }
 
@@ -140,29 +163,57 @@ public sealed partial class LibraryViewModel
         }
 
         IsLinking = true;
+        LibraryGame? linked;
         try
         {
-            await LinkNowAsync(game, folder);
-        }
-        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
-        {
-            LinkDialog = LinkRefusal(e.Message);
+            linked = await TryLinkAsync(game, folder);
         }
         finally
         {
             IsLinking = false;
         }
+
+        if (linked is not null)
+        {
+            await FinishLinkAsync(linked);
+        }
     }
 
     private bool CanConfirmLink() => !IsLinking && LinkDialog is { CanConfirm: true };
 
-    private async Task LinkNowAsync(LibraryGame game, string folder)
+    /// <summary>Grava a ligação. Falha vira o aviso da Biblioteca (jogo ou projeto que sumiu) ou a recusa do diálogo (a pasta não é o jogo do projeto) e devolve nulo.</summary>
+    private async Task<LibraryGame?> TryLinkAsync(LibraryGame game, string folder)
     {
-        var linked = await Task.Run(() => editor!.LinkProject(game.Id, folder), CancellationToken.None);
-        CloseLinkDialog();
-        await LoadCoreAsync();
-        Select(Cards.FirstOrDefault(c => c.Id == game.Id));
-        ProjectLinked?.Invoke(this, linked);
+        try
+        {
+            return await Task.Run(() => editor!.LinkProject(game.Id, folder), CancellationToken.None);
+        }
+        catch (LibraryException e)
+        {
+            ClearLinkDialog();
+            ErrorMessage = e.Message;
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            LinkDialog = LinkRefusal(e.Message);
+        }
+
+        return null;
+    }
+
+    /// <summary>Depois da ligação gravada: refaz a Biblioteca e avisa. Uma falha ao reler não desfaz a ligação, então o aviso sobe de qualquer jeito.</summary>
+    private async Task FinishLinkAsync(LibraryGame linked)
+    {
+        ClearLinkDialog();
+        try
+        {
+            await LoadCoreAsync();
+            Select(Cards.FirstOrDefault(c => c.Id == linked.Id));
+        }
+        finally
+        {
+            ProjectLinked?.Invoke(this, linked);
+        }
     }
 
     private LibraryLinkDialog DescribeLink(LibraryGame game, string folder, GameRelocationPreview preview)

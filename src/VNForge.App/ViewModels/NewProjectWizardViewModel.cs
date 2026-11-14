@@ -345,6 +345,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public async Task SetGameFolderAsync(string path, string? vndbId = null)
     {
         ErrorMessage = null;
+        ExistingProject = null;
         knownVndbId = vndbId;
         ResetVndb();
         IsBusy = true;
