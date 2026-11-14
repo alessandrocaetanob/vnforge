@@ -228,20 +228,10 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Ver_o_original_alterna_o_texto_do_VNDB_e_some_quando_nao_ha_traducao()
+    public async Task A_sinopse_sem_traducao_mostra_o_texto_do_VNDB_com_o_selo_Em_ingles()
     {
-        var vm = await ReadyAsync();
-
-        Assert.True(vm.CanToggleOriginal);
-        Assert.Equal("Ver o original", vm.SynopsisToggleText);
-        vm.ToggleOriginalCommand.Execute(null);
-
-        Assert.StartsWith("A town where it rains all year.", vm.SynopsisText, StringComparison.Ordinal);
-        Assert.Equal("Ver a tradução", vm.SynopsisToggleText);
-
         using var other = new TempFolder();
         var raw = await ReadyAsync(translate: false, other.Path);
-        Assert.False(raw.CanToggleOriginal);
         Assert.Equal(new SheetPill("Em inglês", SheetTone.Pending), raw.SynopsisPill);
         Assert.StartsWith("A town where it rains", raw.SynopsisText, StringComparison.Ordinal);
     }

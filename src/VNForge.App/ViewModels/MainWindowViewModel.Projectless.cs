@@ -25,13 +25,29 @@ public sealed partial class MainWindowViewModel
     /// <summary>No lugar de "Traduzir este jogo": uma engine que o VNForge não traduz só guarda o jogo e a ficha na Biblioteca, e o cabeçalho diz isso em vez de calar.</summary>
     public bool ShowUnsupportedEngine => InProjectlessGame && !CanTranslateProjectlessGame;
 
-    /// <summary>"Ligar a um projeto que já existe" do cabeçalho da Ficha: o fluxo é o da #688, que liga este botão depois de entrar. Enquanto isso o botão fica escondido.</summary>
-    public bool ShowLinkExistingProject => false;
-
-    [RelayCommand]
-    private void LinkExistingProjectFromSheet()
+    /// <summary>O projeto foi ligado ao jogo da Biblioteca: o aviso sobe e, quando o pedido era abrir o projeto ou o jogo estava na Ficha sem projeto, o projeto abre.</summary>
+    private void OnProjectLinked(LibraryGame game)
     {
-        // Sem efeito até a #688 entrar: o botão está escondido (ShowLinkExistingProject) e o coordenador o liga ao LinkExistingProjectCommand dela.
+        Toasts.Show($"{game.Title} ligado ao projeto de tradução.", ToastKind.Success, key: "library-link");
+        if (openAfterLink is { } root && SameFolder(game.ProjectPath, root))
+        {
+            openAfterLink = null;
+            ProjectOpening = OpenLibraryProjectAsync(root, game.VndbId, game.Title);
+        }
+        else if (projectless?.Id == game.Id && game.ProjectPath is { } linked)
+        {
+            ProjectOpening = OpenLinkedFromSheetAsync(game, linked);
+        }
+    }
+
+    /// <summary>
+    /// Depois de "Ligar a um projeto que já existe" na Ficha sem projeto, abre o projeto ligado: o <see cref="SetProject"/> limpa o jogo sem projeto, e a Ficha, o cabeçalho e as abas passam a ser os do projeto.
+    /// </summary>
+    private async Task OpenLinkedFromSheetAsync(LibraryGame game, string root)
+    {
+        await OpenLibraryProjectAsync(root, game.VndbId, game.Title);
+        DashboardRefresh = Dashboard.ReloadAsync();
+        await DashboardRefresh;
     }
 
     /// <summary>"Traduzir este jogo": abre o assistente de novo projeto com a pasta do jogo e o que a Biblioteca já sabe dele.</summary>

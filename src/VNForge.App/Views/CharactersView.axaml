@@ -159,7 +159,7 @@
       <Grid ColumnDefinitions="97,*" ColumnSpacing="12">
         <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Top" Margin="0,4,0,0" Text="{Binding Name}"/>
         <ItemsControl Grid.Column="1" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource Chip}">
-          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="10"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         </ItemsControl>
       </Grid>
     </DataTemplate>

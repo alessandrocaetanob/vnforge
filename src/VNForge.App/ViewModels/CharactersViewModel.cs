@@ -537,7 +537,7 @@ public sealed partial class CharactersViewModel : ObservableObject
                 translation = new CharacterTranslation(
                     entry.Gender switch { CharacterGender.Male => "Masculino", CharacterGender.Female => "Feminino", CharacterGender.Other => "Outro", _ => "Sem gênero" },
                     entry.Source,
-                    $"{lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {game.Title}");
+                    lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR")));
                 break;
             }
             catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException or JsonException)

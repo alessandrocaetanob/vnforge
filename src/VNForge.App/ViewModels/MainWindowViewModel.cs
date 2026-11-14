@@ -267,15 +267,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         };
         Library.ExistingProjectRequested += (_, _) => ProjectOpening = OpenExistingProjectAsync();
         Library.LinkSuperseded += (_, _) => openAfterLink = null;
-        Library.ProjectLinked += (_, game) =>
-        {
-            Toasts.Show($"{game.Title} ligado ao projeto de tradução.", ToastKind.Success, key: "library-link");
-            if (openAfterLink is { } root && SameFolder(game.ProjectPath, root))
-            {
-                openAfterLink = null;
-                ProjectOpening = OpenLibraryProjectAsync(root, game.VndbId, game.Title);
-            }
-        };
+        Library.ProjectLinked += (_, game) => OnProjectLinked(game);
         start.PropertyChanged += (_, e) =>
         {
             // A lista de projetos não está mais à vista: o erro de abrir um projeto aparece na Biblioteca.

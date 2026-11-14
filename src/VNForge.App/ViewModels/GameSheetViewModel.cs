@@ -226,24 +226,9 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     // --- Sinopse ---
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynopsisText), nameof(SynopsisToggleText))]
-    public partial bool ShowOriginal { get; set; }
-
     public bool HasSynopsis => card?.Synopsis is not null;
 
-    public string SynopsisText
-    {
-        get
-        {
-            if (data?.Game.Synopsis is not { } text || card?.Synopsis is not { } shown)
-            {
-                return "Este jogo não tem sinopse no VNDB.";
-            }
-
-            return ShowOriginal ? SheetViewer.ShownSource(text, Visibility).Text : shown.Text;
-        }
-    }
+    public string SynopsisText => data?.Game.Synopsis is null || card?.Synopsis is not { } shown ? "Este jogo não tem sinopse no VNDB." : shown.Text;
 
     public SheetPill? SynopsisPill
     {
@@ -264,14 +249,6 @@ public sealed partial class GameSheetViewModel : ObservableObject
             return shown.Status == TranslationStatus.Reviewed ? pill with { Tone = SheetTone.Approved } : pill;
         }
     }
-
-    /// <summary>"Ver o original" só existe quando há tradução para alternar.</summary>
-    public bool CanToggleOriginal => card?.Synopsis is { Translated: true };
-
-    public string SynopsisToggleText => ShowOriginal ? "Ver a tradução" : "Ver o original";
-
-    [RelayCommand]
-    private void ToggleOriginal() => ShowOriginal = !ShowOriginal;
 
     // --- Tags ---
 
@@ -359,7 +336,6 @@ public sealed partial class GameSheetViewModel : ObservableObject
         GameTitle = title;
         data = null;
         levelPending = true;
-        ShowOriginal = false;
         ShowAllCharacters = false;
         CloseReview();
         State = id is null ? GameSheetState.NoLink : GameSheetState.Loading;
