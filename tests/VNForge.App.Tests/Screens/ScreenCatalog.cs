@@ -6,8 +6,10 @@ using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Bible;
 using VNForge.Core.Demo;
+using VNForge.Core.Glossary;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -99,7 +101,7 @@ internal static class ScreenCatalog
             l.SetAdultModeCommand.Execute(l.AdultModes.Single(m => m.Mode == AdultMode.Hide));
         })),
         new("personagens", Characters(manyTraits: true)),
-        new("personagem", Characters("Hana Tsukino", manyTraits: true)),
+        new("personagem", Characters("Hana Tsukino", manyTraits: true, linked: true)),
         new("personagens-busca", Characters(search: "Hana")),
         new("personagem-mika", Characters("Mika Aoba")),
         new("editor-busca", OpenEditorSearch),
@@ -268,10 +270,20 @@ internal static class ScreenCatalog
     }
 
     /// <summary>Os Personagens com as fichas inventadas de <see cref="CharactersSamples"/>; <paramref name="open"/> abre a página de um personagem.</summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null) => async (_, theme) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null, bool linked = false) => async (_, theme) =>
     {
         var config = new TempFolder();
         await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits, portrait: true);
+        if (linked)
+        {
+            // Moon Flower ganha um projeto de tradução com 128 falas da Hana, para o cartão "Na tradução" da página dela aparecer.
+            var projectRoot = SampleProjects.Create(Path.Combine(config.Path, "projeto"), "Moon Flower", [.. Enumerable.Repeat(TranslationStatus.Approved, 128)]);
+            var project = ProjectFolder.Open(projectRoot);
+            project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "花" })]);
+            project.SaveCharacters([new CharacterEntry("花", "Hana", CharacterGender.Female, VndbId: "c101")]);
+            new LibraryFile(config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = projectRoot }));
+        }
+
         var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(config.Path), new FixedClock(CharactersSamples.Now));
         var vm = new MainWindowViewModel(start);
         vm.Characters.ConfigDirectory = config.Path;

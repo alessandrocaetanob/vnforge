@@ -578,7 +578,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             game.Id,
             game.Title,
             described.Cover == LibraryCoverKind.Image ? described.Image : null,
-            described.Subtitle,
+            described.Subtitle == LibraryCards.NoData ? "Na sua Biblioteca" : described.Subtitle,
             (described.ProgressPercent ?? 0) / 100.0,
             RolePill(appearance.RoleCode, card.Gender),
             $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}",

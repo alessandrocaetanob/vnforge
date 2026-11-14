@@ -32,6 +32,11 @@
       <Setter Property="Background" Value="{DynamicResource Vnf.Accent}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Vnf.Accent}"/>
     </Style>
+    <!-- Gênero, idade e papel junto do nome (.v3-chip do quadro): fundo de cartão e contorno, não o cinza preenchido das etiquetas de traço. -->
+    <Style Selector="ItemsControl.meta Border.sheet-tag:not(.hid)">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgCard}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeControl}"/>
+    </Style>
     <!-- "Ver os N traços" do quadro: accent, regular e rente à coluna do filtro. -->
     <Style Selector="Button.more-traits">
       <Setter Property="MinHeight" Value="0"/>
@@ -130,7 +135,7 @@
               AutomationProperties.Name="{Binding AutomationName}">
         <!-- O passo da linha é de 80 px: 58 da capa, 10 e 11 de respiro e o divisor de 1 px do pé. -->
         <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="24,10,24,11">
-          <Grid ColumnDefinitions="44,*,150,*" ColumnSpacing="12">
+          <Grid ColumnDefinitions="44,*,120,200" ColumnSpacing="16">
             <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}" VerticalAlignment="Center" Width="44" Height="58">
               <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Background="{DynamicResource Vnf.BgInset}">
                 <Panel>
@@ -151,10 +156,10 @@
     </DataTemplate>
 
     <DataTemplate x:Key="TraitGroupTemplate" x:DataType="vm:CharacterTraitGroup">
-      <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+      <Grid ColumnDefinitions="97,*" ColumnSpacing="12">
         <TextBlock Classes="lib-dim" FontSize="13" VerticalAlignment="Top" Margin="0,4,0,0" Text="{Binding Name}"/>
         <ItemsControl Grid.Column="1" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource Chip}">
-          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         </ItemsControl>
       </Grid>
     </DataTemplate>
@@ -286,7 +291,7 @@
             </StackPanel>
             <WrapPanel Name="PageMeta">
               <ContentControl Margin="0,0,6,6" Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
-              <ItemsControl ItemsSource="{Binding Tags}" ItemTemplate="{StaticResource Chip}">
+              <ItemsControl Classes="meta" ItemsSource="{Binding Tags}" ItemTemplate="{StaticResource Chip}">
                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               </ItemsControl>
             </WrapPanel>
@@ -298,10 +303,12 @@
         <Grid ColumnDefinitions="*,392" ColumnSpacing="24">
           <Border Name="AppearsIn" Classes="sheet-card" Padding="0" VerticalAlignment="Top">
             <StackPanel>
-              <Grid ColumnDefinitions="*,Auto" Margin="24,16">
+              <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="24,16">
+              <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Classes="sheet-h2" Text="Aparece em"/>
                 <TextBlock Grid.Column="1" Name="GamesCount" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="{Binding GamesCount}"/>
               </Grid>
+              </Border>
               <ItemsControl Name="Games" ItemsSource="{Binding Games}" ItemTemplate="{StaticResource GameRowTemplate}" Margin="0,0,0,-1"/>
               <Border Name="NoteBand" IsVisible="{Binding HasNote}" Padding="24,12" Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
                 <TextBlock Classes="lib-dim" FontSize="13" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Note}"/>
