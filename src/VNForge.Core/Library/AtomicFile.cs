@@ -6,7 +6,8 @@ namespace VNForge.Core.Library;
 
 /// <summary>
 /// A gravação de arquivos do projeto e da biblioteca: escreve num temporário ao lado e o põe no lugar por <see cref="FileSwap"/>, que troca, relê o destino e
-/// usa o caminho com <c>.bak</c> em volume que não é local (a causa e a estratégia estão lá). Destino vazio ou diferente vira <see cref="WriteVerificationException"/>.
+/// usa o caminho com <c>.bak</c> em volume que não é local (a causa e a estratégia estão lá). Destino vazio ou diferente lança <see cref="FileWriteVerificationException"/>,
+/// uma <see cref="IOException"/>: os catches de IOException do Core (rollback da injeção, laço do restore, gasto da IA) tratam a falha como qualquer falha de disco.
 /// </summary>
 internal static class AtomicFile
 {
@@ -42,17 +43,10 @@ internal static class AtomicFile
     /// Põe o temporário já escrito no lugar de <paramref name="path"/>, esperando quem estiver segurando o arquivo e conferindo o resultado.
     /// Quem grava por conta própria (um arquivo grande, um fluxo) chama isto no fim.
     /// </summary>
-    /// <exception cref="WriteVerificationException">O destino relido não bate com o que foi gravado.</exception>
+    /// <exception cref="FileWriteVerificationException">O destino relido não bate com o que foi gravado.</exception>
     public static void Replace(string temporary, string path, bool overwrite = true, Action<int>? wait = null)
     {
         var sleep = wait ?? Thread.Sleep;
-        try
-        {
-            FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep));
-        }
-        catch (FileWriteVerificationException e)
-        {
-            throw new WriteVerificationException(e.Message, e);
-        }
+        FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep));
     }
 }

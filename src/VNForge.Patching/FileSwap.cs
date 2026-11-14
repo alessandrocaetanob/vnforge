@@ -62,7 +62,8 @@ public static class FileSwap
 
     private static void SwapWithBackup(string temporary, string path, Fingerprint expected, Action<string, string, bool> move)
     {
-        var backup = path + ".bak";
+        // Nome único: um X.bak que já exista ao lado (na pasta do jogo, arquivo do usuário) nunca é sobrescrito nem apagado.
+        var backup = $"{path}.{Guid.NewGuid():N}.bak";
         File.Copy(path, backup, overwrite: true);
         if (Measure(backup) != Measure(path))
         {

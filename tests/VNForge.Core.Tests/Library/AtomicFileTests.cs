@@ -28,7 +28,7 @@ public class AtomicFileTests
         var destino = Path.Combine(temp.Path, "vnforge.json");
         using var disco = ProjectDisk.Use(new FakeDisk(local: true, MoveAndZero));
 
-        var erro = Assert.Throws<WriteVerificationException>(() => AtomicFile.WriteAllText(destino, "{\"novo\":true}"));
+        var erro = Assert.Throws<FileWriteVerificationException>(() => AtomicFile.WriteAllText(destino, "{\"novo\":true}"));
 
         Assert.Contains("0 bytes", erro.Message);
     }
@@ -53,13 +53,13 @@ public class AtomicFileTests
         AtomicFile.WriteAllText(destino, "novo");
 
         Assert.Equal("novo", File.ReadAllText(destino));
-        Assert.False(File.Exists(destino + ".bak"));
+        Assert.Empty(Directory.GetFiles(temp.Path, "*.bak"));
 
         falhar = true;
-        var erro = Assert.Throws<WriteVerificationException>(() => AtomicFile.WriteAllText(destino, "outro"));
+        var erro = Assert.Throws<FileWriteVerificationException>(() => AtomicFile.WriteAllText(destino, "outro"));
 
         Assert.Equal("novo", File.ReadAllText(destino));
-        Assert.Equal("novo", File.ReadAllText(destino + ".bak"));
+        Assert.Equal("novo", File.ReadAllText(Assert.Single(Directory.GetFiles(temp.Path, "*.bak"))));
         Assert.Contains(".bak", erro.Message);
     }
 }
