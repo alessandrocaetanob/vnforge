@@ -242,8 +242,8 @@ public sealed class DiskFailureTests : IDisposable
         Assert.Equal("antigo", File.ReadAllText(destination));
     }
 
-    // Projetos de src que gravam dado da pessoa. Engines.YuRis e Installer ficam de fora: gravam o jogo e o instalador, não o projeto.
-    private static readonly string[] GuardedProjects = ["VNForge.Core", "VNForge.AI", "VNForge.Vndb", "VNForge.Cli", "VNForge.Patching", "VNForge.App"];
+    // Projetos de src que gravam dado da pessoa ou o jogo. O Installer fica de fora: roda na máquina de quem joga e só escreve o LEIA-ME na pasta temporária.
+    private static readonly string[] GuardedProjects = ["VNForge.Core", "VNForge.AI", "VNForge.Vndb", "VNForge.Cli", "VNForge.Patching", "VNForge.Engines.YuRis", "VNForge.App"];
 
     // R2: a conferência só vale se nenhum caminho que grava no projeto passa por fora da costura. Quem entra aqui sem passar por AtomicFile precisa dizer por que está certo.
     [Fact]
@@ -251,8 +251,10 @@ public sealed class DiskFailureTests : IDisposable
     {
         var src = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src"));
         Assert.True(Directory.Exists(src), $"Pasta do src não encontrada: {src}");
+        // O texto do arquivo inteiro (sem as linhas de comentário) é varrido de uma vez, porque um FileStream ou File.Open costuma ter os argumentos em várias linhas; [^;] não passa do fim da instrução.
         var write = new Regex(
-            @"(?<![A-Za-z])File\.(WriteAll\w*|Create|Move|Copy|AppendAll\w*|OpenWrite)\(|Directory\.Move\(|new StreamWriter\(|new FileStream\([^)]*(FileMode\.(Create|CreateNew|OpenOrCreate|Append|Truncate)|FileAccess\.Write)",
+            @"(?<![A-Za-z])File\.(WriteAll\w*|Create\w*|Move|Copy|Replace|AppendAll\w*|AppendText|OpenWrite)\(|Directory\.Move\(|new StreamWriter\(|new FileInfo\([^;]*\)\.(CopyTo|MoveTo|Replace)\("
+            + @"|(new FileStream|(?<![A-Za-z])File\.Open)\([^;]*?(FileMode\.(Create|CreateNew|OpenOrCreate|Append|Truncate)|FileAccess\.(Write|ReadWrite))",
             RegexOptions.CultureInvariant);
         var separator = Path.DirectorySeparatorChar;
 
@@ -265,7 +267,8 @@ public sealed class DiskFailureTests : IDisposable
                 .Where(file => !file.Contains($"{separator}obj{separator}") && !file.Contains($"{separator}bin{separator}")))
             {
                 var key = $"{project}/{Path.GetRelativePath(root, file).Replace('\\', '/')}";
-                var count = File.ReadLines(file).Count(line => write.IsMatch(line) && !line.TrimStart().StartsWith("///", StringComparison.Ordinal));
+                var code = string.Join(Environment.NewLine, File.ReadLines(file).Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+                var count = write.Count(code);
                 if (count > 0 && key != "VNForge.Core/Library/AtomicFile.cs")
                 {
                     found[key] = count;
@@ -288,6 +291,9 @@ public sealed class DiskFailureTests : IDisposable
         ["VNForge.Core/Jmdict/JmdictImporter.cs"] = (1, "índice reconstruível do dicionário, gerado num temporário e trocado por JmdictInstaller"),
         ["VNForge.Core/Jmdict/JmdictInstaller.cs"] = (2, "índice do dicionário (centenas de MB, reconstruível): a releitura SHA-256 dobraria a instalação"),
         ["VNForge.Core/Projects/BuildState.cs"] = (1, "scripts guardados no cache do build: regeneráveis, ReadScript confere o tamanho, e a releitura SHA-256 custaria duas leituras por script num build de milhares"),
+        ["VNForge.Core/Injection/GameInjector.cs"] = (1, "arquivo de posse da pasta de backup, criado vazio com CreateNew: a posse é a existência dele, sem conteúdo"),
+        ["VNForge.Core/Projects/NightBatch.cs"] = (1, "arquivo de trava do lote noturno, sem conteúdo"),
+        ["VNForge.Core/Projects/ProjectLock.cs"] = (1, "arquivo de trava do projeto, sem conteúdo"),
         ["VNForge.Core/Library/FileLock.cs"] = (1, "arquivo de trava, sem conteúdo"),
         ["VNForge.Core/Library/UserTagsFile.cs"] = (1, "arquivo de trava, sem conteúdo"),
         ["VNForge.Core/Logging/FileLoggerProvider.cs"] = (1, "log em modo append; perder uma linha não perde trabalho"),
@@ -304,6 +310,9 @@ public sealed class DiskFailureTests : IDisposable
         ["VNForge.Patching/PatchVerifier.cs"] = (1, "cópia numa pasta de trabalho descartável para ensaiar o patch"),
         ["VNForge.Patching/PhysicalProjectDisk.cs"] = (1, "é a costura: o disco real por baixo de AtomicFile"),
         ["VNForge.Patching/ProjectDisk.cs"] = (2, "é a costura: o comportamento padrão que o teste troca"),
+        ["VNForge.Engines.YuRis/YuRisFontPatch.cs"] = (1, "Apply roda sobre a cópia de trabalho: GameInjector.Patches copia o executável para uma pasta de preparo, aplica ali e só então grava no jogo com backup, manifesto e conferência de hash"),
+        ["VNForge.Engines.YuRis/YuRisRepacker.cs"] = (1, "o pacote novo vai para a pasta de preparo do build, que ProjectBuilder troca por inteiro; o jogo só é tocado pela injeção, com backup"),
+        ["VNForge.Engines.YuRis/Ypf/YpfFolder.cs"] = (1, "extração para o .cache/game do projeto ou para a pasta que a pessoa escolheu em vnf ypf unpack: regenerável a partir do jogo, e uma extração parcial é declarada no erro"),
         ["VNForge.App/Services/AppSettingsFile.cs"] = (3, "app.json fica na pasta de configuração da pessoa, não no projeto: temporário e troca, com cópia .bad do arquivo ilegível"),
         ["VNForge.App/Services/BoolMemory.cs"] = (1, "estado de painéis na pasta de configuração; sem gravar, vale até o app fechar"),
         ["VNForge.App/Services/VndbSyncSettings.cs"] = (1, "escolhas de sincronização na pasta de configuração, não no projeto; perdê-las volta ao padrão"),
