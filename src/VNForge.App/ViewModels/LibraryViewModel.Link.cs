@@ -218,6 +218,17 @@ public sealed partial class LibraryViewModel
 
     private LibraryLinkDialog DescribeLink(LibraryGame game, string folder, GameRelocationPreview preview)
     {
+        if (preview.Mixed)
+        {
+            return LinkRefusal(ProjectGameRelocator.MixedMessage) with
+            {
+                Title = "Os arquivos do jogo estão misturados",
+                FromFolder = preview.CurrentFolder,
+                ToFolder = preview.TargetFolder,
+                Note = "Nada mudou no projeto.",
+            };
+        }
+
         if (!preview.Accepted)
         {
             var first = preview.Mismatches[0];
