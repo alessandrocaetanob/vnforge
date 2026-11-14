@@ -9,7 +9,7 @@ namespace VNForge.Core.Library;
 /// usa o caminho com <c>.bak</c> em volume que não é local (a causa e a estratégia estão lá). Destino vazio ou diferente lança <see cref="FileWriteVerificationException"/>,
 /// uma <see cref="IOException"/>: os catches de IOException do Core (rollback da injeção, laço do restore, gasto da IA) tratam a falha como qualquer falha de disco.
 /// </summary>
-internal static class AtomicFile
+public static class AtomicFile
 {
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
 

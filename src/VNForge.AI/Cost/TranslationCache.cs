@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using VNForge.AI.Translation;
+using VNForge.Core;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Cost;
@@ -68,6 +70,10 @@ public sealed class TranslationCache
             _entries[key] = translation;
     }
 
+    /// <summary>
+    /// Lê o cache. Arquivo vazio, ilegível ou fora do formato recusa com <see cref="VNForgeException"/> em português e não toca no arquivo: quem chama não segue com um cache vazio,
+    /// que o próximo Save gravaria por cima das traduções já pagas (R7).
+    /// </summary>
     public static TranslationCache Load(string path)
     {
         if (!File.Exists(path))
@@ -80,11 +86,15 @@ public sealed class TranslationCache
         }
         catch (JsonException e)
         {
-            throw new InvalidDataException($"O cache de traduções '{path}' está corrompido; apague o arquivo para refazê-lo.", e);
+            throw new InvalidFileException(path, "o cache de traduções está vazio ou corrompido. O arquivo não foi alterado; apague-o para refazer o cache, e as traduções já pagas serão cobradas de novo.", e);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new VNForgeException($"Não foi possível ler o cache de traduções '{path}': {e.Message}", e);
         }
     }
 
-    /// <summary>Grava o cache num arquivo temporário e o move por cima do destino, para uma queda no meio não corromper o anterior.</summary>
+    /// <summary>Grava o cache por <see cref="AtomicFile"/>: temporário ao lado, troca e releitura, para uma queda ou um disco que zera o rename não deixar o anterior perdido.</summary>
     public void Save(string path)
     {
         SortedDictionary<string, string> snapshot;
@@ -94,8 +104,6 @@ public sealed class TranslationCache
         var dir = Path.GetDirectoryName(Path.GetFullPath(path));
         if (dir is not null)
             Directory.CreateDirectory(dir);
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
-        File.Move(tmp, path, overwrite: true);
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(snapshot));
     }
 }
