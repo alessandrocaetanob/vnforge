@@ -24,7 +24,7 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 
 **Gravação com falha de disco (R1, R2, R7). #699.** A costura é o `IProjectDisk` (`ProjectDisk.Use` no teste): troca do arquivo, escrita do temporário e cópia. O teste a troca por uma versão que falha do jeito que o mundo real falha: rename que devolve sucesso e deixa o destino vazio (o caso do rclone), arquivo travado por outro processo, disco cheio no meio da gravação, pasta somente leitura. Cada caminho que grava projeto, manifesto, backup ou biblioteca roda contra essas falhas. O esperado é erro em português e o arquivo anterior intacto, nunca sucesso com dado perdido. `DiskFailureTests` roda cada tipo de falha contra projeto, biblioteca, manifesto, backup e pasta do jogo; um teste de guarda (`R2_nenhum_caminho_do_core_grava...`) falha se um arquivo do Core grava sem passar por `AtomicFile`, a não ser que esteja na lista com o motivo. A conferência por releitura veio na #697.
 
-**Cenários de ponta a ponta (R1 a R4). Planejados, #700.** Poucos, no Cli, sobre um jogo YU-RIS sintético gerado em código (#700):
+**Cenários de ponta a ponta (R1 a R4). `CenarioDePontaAPontaTests`, #700.** Cinco testes no Cli (`dotnet test tests/VNForge.Cli.Tests --filter Cenario`), sobre um jogo YU-RIS sintético gerado em código, rodando os comandos do CLI com o provedor falso:
 
 1. Extrair, traduzir com o provedor falso, injetar, restaurar: o jogo volta byte a byte ao original.
 2. Injetar por cima de uma injeção anterior e restaurar: volta ao original, não à primeira injeção.

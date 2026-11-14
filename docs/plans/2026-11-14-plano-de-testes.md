@@ -93,13 +93,13 @@ Cada tarefa vira uma issue com o rótulo `infra`. O corte usa o `tester` em `mod
   - Testes: nenhum
   - Prova: `docs/04-testes.md` reescrito com a tabela de riscos, as camadas e as regras para issue nova; o passo Piso de cobertura sai de `.circleci/config.yml` e a cobertura fica só no relatório
   - Pronto: o documento substitui as regras da #620; nenhum job reprova por cobertura
-- [ ] **T2 · Sistema de arquivos com falha**
+- [x] **T2 · Sistema de arquivos com falha**
   - Issue: #699 (`infra`)
   - Testes: builder · até 15
   - Prova: `dotnet test tests/VNForge.Core.Tests`
   - Pronto: a costura de sistema de arquivos cobre todo caminho de gravação do Core; os quatro tipos de falha (rename que zera, arquivo travado, disco cheio, somente leitura) rodam contra projeto, manifesto, backup e biblioteca
   - Depende de: #697
-- [ ] **T3 · Cenários de ponta a ponta**
+- [x] **T3 · Cenários de ponta a ponta**
   - Issue: #700 (`infra`)
   - Testes: builder · até 5
   - Prova: `dotnet test tests/VNForge.Cli.Tests --filter Cenario`
