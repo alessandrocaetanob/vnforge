@@ -26,7 +26,7 @@ public static class TextAppearance
     private const double BaseMarkerLineHeight = 26;
 
     /// <summary>
-    /// Nome do token, tamanho e altura de linha a 100%. São os do tokens.json (<c>TypographyTokensTests</c> confere), menos a altura de linha de
+    /// Nome do token, tamanho e altura de linha a 100%. São os do tokens.json (o render ao lado do quadro confere), menos a altura de linha de
     /// <c>TitleLg</c> (35, não 32), <c>TitleMd</c> (25, não 24), <c>TitleXl</c> (50, não 40) e <c>TitleSm</c> (22, não 20): a fonte de exibição corta as descendentes abaixo dos 1,45 por corpo.
     /// </summary>
     public static IReadOnlyList<(string Name, double Size, double Line)> Scales { get; } =

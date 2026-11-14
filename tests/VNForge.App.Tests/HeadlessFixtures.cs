@@ -13,7 +13,6 @@ public static class HeadlessEntry
     public static AppBuilder BuildAvaloniaApp()
     {
         // O relógio das animações não anda no headless: sem isto uma página recém-trocada ficaria parada no primeiro quadro (opacidade 0).
-        // Os testes de movimento ligam de novo com MotionPreferences.Force(true).
         _ = MotionPreferences.Force(false);
         return Configure();
     }

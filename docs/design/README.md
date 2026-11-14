@@ -23,7 +23,7 @@ Cópia local do design do aplicativo, para a implementação em Avalonia ter a f
 | `telas/*.dc.html` | As telas desenhadas no canvas (Início, Painel, Editor escuro em `Main`, Editor claro, Conferir, Build, Ajustes) e, desenhadas na #248 na mesma linguagem e ainda fora do canvas do claude.ai, `Glossario` e `NovoProjeto`. Dependem do `support.js` e do CSS do design system, que não vêm junto; servem de leitura |
 | `telas/v3/*.png` | Capturas do app da interface v3, renderizadas sem janela (ver [Telas da v3](#telas-da-v3)) |
 
-Quando o design mudar: atualize `tokens.json` aqui, rode `pwsh tools/Generate-Tokens.ps1` e confira o diff do `Tokens.axaml`. O teste `TokensTests` falha se os dois divergirem.
+Quando o design mudar: atualize `tokens.json` aqui, rode `pwsh tools/Generate-Tokens.ps1` e confira o diff do `Tokens.axaml`. A conferência é o gerador e o render ao lado do quadro; não há teste de token.
 
 ## Ícones
 
