@@ -3,6 +3,7 @@ using System.Text;
 using VNForge.Core.Engines;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Injection;
 
@@ -337,6 +338,7 @@ public sealed partial class GameInjector
     private void MarkRestored(string backupDirectory)
     {
         var manifestPath = Path.Combine(backupDirectory, BackupManifest.FileName);
+        FileSwap.ExistsOrRecover(manifestPath);
         var (manifest, problem) = TryReadManifest(manifestPath);
         if (manifest is null)
         {
@@ -639,12 +641,13 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath))
+            if (!ManifestExists(manifestPath, out var recovery))
             {
                 continue;
             }
 
-            var (manifest, problem) = TryReadManifest(manifestPath);
+            var (manifest, readProblem) = TryReadManifest(manifestPath);
+            var problem = recovery ?? readProblem;
             backups.Add(new BackupInfo(Path.GetFileName(directory), directory, manifest, BackupSize(directory), problem?.Message));
         }
 
@@ -691,12 +694,13 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal).Reverse())
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (!File.Exists(manifestPath))
+            if (!ManifestExists(manifestPath, out var recovery))
             {
                 continue;
             }
 
-            var (manifest, problem) = TryReadManifest(manifestPath);
+            var (manifest, readProblem) = TryReadManifest(manifestPath);
+            var problem = recovery ?? readProblem;
             if (manifest?.RestoredAt is not null)
             {
                 continue;
@@ -717,10 +721,28 @@ public sealed partial class GameInjector
         foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory))
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
-            if (File.Exists(manifestPath) && TryReadManifest(manifestPath).Manifest is { } manifest)
+            if (ManifestExists(manifestPath, out _) && TryReadManifest(manifestPath).Manifest is { } manifest)
             {
                 yield return manifest.GameDirectory;
             }
+        }
+    }
+
+    /// <summary>
+    /// Há manifesto na pasta, devolvendo antes o que uma queda deixou só no <c>.bak</c>. Se a recuperação falha, a pasta conta como tendo manifesto e o motivo vai em
+    /// <paramref name="recoveryProblem"/>: uma pasta ruim não derruba a lista dos outros backups.
+    /// </summary>
+    internal static bool ManifestExists(string manifestPath, out InjectionException? recoveryProblem)
+    {
+        recoveryProblem = null;
+        try
+        {
+            return FileSwap.ExistsOrRecover(manifestPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            recoveryProblem = new InjectionException($"O manifesto do backup não pôde ser devolvido da cópia de segurança: {manifestPath} ({ex.Message})", ex);
+            return true;
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -24,16 +25,7 @@ public static class ReviewExporter
 
         var fullPath = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath) ?? fullPath);
-        var temporary = $"{fullPath}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            File.WriteAllBytes(temporary, data);
-            File.Move(temporary, fullPath, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
+        AtomicFile.WriteAllBytes(fullPath, data);
 
         return rows.Count;
     }

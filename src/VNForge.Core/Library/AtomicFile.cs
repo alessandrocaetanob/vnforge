@@ -47,6 +47,13 @@ internal static class AtomicFile
     public static void Replace(string temporary, string path, bool overwrite = true, Action<int>? wait = null)
     {
         var sleep = wait ?? Thread.Sleep;
-        FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep));
+        FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep), file => ProjectFileIo.Delete(file, sleep));
+    }
+
+    /// <summary>Copia <paramref name="source"/> sobre <paramref name="destination"/> pelo mesmo caminho conferido: a cópia vazia ou diferente da origem vira <see cref="FileWriteVerificationException"/>.</summary>
+    public static void Copy(string source, string destination, Action<int>? wait = null)
+    {
+        var sleep = wait ?? Thread.Sleep;
+        FileSwap.Copy(source, destination, (from, to, over) => ProjectFileIo.Move(from, to, over, sleep), file => ProjectFileIo.Delete(file, sleep));
     }
 }

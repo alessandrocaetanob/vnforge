@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using VNForge.Core.Injection;
 using VNForge.Core.Library;
+using VNForge.Patching;
 
 namespace VNForge.Core.Projects;
 
@@ -82,7 +83,7 @@ public sealed record GameStateFile(int Version, GameInGame? InGame, GameLastTest
             var path = PathFor(project);
             // Leitura curta, com nova tentativa se a troca por rename (Save) a pegar no meio. No Windows o rename falha enquanto qualquer leitura está aberta, mesmo com
             // FileShare.Delete; quem segura é a nova tentativa do ProjectFileIo.Move no Save, que espera a leitura terminar.
-            var read = File.Exists(path) ? JsonSerializer.Deserialize<GameStateFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart('﻿'), Json) : null;
+            var read = FileSwap.ExistsOrRecover(path) ? JsonSerializer.Deserialize<GameStateFile>(Encoding.UTF8.GetString(ProjectFileIo.ReadAllBytes(path)).TrimStart('﻿'), Json) : null;
             return read is { Version: CurrentVersion } ? read : Empty;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)

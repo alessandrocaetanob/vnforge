@@ -73,7 +73,7 @@ public static class AiUsageLog
                 case ReadOutcome.Unreadable:
                     return;
                 case ReadOutcome.Corrupt:
-                    File.Move(path, path + ".bad", overwrite: true);
+                    AtomicFile.Copy(path, path + ".bad");
                     break;
             }
 
