@@ -118,4 +118,26 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         await Ok("restore", "--yes");
         Assert.Equal(original, await File.ReadAllBytesAsync(GameFile(YsbinYpf), TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    [Trait("Risco", "R1")]
+    public async Task Cenario_jogo_que_mudou_de_pasta_liga_ao_projeto_e_a_restauracao_acha_o_backup()
+    {
+        var original = await File.ReadAllBytesAsync(GameFile(YsbinYpf), TestContext.Current.CancellationToken);
+        await InitExtractTranslateBuild();
+        await Ok("inject", "--yes");
+        var injected = await File.ReadAllBytesAsync(GameFile(YsbinYpf), TestContext.Current.CancellationToken);
+        var moved = Path.Combine(_cli.Root, "jogo-novo", "MinhaVN");
+        Directory.CreateDirectory(Path.GetDirectoryName(moved)!);
+        Directory.Move(_game, moved);
+
+        await Ok("game", "move", "--game", moved);
+
+        await Ok("restore", "--yes");
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(moved, YsbinYpf), TestContext.Current.CancellationToken));
+        Assert.False(Directory.Exists(_game));
+        await Ok("inject", "--yes");
+        Assert.Equal(injected, await File.ReadAllBytesAsync(Path.Combine(moved, YsbinYpf), TestContext.Current.CancellationToken));
+    }
 }
+
