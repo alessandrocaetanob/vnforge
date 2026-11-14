@@ -460,9 +460,10 @@ public sealed partial class CharactersViewModel : ObservableObject
         return new CharacterPage(
             card.Id,
             card.Name,
-            card.Original is { Length: > 0 } original ? $"{original} · {card.Name}" : null,
+            card.Original is { Length: > 0 } original ? original : null,
             card.Aliases.Count > 0 ? $"Também chamado de {string.Join(", ", card.Aliases)}" : null,
             card.Image,
+            RolePill(ShownAppearance(card).RoleCode, card.Gender),
             new SheetPill($"Descrição {SheetLabels.Status(status)}", SheetPill.ToneOf(status)),
             description?.Text ?? "Este personagem não tem descrição no VNDB.",
             Tags(card, hiddenTraits),
@@ -602,7 +603,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             chips.Add(new SheetChip($"Gênero real: {real}", IsWarning: true));
         }
 
-        chips.AddRange(card.Traits.Take(FirstTraits).Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0)));
+        // Os traços ficam só no cartão "Traços" (Groups); aqui vão o gênero, a idade e o aviso dos escondidos.
         if (card.HiddenTraits > 0)
         {
             var reason = hidden.All(t => t.Spoiler > 0) ? ("traço com spoiler", "traços com spoiler") : ("traço escondido", "traços escondidos");

@@ -85,10 +85,11 @@ public sealed partial class GameSheetViewModel : ObservableObject
     /// <summary>Buscando no VNDB ou traduzindo: as ações esperam.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FetchCommand), nameof(TranslateCommand))]
-    [NotifyPropertyChangedFor(nameof(TranslateLabel), nameof(ShowBusy))]
+    [NotifyPropertyChangedFor(nameof(TranslateLabel), nameof(ShowBusy), nameof(PrimaryHint), nameof(ShowPrimaryHint), nameof(ShowRetranslate))]
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrimaryHint))]
     public partial string BusyText { get; private set; } = string.Empty;
 
     [ObservableProperty]

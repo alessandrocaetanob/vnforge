@@ -52,7 +52,11 @@ public sealed record CharacterGameRow(string GameId, string Title, VndbImageRef?
 public sealed record CharacterTraitGroup(string Name, IReadOnlyList<SheetChip> Chips);
 
 /// <summary>O cartão "Na tradução": o que o projeto de tradução do jogo sabe do personagem (gênero do Glossário, nome no jogo e quantas falas ele tem).</summary>
-public sealed record CharacterTranslation(string Gender, string GameName, string Lines);
+public sealed record CharacterTranslation(string Gender, string GameName, string Lines)
+{
+    /// <summary>"Falas dela", "Falas dele" ou só "Falas", conforme o gênero do Glossário.</summary>
+    public string LinesLabel => Gender switch { "Feminino" => "Falas dela", "Masculino" => "Falas dele", _ => "Falas" };
+}
 
 /// <summary>A página de um personagem, já com a privacidade aplicada pelo Core.</summary>
 public sealed record CharacterPage(
@@ -61,6 +65,7 @@ public sealed record CharacterPage(
     string? NamesLine,
     string? AliasesLine,
     VndbImageRef? Image,
+    SheetPill Role,
     SheetPill DescriptionPill,
     string Description,
     IReadOnlyList<SheetChip> Tags,

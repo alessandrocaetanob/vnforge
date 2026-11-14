@@ -84,7 +84,20 @@ public sealed class Portrait : VndbImageControl
         _ => Token("Vnf.PortraitSm", 28),
     };
 
-    protected override Size MeasureOverride(Size availableSize) => new(Side, Side);
+    /// <summary>
+    /// O lado que a tela desenha: o menor entre o tamanho pedido e a origem dividida pela escala do monitor. O retrato do VNDB é pequeno (no máximo 256 por 300), e desenhá-lo
+    /// com mais pixels de tela que a origem tem só o estica e o borra (#691). A imagem é cortada em quadrado, então a origem útil é o menor lado dela.
+    /// </summary>
+    internal static double DisplaySide(double drawSide, int sourceSide, double scale) =>
+        sourceSide <= 0 || scale <= 0 ? drawSide : Math.Min(drawSide, Math.Floor(sourceSide / scale));
+
+    protected override void OnSourceChanged() => InvalidateMeasure();
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var side = SourcePixels is { } source ? DisplaySide(Side, Math.Min(source.Width, source.Height), RenderScale) : Side;
+        return new Size(side, side);
+    }
 
     public override void Render(DrawingContext context)
     {

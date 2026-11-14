@@ -90,11 +90,11 @@
 
     <!-- O personagem da grade: retrato quadrado, nome, original, papel e quantos jogos. -->
     <DataTemplate x:Key="CardTemplate" x:DataType="vm:CharacterListItem">
-      <Button Classes="libcard" Width="{Binding $parent[v:CharactersView].CardSide}" Margin="0,0,0,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
+      <Button Classes="libcard" Width="160" Margin="0,0,0,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
               CommandParameter="{Binding}" AutomationProperties.Name="{Binding AutomationName}">
         <StackPanel Spacing="8">
           <Panel HorizontalAlignment="Left">
-            <c:Portrait Size="Lg" FixedSide="{Binding $parent[v:CharactersView].CardSide}" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}" LoadOnlyInViewport="True"/>
+            <c:Portrait Size="Lg" FixedSide="160" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}" LoadOnlyInViewport="True"/>
             <Border Classes="bveil" CornerRadius="{DynamicResource Vnf.RadiusLg}" IsVisible="{Binding Portrait.IsBlurred}">
               <Button Classes="rvb sm" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RevealPortraitCommand}" CommandParameter="{Binding Portrait.RevealKey}"
                       AutomationProperties.Name="{Binding Name, StringFormat='Mostrar o retrato de {0}'}">
@@ -251,7 +251,7 @@
       </Grid>
     </Grid>
 
-    <!-- A página do personagem: o retrato, o nome, a descrição, "Aparece em" e os traços. -->
+    <!-- A página do personagem: o retrato, o nome com o papel, o gênero e a idade, a descrição, "Aparece em" e, à direita, os traços uma vez só. -->
     <ScrollViewer Name="PageScroll" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsPage}">
       <StackPanel Margin="32,25,32,24" Spacing="20" DataContext="{Binding Page}" x:DataType="vm:CharacterPage">
         <Button Name="BackButton" Classes="subtle sm" HorizontalAlignment="Left"
@@ -262,10 +262,11 @@
           </StackPanel>
         </Button>
 
+        <!-- O cabeçalho do personagem (#692): o retrato de 160 px (no máximo a origem dividida pela escala), o nome, o papel, o gênero e a idade juntos, e a descrição. -->
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="32">
           <Border CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}" VerticalAlignment="Top">
             <Panel>
-              <c:Portrait Size="Lg" FixedSide="220" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}"/>
+              <c:Portrait Size="Lg" FixedSide="160" Image="{Binding Image}" Revealed="{Binding Portrait.Revealed}" Seed="{Binding Name}"/>
               <Border Classes="bveil" CornerRadius="{DynamicResource Vnf.RadiusLg}" IsVisible="{Binding Portrait.IsBlurred}">
                 <Button Classes="rvb" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RevealPortraitCommand}" CommandParameter="{Binding Portrait.RevealKey}"
                         AutomationProperties.Name="{Binding Name, StringFormat='Mostrar o retrato de {0}'}">
@@ -277,58 +278,61 @@
               </Border>
             </Panel>
           </Border>
-          <StackPanel Grid.Column="1" Spacing="16">
+          <StackPanel Grid.Column="1" Spacing="14">
             <StackPanel Spacing="2">
               <TextBlock Name="PageName" Classes="lib-h1" Margin="0,-3,0,0" Text="{Binding Name}"/>
               <TextBlock Classes="lib-sub" FontFamily="{DynamicResource Vnf.FontJp}" FontSize="16" Text="{Binding NamesLine}" IsVisible="{Binding HasNames}"/>
               <TextBlock Name="PageAliases" Classes="lib-dim" FontSize="13" Margin="0,6,0,0" Text="{Binding AliasesLine}" IsVisible="{Binding HasAliases}"/>
             </StackPanel>
-            <WrapPanel>
-              <ContentControl Margin="0,0,6,6" Content="{Binding DescriptionPill}" ContentTemplate="{StaticResource Pill}"/>
+            <WrapPanel Name="PageMeta">
+              <ContentControl Margin="0,0,6,6" Content="{Binding Role}" ContentTemplate="{StaticResource Pill}"/>
               <ItemsControl ItemsSource="{Binding Tags}" ItemTemplate="{StaticResource Chip}">
                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               </ItemsControl>
             </WrapPanel>
-            <TextBlock Name="PageDescription" Classes="sheet-prose" Text="{Binding Description}"/>
+            <TextBlock Name="PageDescription" Classes="sheet-prose" LineHeight="26" Text="{Binding Description}"/>
+            <ContentControl HorizontalAlignment="Left" Content="{Binding DescriptionPill}" ContentTemplate="{StaticResource Pill}"/>
           </StackPanel>
         </Grid>
 
-            <Border Name="AppearsIn" Classes="sheet-card" Padding="0">
-              <StackPanel>
-                <Grid ColumnDefinitions="*,Auto" Margin="16">
-                  <TextBlock Classes="sheet-h2" Text="Aparece em"/>
-                  <TextBlock Grid.Column="1" Name="GamesCount" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="{Binding GamesCount}"/>
-                </Grid>
-                <ItemsControl Name="Games" ItemsSource="{Binding Games}" ItemTemplate="{StaticResource GameRowTemplate}" Margin="0,0,0,-1"/>
-                <Border Name="NoteBand" IsVisible="{Binding HasNote}" Padding="16,12" Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
-                  <TextBlock Classes="lib-dim" FontSize="13" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Note}"/>
-                </Border>
+        <Grid ColumnDefinitions="*,392" ColumnSpacing="24">
+          <Border Name="AppearsIn" Classes="sheet-card" Padding="0" VerticalAlignment="Top">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto" Margin="24,16">
+                <TextBlock Classes="sheet-h2" Text="Aparece em"/>
+                <TextBlock Grid.Column="1" Name="GamesCount" Classes="lib-dim" FontSize="13" VerticalAlignment="Center" Text="{Binding GamesCount}"/>
+              </Grid>
+              <ItemsControl Name="Games" ItemsSource="{Binding Games}" ItemTemplate="{StaticResource GameRowTemplate}" Margin="0,0,0,-1"/>
+              <Border Name="NoteBand" IsVisible="{Binding HasNote}" Padding="24,12" Background="{DynamicResource Vnf.BgInset}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,1,0,0">
+                <TextBlock Classes="lib-dim" FontSize="13" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Note}"/>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <StackPanel Grid.Column="1" Spacing="20">
+            <Border Name="TraitsCard" Classes="sheet-card" Padding="24" IsVisible="{Binding HasGroups}">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="sheet-h3" FontSize="15" LineHeight="20" Text="Traços"/>
+                <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource TraitGroupTemplate}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
               </StackPanel>
             </Border>
-
-            <Grid ColumnDefinitions="*,540" ColumnSpacing="16">
-              <Border Name="TraitsCard" Classes="sheet-card" IsVisible="{Binding HasGroups}">
-                <StackPanel Spacing="12">
-                  <TextBlock Classes="sheet-h3" Text="Traços"/>
-                  <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource TraitGroupTemplate}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                  </ItemsControl>
-                </StackPanel>
-              </Border>
-              <Border Grid.Column="1" Name="TranslationCard" Classes="sheet-card" IsVisible="{Binding HasTranslation}">
-                <StackPanel Spacing="12" DataContext="{Binding Translation}" x:DataType="vm:CharacterTranslation">
-                  <TextBlock Classes="sheet-h3" Text="Na tradução"/>
-                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
-                    <TextBlock Classes="lib-dim" FontSize="13" Text="Gênero no Glossário"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Gender}"/>
-                    <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" Text="Nome no jogo"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding GameName}"/>
-                    <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" Text="Falas dele"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Lines}"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-            </Grid>
+            <Border Name="TranslationCard" Classes="sheet-card" Padding="24" IsVisible="{Binding HasTranslation}">
+              <StackPanel Spacing="12" DataContext="{Binding Translation}" x:DataType="vm:CharacterTranslation">
+                <TextBlock Classes="sheet-h3" FontSize="15" LineHeight="20" Text="Na tradução"/>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                  <TextBlock Classes="lib-dim" FontSize="13" Text="Gênero no Glossário"/>
+                  <TextBlock Grid.Column="1" FontSize="13" FontWeight="SemiBold" Text="{Binding Gender}"/>
+                  <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="13" Text="Nome no jogo"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding GameName}"/>
+                  <TextBlock Grid.Row="2" Classes="lib-dim" FontSize="13" Text="{Binding LinesLabel}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" FontSize="13" FontWeight="SemiBold" Text="{Binding Lines}"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
       </StackPanel>
     </ScrollViewer>
   </Panel>

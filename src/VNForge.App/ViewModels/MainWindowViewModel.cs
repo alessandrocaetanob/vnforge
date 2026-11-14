@@ -255,8 +255,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 Play.Enter(Library.GameOfProject(project.Root));
             }
         };
-        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, NewProjectWizard);
-        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game, NewProjectWizard);
+        Library.GameOpenRequested += (_, game) => OpenGameFromLibrary(game);
+        Characters.GameOpenRequested += (_, game) => OpenGameFromLibrary(game);
         Characters.PropertyChanged += (_, e) =>
         {
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(CharactersViewModel.OpenName) or nameof(CharactersViewModel.StatusText))
@@ -581,6 +581,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void EnterNav(NavItemViewModel value, bool wasInGame, bool leavingDashboard)
     {
+        if (projectless is not null && value.Key != NavKey.Sheet)
+        {
+            LeaveProjectlessSheet();
+        }
+
         // O Painel sempre reabre na visão geral; só "Provas" do menu "Mais" o abre no banco de provas.
         if (leavingDashboard)
         {
@@ -592,7 +597,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             lastTranslationItem = value;
         }
 
-        if (GameTabOf(value.Key) is not null)
+        if (GameTabOf(value.Key) is not null && projectless is null)
         {
             lastGameItem = value;
         }
@@ -625,7 +630,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void LoadForNav(NavKey key, bool wasInGame)
     {
         // O cabeçalho do jogo mostra o andamento e o próximo passo do Painel, que só leria a pasta ao abrir a página dele.
-        if (key == NavKey.Dashboard || (!wasInGame && GameTabOf(key) is not null))
+        if (key == NavKey.Dashboard || (!wasInGame && GameTabOf(key) is not null && projectless is null))
         {
             DashboardRefresh = Dashboard.ReloadAsync();
         }
@@ -1046,6 +1051,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var otherProject = CurrentProject?.Root != summary.Root;
         CurrentProject = summary;
+        if (projectless is not null)
+        {
+            // O jogo que estava na Ficha sem projeto agora tem um: o cabeçalho e as abas passam a ser os do projeto.
+            projectless = null;
+            RaiseShellChanged();
+        }
+
         if (otherProject && ReferenceEquals(CurrentPage, Play))
         {
             // A aba Jogar aberta troca de jogo: grava a nota do antigo e passa o atalho para o novo.

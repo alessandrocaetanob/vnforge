@@ -32,6 +32,7 @@ public abstract class VndbImageControl : Control
     private Bitmap? blurred;
     private CancellationTokenSource? loading;
     private IVndbImageSource? watching;
+    private TopLevel? scaling;
 
     static VndbImageControl()
     {
@@ -106,11 +107,24 @@ public abstract class VndbImageControl : Control
             source.PrivacyChanged += OnPrivacyChanged;
         }
 
+        scaling = TopLevel.GetTopLevel(this);
+        if (scaling is not null)
+        {
+            scaling.ScalingChanged += OnScalingChanged;
+        }
+
         Reload();
+        OnSourceChanged();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (scaling is not null)
+        {
+            scaling.ScalingChanged -= OnScalingChanged;
+            scaling = null;
+        }
+
         CancelLoading();
         EffectiveViewportChanged -= OnEffectiveViewportChanged;
         if (watching is not null)
@@ -200,10 +214,25 @@ public abstract class VndbImageControl : Control
         if (previous is not null || next is not null)
         {
             InvalidateVisual();
+            OnSourceChanged();
         }
 
         previous?.Dispose();
     }
+
+    /// <summary>O tamanho em pixels da imagem de origem (a original, não a borrada); nulo enquanto a imagem não chegou.</summary>
+    protected PixelSize? SourcePixels => lease?.Bitmap.PixelSize;
+
+    /// <summary>A escala do monitor onde a janela está (1,5 é 150 %); 1 enquanto o controle não está numa janela.</summary>
+    protected double RenderScale => TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+
+    /// <summary>A imagem de origem mudou ou chegou, ou a escala do monitor mudou: quem dimensiona o controle pela origem mede de novo.</summary>
+    protected virtual void OnSourceChanged()
+    {
+        // A Capa desenha a imagem no tamanho que a tela deu; só o Portrait dimensiona o controle pela origem.
+    }
+
+    private void OnScalingChanged(object? sender, EventArgs e) => OnSourceChanged();
 
     private async Task LoadAsync(IVndbImageSource source, VndbImageRef image, CancellationTokenSource owner)
     {
