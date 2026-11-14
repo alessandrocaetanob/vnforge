@@ -9,6 +9,7 @@ namespace VNForge.App.Tests;
 /// <summary>A tela da Biblioteca (#548) sem janela: carga, filtros, gaveta, casamento, varredura e privacidade, sobre pastas e <c>library.json</c> reais e um VNDB de mentira.</summary>
 [Trait("Risco", "R1")]
 [Trait("Risco", "R7")]
+[Trait("Risco", "R9")]
 public sealed class LibraryViewModelTests : IDisposable
 {
     private readonly TempFolder _config = new();
@@ -60,6 +61,24 @@ public sealed class LibraryViewModelTests : IDisposable
     }
 
     private static LibraryCardViewModel Card(LibraryViewModel vm, string title) => vm.Cards.Single(c => c.Title == title);
+
+    [Fact]
+    public async Task No_desfocar_o_cartao_adulto_fica_borrado_o_mostrar_revela_so_ele_e_o_ocultar_desfoca_de_novo()
+    {
+        var vm = await Loaded();
+        var card = Card(vm, "Kuroneko Archive");
+        Assert.Equal(AdultMode.Blur, vm.AdultMode);
+        Assert.True(card.IsBlurred);
+
+        vm.RevealGameCommand.Execute(card);
+
+        Assert.False(Card(vm, "Kuroneko Archive").IsBlurred);
+        Assert.False(Card(vm, "Amaoto no Hakoniwa").IsBlurred);
+
+        vm.ConcealGameCommand.Execute(Card(vm, "Kuroneko Archive"));
+
+        Assert.True(Card(vm, "Kuroneko Archive").IsBlurred);
+    }
 
     [Fact]
     public async Task Arquivo_ilegivel_vira_aviso_e_nao_lista_vazia_muda()
