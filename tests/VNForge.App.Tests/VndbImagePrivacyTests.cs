@@ -181,5 +181,4 @@ public sealed class VndbImagePrivacyTests(HeadlessFixture fixture) : IClassFixtu
 
         public void Complete(string url, BitmapLease lease) => _pending[url].SetResult(lease);
     }
-
 }

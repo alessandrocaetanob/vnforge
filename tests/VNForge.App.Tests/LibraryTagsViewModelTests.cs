@@ -55,5 +55,4 @@ public sealed class LibraryTagsViewModelTests : IDisposable
         Assert.Equal(["favorito"], vm.Tags.Active.Select(t => t.Text));
         Assert.Equal(2, vm.Cards.Count);
     }
-
 }

@@ -59,7 +59,6 @@ public class BudgetAppSettingsFileTests
         Assert.Equal(new ExchangeRate(5.43m, new DateOnly(2026, 10, 25)), loaded.Rate);
         Assert.Equal(new BudgetLimits(200m, 25.5m), loaded.Budget);
     }
-
 }
 
 [Trait("Risco", "R5")]
@@ -87,7 +86,6 @@ public class MoneyFormattingTests
     {
         Assert.False(MoneyParser.TryParse(text, out _));
     }
-
 }
 
 [Trait("Risco", "R5")]

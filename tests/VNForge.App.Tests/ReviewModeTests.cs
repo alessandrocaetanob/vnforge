@@ -109,5 +109,4 @@ public sealed class ReviewModeTests : IDisposable
 
         public int ReviewedOn(DateTimeOffset now, TimeZoneInfo zone) => Records.Select(r => r.UnitId).Distinct().Count();
     }
-
 }

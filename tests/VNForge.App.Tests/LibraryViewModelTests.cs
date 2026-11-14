@@ -131,5 +131,4 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.Contains(GameLibrary.NormalizeFolder(missing2), vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(3, File.Load().Games.Count);
     }
-
 }

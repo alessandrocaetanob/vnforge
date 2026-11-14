@@ -50,5 +50,4 @@ public sealed class ConferenceFitTests : IDisposable
     {
         public Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct) => resposta.Task;
     }
-
 }

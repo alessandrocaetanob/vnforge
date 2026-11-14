@@ -146,5 +146,4 @@ public sealed class EditorSceneTests : IDisposable
         Assert.Equal("Aplicada a 2 linhas.", vm.Detail.SameSourceResult);
         Assert.Null(vm.Detail.ErrorMessage);
     }
-
 }

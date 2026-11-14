@@ -28,5 +28,4 @@ public class StartViewModelFalhasTests
         Assert.Contains("lista de recentes", vm.NoticeMessage);
         Assert.Null(vm.ErrorMessage);
     }
-
 }

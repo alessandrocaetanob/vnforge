@@ -81,5 +81,4 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Same(review.Filters[1], review.SelectedFilter);
         Assert.True(vm.IsReviewing);
     }
-
 }

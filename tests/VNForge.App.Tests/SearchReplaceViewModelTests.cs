@@ -58,5 +58,4 @@ public class SearchReplaceViewModelTests
         Assert.Equal("nova 0", folder.LoadText("yst00001")[0].Translation);
         Assert.False(vm.HasPreview);
     }
-
 }

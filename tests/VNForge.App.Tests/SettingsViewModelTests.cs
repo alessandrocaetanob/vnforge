@@ -184,6 +184,5 @@ public class SettingsViewModelTests
 
         public bool Delete() => false;
     }
-
 }
 

@@ -42,5 +42,4 @@ public class GlossaryViewModelTests
         Assert.False(vm.SaveCommand.CanExecute(null));
         Assert.Equal("{ quebrado", File.ReadAllText(ProjectFolder.Open(root).GlossaryPath));
     }
-
 }

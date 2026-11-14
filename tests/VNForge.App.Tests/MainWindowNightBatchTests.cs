@@ -135,5 +135,4 @@ public sealed class MainWindowNightBatchTests : IDisposable
         Assert.Empty(vm.TaskService.Tasks);
         Assert.Contains("Falta a chave da IA", vm.Toasts.Toasts.Last().Message, StringComparison.Ordinal);
     }
-
 }

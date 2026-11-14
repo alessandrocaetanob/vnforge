@@ -60,5 +60,4 @@ public sealed class SettingsDictionariesTests : IDisposable
         Assert.Equal([false, true], saved.Pre.Select(r => r.Enabled));
         Assert.Single(saved.Post);
     }
-
 }

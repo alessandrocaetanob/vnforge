@@ -74,5 +74,4 @@ public sealed class AdultPrivacyTests : IDisposable
         Assert.Equal(AdultMode.Hide, shell.Settings.Privacy!.Modes.Single(m => m.IsSelected).Mode);
         Assert.False(library.Reveal.IsRevealed("v31201"));
     }
-
 }

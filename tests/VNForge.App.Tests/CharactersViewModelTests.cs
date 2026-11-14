@@ -45,5 +45,4 @@ public sealed class CharactersViewModelTests : IDisposable
         Assert.Equal(ToastKind.Warning, notice.Kind);
         Assert.Contains("Moon Flower", notice.Text, StringComparison.Ordinal);
     }
-
 }

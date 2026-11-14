@@ -111,5 +111,4 @@ public sealed class BatchRequestTests : IDisposable
             return [.. batch.Lines.Select(l => new BatchRewrite(l.Id, l.Translation!.Replace("você", "tu", StringComparison.Ordinal)))];
         }
     }
-
 }

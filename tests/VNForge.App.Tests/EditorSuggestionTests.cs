@@ -69,5 +69,4 @@ public sealed class EditorSuggestionTests : IDisposable
         Assert.Equal(["yst00001:000002", "yst00001:000003"], NoArquivo().Select(s => s.UnitId));
         Assert.Equal(2, vm.EditorSuggestionLines);
     }
-
 }

@@ -85,5 +85,4 @@ public sealed class SampleSceneTests : IDisposable
         Assert.DoesNotContain("Configure a chave", detail.SuggestionSource);
         Assert.Contains("gratuito", detail.SuggestionDetails);
     }
-
 }

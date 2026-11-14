@@ -79,5 +79,4 @@ public sealed partial class BibleViewModelTests : IDisposable
         Assert.False(vm.IsRunning);
         Assert.False(_project.LoadBible().Scenes.Any());
     }
-
 }

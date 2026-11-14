@@ -27,5 +27,4 @@ public class StartV3Tests
         await vm.WizardPreparing;
         Assert.Equal(Path.GetFullPath(game), wizard.GameFolder);
     }
-
 }

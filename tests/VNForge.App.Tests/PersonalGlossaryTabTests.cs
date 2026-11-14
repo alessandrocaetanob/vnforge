@@ -44,5 +44,4 @@ public sealed class PersonalGlossaryTabTests : IDisposable
 
         Assert.Equal("atraso", vm.Terms.Single(t => t.Source == "遅刻").Target);
     }
-
 }

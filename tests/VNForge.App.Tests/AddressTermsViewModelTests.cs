@@ -101,5 +101,4 @@ public class AddressTermsViewModelTests
             new AddressTerm("健太", "美咲", "先輩", "senpai"),
         ], folder.LoadAddressTerms());
     }
-
 }

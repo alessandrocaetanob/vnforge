@@ -102,5 +102,4 @@ public class ConferenceViewModelTests
 
         public IEnumerable<QaIssue> Check(QaContext context) => throw new InvalidOperationException("regra quebrada.");
     }
-
 }

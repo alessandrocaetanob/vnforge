@@ -100,5 +100,4 @@ public class GlossarySuggestionsTests
     {
         public Task<ClaudeReply> CompleteAsync(ClaudeRequest request, CancellationToken ct) => Task.FromResult(reply);
     }
-
 }

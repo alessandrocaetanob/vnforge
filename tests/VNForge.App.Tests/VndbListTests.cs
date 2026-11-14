@@ -174,5 +174,4 @@ public sealed class VndbListTests
         Assert.Equal(1, changed);
         Assert.False(connection.IsConflictsOpen);
     }
-
 }

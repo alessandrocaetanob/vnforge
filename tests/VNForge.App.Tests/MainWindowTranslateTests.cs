@@ -135,5 +135,4 @@ public sealed class MainWindowTranslateTests : IDisposable
             return [.. batch.Lines.Select(u => new TranslationResult(u.Id, "x"))];
         }
     }
-
 }

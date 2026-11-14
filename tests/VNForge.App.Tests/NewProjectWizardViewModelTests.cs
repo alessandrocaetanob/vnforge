@@ -80,5 +80,4 @@ public sealed class NewProjectWizardViewModelTests : IDisposable
         Assert.Contains("não foi sobrescrito", vm.ErrorMessage);
         Assert.Equal("Existente", ProjectFolder.Open(ProjectPath()).LoadConfig().Name);
     }
-
 }

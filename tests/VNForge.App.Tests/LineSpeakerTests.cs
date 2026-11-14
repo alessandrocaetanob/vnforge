@@ -67,5 +67,4 @@ public sealed class LineSpeakerTests : IDisposable
         Assert.False(vm.Lines[0].IsSpeakerChanged);
         Assert.Equal(detail.SpeakerChoices[0], detail.SelectedSpeakerChoice);
     }
-
 }

@@ -292,5 +292,4 @@ public sealed class BuildViewModelTests : IDisposable
             return current;
         }
     }
-
 }

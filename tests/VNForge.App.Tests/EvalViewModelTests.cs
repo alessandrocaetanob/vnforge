@@ -50,5 +50,4 @@ public sealed class EvalViewModelTests : IDisposable
         Assert.False(tight.CanRun);
         Assert.Contains("limite de gasto", tight.OverLimitText);
     }
-
 }
