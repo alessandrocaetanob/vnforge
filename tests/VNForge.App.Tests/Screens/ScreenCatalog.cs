@@ -6,8 +6,10 @@ using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Bible;
 using VNForge.Core.Demo;
+using VNForge.Core.Glossary;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
+using VNForge.Core.Text;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -26,6 +28,8 @@ internal sealed record ScreenDef(string Name, Func<string, ThemeVariant, Task<Sc
 internal static class ScreenCatalog
 {
     private const string AmaotoTitle = "Amaoto no Hakoniwa";
+
+    private const string NanairoTitle = "Nanairo Ressha";
 
     private const string AmaotoOriginalTitle = "雨音の箱庭";
 
@@ -71,7 +75,7 @@ internal static class ScreenCatalog
             l.SelectFilter(LibraryFilter.NoPortuguese);
             l.SelectedSort = l.Sorts[0];
             l.SelectedLayout = l.Layouts[1];
-            l.Select(Card(l, "Nanairo Ressha"));
+            l.Select(Card(l, NanairoTitle));
         }, games: PortugueseChecked())),
         new("biblioteca-tags", Library(l =>
         {
@@ -97,7 +101,7 @@ internal static class ScreenCatalog
             l.SetAdultModeCommand.Execute(l.AdultModes.Single(m => m.Mode == AdultMode.Hide));
         })),
         new("personagens", Characters(manyTraits: true)),
-        new("personagem", Characters("Hana Tsukino", manyTraits: true)),
+        new("personagem", Characters("Hana Tsukino", manyTraits: true, linked: true)),
         new("personagens-busca", Characters(search: "Hana")),
         new("personagem-mika", Characters("Mika Aoba")),
         new("editor-busca", OpenEditorSearch),
@@ -113,6 +117,7 @@ internal static class ScreenCatalog
         new("ficha-vndb", Sheet(review: false)),
         new("ficha-revisao", Sheet(review: true)),
         new("ficha-nao-baixada", Sheet(review: false, seeded: false)),
+        new("ficha-sem-projeto", ProjectlessSheet),
         new("revisao", OpenReview),
         new("leitura", OpenReading),
         new("paleta", OpenPalette),
@@ -213,7 +218,7 @@ internal static class ScreenCatalog
         var scan = library.Scan;
         scan.Begin("D:\\Jogos\\VN");
         var games = LibrarySamples.Games().Where(g => g.Title != "Fuyu no Shiori").ToList();
-        string[] tail = ["Kōrin no Mori", AmaotoTitle, "Shirogane Station 9", "Yūgure Kissaten", "Tōge no Kaji", "Hoshikuzu Diary", "Nanairo Ressha"];
+        string[] tail = ["Kōrin no Mori", AmaotoTitle, "Shirogane Station 9", "Yūgure Kissaten", "Tōge no Kaji", "Hoshikuzu Diary", NanairoTitle];
         var order = games.Where(g => !tail.Contains(g.Title)).Concat(tail.Select(t => games.Single(g => g.Title == t))).ToList();
         order[^1] = order[^1] with { VndbId = null, Info = null, Confirmation = LibraryConfirmation.None, SearchedAt = null };
         for (var i = 0; i < order.Count; i++)
@@ -265,14 +270,26 @@ internal static class ScreenCatalog
     }
 
     /// <summary>Os Personagens com as fichas inventadas de <see cref="CharactersSamples"/>; <paramref name="open"/> abre a página de um personagem.</summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null) => async (_, theme) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Characters(string? open = null, bool manyTraits = false, string? search = null, bool linked = false) => async (_, theme) =>
     {
         var config = new TempFolder();
-        await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits);
+        await CharactersSamples.SeedAsync(config.Path, matched: true, showSpoilers: true, manyTraits: manyTraits, portrait: true);
+        if (linked)
+        {
+            // Moon Flower ganha um projeto de tradução com 128 falas da Hana, para o cartão "Na tradução" da página dela aparecer.
+            var projectRoot = SampleProjects.Create(Path.Combine(config.Path, "projeto"), "Moon Flower", [.. Enumerable.Repeat(TranslationStatus.Approved, 128)]);
+            var project = ProjectFolder.Open(projectRoot);
+            project.SaveText("yst00001", [.. project.LoadText("yst00001").Select(u => u with { Speaker = "花" })]);
+            project.SaveCharacters([new CharacterEntry("花", "Hana", CharacterGender.Female, VndbId: "c101")]);
+            new LibraryFile(config.Path).Update(l => l.Replace(l.Find("g1") with { ProjectPath = projectRoot }));
+        }
+
         var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(config.Path), new FixedClock(CharactersSamples.Now));
         var vm = new MainWindowViewModel(start);
         vm.Characters.ConfigDirectory = config.Path;
-        var host = ScreenHost.Show(vm, theme, config);
+        var previous = VndbImages.Source;
+        VndbImages.Source = new LibrarySamples.Images();
+        var host = ScreenHost.Show(vm, theme, config, new RestoreImages(previous));
         await Prepare(host, async () =>
         {
             await host.GoToAsync(NavKey.Characters);
@@ -457,6 +474,9 @@ internal static class ScreenCatalog
         });
         host.Own(config);
         host.Own(new Cleanup(() => File.Delete(folder.VndbPath)));
+        var previous = VndbImages.Source;
+        VndbImages.Source = new LibrarySamples.Images();
+        host.Own(new RestoreImages(previous));
         await Prepare(host, async () =>
         {
             await host.Vm.Sheet.Loading;
@@ -473,6 +493,35 @@ internal static class ScreenCatalog
         });
         return host;
     };
+
+    /// <summary>
+    /// A Ficha de um jogo da Biblioteca que ainda não tem projeto (#690): a Biblioteca abre o jogo NanairoTitle, ligado à ficha inventada ainda em inglês, e o app vai à Ficha
+    /// sem projeto aberto.
+    /// </summary>
+    private static async Task<ScreenHost> ProjectlessSheet(string root, ThemeVariant theme)
+    {
+        var config = new TempFolder();
+        await GameSheetSamples.SeedAsync(config.Path, translate: false);
+        var previous = VndbImages.Source;
+        VndbImages.Source = new LibrarySamples.Images();
+        var games = LibrarySamples.Games().Select(g => g.Title == NanairoTitle ? g with { VndbId = GameSheetSamples.Id } : g);
+        var file = LibrarySamples.Save(config.Path, LibrarySamples.Library(games));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = new FixedClock(LibrarySamples.Now), ReadTranslation = LibrarySamples.Translation, UserTags = Tags, Sheets = new LibrarySamples.Sheets() });
+        var start = new StartViewModel(new RecentProjectsFile(config.Path), new FakeFolderPicker(null), new FixedClock(GameSheetSamples.Now));
+        var vm = new MainWindowViewModel(start, library: library);
+        vm.Sheet.ConfigDirectory = config.Path;
+        vm.Sheet.CatalogFactory = GameSheetSamples.Catalog;
+        vm.Sheet.TranslatorFactory = GameSheetSamples.Translator;
+        var host = ScreenHost.Show(vm, theme, config, new RestoreImages(previous));
+        await Prepare(host, async () =>
+        {
+            await library.LoadAsync();
+            library.OpenGameCommand.Execute(Card(library, NanairoTitle));
+            await vm.Sheet.Loading;
+            host.Settle();
+        });
+        return host;
+    }
 
     private sealed class Cleanup(Action action) : IDisposable
     {

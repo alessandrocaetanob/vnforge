@@ -460,9 +460,10 @@ public sealed partial class CharactersViewModel : ObservableObject
         return new CharacterPage(
             card.Id,
             card.Name,
-            card.Original is { Length: > 0 } original ? $"{original} · {card.Name}" : null,
+            card.Original is { Length: > 0 } original ? original : null,
             card.Aliases.Count > 0 ? $"Também chamado de {string.Join(", ", card.Aliases)}" : null,
             card.Image,
+            RolePill(ShownAppearance(card).RoleCode, card.Gender),
             new SheetPill($"Descrição {SheetLabels.Status(status)}", SheetPill.ToneOf(status)),
             description?.Text ?? "Este personagem não tem descrição no VNDB.",
             Tags(card, hiddenTraits),
@@ -536,7 +537,7 @@ public sealed partial class CharactersViewModel : ObservableObject
                 translation = new CharacterTranslation(
                     entry.Gender switch { CharacterGender.Male => "Masculino", CharacterGender.Female => "Feminino", CharacterGender.Other => "Outro", _ => "Sem gênero" },
                     entry.Source,
-                    $"{lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR"))} em {game.Title}");
+                    lines.ToString("N0", CultureInfo.GetCultureInfo("pt-BR")));
                 break;
             }
             catch (Exception ex) when (ex is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException or JsonException)
@@ -577,7 +578,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             game.Id,
             game.Title,
             described.Cover == LibraryCoverKind.Image ? described.Image : null,
-            described.Subtitle,
+            described.Subtitle == LibraryCards.NoData ? "Na sua Biblioteca" : described.Subtitle,
             (described.ProgressPercent ?? 0) / 100.0,
             RolePill(appearance.RoleCode, card.Gender),
             $"{origin} · spoiler nível {appearance.Spoiler.ToString(CultureInfo.InvariantCulture)}",
@@ -602,7 +603,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             chips.Add(new SheetChip($"Gênero real: {real}", IsWarning: true));
         }
 
-        chips.AddRange(card.Traits.Take(FirstTraits).Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0)));
+        // Os traços ficam só no cartão "Traços" (Groups); aqui vão o gênero, a idade e o aviso dos escondidos.
         if (card.HiddenTraits > 0)
         {
             var reason = hidden.All(t => t.Spoiler > 0) ? ("traço com spoiler", "traços com spoiler") : ("traço escondido", "traços escondidos");
@@ -624,7 +625,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         "Engages in" => "Atividades",
         "Subject of" => "Situações",
         "Sexual Content" or "Sexual content" => "Conteúdo adulto",
-        _ => vndbGroup,
+        _ => string.IsNullOrWhiteSpace(vndbGroup) ? "Traços" : vndbGroup,
     };
 
     private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, List<VndbTrait> hidden)

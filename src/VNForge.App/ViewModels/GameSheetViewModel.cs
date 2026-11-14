@@ -85,10 +85,11 @@ public sealed partial class GameSheetViewModel : ObservableObject
     /// <summary>Buscando no VNDB ou traduzindo: as ações esperam.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FetchCommand), nameof(TranslateCommand))]
-    [NotifyPropertyChangedFor(nameof(TranslateLabel), nameof(ShowBusy))]
+    [NotifyPropertyChangedFor(nameof(TranslateLabel), nameof(ShowBusy), nameof(PrimaryHint), nameof(ShowPrimaryHint), nameof(ShowRetranslate))]
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrimaryHint))]
     public partial string BusyText { get; private set; } = string.Empty;
 
     [ObservableProperty]
@@ -225,24 +226,9 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     // --- Sinopse ---
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynopsisText), nameof(SynopsisToggleText))]
-    public partial bool ShowOriginal { get; set; }
-
     public bool HasSynopsis => card?.Synopsis is not null;
 
-    public string SynopsisText
-    {
-        get
-        {
-            if (data?.Game.Synopsis is not { } text || card?.Synopsis is not { } shown)
-            {
-                return "Este jogo não tem sinopse no VNDB.";
-            }
-
-            return ShowOriginal ? SheetViewer.ShownSource(text, Visibility).Text : shown.Text;
-        }
-    }
+    public string SynopsisText => data?.Game.Synopsis is null || card?.Synopsis is not { } shown ? "Este jogo não tem sinopse no VNDB." : shown.Text;
 
     public SheetPill? SynopsisPill
     {
@@ -253,17 +239,16 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 return null;
             }
 
-            return SheetPill.Of(shown.Translated ? shown.Status : TranslationStatus.Untranslated, feminine: true);
+            if (!shown.Translated || shown.Status == TranslationStatus.Untranslated)
+            {
+                return new SheetPill("Em inglês", SheetTone.Pending);
+            }
+
+            // O quadro pinta o selo da sinopse revisada de verde, como o aprovado.
+            var pill = SheetPill.Of(shown.Status, feminine: true);
+            return shown.Status == TranslationStatus.Reviewed ? pill with { Tone = SheetTone.Approved } : pill;
         }
     }
-
-    /// <summary>"Ver o original" só existe quando há tradução para alternar.</summary>
-    public bool CanToggleOriginal => card?.Synopsis is { Translated: true };
-
-    public string SynopsisToggleText => ShowOriginal ? "Ver a tradução" : "Ver o original";
-
-    [RelayCommand]
-    private void ToggleOriginal() => ShowOriginal = !ShowOriginal;
 
     // --- Tags ---
 
@@ -351,7 +336,6 @@ public sealed partial class GameSheetViewModel : ObservableObject
         GameTitle = title;
         data = null;
         levelPending = true;
-        ShowOriginal = false;
         ShowAllCharacters = false;
         CloseReview();
         State = id is null ? GameSheetState.NoLink : GameSheetState.Loading;
@@ -453,7 +437,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
 
     private static string TagsPillText(TranslationStatus status) => status switch
     {
-        TranslationStatus.Untranslated => "Sem tradução ainda, valem para todos os jogos",
+        TranslationStatus.Untranslated => "Em inglês",
         TranslationStatus.Machine => "Traduzidas pela IA, valem para todos os jogos",
         TranslationStatus.Translated => "Traduzidas, valem para todos os jogos",
         TranslationStatus.Reviewed => "Revisadas, valem para todos os jogos",
@@ -483,7 +467,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
         foreach (var character in card.Characters)
         {
             var kind = TileKindOf(character);
-            var line = character.Traits.Count > 0 ? string.Join(", ", character.Traits.Select(t => t.Name)) : character.Description?.Text ?? string.Empty;
+            var line = character.Description?.Text ?? string.Empty;
             tiles.Add(new CharacterTile(
                 character.Id,
                 kind,
@@ -491,7 +475,7 @@ public sealed partial class GameSheetViewModel : ObservableObject
                 character.Original,
                 character.Image,
                 new SheetPill(SheetLabels.RoleBadge(character.RoleCode, character.Gender), character.RoleCode == "main" ? SheetTone.Approved : SheetTone.Pending),
-                character.Status is { } status ? SheetPill.Of(status) : null,
+                character.Status is { } status && status != TranslationStatus.Untranslated ? SheetPill.Of(status) : null,
                 line,
                 TileNote(kind),
                 0,

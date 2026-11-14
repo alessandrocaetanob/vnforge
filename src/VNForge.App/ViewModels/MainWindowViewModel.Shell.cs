@@ -45,7 +45,10 @@ public sealed partial class MainWindowViewModel
         new(GameTab.Play, "Jogar"),
     ];
 
-    public IReadOnlyList<GameTabItem> GameTabs => Tabs;
+    /// <summary>As abas do jogo aberto; o jogo da Biblioteca que ainda não tem projeto só tem a Ficha, porque Tradução e Jogar precisam do projeto.</summary>
+    public IReadOnlyList<GameTabItem> GameTabs => InProjectlessGame ? SheetOnlyTabs : Tabs;
+
+    private static readonly GameTabItem[] SheetOnlyTabs = [Tabs[0]];
 
     /// <summary>A segunda linha da aba Tradução, como no quadro: Painel, Editor, Revisão, Conferir, Testar, Glossário e "Mais", que abre o menu de <see cref="MoreSections"/>.</summary>
     public IReadOnlyList<NavItemViewModel> Sections { get; }
@@ -69,7 +72,7 @@ public sealed partial class MainWindowViewModel
     public GameCapturesViewModel Play { get; }
 
     /// <summary>Há um jogo aberto à vista: o cabeçalho dele e as abas aparecem acima da página.</summary>
-    public bool InGame => HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null;
+    public bool InGame => InProjectlessGame || (HasProject && selectedNav is { } item && GameTabOf(item.Key) is not null);
 
     /// <summary>
     /// O modo revisão ocupa a página inteira, com o seu próprio "Voltar ao editor": enquanto ele está aberto o cabeçalho do jogo sai, para o palco e o roteiro
@@ -78,10 +81,10 @@ public sealed partial class MainWindowViewModel
     public bool ShowGameHeader => InGame && !(selectedNav is { } item && ReferenceEquals(item, editorItem) && Editor.IsReviewing);
 
     /// <summary>Na Ficha e em Jogar o botão principal do cabeçalho completo é "Jogar"; na Tradução é o próximo passo do Painel.</summary>
-    public bool ShowPlayButton => InGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
+    public bool ShowPlayButton => InGame && !InProjectlessGame && SelectedGameTab?.Tab != GameTab.Translation && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
     /// <summary>O próximo passo do Painel no lugar de "Jogar": na Tradução, e em nenhuma aba durante a revisão da ficha, que não leva botão no cabeçalho.</summary>
-    public bool ShowNextStepButton => !ShowPlayButton && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
+    public bool ShowNextStepButton => !ShowPlayButton && !InProjectlessGame && !(SelectedGameTab?.Tab == GameTab.Sheet && Sheet.IsReviewing);
 
     /// <summary>A segunda linha só existe na aba Tradução.</summary>
     public bool ShowSections => InGame && SelectedGameTab?.Tab == GameTab.Translation;
@@ -99,7 +102,7 @@ public sealed partial class MainWindowViewModel
 
             if (InGame || (HasProject && inSettings))
             {
-                return $"Biblioteca › {ProjectTitle}";
+                return $"Biblioteca › {GameHeaderTitle}";
             }
 
             if (inSettings)
@@ -126,16 +129,27 @@ public sealed partial class MainWindowViewModel
     public bool CanReturnToGame => HasProject && lastGameItem is not null && selectedNav?.Key is NavKey.Start or NavKey.Characters or NavKey.Settings;
 
     /// <summary>Verde quando o jogo está completo, neutro quando nada foi feito, azul no meio.</summary>
-    public bool GameProgressDone => GameProgress.Percent(ReadyLines, TotalLines) >= 100;
+    public bool GameProgressDone => !InProjectlessGame && GameProgress.Percent(ReadyLines, TotalLines) >= 100;
 
-    public bool GameProgressNone => GameProgress.Percent(ReadyLines, TotalLines) == 0;
+    public bool GameProgressNone => InProjectlessGame || GameProgress.Percent(ReadyLines, TotalLines) == 0;
 
-    public string GameEngineLabel => CurrentProject is { } project ? ProjectLabels.EngineName(project.EngineId) : string.Empty;
+    public string GameEngineLabel
+    {
+        get
+        {
+            if (projectless is { } game && InProjectlessGame)
+            {
+                return game.Engine.Name;
+            }
+
+            return CurrentProject is { } project ? ProjectLabels.EngineName(project.EngineId) : string.Empty;
+        }
+    }
 
     /// <summary>A parte pronta do jogo, de 0 a 100, para a barra da capa; vem do Painel e, antes de ele ler a pasta, do resumo do projeto.</summary>
-    public double GameProgressPercent => GameProgress.Percent(ReadyLines, TotalLines);
+    public double GameProgressPercent => InProjectlessGame ? 0 : GameProgress.Percent(ReadyLines, TotalLines);
 
-    public string GameProgressLabel => GameProgress.Describe(ReadyLines, TotalLines);
+    public string GameProgressLabel => InProjectlessGame ? "Sem projeto" : GameProgress.Describe(ReadyLines, TotalLines);
 
     private double ReadyLines => Dashboard.TotalLines > 0 ? Dashboard.ReadyLines : CurrentProject?.Counts.Ready ?? 0;
 
@@ -152,7 +166,7 @@ public sealed partial class MainWindowViewModel
                 Sheet.ExitReviewCommand.Execute(null);
             }
 
-            if (value is not null && HasProject)
+            if (value is not null && HasProject && !InProjectlessGame)
             {
                 SelectedNav = value.Tab switch
                 {
@@ -202,22 +216,18 @@ public sealed partial class MainWindowViewModel
     private void OpenLibrary() => SelectedNav = Nav[0];
 
     /// <summary>
-    /// "Abrir jogo" da gaveta da Biblioteca: um jogo com projeto de tradução abre o projeto e leva à Ficha; um jogo que o VNForge traduz e ainda não tem projeto abre o assistente
-    /// de novo projeto com a pasta dele; um jogo de engine sem suporte só explica, porque ainda não há o que abrir nele.
+    /// "Abrir jogo" da gaveta da Biblioteca e do cartão de Personagens: um jogo com projeto de tradução abre o projeto e leva à Ficha; um jogo sem projeto leva à Ficha dele do mesmo jeito,
+    /// porque a ficha fica na pasta de configuração, por jogo da Biblioteca, e não depende do projeto. "Traduzir este jogo" da Ficha abre o assistente de novo projeto com a pasta dele.
     /// </summary>
-    private void OpenGameFromLibrary(LibraryGame game, Func<NewProjectWizardViewModel>? newProjectWizard)
+    private void OpenGameFromLibrary(LibraryGame game)
     {
         if (game.ProjectPath is { } path)
         {
             ProjectOpening = OpenLibraryProjectAsync(path, game.VndbId, game.Title);
         }
-        else if (game.Engine.Translatable)
-        {
-            ShowWizard(newProjectWizard, game.Folder, LibraryContext(game));
-        }
         else
         {
-            Toasts.Show($"O VNForge ainda não traduz jogos da engine {game.Engine.Name}. Por enquanto a Biblioteca só guarda o jogo e a ficha dele.", ToastKind.Info, key: "library-open");
+            OpenProjectlessSheet(game);
         }
     }
 
@@ -448,6 +458,14 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(SelectedTopNav));
         OnPropertyChanged(nameof(SelectedBottomNav));
         OnPropertyChanged(nameof(InGame));
+        OnPropertyChanged(nameof(InProjectlessGame));
+        OnPropertyChanged(nameof(ProjectlessGame));
+        OnPropertyChanged(nameof(CanTranslateProjectlessGame));
+        OnPropertyChanged(nameof(ShowUnsupportedEngine));
+        OnPropertyChanged(nameof(GameTabs));
+        OnPropertyChanged(nameof(GameHeaderTitle));
+        OnPropertyChanged(nameof(GameEngineLabel));
+        RaiseProgressChanged();
         OnPropertyChanged(nameof(ShowGameHeader));
         OnPropertyChanged(nameof(ShowSections));
         OnPropertyChanged(nameof(ShowPlayButton));

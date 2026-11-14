@@ -132,4 +132,11 @@
     <Setter Property="FontSize" Value="{DynamicResource Vnf.FontSize.Pill}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
+  <Style Selector="Border.game-pill.none.plain">
+    <Setter Property="Background" Value="{DynamicResource Vnf.StatusPendingBg}"/>
+  </Style>
+  <Style Selector="Border.game-pill.none.plain > TextBlock">
+    <Setter Property="FontWeight" Value="Normal"/>
+    <Setter Property="Foreground" Value="{DynamicResource Vnf.StatusPendingFg}"/>
+  </Style>
 </Styles>

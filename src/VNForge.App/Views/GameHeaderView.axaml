@@ -94,15 +94,15 @@
             <Border Width="56" Height="75" CornerRadius="{DynamicResource Vnf.RadiusLg}" BoxShadow="{DynamicResource Vnf.ShadowCover}"
                     Background="{DynamicResource Vnf.BgInset}" AutomationProperties.AccessibilityView="Raw">
               <Panel ClipToBounds="True">
-                <c:Cover Width="56" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding ProjectTitle}"/>
-                <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}">
+                <c:Cover Width="56" Image="{Binding GameCover}" Revealed="{Binding GameCoverRevealed}" Seed="{Binding GameHeaderTitle}"/>
+                <Border VerticalAlignment="Bottom" Height="5" Background="{DynamicResource Vnf.CoverChipBg}" IsVisible="{Binding !InProjectlessGame}">
                   <Border HorizontalAlignment="Left" Background="{DynamicResource Vnf.Accent}"
                           Width="{Binding GameProgressPercent, Converter={x:Static v:GameHeaderView.CoverBarWidth}}"/>
                 </Border>
               </Panel>
             </Border>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-              <TextBlock Classes="title-lg" Text="{Binding ProjectTitle}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Classes="title-lg" Text="{Binding GameHeaderTitle}" TextTrimming="CharacterEllipsis"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <!-- O título em japonês, do vndb.json do projeto; sem o vínculo com o VNDB a linha começa na engine. -->
                 <TextBlock Name="OriginalTitle" Classes="jp-row secondary" Text="{Binding GameOriginalTitle}" IsVisible="{Binding HasGameOriginalTitle}"
@@ -110,13 +110,32 @@
                 <Border Classes="game-tag">
                   <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding GameEngineLabel}"/>
                 </Border>
-                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}">
+                <Border Classes="game-pill" Classes.done="{Binding GameProgressDone}" Classes.none="{Binding GameProgressNone}" IsVisible="{Binding !InProjectlessGame}">
                   <TextBlock Name="Progress" Text="{Binding GameProgressLabel}"/>
+                </Border>
+                <!-- Sem projeto não há andamento: a pílula é neutra, em peso normal, como o selo "pend" do quadro. -->
+                <Border Name="ProjectlessPill" Classes="game-pill none plain" IsVisible="{Binding InProjectlessGame}">
+                  <TextBlock Text="Sem projeto"/>
                 </Border>
               </StackPanel>
             </StackPanel>
             <!-- O botão principal do quadro: na Tradução, o próximo passo; na Ficha e em Jogar, "Jogar" (que vira "Jogando", desabilitado, durante a partida). -->
             <Panel Grid.Column="2" VerticalAlignment="Center">
+              <!-- O jogo da Biblioteca sem projeto: o projeto vira ação do cabeçalho (#690). Jogar e o próximo passo precisam do projeto. -->
+              <StackPanel Name="ProjectlessActions" Orientation="Horizontal" Spacing="8" IsVisible="{Binding InProjectlessGame}">
+                <Button Classes="subtle" Padding="16,0" Height="32" FontSize="14" Command="{Binding LinkExistingProjectCommand}" CommandParameter="{Binding ProjectlessGame}"
+                        AutomationProperties.Name="Ligar a um projeto que já existe">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Link}"/>
+                    <TextBlock Text="Ligar a um projeto que já existe"/>
+                  </StackPanel>
+                </Button>
+                <TextBlock Name="UnsupportedEngine" Classes="secondary" FontSize="13" VerticalAlignment="Center" Text="Engine sem suporte para tradução" IsVisible="{Binding ShowUnsupportedEngine}"/>
+                <Button Name="TranslateGameButton" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding TranslateProjectlessGameCommand}" IsVisible="{Binding CanTranslateProjectlessGame}"
+                        AutomationProperties.Name="Traduzir este jogo">
+                  <TextBlock Text="Traduzir este jogo"/>
+                </Button>
+              </StackPanel>
               <Panel IsVisible="{Binding ShowNextStepButton}">
                 <Button Classes="accent" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding Dashboard.OpenNextStepCommand}" IsVisible="{Binding Dashboard.HasNextStep}">
                   <StackPanel Orientation="Horizontal" Spacing="8">

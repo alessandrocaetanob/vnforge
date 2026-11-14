@@ -116,7 +116,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.True(vm.IsReady);
         Assert.False(vm.ShowEmpty);
         Assert.Contains("Numa cidade onde chove", vm.SynopsisText, StringComparison.Ordinal);
-        Assert.Equal(new SheetPill("Revisada", SheetTone.Reviewed), vm.SynopsisPill);
+        Assert.Equal(new SheetPill("Revisada", SheetTone.Approved), vm.SynopsisPill);
         Assert.Equal("Média · 18 h (47 votos)", vm.DurationText);
         Assert.Equal("2019, em japonês", vm.ReleasedText);
         Assert.Equal("7,9 de 10", vm.RatingText);
@@ -128,7 +128,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal(6, vm.CharacterTiles.Count);
         Assert.True(vm.CanShowAll);
         var kenta = vm.CharacterTiles[0];
-        Assert.Equal(("Kenta Aizawa", "相沢 健太", "Protagonista", "Aprovado", "Cabelo curto, Esportista"), (kenta.Name, kenta.Original, kenta.Role!.Text, kenta.Status!.Text, kenta.Line));
+        Assert.Equal(("Kenta Aizawa", "相沢 健太", "Protagonista", "Aprovado", "O protagonista. Volta à escola do irmão."), (kenta.Name, kenta.Original, kenta.Role!.Text, kenta.Status!.Text, kenta.Line));
         Assert.Equal(SheetTone.Approved, kenta.Role.Tone);
         Assert.Equal(["Protagonista", "Principal", "Principal", "Secundário", "Secundária", "Secundária"], vm.CharacterTiles.Select(t => t.Role!.Text));
         Assert.Equal(["Aprovado", "Revisado", "Traduzido", "Traduzido pela IA", "Traduzido pela IA", "Traduzido pela IA"], vm.CharacterTiles.Select(t => t.Status!.Text));
@@ -228,21 +228,11 @@ public sealed class GameSheetViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Ver_o_original_alterna_o_texto_do_VNDB_e_some_quando_nao_ha_traducao()
+    public async Task A_sinopse_sem_traducao_mostra_o_texto_do_VNDB_com_o_selo_Em_ingles()
     {
-        var vm = await ReadyAsync();
-
-        Assert.True(vm.CanToggleOriginal);
-        Assert.Equal("Ver o original", vm.SynopsisToggleText);
-        vm.ToggleOriginalCommand.Execute(null);
-
-        Assert.StartsWith("A town where it rains all year.", vm.SynopsisText, StringComparison.Ordinal);
-        Assert.Equal("Ver a tradução", vm.SynopsisToggleText);
-
         using var other = new TempFolder();
         var raw = await ReadyAsync(translate: false, other.Path);
-        Assert.False(raw.CanToggleOriginal);
-        Assert.Equal(new SheetPill("Sem tradução", SheetTone.Pending), raw.SynopsisPill);
+        Assert.Equal(new SheetPill("Em inglês", SheetTone.Pending), raw.SynopsisPill);
         Assert.StartsWith("A town where it rains", raw.SynopsisText, StringComparison.Ordinal);
     }
 

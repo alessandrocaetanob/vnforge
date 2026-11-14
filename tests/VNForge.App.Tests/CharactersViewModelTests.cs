@@ -160,7 +160,7 @@ public sealed class CharactersViewModelTests : IDisposable
         vm.Open("c101");
         await vm.LoadAsync();
 
-        Assert.Equal(new CharacterTranslation("Feminino", "花", "2 em Star Garden"), vm.Page!.Translation);
+        Assert.Equal(new CharacterTranslation("Feminino", "花", "2"), vm.Page!.Translation);
         Assert.Equal(0.5, vm.Page.Games.Single(g => g.GameId == "g2").Progress);
         var notice = Assert.Single(notices);
         Assert.Equal(ToastKind.Warning, notice.Kind);
