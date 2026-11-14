@@ -189,6 +189,9 @@ public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, Li
 
     public bool IsMatched => Card.Game.IsConfirmed;
 
+    /// <summary>O jogo ainda não tem projeto ligado: a gaveta oferece "Ligar a um projeto que já existe".</summary>
+    public bool HasNoProject => Card.Game.ProjectPath is null;
+
     public bool CanTranslate => Card.Game.Engine.Translatable;
 
     private LibraryVersionLabel? VersionLabel => Card.Version is { } version ? LibraryVersionLabel.For(version) : null;

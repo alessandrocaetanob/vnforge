@@ -118,12 +118,29 @@
                 <TextBlock Text="Varrer de novo"/>
               </StackPanel>
             </Button>
-            <Button Grid.Column="3" Name="AddFolderButton" Classes="accent" Command="{Binding ChooseFolderCommand}" VerticalAlignment="Top">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
-                <TextBlock Text="Adicionar pasta"/>
-              </StackPanel>
-            </Button>
+            <!-- "Adicionar pasta" com a seta do botão dividido (E5 do quadro da #688): o menu leva também a "Abrir um projeto que já existe". -->
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Top">
+              <Button Name="AddFolderButton" Classes="accent" CornerRadius="8,0,0,8" Command="{Binding ChooseFolderCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Add}"/>
+                  <TextBlock Text="Adicionar pasta"/>
+                </StackPanel>
+              </Button>
+              <Button Name="AddFolderMenuButton" Classes="accent" Width="32" Padding="0" CornerRadius="0,8,8,0" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource Vnf.OnAccent}"
+                      AutomationProperties.Name="Mais formas de adicionar">
+                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.ChevronDown}"/>
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem Name="AddFolderMenuItem" Header="Adicionar pasta" Command="{Binding ChooseFolderCommand}">
+                      <MenuItem.Icon><PathIcon Data="{StaticResource Icon.Add}"/></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Name="OpenExistingProjectMenuItem" Header="Abrir um projeto que já existe" Command="{Binding OpenExistingProjectCommand}">
+                      <MenuItem.Icon><PathIcon Data="{StaticResource Icon.Folder}"/></MenuItem.Icon>
+                    </MenuItem>
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+            </StackPanel>
           </Grid>
           <!-- "Continuar jogando": os últimos jogados, o último primeiro; cada cartão tem o Jogar. -->
           <StackPanel Name="ContinuePanel" Spacing="12" IsVisible="{Binding HasContinue}">
@@ -399,6 +416,14 @@
                   </Button.Flyout>
                 </Button>
               </StackPanel>
+              <!-- Jogo sem projeto: a ação discreta sob os botões, para o Abrir jogo seguir como o único principal (E1 do quadro da #688). -->
+              <Button Name="LinkProjectButton" Classes="subtle sm" HorizontalAlignment="Left" IsVisible="{Binding HasNoProject}"
+                      Command="{Binding Library.LinkCardProjectCommand}" CommandParameter="{Binding Card}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Link}"/>
+                  <TextBlock Text="Ligar a um projeto que já existe"/>
+                </StackPanel>
+              </Button>
               <Button Name="ConfirmMatchButton" HorizontalAlignment="Left" Content="Confirmar o casamento" IsVisible="{Binding NeedsConfirmation}"
                       Command="{Binding Library.ChooseMatchCommand}" CommandParameter="{Binding Card}"/>
 
@@ -666,6 +691,59 @@
               <TextBlock Text="Extrair de novo"/>
             </StackPanel>
           </Button>
+        </StackPanel>
+      </c:ScreenDialog.Footer>
+    </c:ScreenDialog>
+
+    <!-- O diálogo da pasta diferente (".v3-dialog" de 600): de onde para onde a pasta do jogo muda no projeto e o estado do jogo na pasta nova; a recusa só tem Fechar. -->
+    <c:ScreenDialog DialogWidth="600" IsOpen="{Binding HasLinkDialog, Mode=TwoWay}">
+      <StackPanel Spacing="16" Margin="0,-16,0,0" DataContext="{Binding LinkDialog}" x:DataType="vm:LibraryLinkDialog" AutomationProperties.Name="{Binding Title}">
+        <TextBlock Name="LinkDialogTitle" Classes="lib-h2" TextWrapping="Wrap" Text="{Binding Title}"/>
+        <TextBlock Name="LinkDialogMessage" TextWrapping="Wrap" IsVisible="{Binding CanConfirm}">
+          <Run Text="O projeto "/><Run FontWeight="Bold" Text="{Binding ProjectName}"/><Run Text=" "/><Run Text="{Binding Message}"/>
+        </TextBlock>
+        <Border Name="LinkDialogRefusal" Classes="infobar error" IsVisible="{Binding IsRefusal}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}"/>
+            <Panel Grid.Column="1">
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" IsVisible="{Binding HasFile}">
+                <Run Text="O arquivo "/><Run FontFamily="{DynamicResource Vnf.FontMono}" Text="{Binding File}"/><Run Text="{Binding Message}"/>
+              </TextBlock>
+              <TextBlock Classes="body-sm" TextWrapping="Wrap" IsVisible="{Binding HasNoFile}" Text="{Binding Message}"/>
+            </Panel>
+          </Grid>
+        </Border>
+        <TextBlock Name="LinkDialogNote" TextWrapping="Wrap" IsVisible="{Binding IsRefusal}" Text="{Binding Note}"/>
+        <Border Name="LinkDialogRoute" Classes="lib-route" IsVisible="{Binding HasRoute}">
+          <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12">
+            <StackPanel Spacing="2">
+              <c:OverlineText Classes="overline" Text="No projeto hoje"/>
+              <TextBlock Name="LinkDialogFrom" Classes="lib-path" Text="{Binding FromFolder}"/>
+            </StackPanel>
+            <PathIcon Grid.Column="1" Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.ArrowRight}"/>
+            <StackPanel Grid.Column="2" Spacing="2">
+              <c:OverlineText Classes="overline" Text="Na Biblioteca"/>
+              <TextBlock Name="LinkDialogTo" Classes="lib-path" Text="{Binding ToFolder}"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <StackPanel Spacing="8" IsVisible="{Binding CanConfirm}">
+          <Border Name="LinkDialogState" Classes="lib-pill" HorizontalAlignment="Left" Tag="{Binding StateTone}"><TextBlock Text="{Binding StateTitle}"/></Border>
+          <TextBlock TextWrapping="Wrap" Text="{Binding StateText}"/>
+          <TextBlock Classes="lib-dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Text="{Binding Note}"/>
+        </StackPanel>
+      </StackPanel>
+      <c:ScreenDialog.Footer>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Name="LinkDialogCancel" Content="Cancelar" Command="{Binding CloseLinkDialogCommand}" IsVisible="{Binding LinkDialog.CanConfirm}"/>
+          <Button Name="LinkDialogConfirm" Classes="accent" Command="{Binding ConfirmLinkCommand}" IsVisible="{Binding LinkDialog.CanConfirm}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Link}"/>
+              <TextBlock Text="Mudar a pasta e ligar" IsVisible="{Binding !IsLinking}"/>
+              <TextBlock Text="Conferindo o jogo" IsVisible="{Binding IsLinking}"/>
+            </StackPanel>
+          </Button>
+          <Button Name="LinkDialogClose" Classes="accent" Content="Fechar" Command="{Binding CloseLinkDialogCommand}" IsVisible="{Binding !LinkDialog.CanConfirm}"/>
         </StackPanel>
       </c:ScreenDialog.Footer>
     </c:ScreenDialog>

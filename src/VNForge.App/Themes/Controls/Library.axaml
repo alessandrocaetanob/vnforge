@@ -509,6 +509,20 @@
     <Setter Property="Height" Value="1"/>
     <Setter Property="Background" Value="{DynamicResource Vnf.StrokeSubtle}"/>
   </Style>
+  <!-- ".route" do diálogo da pasta diferente: de onde para onde, num fundo inset com borda sutil. -->
+  <Style Selector="Border.lib-route">
+    <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource Vnf.RadiusMd}"/>
+    <Setter Property="Padding" Value="16,12"/>
+  </Style>
+  <Style Selector="TextBlock.lib-path">
+    <Setter Property="FontFamily" Value="{DynamicResource Vnf.FontMono}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="LineHeight" Value="18"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
   <!-- ".ico-box": quadrado de 40 com raio 12 em accent-soft. -->
   <Style Selector="Border.lib-icobox">
     <Setter Property="Width" Value="40"/>

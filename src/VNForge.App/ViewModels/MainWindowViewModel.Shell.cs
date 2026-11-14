@@ -228,6 +228,53 @@ public sealed partial class MainWindowViewModel
         return new LibraryGameContext(card?.Title ?? game.Title, game.VndbId, card is { HasImage: true } ? card.Image : null, card?.OriginalTitle);
     }
 
+    /// <summary>
+    /// "Ligar a um projeto que já existe": pede a pasta do projeto e liga ao jogo da Biblioteca, como o <c>vnf library link</c>. Serve à gaveta e à Ficha. Um erro ou o diálogo da pasta diferente
+    /// aparecem na Biblioteca, então a tela volta para ela quando a chamada vem de outra página; o sucesso vira um toast.
+    /// </summary>
+    [RelayCommand]
+    private async Task LinkExistingProjectAsync(LibraryGame? game)
+    {
+        if (game is null)
+        {
+            return;
+        }
+
+        openAfterLink = null;
+        await Library.LinkProjectAsync(game);
+        if (!ReferenceEquals(CurrentPage, Library) && (Library.HasLinkDialog || Library.ErrorMessage is { Length: > 0 }))
+        {
+            OpenLibrary();
+        }
+    }
+
+    /// <summary>
+    /// "Abrir este projeto" do assistente de novo projeto, com a pasta de um projeto que já existe: liga o projeto ao jogo da Biblioteca que tem a pasta do assistente e abre. Pasta do jogo
+    /// diferente no projeto abre antes o diálogo da Biblioteca, e o projeto abre quando a ligação é confirmada. Sem jogo na Biblioteca com essa pasta, só abre o projeto.
+    /// </summary>
+    private async Task LinkAndOpenAsync(string root, string? gameFolder)
+    {
+        var game = gameFolder is null ? null : Library.Games.FirstOrDefault(g => SameFolder(g.Folder, gameFolder));
+        if (game is null)
+        {
+            await OpenCreatedProjectAsync(root);
+            return;
+        }
+
+        await Library.LinkProjectAsync(game, root);
+        if (SameFolder(Library.Games.FirstOrDefault(g => g.Id == game.Id)?.ProjectPath, root))
+        {
+            await OpenLibraryProjectAsync(root, game.VndbId, game.Title);
+        }
+        else if (Library.HasLinkDialog)
+        {
+            openAfterLink = root;
+        }
+    }
+
+    private static bool SameFolder(string? a, string? b) =>
+        a is not null && b is not null && string.Equals(GameLibrary.NormalizeFolder(a), GameLibrary.NormalizeFolder(b), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>"Abrir um projeto que já existe" da biblioteca vazia: pede a pasta e, se o projeto abriu, leva à Ficha como o "Abrir jogo" faz.</summary>
     private async Task OpenExistingProjectAsync()
     {

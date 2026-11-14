@@ -82,10 +82,26 @@ public static class LibraryProjectLinker
         ArgumentNullException.ThrowIfNull(game);
         var root = RequireProject(projectFolder);
         var configured = TryReadGameFolder(root, out _);
-        return configured is null || (GameLibrary.IsUnder(configured, game.Folder) && GameLibrary.IsUnder(game.Folder, configured))
+        return configured is null || SameFolder(configured, game.Folder)
             ? null
             : ProjectGameRelocator.Move(ProjectFolder.Open(root), game.Folder);
     }
+
+    /// <summary>
+    /// O que o <see cref="FollowGame"/> faria, sem gravar nada: nulo quando o projeto já aponta para a pasta do jogo da biblioteca (ligar direto); senão, de onde para onde a pasta muda e
+    /// em que estado o jogo está na pasta nova. Também lê o jogo inteiro pelos hashes, então rode fora da trava da biblioteca.
+    /// </summary>
+    /// <exception cref="LibraryException">A pasta não é um projeto do VNForge.</exception>
+    /// <exception cref="VNForgeException">A pasta do jogo da biblioteca não existe, ou o projeto não guardou arquivos do jogo para comparar.</exception>
+    public static GameRelocationPreview? PreviewFollowGame(LibraryGame game, string projectFolder)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        var root = RequireProject(projectFolder);
+        var configured = TryReadGameFolder(root, out _);
+        return configured is null || SameFolder(configured, game.Folder) ? null : ProjectGameRelocator.Inspect(ProjectFolder.Open(root), game.Folder);
+    }
+
+    private static bool SameFolder(string a, string b) => GameLibrary.IsUnder(a, b) && GameLibrary.IsUnder(b, a);
 
     /// <summary>Tira a ligação do projeto. O projeto em si não é tocado.</summary>
     public static LibraryGame Unlink(GameLibrary library, LibraryGame game)

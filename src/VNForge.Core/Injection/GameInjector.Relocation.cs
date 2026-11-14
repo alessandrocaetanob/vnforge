@@ -22,6 +22,11 @@ public sealed partial class GameInjector
         return latest;
     }
 
+    /// <summary>Quando foi a injeção mais nova ainda não restaurada, ou nulo se não há nenhuma.</summary>
+    /// <exception cref="InjectionException">Um manifesto não restaurado está ilegível.</exception>
+    internal static DateTimeOffset? LatestUnrestoredInjectionAt(ProjectFolder project) =>
+        ReadBackups(project).Select(b => (DateTimeOffset?)b.Manifest.CreatedAt).FirstOrDefault();
+
     /// <summary>Algum manifesto legível (restaurado ou não) aponta para uma pasta que não é <paramref name="gameDirectory"/>.</summary>
     internal static bool AnyManifestElsewhere(ProjectFolder project, string gameDirectory) =>
         ManifestsElsewhere(project, gameDirectory).Any();

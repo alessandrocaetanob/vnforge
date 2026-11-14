@@ -330,7 +330,15 @@
 
       <!-- 3. Idiomas e nome -->
       <StackPanel Spacing="20" IsVisible="{Binding IsNamesStep}">
-        <StackPanel Spacing="8">
+        <!-- A pasta já tem um vnforge.json: em vez de errar no fim, avisa na hora e oferece abrir o projeto (quadro da #688). -->
+        <Border Name="ExistingProjectNotice" Classes="infobar" IsVisible="{Binding HasExistingProject}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,1,0,0" Data="{StaticResource Icon.Info}"/>
+            <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap"
+                       Text="Já existe um projeto de tradução nesta pasta. Em vez de criar outro, o VNForge pode abrir este e ligá-lo ao jogo."/>
+          </Grid>
+        </Border>
+        <StackPanel Spacing="8" IsVisible="{Binding ShowNewProjectFields}">
           <c:OverlineText Classes="overline" Text="Nome do projeto"/>
           <TextBox Text="{Binding ProjectName}" AutomationProperties.Name="Nome do projeto"/>
         </StackPanel>
@@ -347,7 +355,24 @@
           </Grid>
           <TextBlock Classes="caption secondary" Text="Fora da pasta do jogo. Texto, cache e backups ficam aqui."/>
         </StackPanel>
-        <StackPanel Spacing="8">
+        <Border Name="ExistingProjectCard" Classes="panel card" Padding="24" IsVisible="{Binding HasExistingProject}">
+          <StackPanel Spacing="16" DataContext="{Binding ExistingProject}" x:DataType="vm:ExistingProjectInfo">
+            <StackPanel Spacing="2">
+              <c:OverlineText Classes="overline" Text="Projeto encontrado"/>
+              <TextBlock Classes="title-md" Text="{Binding Name}"/>
+            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="24" RowSpacing="10">
+              <TextBlock Classes="secondary" Text="Jogo"/>
+              <TextBlock Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap"><Run Text="{Binding Name}"/><Run Text=" · "/><Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding GameFolder}"/></TextBlock>
+              <TextBlock Grid.Row="1" Classes="secondary" Text="Idiomas"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" FontWeight="SemiBold" Text="{Binding Languages}"/>
+              <TextBlock Grid.Row="2" Classes="secondary" Text="Andamento"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="SemiBold" Text="{Binding Progress}"/>
+            </Grid>
+            <c:FractionBar Height="6" Radius="3" Value="{Binding ProgressFraction}"/>
+          </StackPanel>
+        </Border>
+        <StackPanel Spacing="8" IsVisible="{Binding ShowNewProjectFields}">
           <c:OverlineText Classes="overline" Text="Idioma do jogo"/>
           <ItemsControl ItemsSource="{Binding SourceLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
@@ -357,7 +382,7 @@
             </ItemsControl.ItemsPanel>
           </ItemsControl>
         </StackPanel>
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="8" IsVisible="{Binding ShowNewProjectFields}">
           <c:OverlineText Classes="overline" Text="Idioma da tradução"/>
           <ItemsControl ItemsSource="{Binding TargetLanguages.Options}" ItemTemplate="{StaticResource ChoiceCard}">
             <ItemsControl.ItemsPanel>
@@ -487,7 +512,13 @@
 
       <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsWizardStep}">
         <Button Command="{Binding BackCommand}" Content="Voltar"/>
-        <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}"/>
+        <Button Classes="accent" Command="{Binding NextCommand}" Content="{Binding NextLabel}" IsVisible="{Binding ShowNext}"/>
+        <Button Name="OpenExistingProjectButton" Classes="accent" Command="{Binding OpenExistingProjectCommand}" IsVisible="{Binding ShowOpenExisting}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Link}"/>
+            <TextBlock Text="Abrir este projeto"/>
+          </StackPanel>
+        </Button>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>
