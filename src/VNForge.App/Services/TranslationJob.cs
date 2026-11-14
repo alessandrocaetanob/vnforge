@@ -117,23 +117,26 @@ public sealed class TranslationJob(
         }
 
         TranslationRunResult run;
+        IOException? cacheError = null;
         try
         {
             run = await runner.RunAsync(pending, lines => selection.BuildBatch(builder, lines), OnBatch, null, ct).ConfigureAwait(false);
         }
         finally
         {
-            if (cache.Count > 0)
-            {
-                cache.Save(cachePath);
-            }
-
+            // O gasto entra primeiro e o Save não lança aqui: se a execução falhou, é a exceção dela que sobe, não a do cache.
             tracker.Record();
+            cacheError = cache.TrySave(cachePath);
         }
 
         if (run.CallbackError is { } callbackError)
         {
             throw new IOException($"Não foi possível gravar a tradução: {callbackError.Message}", callbackError);
+        }
+
+        if (cacheError is not null)
+        {
+            throw cacheError;
         }
 
         ct.ThrowIfCancellationRequested();

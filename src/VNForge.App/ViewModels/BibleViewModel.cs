@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Bible;
@@ -993,8 +992,15 @@ public sealed partial class BibleViewModel : ObservableObject
         }
 
         var path = Path.Combine(current.Root, "biblia.md");
-        AtomicFile.WriteAllText(path, BibleMarkdown.Render(bible, current.Name));
-        Notice = $"Bíblia exportada em {path}.";
+        try
+        {
+            AtomicFile.WriteAllText(path, BibleMarkdown.Render(bible, current.Name));
+            Notice = $"Bíblia exportada em {path}.";
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = e.Message;
+        }
     }
 
     private sealed class InlineProgress(Action<BibleProgress> report) : IProgress<BibleProgress>

@@ -71,7 +71,7 @@ public sealed class TranslationCache
     }
 
     /// <summary>
-    /// Lê o cache. Arquivo vazio, ilegível ou fora do formato recusa com <see cref="VNForgeException"/> em português e não toca no arquivo: quem chama não segue com um cache vazio,
+    /// Lê o cache. Arquivo vazio ou fora do formato recusa com <see cref="VNForgeException"/> em português e não toca no arquivo: quem chama não segue com um cache vazio,
     /// que o próximo Save gravaria por cima das traduções já pagas (R7).
     /// </summary>
     public static TranslationCache Load(string path)
@@ -88,9 +88,24 @@ public sealed class TranslationCache
         {
             throw new InvalidFileException(path, "o cache de traduções está vazio ou corrompido. O arquivo não foi alterado; apague-o para refazer o cache, e as traduções já pagas serão cobradas de novo.", e);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    }
+
+    /// <summary>
+    /// Como <see cref="Save"/>, mas devolve a falha de disco em vez de lançá-la, para quem grava num <c>finally</c> e não pode esconder a exceção que já está subindo.
+    /// Só grava se o cache tem alguma entrada. Devolve <c>null</c> quando gravou ou não havia o que gravar.
+    /// </summary>
+    public IOException? TrySave(string path)
+    {
+        if (Count == 0)
+            return null;
+        try
         {
-            throw new VNForgeException($"Não foi possível ler o cache de traduções '{path}': {e.Message}", e);
+            Save(path);
+            return null;
+        }
+        catch (IOException e)
+        {
+            return e;
         }
     }
 
@@ -101,9 +116,6 @@ public sealed class TranslationCache
         lock (_gate)
             snapshot = new(_entries, StringComparer.Ordinal);
 
-        var dir = Path.GetDirectoryName(Path.GetFullPath(path));
-        if (dir is not null)
-            Directory.CreateDirectory(dir);
         AtomicFile.WriteAllText(path, JsonSerializer.Serialize(snapshot));
     }
 }

@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 using Spectre.Console;
 using VNForge.AI.Bible;
 using VNForge.AI.Claude;

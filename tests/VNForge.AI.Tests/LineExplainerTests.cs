@@ -1,6 +1,7 @@
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Explain;
+using VNForge.Core;
 using VNForge.Core.Projects;
 
 namespace VNForge.AI.Tests;
@@ -120,17 +121,18 @@ public sealed class LineExplainerTests : IDisposable
         Assert.Empty(client.Requests);
     }
 
-    [Fact]
-    public async Task Cache_corrompido_e_refeito_sem_derrubar_o_explicador()
+    [Theory]
+    [InlineData("")]
+    [InlineData("{ isto não é json")]
+    public void R7_cache_vazio_ou_corrompido_recusa_em_portugues_e_nao_apaga_as_explicacoes(string conteudo)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Cache)!);
-        await File.WriteAllTextAsync(Cache, "{ isto não é json", TestContext.Current.CancellationToken);
-        var client = new StubClient(_ => Ok(Reply));
+        File.WriteAllText(Cache, conteudo);
 
-        var explicacao = await new LineExplainer(client, Cache).ExplainAsync(Original, CancellationToken.None);
+        var erro = Assert.Throws<InvalidFileException>(() => new LineExplainer(new StubClient(_ => Ok(Reply)), Cache));
 
-        Assert.Equal(3, explicacao.Parts.Count);
-        Assert.Contains(SourceHash.Of(Original), await File.ReadAllTextAsync(Cache, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.Contains("apague", erro.Message);
+        Assert.Equal(conteudo, File.ReadAllText(Cache));
     }
 
     [Fact]
