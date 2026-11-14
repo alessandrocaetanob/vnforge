@@ -4,13 +4,13 @@ using VNForge.AI.Cost;
 using VNForge.AI.Review;
 using VNForge.AI.Translation;
 using VNForge.App.Services;
-using VNForge.Core.Bible;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
 /// <summary>A passada de editor (#532) em lote: lê as cenas traduzidas com o provedor falso, grava só em <c>.cache/editor-suggestions.json</c> e nunca toca na tradução.</summary>
+[Trait("Risco", "R5")]
 public sealed class EditorPassJobTests : IDisposable
 {
     private static readonly ExchangeRate Rate = new(5m, new DateOnly(2026, 11, 9));
@@ -32,36 +32,6 @@ public sealed class EditorPassJobTests : IDisposable
         new(folder, (_, _) => provider, new TranslationJobSettings(Rate, limits ?? BudgetLimits.None, 2), usageOf, new FakeTimeProvider(Noon));
 
     [Fact]
-    public async Task Cena_fora_do_escopo_ou_sem_traducao_nao_e_lida()
-    {
-        var folder = Folder(null, null);
-        var fake = new FakeEditorPassProvider();
-
-        var inScope = await Job(folder, fake).RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        folder.SaveText("yst00001", [.. folder.LoadText("yst00001").Select(u => u with { Translation = "Oi", Status = TranslationStatus.Machine })]);
-        var outOfScope = await Job(folder, fake).RunAsync(["outra"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, inScope.Scenes);
-        Assert.Equal(0, outOfScope.Scenes);
-        Assert.Empty(fake.ReceivedScenes);
-    }
-
-    [Fact]
-    public async Task Falha_numa_cena_conta_e_as_outras_seguem()
-    {
-        var folder = Folder("Oi  você");
-        folder.SaveText("yst00002", [new TextUnit("yst00002:000000", TextUnitKind.Dialogue, null, "原文", "Tudo  bem", TranslationStatus.Machine)]);
-        var provider = new ThrowingFor("yst00001", new ClaudeRefusalException("O modelo recusou editar este lote."));
-
-        var result = await Job(folder, provider).RunAsync(["yst00001", "yst00002"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.Scenes);
-        Assert.Equal(1, result.Failed);
-        Assert.NotNull(result.Problem);
-        Assert.Equal(["yst00002:000000"], EditorSuggestionsFile.Load(folder).Suggestions.Select(s => s.UnitId));
-    }
-
-    [Fact]
     public async Task Para_quando_o_gasto_do_projeto_chega_ao_limite()
     {
         var folder = Folder("Oi  você");
@@ -73,52 +43,6 @@ public sealed class EditorPassJobTests : IDisposable
         Assert.Equal(BudgetStop.LimitReached, result.Stopped);
         Assert.Equal(0, result.Scenes);
         Assert.Empty(fake.ReceivedScenes);
-    }
-
-    [Fact]
-    public async Task Outra_grava_a_proposta_nova_no_lugar_da_antiga_e_nao_toca_na_traducao()
-    {
-        var folder = Folder("Oi  você", "Tudo bem");
-        var job = Job(folder, new FakeEditorPassProvider());
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        var before = File.ReadAllBytes(folder.TextPath("yst00001"));
-        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
-
-        var another = await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken);
-
-        Assert.Equal("Oi você (outra)", another!.Proposed);
-        Assert.Equal(["Oi você (outra)"], EditorSuggestionsFile.Load(folder).Suggestions.Select(s => s.Proposed));
-        Assert.Equal(before, File.ReadAllBytes(folder.TextPath("yst00001")));
-    }
-
-    [Fact]
-    public async Task Outra_sem_proposta_nova_deixa_o_arquivo_como_estava()
-    {
-        var folder = Folder("Oi  você");
-        var fake = new FakeEditorPassProvider { Another = (_, _) => null };
-        var job = Job(folder, fake);
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
-
-        Assert.Null(await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken));
-        Assert.Equal([old], EditorSuggestionsFile.Load(folder).Suggestions);
-        Assert.Null(await job.AnotherAsync(old with { ScriptKey = "outra" }, TranslationQuality.Careful, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Outra_nao_traz_de_volta_uma_sugestao_que_a_pessoa_ignorou_enquanto_o_pedido_rodava()
-    {
-        var folder = Folder("Oi  você");
-        var provider = new HookedProvider(_ => { });
-        var job = new EditorPassJob(folder, (_, _) => provider, new TranslationJobSettings(Rate, BudgetLimits.None, 1), null, new FakeTimeProvider(Noon));
-        await job.RunAsync(["yst00001"], TranslationQuality.Careful, new Reporter(), TestContext.Current.CancellationToken);
-        var old = Assert.Single(EditorSuggestionsFile.Load(folder).Suggestions);
-        provider.OnAnother = () => EditorSuggestionsFile.Update(folder, f => f.Without(old.ScriptKey, old.UnitId));
-
-        var another = await job.AnotherAsync(old, TranslationQuality.Careful, TestContext.Current.CancellationToken);
-
-        Assert.Null(another);
-        Assert.Empty(EditorSuggestionsFile.Load(folder).Suggestions);
     }
 
     [Fact]

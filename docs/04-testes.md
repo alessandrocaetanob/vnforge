@@ -15,7 +15,8 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 | R5 | Gastar dinheiro com IA sem querer, ou vazar a chave | Regra 4 do `CLAUDE.md` | Chave só por ambiente ou cofre; limite de gasto recusa antes de chamar; preço por modelo; ids dos modelos |
 | R6 | Fluxo principal que trava o usuário | #688 (não liga projeto existente), #619 (erro ao abrir projeto), #689 (jogo mudou de pasta) | Uma jornada por fluxo principal, pelo ViewModel |
 | R7 | Arquivo externo estragado ou serviço fora do ar apaga ou esconde dado | #652 (pasta de projeto ilegível escondia os outros) | Arquivo ilegível e rede fora: recusa com aviso em português, nada é sobrescrito |
-| R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado). Os testes smoke por tela são os únicos que apontam R8; nenhum outro teste aponta R8, e a fidelidade ao quadro se prova pelo render, fora da suíte |
+| R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado, numa largura só: 1440, a do canvas do design; as outras larguras se conferem no render). Os testes smoke por tela são os únicos que apontam R8; nenhum outro teste aponta R8, e a fidelidade ao quadro se prova pelo render, fora da suíte |
+| R9 | Conteúdo adulto aparece quando a pessoa escolheu esconder ou desfocar | Decisão de 14/11, sem bug registrado | A escolha (mostrar, desfocar, esconder) é gravada e respeitada; no modo Desfocar o cartão fica borrado até o Mostrar e volta a borrar com o Ocultar; arquivo de configuração travado mantém o modo gravado; troca feita pelo CLI chega à grade; imagem adulta já na tela some ao desligar o ajuste, inclusive com o download em andamento; só o modo Mostrar põe o jogo adulto no catálogo exportado |
 
 ## Camadas da suíte
 
@@ -33,7 +34,7 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 
 **Jornadas do App (R6).** Um teste por fluxo que a pessoa faz de ponta a ponta, pelo ViewModel, sem janela: abrir o app pela primeira vez, adicionar pasta à Biblioteca, criar projeto a partir de um jogo, ligar jogo a projeto existente, abrir a Ficha sem projeto, traduzir uma cena, revisar e aprovar, aplicar no jogo, restaurar o original, pausar e retomar a tradução noturna. Cada jornada confere o resultado que importa (arquivo gravado, projeto aberto, jogo alterado), não o texto dos botões no caminho.
 
-**Smoke por tela (R8).** O `ScreenSmokeTests` abre cada tela do catálogo e confere que não há exceção nem texto cortado. Sem pixel, sem medida e sem texto exato. A lógica da tela fica em teste de ViewModel.
+**Smoke por tela (R8).** O `ScreenSmokeTests` abre cada tela do catálogo e confere que não há exceção nem texto cortado. Roda numa largura só (1440); as outras se conferem no render ao lado do quadro. Sem pixel, sem medida e sem texto exato. A lógica da tela fica em teste de ViewModel.
 
 **Teste no ambiente real (manual, antes de cada pré-release).** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro está em [`docs/testes/roteiro-ambiente-real.md`](testes/roteiro-ambiente-real.md) (#703).
 
@@ -63,11 +64,11 @@ A cobertura é medida e aparece no relatório, mas é número informativo. Nenhu
 
 ## Orçamento
 
-O alvo foi aprovado em 14/11. Os números de hoje são os da T8 da #620 (12/11), antes dos PRs #684 a #696. O corte entra nas issues #701 e #702.
+O alvo foi aprovado em 14/11. Os números de hoje são os da T8 da #620 (12/11), antes dos PRs #684 a #696, menos o App, que a #701 já cortou (14/11). O corte dos outros projetos entra na #702 e nas seguintes.
 
 | Projeto | Hoje | Alvo | O que fica |
 |---|---|---|---|
-| App | 1.334 | 120 | ~50 smoke de tela, ~20 jornadas, o resto lógica de risco (gasto, gravação) |
+| App | 214 | 120 | 41 smoke de tela, uma jornada por fluxo principal, o resto lógica de risco (gasto, gravação, oráculos, R9); o alvo de 120 não fecha porque as regras de "fica sempre" já somam mais |
 | Core | 1.562 | 300 | Gravação, backup, injeção, codificação, falha de disco |
 | Engines.YuRis | 277 | 250 | Oráculos de formato, quase todos |
 | Cli | 566 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava |
@@ -119,11 +120,15 @@ pwsh tools/medir-testes.ps1 -Dll tests/VNForge.Core.Tests/bin/Release/net10.0/VN
 
 Ele imprime a saída, o tempo de parede, o pico do conjunto de trabalho do processo e a contagem do JUnit. No Linux, `/usr/bin/time -v dotnet <dll> -noLogo` dá o pico em "Maximum resident set size". Meça sem cobertura (a cobertura aumenta a memória) e com a máquina parada: outros processos pesados distorcem o tempo.
 
-O App roda inteiro num processo, com uns 2 minutos sem cobertura. Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
+O App roda inteiro num processo, com uns 55 s sem cobertura (214 testes, uns 600 MB). Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
+
+### O trait Risco
+
+Cada classe de teste do App leva um ou mais `[Trait("Risco", "R5")]` com o id da tabela de riscos (R1 a R9); o primeiro é o risco principal. Para rodar só um risco: `dotnet tests/VNForge.App.Tests/bin/Release/net10.0/VNForge.App.Tests.dll -trait "Risco=R5"`. Classe nova sem trait de risco não entra: o `RiskTraitTests` falha se uma classe com teste não leva `Risco` de R1 a R9.
 
 ### O trait Tipo=Tela
 
-O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está em `ScreenSmokeTests`, `ClippedTextHeadlessTests` e `ReviewModeKeyTests`, as três que mais gastam tempo de janela; só serve para equilibrar as metades (uns 48 s e 45 s no Windows). Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
+O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Tipo=Tela` (`.circleci/run-tests.sh`). Hoje o trait está só em `ScreenSmokeTests`, a classe que mais gasta tempo de janela; só serve para equilibrar as metades. Teste novo não precisa do trait: sem ele roda no segundo processo, e a sessão headless sobe nos dois. Se uma metade passar muito da outra, marque ou desmarque classes, sem mudar o script.
 
 ### Prova da tarefa
 
@@ -131,7 +136,7 @@ O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Ti
 
 ## Relatório de cada tarefa
 
-O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo e, no App, a memória do processo. A cobertura de linhas e de ramos (do `tools/cobertura.sh`) entra como informação, sem meta. Para cada teste novo ou mantido, o relatório diz o risco (R1 a R8) que ele protege; teste sem risco sai. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
+O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo e, no App, a memória do processo. A cobertura de linhas e de ramos (do `tools/cobertura.sh`) entra como informação, sem meta. Para cada teste novo ou mantido, o relatório diz o risco (R1 a R9) que ele protege; teste sem risco sai. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
 
 ## Capturas das telas
 

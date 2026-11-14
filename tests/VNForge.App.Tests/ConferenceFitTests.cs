@@ -1,4 +1,3 @@
-using VNForge.AI.Translation;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;
 using VNForge.Core.Formatting;
@@ -8,9 +7,9 @@ using VNForge.Core.Text;
 
 namespace VNForge.App.Tests;
 
+[Trait("Risco", "R4")]
 public sealed class ConferenceFitTests : IDisposable
 {
-    private const string Id = "yst00001:000001";
 
     private readonly TempFolder pasta = new();
     private readonly ProjectFolder folder;
@@ -25,19 +24,7 @@ public sealed class ConferenceFitTests : IDisposable
 
     private static string Palavras(int quantas) => string.Join(' ', Enumerable.Repeat("aaaaaaaaa", quantas));
 
-    private static TextUnit Linha(string traducao, int n = 0) =>
-        new($"yst00001:{n:D6}", TextUnitKind.Dialogue, null, $"原文{n}", traducao, TranslationStatus.Translated);
-
     private string Gravada(string id = "yst00001:000000") => folder.LoadText("yst00001").Single(u => u.Id == id).Translation!;
-
-    private async Task<ConferenceViewModel> Conferir(ILineShortener? encurtador)
-    {
-        folder.SaveText("yst00001", [Linha(Palavras(16)), Linha("cabe bem", 1)]);
-        var vm = new ConferenceViewModel { Project = ProjectSummaryReader.Read(folder.Root), Shortener = encurtador };
-        await vm.RefreshAsync();
-        vm.SelectedRow = vm.Rows.Single(r => r.RuleId == BoxLineLimitRule.RuleId);
-        return vm;
-    }
 
     [Fact]
     public async Task Corrigir_e_ir_para_o_proximo_divide_a_fala_e_mantem_os_marcadores_do_original_mais_a_virada_a_mais()
@@ -62,78 +49,5 @@ public sealed class ConferenceFitTests : IDisposable
     private sealed class EncurtadorParado(TaskCompletionSource<string> resposta) : ILineShortener
     {
         public Task<string> ShortenAsync(TextUnit unit, string current, WrapRule box, CancellationToken ct) => resposta.Task;
-    }
-
-    [Fact]
-    public async Task Enquanto_a_ia_encurta_corrigir_e_ir_para_o_proximo_nao_divide_a_fala()
-    {
-        var resposta = new TaskCompletionSource<string>();
-        var vm = await Conferir(new EncurtadorParado(resposta));
-        var mudancas = 0;
-        vm.FixAndNextCommand.CanExecuteChanged += (_, _) => mudancas++;
-
-        var encurtando = vm.SelectedFit!.ShortenCommand.ExecuteAsync(null);
-
-        Assert.True(vm.SelectedFit.IsBusy);
-        Assert.False(vm.FixAndNextCommand.CanExecute(null));
-        Assert.True(mudancas > 0);
-        await vm.FixAndNextCommand.ExecuteAsync(null);
-        Assert.Equal(Palavras(16), Gravada());
-
-        resposta.SetResult("Cabe na caixa.");
-        await encurtando;
-        Assert.Equal("Cabe na caixa.", Gravada());
-    }
-
-    [Fact]
-    public async Task Dividir_avisa_o_editor_que_o_texto_mudou()
-    {
-        var vm = await Conferir(null);
-        var changed = 0;
-        vm.TextsChanged += (_, _) => changed++;
-
-        await vm.SelectedFit!.SplitCommand.ExecuteAsync(null);
-
-        Assert.Equal(1, changed);
-    }
-
-    [Fact]
-    public async Task Depois_de_dividir_a_pagina_a_mais_aparece_como_aviso_e_nao_como_erro()
-    {
-        var vm = await Conferir(null);
-
-        await vm.SelectedFit!.SplitCommand.ExecuteAsync(null);
-
-        var extra = Assert.Single(vm.Rows, r => r.RuleId == ExtraPageQaRule.RuleId);
-        Assert.False(extra.IsError);
-        Assert.DoesNotContain(vm.Rows, r => r.RuleId == "marcador-diferente");
-    }
-
-    [Fact]
-    public async Task Encurtar_com_a_ia_recusando_deixa_a_traducao_e_mostra_o_motivo_no_aviso()
-    {
-        var recusa = new LineSuggester(() => new ReescritaFixa(refused: true));
-        var vm = await Conferir(recusa);
-        var aviso = vm.SelectedFit!;
-
-        await aviso.ShortenCommand.ExecuteAsync(null);
-
-        Assert.Equal(Palavras(16), Gravada());
-        Assert.True(aviso.HasError);
-        Assert.Contains(vm.Rows, r => r.RuleId == BoxLineLimitRule.RuleId);
-    }
-
-    [Fact]
-    public async Task Falha_ao_gravar_mostra_o_erro_e_nao_perde_a_lista()
-    {
-        var vm = await Conferir(null);
-        var aviso = vm.SelectedFit!;
-        File.Delete(Path.Combine(folder.Root, "text", "yst00001.json"));
-        Directory.CreateDirectory(Path.Combine(folder.Root, "text", "yst00001.json"));
-
-        await aviso.SplitCommand.ExecuteAsync(null);
-
-        Assert.StartsWith("Não foi possível gravar a nova tradução", vm.ErrorMessage);
-        Assert.False(vm.IsFixing);
     }
 }

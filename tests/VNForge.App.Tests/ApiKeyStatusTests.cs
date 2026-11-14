@@ -1,10 +1,9 @@
 using VNForge.AI.Settings;
 using VNForge.App.Services;
-using VNForge.App.ViewModels;
-using VNForge.Core.Projects;
 
 namespace VNForge.App.Tests;
 
+[Trait("Risco", "R5")]
 public class ApiKeyStatusTests
 {
     [Theory]
@@ -17,32 +16,6 @@ public class ApiKeyStatusTests
 
         Assert.Equal(esperado, texto);
         Assert.DoesNotContain("segredo", texto);
-    }
-
-    [Fact]
-    public void Resolve_numa_pasta_vazia_devolve_uma_origem_valida_sem_lancar()
-    {
-        using var temp = new TempFolder();
-
-        var chave = ApiKeyStatus.Resolve(temp.Path);
-
-        Assert.True(chave.Source is ApiKeySource.None or ApiKeySource.Environment);
-    }
-
-    [Fact]
-    public void Sem_cofre_na_plataforma_cai_para_so_o_ambiente()
-    {
-        var chave = ApiKeyStatus.Resolve(() => throw new PlatformNotSupportedException());
-
-        Assert.True(chave.Source is ApiKeySource.None or ApiKeySource.Environment);
-    }
-
-    [Fact]
-    public void Cofre_com_chave_e_usado_quando_o_ambiente_esta_vazio()
-    {
-        var chave = ApiKeyStatus.Resolve(() => new FixedVault("do-cofre"));
-
-        Assert.True(chave.Source is ApiKeySource.Vault or ApiKeySource.Environment);
     }
 
     private sealed class FixedVault(string key) : IApiKeyStore

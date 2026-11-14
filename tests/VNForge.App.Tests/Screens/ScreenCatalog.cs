@@ -1,6 +1,5 @@
 using Avalonia.Styling;
 using Microsoft.Extensions.Time.Testing;
-using VNForge.AI.Cost;
 using VNForge.AI.Settings;
 using VNForge.App.Services;
 using VNForge.App.ViewModels;

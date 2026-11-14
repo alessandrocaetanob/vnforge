@@ -23,21 +23,4 @@ internal static class StartFixtures
 
         return folder.Root;
     }
-
-    /// <summary>Grava um pacote em <c>build/</c> com a data pedida e, com <paramref name="replaced"/>, o <c>build-state.json</c> que o <c>vnf build</c> deixa.</summary>
-    public static void AddBuild(string root, DateTimeOffset when, int? replaced)
-    {
-        var folder = ProjectFolder.Open(root);
-        Directory.CreateDirectory(folder.BuildDirectory);
-        var package = Path.Combine(folder.BuildDirectory, "ysbin.ypf");
-        File.WriteAllBytes(package, [1, 2, 3]);
-        File.SetLastWriteTimeUtc(package, when.UtcDateTime);
-        if (replaced is { } count)
-        {
-            Directory.CreateDirectory(folder.CacheDirectory);
-            File.WriteAllText(
-                Path.Combine(folder.CacheDirectory, "build-state.json"),
-                $$"""{"version":1,"scripts":{},"archives":[{"gamePath":"ysbin.ypf","replacedFiles":{{count}},"length":3}],"warnings":[]}""");
-        }
-    }
 }

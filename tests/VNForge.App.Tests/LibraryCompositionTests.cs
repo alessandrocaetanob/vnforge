@@ -6,6 +6,7 @@ using VNForge.Vndb;
 namespace VNForge.App.Tests;
 
 /// <summary>A Biblioteca como o <c>App</c> a monta: o <c>library.json</c> da pasta de configuração, varredura e casamento ligados, sem a janela.</summary>
+[Trait("Risco", "R6")]
 public sealed class LibraryCompositionTests
 {
     [Fact]

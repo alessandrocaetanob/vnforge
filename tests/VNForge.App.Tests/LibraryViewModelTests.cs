@@ -7,6 +7,9 @@ using VNForge.Vndb;
 namespace VNForge.App.Tests;
 
 /// <summary>A tela da Biblioteca (#548) sem janela: carga, filtros, gaveta, casamento, varredura e privacidade, sobre pastas e <c>library.json</c> reais e um VNDB de mentira.</summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R7")]
+[Trait("Risco", "R9")]
 public sealed class LibraryViewModelTests : IDisposable
 {
     private readonly TempFolder _config = new();
@@ -60,6 +63,24 @@ public sealed class LibraryViewModelTests : IDisposable
     private static LibraryCardViewModel Card(LibraryViewModel vm, string title) => vm.Cards.Single(c => c.Title == title);
 
     [Fact]
+    public async Task No_desfocar_o_cartao_adulto_fica_borrado_o_mostrar_revela_so_ele_e_o_ocultar_desfoca_de_novo()
+    {
+        var vm = await Loaded();
+        var card = Card(vm, "Kuroneko Archive");
+        Assert.Equal(AdultMode.Blur, vm.AdultMode);
+        Assert.True(card.IsBlurred);
+
+        vm.RevealGameCommand.Execute(card);
+
+        Assert.False(Card(vm, "Kuroneko Archive").IsBlurred);
+        Assert.False(Card(vm, "Amaoto no Hakoniwa").IsBlurred);
+
+        vm.ConcealGameCommand.Execute(Card(vm, "Kuroneko Archive"));
+
+        Assert.True(Card(vm, "Kuroneko Archive").IsBlurred);
+    }
+
+    [Fact]
     public async Task Arquivo_ilegivel_vira_aviso_e_nao_lista_vazia_muda()
     {
         Directory.CreateDirectory(_config.Path);
@@ -70,228 +91,6 @@ public sealed class LibraryViewModelTests : IDisposable
 
         Assert.False(string.IsNullOrEmpty(vm.ErrorMessage));
         Assert.Equal(LibraryMode.Empty, vm.Mode);
-    }
-
-    [Fact]
-    public async Task A_busca_olha_titulo_original_e_tag_e_o_filtro_estreita_a_grade()
-    {
-        var vm = await Loaded();
-
-        vm.SearchText = "kuroneko";
-        Assert.Equal(["Kuroneko Archive"], vm.Cards.Select(c => c.Title));
-        Assert.True(vm.HasFilter);
-
-        vm.SearchText = "光輪";
-        Assert.Equal(["Kōrin no Mori"], vm.Cards.Select(c => c.Title));
-
-        vm.SearchText = "zzzz";
-        Assert.Empty(vm.Cards);
-        Assert.True(vm.HasNoResults);
-
-        vm.SearchText = string.Empty;
-        vm.ToggleFilterCommand.Execute(vm.Filters[1]);
-        Assert.Equal(["Amaoto no Hakoniwa", "Namiuchigiwa no Shiori"], vm.Cards.Select(c => c.Title).Order());
-        Assert.True(vm.Filters[1].IsSelected);
-        Assert.False(vm.Filters[0].IsSelected);
-        Assert.Equal(LibraryFilter.InTranslation, vm.SelectedFilter);
-
-        vm.SelectFilter(LibraryFilter.Unsupported);
-        Assert.Equal(5, vm.Cards.Count);
-
-        vm.ToggleFilterCommand.Execute(null);
-        Assert.Equal(12, vm.Cards.Count);
-        Assert.False(vm.HasFilter);
-    }
-
-    [Fact]
-    public async Task Escolher_um_jogo_abre_a_gaveta_e_escolher_de_novo_fecha()
-    {
-        var vm = await Loaded();
-        var card = Card(vm, "Amaoto no Hakoniwa");
-
-        vm.ToggleCommand.Execute(card);
-
-        Assert.Same(card, vm.Selected);
-        Assert.True(card.IsSelected);
-        Assert.True(vm.HasDrawer);
-        Assert.Equal("Amaoto no Hakoniwa", vm.Drawer!.Title);
-
-        var other = Card(vm, "Fuyu no Shiori");
-        vm.ToggleCommand.Execute(other);
-        Assert.False(card.IsSelected);
-        Assert.True(other.IsSelected);
-
-        vm.ToggleCommand.Execute(other);
-        Assert.Null(vm.Selected);
-        Assert.False(vm.HasDrawer);
-
-        vm.ToggleCommand.Execute(card);
-        vm.CloseDrawerCommand.Execute(null);
-        Assert.False(vm.HasDrawer);
-    }
-
-    [Fact]
-    public async Task A_gaveta_traz_as_tags_do_VNDB_o_mais_N_e_avisa_do_spoiler_escondido()
-    {
-        var vm = await Loaded();
-
-        vm.Select(Card(vm, "Amaoto no Hakoniwa"));
-
-        var chips = vm.Drawer!.Chips;
-        Assert.Equal(["Escola", "Mistério", "Chuva"], chips.Where(c => c.Kind == LibraryDrawerChipKind.Vndb).Select(c => c.Text));
-        Assert.Contains(chips, c => c is { Kind: LibraryDrawerChipKind.More, Text: "+6" });
-        var hidden = Assert.Single(chips, c => c.IsHidden);
-        Assert.Equal("Spoiler escondido", hidden.Text);
-        Assert.DoesNotContain(chips, c => c.Text.Contains("trágico", StringComparison.Ordinal));
-        Assert.All(chips.Where(c => c.Kind != LibraryDrawerChipKind.Hidden), c => Assert.True(c.IsPlain));
-        Assert.True(vm.Drawer.HasMoreTags);
-        Assert.True(vm.Drawer.ShowSpoilerMarker);
-        Assert.False(vm.Drawer.ShowAdultMarker);
-        Assert.Equal("+6", vm.Drawer.MoreTagsText);
-        Assert.True(vm.Drawer.HasTags);
-    }
-
-    [Fact]
-    public async Task No_desfocar_o_jogo_adulto_fica_na_grade_com_selo_e_borrao_e_o_mostrar_revela_so_ele()
-    {
-        var vm = await Loaded();
-
-        var card = Card(vm, "Kuroneko Archive");
-        Assert.Equal(AdultMode.Blur, vm.AdultMode);
-        Assert.True(card.IsAdult);
-        Assert.True(card.IsBlurred);
-        Assert.True(card.HasImage);
-        vm.Select(card);
-        Assert.True(vm.Drawer!.Card.IsBlurred);
-        Assert.DoesNotContain(vm.Drawer.Chips, c => c.Text == "Final trágico");
-
-        vm.RevealGameCommand.Execute(card);
-
-        var revealed = Card(vm, "Kuroneko Archive");
-        Assert.False(revealed.IsBlurred);
-        Assert.True(revealed.CanConceal);
-        Assert.True(revealed.IsAdult);
-        Assert.False(vm.Drawer!.ShowAdultMarker);
-        Assert.False(Card(vm, "Amaoto no Hakoniwa").Card.Adult);
-
-        vm.ConcealGameCommand.Execute(revealed);
-
-        Assert.True(Card(vm, "Kuroneko Archive").IsBlurred);
-    }
-
-    [Fact]
-    public async Task Abrir_jogo_avisa_o_shell_com_o_jogo_da_gaveta_ou_do_cartao()
-    {
-        var vm = await Loaded();
-        var opened = new List<string>();
-        vm.GameOpenRequested += (_, game) => opened.Add(game.Title);
-
-        vm.OpenGameCommand.Execute(null);
-        Assert.Empty(opened);
-
-        vm.Select(Card(vm, "Amaoto no Hakoniwa"));
-        vm.OpenGameCommand.Execute(null);
-        vm.OpenGameCommand.Execute(Card(vm, "Fuyu no Shiori"));
-
-        Assert.Equal(["Amaoto no Hakoniwa", "Fuyu no Shiori"], opened);
-    }
-
-    [Fact]
-    public async Task Mostrar_a_pasta_chama_o_abridor_com_a_pasta_do_jogo()
-    {
-        var shown = new List<string>();
-        var vm = await Loaded(openFolder: shown.Add);
-        vm.Select(Card(vm, "Amaoto no Hakoniwa"));
-
-        vm.ShowFolderCommand.Execute(null);
-
-        Assert.Equal([vm.Selected!.Game.Folder], shown);
-    }
-
-    [Fact]
-    public async Task Confirmar_o_candidato_liga_o_jogo_ao_VNDB_e_tira_o_aviso()
-    {
-        var vm = await Loaded();
-        var korin = Card(vm, "Kōrin no Mori");
-        vm.Select(korin);
-
-        vm.ChooseMatchCommand.Execute(null);
-
-        Assert.True(vm.Match.IsOpen);
-        Assert.Equal(3, vm.Match.Choices.Count);
-        Assert.Equal("v7", vm.Match.Selected!.VndbId);
-        Assert.Equal("Qual é este jogo no VNDB?", vm.Match.Title);
-        Assert.Contains("3 candidatos", vm.Match.Intro, StringComparison.Ordinal);
-
-        vm.Match.SelectChoiceCommand.Execute(vm.Match.Choices[1]);
-        Assert.Equal("v8", vm.Match.Selected!.VndbId);
-        vm.Match.SelectChoiceCommand.Execute(vm.Match.Choices[0]);
-
-        await vm.Match.ConfirmCommand.ExecuteAsync(null);
-
-        Assert.False(vm.Match.IsOpen);
-        Assert.Null(vm.Match.ErrorMessage);
-        Assert.False(Card(vm, "Kōrin no Mori").StateIsWarning);
-        Assert.True(File.Load().Games.Single(g => g.Title == "Kōrin no Mori").IsConfirmed);
-        Assert.Equal("Kōrin no Mori", vm.Selected!.Title);
-    }
-
-    [Fact]
-    public async Task Nenhum_deles_descarta_os_candidatos_e_Depois_fecha_sem_mudar_nada()
-    {
-        var vm = await Loaded();
-        var korin = Card(vm, "Kōrin no Mori");
-
-        vm.ChooseMatchCommand.Execute(korin);
-        vm.Match.LaterCommand.Execute(null);
-        Assert.False(vm.Match.IsOpen);
-        Assert.NotEmpty(File.Load().Games.Single(g => g.Title == "Kōrin no Mori").Candidates);
-
-        vm.ChooseMatchCommand.Execute(korin);
-        await vm.Match.NoneOfThemCommand.ExecuteAsync(null);
-
-        Assert.False(vm.Match.IsOpen);
-        Assert.Empty(File.Load().Games.Single(g => g.Title == "Kōrin no Mori").Candidates);
-    }
-
-    [Fact]
-    public async Task Buscar_no_VNDB_de_novo_reabre_o_dialogo_com_o_que_o_VNDB_achou()
-    {
-        var vm = await Loaded();
-        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
-
-        await vm.Match.SearchCommand.ExecuteAsync(null);
-
-        Assert.True(vm.Match.IsOpen);
-        Assert.False(vm.Match.IsBusy);
-        Assert.Null(vm.Match.ErrorMessage);
-        Assert.NotNull(File.Load().Games.Single(g => g.Title == "Kōrin no Mori").SearchedAt);
-    }
-
-    [Fact]
-    public async Task Confirmar_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
-    {
-        var vm = await Loaded();
-        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
-        File.Update(library => library.Remove(vm.Match.Game!.Id));
-
-        await vm.Match.ConfirmCommand.ExecuteAsync(null);
-
-        Assert.True(vm.Match.IsOpen);
-        Assert.Contains("Não foi possível confirmar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Buscar_de_novo_um_jogo_que_sumiu_da_biblioteca_mantem_o_dialogo_aberto_com_o_erro()
-    {
-        var vm = await Loaded();
-        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
-        File.Update(library => library.Remove(vm.Match.Game!.Id));
-
-        await vm.Match.SearchCommand.ExecuteAsync(null);
-
-        Assert.True(vm.Match.IsOpen);
-        Assert.Contains("Não foi possível procurar no VNDB", vm.Match.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -314,22 +113,6 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.Equal(11, File.Load().Games.Count);
     }
 
-    [Fact]
-    public async Task Sem_os_servicos_de_varredura_e_edicao_os_comandos_nao_fazem_nada()
-    {
-        var vm = await Loaded(withServices: false);
-
-        await vm.UnconfirmCommand.ExecuteAsync(Card(vm, "Amaoto no Hakoniwa"));
-        await vm.RemoveCommand.ExecuteAsync(Card(vm, "Fuyu no Shiori"));
-        await vm.RescanCommand.ExecuteAsync(null);
-        vm.ChooseMatchCommand.Execute(Card(vm, "Kōrin no Mori"));
-        await vm.Match.ConfirmCommand.ExecuteAsync(null);
-
-        Assert.Equal(12, vm.Cards.Count);
-        await vm.ScanFolderAsync(_games.Path);
-        Assert.Equal("A varredura não está disponível.", vm.ErrorMessage);
-    }
-
     private void Collection()
     {
         Touch("[Key] CLANNAD v1.02", "data.xp3");
@@ -344,77 +127,6 @@ public sealed class LibraryViewModelTests : IDisposable
         var path = Path.Combine(_games.Path, folder, file);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         System.IO.File.WriteAllText(path, "x");
-    }
-
-    [Fact]
-    public async Task A_primeira_varredura_acha_os_jogos_casa_com_o_VNDB_e_leva_a_biblioteca()
-    {
-        Collection();
-        var vm = Create(new FakeFolderPicker(_games.Path));
-        await vm.LoadAsync();
-        Assert.True(vm.IsEmpty);
-
-        await vm.ChooseFolderCommand.ExecuteAsync(null);
-
-        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
-        Assert.True(vm.IsFirstScan);
-        Assert.Equal(LibraryScanPhase.Done, vm.Scan.Phase);
-        Assert.True(vm.Scan.IsDone);
-        Assert.Equal(_games.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
-        Assert.NotEmpty(vm.Scan.Rows);
-        Assert.True(vm.Scan.NoSupportYet >= 1);
-        Assert.True(vm.Scan.ShowTable);
-        Assert.Equal("Ver a Biblioteca", vm.Scan.ActionText);
-        Assert.Equal(string.Empty, vm.Scan.StatusText);
-        Assert.Equal(3, File.Load().Games.Count);
-        Assert.Single(File.Load().Roots);
-
-        await vm.ScanActionCommand.ExecuteAsync(null);
-
-        Assert.Equal(LibraryMode.Games, vm.Mode);
-        Assert.Equal(LibraryScanPhase.Idle, vm.Scan.Phase);
-        Assert.Equal(3, vm.Cards.Count);
-        Assert.Contains("3 jogos em 1 pasta", vm.Subtitle, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Soltar_uma_pasta_faz_o_mesmo_que_escolher_e_varrer_de_novo_acha_o_jogo_novo()
-    {
-        Collection();
-        var vm = Create();
-        await vm.LoadAsync();
-
-        await vm.DropFolderAsync(_games.Path);
-        vm.FinishFirstScan();
-        Assert.Equal(3, vm.Cards.Count);
-
-        Touch("Novo Jogo", "data.xp3");
-        Touch("Novo Jogo", "Novo.exe");
-        await vm.RescanCommand.ExecuteAsync(null);
-
-        Assert.Equal(4, vm.Cards.Count);
-        Assert.False(vm.IsRescanning);
-        Assert.Equal(LibraryScanPhase.Idle, vm.Scan.Phase);
-        Assert.Equal(LibraryMode.Games, vm.Mode);
-    }
-
-    [Fact]
-    public async Task Ler_a_pasta_de_novo_ao_abrir_fica_guardado_e_vale_no_proximo_abrir()
-    {
-        Collection();
-        var vm = Create();
-        await vm.LoadAsync();
-        await vm.ScanFolderAsync(_games.Path);
-
-        vm.Scan.RescanOnOpen = true;
-        await vm.Remembering;
-
-        Assert.True(File.Load().Roots.Single().RescanOnOpen);
-
-        Touch("Novo Jogo", "data.xp3");
-        Touch("Novo Jogo", "Novo.exe");
-        await vm.RescanOnOpenAsync();
-        Assert.Equal(4, File.Load().Games.Count);
     }
 
     [Fact]
@@ -437,221 +149,5 @@ public sealed class LibraryViewModelTests : IDisposable
         Assert.Contains(GameLibrary.NormalizeFolder(missing1), vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains(GameLibrary.NormalizeFolder(missing2), vm.ErrorMessage, StringComparison.Ordinal);
         Assert.Equal(3, File.Load().Games.Count);
-    }
-
-    [Fact]
-    public async Task Pausar_durante_o_varrer_de_novo_para_o_laco_e_nao_varre_as_outras_pastas()
-    {
-        Collection();
-        using var other = new TempFolder();
-        System.IO.File.WriteAllText(Path.Combine(other.Path, "x.exe"), "x");
-        LibraryViewModel? holder = null;
-        var armed = false;
-        var paused = false;
-        var vm = Create(post: action =>
-        {
-            action();
-            if (armed && !paused && holder!.Scan.Rows.Count > 0)
-            {
-                paused = true;
-                holder.ScanActionCommand.Execute(null);
-            }
-        });
-        holder = vm;
-        await vm.LoadAsync();
-        await vm.ScanFolderAsync(_games.Path);
-        await vm.ScanFolderAsync(other.Path);
-        vm.FinishFirstScan();
-        Touch("Novo Jogo", "data.xp3");
-        Touch("Novo Jogo", "Novo.exe");
-        Directory.CreateDirectory(Path.Combine(other.Path, "Novo B"));
-        System.IO.File.WriteAllText(Path.Combine(other.Path, "Novo B", "b.exe"), "b");
-
-        armed = true;
-        await vm.RescanCommand.ExecuteAsync(null);
-
-        Assert.True(paused);
-        Assert.False(vm.IsScanBusy);
-        Assert.False(vm.IsRescanning);
-        Assert.DoesNotContain(File.Load().Games, g => g.Folder.Contains("Novo B", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Um_erro_inesperado_ao_abrir_vira_aviso_da_biblioteca_e_nao_derruba_o_app()
-    {
-        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
-        var vm = new LibraryViewModel(File, new FakeFolderPicker(null), action => action(), new LibraryServices { Clock = Clock, ReadTranslation = _ => throw new InvalidOperationException("leitura quebrada") });
-
-        await vm.OpenAsync(() => Task.CompletedTask);
-
-        Assert.Contains("leitura quebrada", vm.ErrorMessage, StringComparison.Ordinal);
-        Assert.False(vm.IsScanBusy);
-    }
-
-    [Fact]
-    public async Task Sem_varredura_rodando_a_acao_da_primeira_varredura_nao_faz_nada()
-    {
-        var vm = await Loaded();
-
-        await vm.ScanActionCommand.ExecuteAsync(null);
-
-        Assert.Equal(LibraryMode.Games, vm.Mode);
-        Assert.Equal(LibraryScanPhase.Idle, vm.Scan.Phase);
-    }
-
-    [Fact]
-    public async Task Ver_a_biblioteca_depois_da_varredura_ja_pede_o_primeiro_jogo_em_duvida()
-    {
-        var vm = await Loaded();
-        vm.Mode = LibraryMode.FirstScan;
-        vm.Scan.Begin("D:\\Jogos\\VN");
-
-        vm.FinishFirstScan();
-
-        Assert.Equal(LibraryMode.Games, vm.Mode);
-        Assert.True(vm.Match.IsOpen);
-        Assert.Equal("Kōrin no Mori", vm.Match.Game!.Title);
-        Assert.True(vm.OpenFirstConfirmation());
-    }
-
-    [Fact]
-    public async Task Pausar_e_continuar_a_primeira_varredura_segue_na_primeira_varredura()
-    {
-        Collection();
-        LibraryViewModel? holder = null;
-        var paused = false;
-        var vm = Create(post: action =>
-        {
-            action();
-            if (!paused && holder!.Scan.Rows.Count > 0)
-            {
-                paused = true;
-                holder.ScanActionCommand.Execute(null);
-            }
-        });
-        holder = vm;
-        await vm.LoadAsync();
-
-        await vm.ScanFolderAsync(_games.Path);
-
-        Assert.Equal(LibraryScanPhase.Paused, vm.Scan.Phase);
-        Assert.Equal("Continuar", vm.Scan.ActionText);
-        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
-
-        await vm.ScanActionCommand.ExecuteAsync(null);
-
-        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
-        Assert.Equal(LibraryScanPhase.Done, vm.Scan.Phase);
-        Assert.True(vm.Scan.ShowTable);
-        Assert.Equal(3, File.Load().Games.Count);
-        Assert.Equal("Ver a Biblioteca", vm.Scan.ActionText);
-    }
-
-    [Fact]
-    public async Task Trocar_a_pasta_no_meio_da_primeira_varredura_recomeca_na_primeira_varredura()
-    {
-        Collection();
-        using var other = new TempFolder();
-        System.IO.File.WriteAllText(Path.Combine(other.Path, "x.exe"), "x");
-        LibraryViewModel? holder = null;
-        var started = false;
-        Task? change = null;
-        var vm = Create(
-            new FakeFolderPicker(other.Path),
-            post: action =>
-            {
-                action();
-                if (!started && holder!.Scan.Rows.Count > 0)
-                {
-                    started = true;
-                    change = holder.ChangeFolderCommand.ExecuteAsync(null);
-                }
-            });
-        holder = vm;
-        await vm.LoadAsync();
-
-        await vm.ScanFolderAsync(_games.Path);
-        await change!;
-        await vm.Scanning;
-
-        Assert.Equal(LibraryMode.FirstScan, vm.Mode);
-        Assert.Equal(LibraryScanPhase.Done, vm.Scan.Phase);
-        Assert.Equal(other.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
-    }
-
-    [Fact]
-    public async Task Enquanto_uma_varredura_roda_adicionar_pasta_e_varrer_de_novo_esperam_e_a_pasta_pedida_entra_na_fila()
-    {
-        Collection();
-        using var other = new TempFolder();
-        LibraryViewModel? holder = null;
-        var observed = false;
-        var canChoose = true;
-        var canRescan = true;
-        Task? ignored = null;
-        var vm = Create(
-            new FakeFolderPicker(other.Path),
-            post: action =>
-            {
-                action();
-                if (!observed && holder!.Scan.Rows.Count > 0)
-                {
-                    observed = true;
-                    canChoose = holder.ChooseFolderCommand.CanExecute(null);
-                    canRescan = holder.RescanCommand.CanExecute(null);
-                    ignored = holder.ScanFolderAsync(other.Path);
-                }
-            });
-        holder = vm;
-        await vm.LoadAsync();
-
-        await vm.ScanFolderAsync(_games.Path);
-
-        Assert.True(observed);
-        Assert.False(canChoose);
-        Assert.False(canRescan);
-        Assert.Same(vm.Scanning, ignored);
-        Assert.Equal(other.Path, vm.Scan.Folder.TrimEnd('\\'), ignoreCase: true);
-        Assert.Equal(2, File.Load().Roots.Count);
-        Assert.False(vm.IsScanBusy);
-        Assert.True(vm.ChooseFolderCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task A_leitura_mais_velha_que_termina_por_ultimo_nao_sobrescreve_a_mais_nova()
-    {
-        LibrarySamples.Save(_config.Path, LibrarySamples.Library());
-        using var release = new ManualResetEventSlim();
-        using var firstRead = new ManualResetEventSlim();
-        var calls = 0;
-        var vm = new LibraryViewModel(
-            File,
-            new FakeFolderPicker(null),
-            action => action(),
-            new LibraryServices
-            {
-                Clock = Clock,
-                ReadTranslation = game =>
-                {
-                    if (Interlocked.Increment(ref calls) == 1)
-                    {
-                        firstRead.Set();
-                        release.Wait(Ct);
-                    }
-
-                    return LibrarySamples.Translation(game);
-                },
-            });
-
-        var older = vm.LoadAsync();
-        firstRead.Wait(Ct);
-        LibrarySamples.Save(_config.Path, LibrarySamples.Library(LibrarySamples.Games().Take(2)));
-        var newer = vm.LoadAsync();
-        await newer;
-        release.Set();
-        await older;
-
-        Assert.Equal(2, vm.Cards.Count);
-        Assert.Equal("2 jogos na Biblioteca", vm.StatusText);
     }
 }

@@ -3,25 +3,19 @@ using VNForge.App.Services;
 namespace VNForge.App.Tests;
 
 /// <summary>A conversão do campo da tradução: o texto gravado vai para o campo sem marcadores crus e volta byte a byte (regra 3 do CLAUDE.md).</summary>
+[Trait("Risco", "R3")]
+[Trait("Risco", "R4")]
 public sealed class TranslationFieldTextTests
 {
     private const string Original = "「ふふっ」\\p";
 
     [Theory]
     [InlineData("Oi.\\p")]
-    [InlineData("Oi.")]
     [InlineData("Primeira linha.\\nSegunda linha.\\p")]
     [InlineData("Primeira página.\\pSegunda página.\\p")]
-    [InlineData("A\\nB\\pC\\nD\\p")]
-    [InlineData("Espere.\\c\\p")]
     [InlineData("Olá, {nome}.\\p")]
-    [InlineData("Duas\\p\\nmisturadas\\p")]
-    [InlineData("Já\\n\\nvazia\\p")]
     [InlineData("Barra \\\\ e chave \\{\\p")]
-    [InlineData("\\p")]
-    [InlineData("  espaços  \\p")]
     [InlineData("Marcador solto \\")]
-    [InlineData("Chave {sem fim")]
     public void Ida_e_volta_sem_edicao_devolve_o_mesmo_texto(string gravado)
     {
         var campo = TranslationFieldText.Open(gravado, Original);

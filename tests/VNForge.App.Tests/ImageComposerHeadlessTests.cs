@@ -4,6 +4,7 @@ using VNForge.Core.Images;
 namespace VNForge.App.Tests;
 
 /// <summary>O compositor de verdade (Skia headless): apaga a área, escreve o texto e devolve um PNG que o app lê de volta.</summary>
+[Trait("Risco", "R3")]
 public class ImageComposerHeadlessTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     private const int Width = 200;

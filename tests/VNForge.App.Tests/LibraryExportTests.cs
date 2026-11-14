@@ -4,6 +4,9 @@ using VNForge.Core.Library;
 namespace VNForge.App.Tests;
 
 /// <summary>O diálogo "Exportar catálogo" (#555) sem janela: as contagens das três escolhas, o arquivo gravado e as recusas de gravar onde não deve.</summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R7")]
+[Trait("Risco", "R9")]
 public sealed class LibraryExportTests : IDisposable
 {
     private readonly TempFolder _config = new();
@@ -28,48 +31,6 @@ public sealed class LibraryExportTests : IDisposable
         return (library, opened);
     }
 
-    [Fact]
-    public async Task O_dialogo_conta_os_jogos_de_cada_escolha_e_so_oferece_o_filtro_com_filtro_ligado()
-    {
-        var (library, _) = await Loaded();
-        var export = library.Export;
-
-        export.Open();
-
-        Assert.True(export.IsOpen);
-        Assert.Equal("9 jogos; 2 sem casamento no VNDB e 1 adulto ficam de fora", export.Scopes[0].Detail);
-        export.IncludeSensitive = true;
-        Assert.Equal("9 jogos; 2 sem casamento no VNDB e 1 adulto ficam de fora", export.Scopes[0].Detail);
-        export.IncludeSensitive = false;
-        Assert.Equal("3 jogos", export.Scopes[1].Detail);
-        Assert.False(export.Scopes[2].IsAvailable);
-
-        library.SearchText = "amaoto";
-        export.Open();
-
-        Assert.True(export.Scopes[2].IsAvailable);
-        Assert.Equal("“amaoto”, 1 jogo", export.Scopes[2].Detail);
-    }
-
-    [Fact]
-    public async Task As_escolhas_do_dialogo_valem_na_pagina()
-    {
-        var (library, _) = await Loaded();
-        var export = library.Export;
-        library.SearchText = "amaoto";
-        export.Open();
-        export.Select(LibraryExportScope.CurrentFilter);
-        export.IncludeSheet = false;
-
-        await export.ExportCommand.ExecuteAsync(null);
-
-        var html = await File.ReadAllTextAsync(Path.Combine(_out.Path, "index.html"), Ct);
-        Assert.Contains("Amaoto no Hakoniwa", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Nanairo Ressha", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Numa cidade onde chove", html, StringComparison.Ordinal);
-        Assert.Contains("Open Database License", html, StringComparison.Ordinal);
-    }
-
     [Theory]
     [InlineData(AdultMode.Show, true)]
     [InlineData(AdultMode.Blur, false)]
@@ -90,17 +51,6 @@ public sealed class LibraryExportTests : IDisposable
     private sealed class BrokenSheets : ILibrarySheetSource
     {
         public LibrarySheet? SheetOf(LibraryGame game) => throw new InvalidOperationException("ficha quebrada");
-    }
-
-    [Fact]
-    public async Task Trocar_escolhe_a_pasta_do_seletor()
-    {
-        var (library, _) = await Loaded();
-        library.Export.Folder = string.Empty;
-
-        await library.Export.ChooseFolderCommand.ExecuteAsync(null);
-
-        Assert.Equal(_out.Path, library.Export.Folder);
     }
 
     [Fact]

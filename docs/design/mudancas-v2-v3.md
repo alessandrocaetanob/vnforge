@@ -26,7 +26,7 @@ Nenhum token sai. Nada foi renomeado: manter os nomes deixa o `Tokens.axaml` com
 ## Cuidados na implementação
 
 - Os tokens `stage-*`, `cover-scrim` e `dialog-scrim` seguem a convenção do v2: valor com alfa em AARRGGBB, como o Avalonia lê. O design system os mostra como cor sem alfa.
-- A entrelinha do `tokens.json` é 40 em `title-xl`, 32 em `title-lg`, 24 em `title-md` e 20 em `title-sm`, mas o app usa 50, 35, 25 e 22: a Zen Kaku Gothic New pede 1,448 de altura por corpo (49,2, 34,75, 24,6 e 21,7 px) e o TextBlock do Avalonia corta as descendentes (j, p, g) abaixo disso. A exceção está em `TextScale.axaml`, em `TextAppearance.Scales` e em `TypographyTokensTests`; para tirá-la, o design precisa de uma entrelinha que caiba.
-- A escala de texto não vem do gerador: `TypographyTokensTests` compara `type.groups` do `tokens.json` com `TextScale.axaml` e com `TextAppearance.Scales`.
-- `TokensTests` compara `tokens.json` com o `Tokens.axaml` gerado: rode o gerador antes de rodar os testes.
+- A entrelinha do `tokens.json` é 40 em `title-xl`, 32 em `title-lg`, 24 em `title-md` e 20 em `title-sm`, mas o app usa 50, 35, 25 e 22: a Zen Kaku Gothic New pede 1,448 de altura por corpo (49,2, 34,75, 24,6 e 21,7 px) e o TextBlock do Avalonia corta as descendentes (j, p, g) abaixo disso. A exceção está em `TextScale.axaml` e em `TextAppearance.Scales`; para tirá-la, o design precisa de uma entrelinha que caiba.
+- A escala de texto não vem do gerador: `TextScale.axaml` e `TextAppearance.Scales` seguem o `type.groups` do `tokens.json` à mão, e a conferência é o render ao lado do quadro.
+- O `Tokens.axaml` vem do gerador (`pwsh tools/Generate-Tokens.ps1`): rode-o depois de mudar o `tokens.json` e confira o diff.
 - Os seis ícones novos entraram em `Icons.axaml` por `tools/Update-Icons.ps1` (nomes `Library`, `ArrowLeft`, `Eye`, `EyeOff`, `Link`, `Filter`).

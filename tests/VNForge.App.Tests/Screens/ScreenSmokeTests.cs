@@ -9,6 +9,7 @@ namespace VNForge.App.Tests;
 /// ferramenta <c>tools/VNForge.Capturas</c>.
 /// </summary>
 [Trait("Tipo", "Tela")]
+[Trait("Risco", "R8")]
 public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.DemoFolderFixture demoFolder) : IClassFixture<HeadlessFixture>, IClassFixture<ScreenSmokeTests.DemoFolderFixture>
 {
     public static TheoryData<string> StandaloneNames => [.. ScreenCatalog.Standalone.Select(s => s.Name)];
@@ -24,7 +25,7 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
                 foreach (var (name, key) in ScreenCatalog.Pages)
                 {
                     await host.GoToAsync(key);
-                    found.AddRange(ClippedTextHeadlessTests.FindClipped(host.Window).Select(p => $"{name}: {p}"));
+                    found.AddRange(ClippedTextFinder.FindClipped(host.Window).Select(p => $"{name}: {p}"));
                 }
 
                 return found;
@@ -46,7 +47,7 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
             {
                 using var host = await screen.Open(demoFolder.Root, ThemeVariant.Dark);
                 host.Settle();
-                return ClippedTextHeadlessTests.FindClipped(host.Window);
+                return ClippedTextFinder.FindClipped(host.Window);
             },
             TestContext.Current.CancellationToken);
 

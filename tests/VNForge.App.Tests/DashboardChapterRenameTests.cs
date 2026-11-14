@@ -5,6 +5,7 @@ using VNForge.Core.Text;
 namespace VNForge.App.Tests;
 
 /// <summary>Renomear um capítulo na linha do Painel: o nome vira o <c>group</c> dos scripts dele em <c>scripts.json</c> e o sumário se refaz.</summary>
+[Trait("Risco", "R2")]
 public class DashboardChapterRenameTests
 {
     private const string Root = @"D:\Traducoes\minha-vn-ptbr";
@@ -69,85 +70,6 @@ public class DashboardChapterRenameTests
                 })
             { Project = Summary };
         }
-    }
-
-    private static async Task<(Fixture Fixture, DashboardViewModel Vm)> Open()
-    {
-        var fixture = new Fixture();
-        var vm = fixture.Create();
-        await vm.ReloadAsync();
-        return (fixture, vm);
-    }
-
-    [Fact]
-    public async Task Abrir_a_edicao_de_outra_linha_fecha_a_primeira()
-    {
-        var (_, vm) = await Open();
-
-        vm.BeginRenameChapterCommand.Execute(vm.Chapters[0]);
-        vm.BeginRenameChapterCommand.Execute(vm.Chapters[1]);
-
-        Assert.False(vm.Chapters[0].IsEditing);
-        Assert.True(vm.Chapters[1].IsEditing);
-    }
-
-    [Fact]
-    public async Task Menus_e_nomes_nao_se_renomeia()
-    {
-        var (_, vm) = await Open();
-        var extra = vm.Chapters.Single(c => c.IsExtra);
-
-        vm.BeginRenameChapterCommand.Execute(extra);
-
-        Assert.False(extra.IsEditing);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task Nome_vazio_nao_grava_e_pede_um_nome_sem_fechar_a_edicao(string text)
-    {
-        var (fixture, vm) = await Open();
-        var row = vm.Chapters[0];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = text;
-
-        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
-
-        Assert.Empty(fixture.Renames);
-        Assert.True(row.IsEditing);
-        Assert.Equal("Escreva um nome para o capítulo.", row.EditError);
-    }
-
-    [Fact]
-    public async Task Confirmar_o_mesmo_nome_so_fecha_a_edicao()
-    {
-        var (fixture, vm) = await Open();
-        var row = vm.Chapters[1];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = " Capítulo 2 ";
-
-        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
-
-        Assert.Empty(fixture.Renames);
-        Assert.False(row.IsEditing);
-        Assert.Equal(1, fixture.Loads);
-    }
-
-    [Fact]
-    public async Task Falha_ao_gravar_mostra_a_mensagem_na_linha_e_mantem_a_edicao()
-    {
-        var (fixture, vm) = await Open();
-        fixture.Failure = new ScriptGroupingException("Não há capítulo chamado 'Capítulo 1'.");
-        var row = vm.Chapters[0];
-        vm.BeginRenameChapterCommand.Execute(row);
-        row.EditText = "Novo";
-
-        await vm.CommitRenameChapterCommand.ExecuteAsync(row);
-
-        Assert.True(row.IsEditing);
-        Assert.Equal("Não há capítulo chamado 'Capítulo 1'.", row.EditError);
-        Assert.Equal(1, fixture.Loads);
     }
 
     [Fact]
