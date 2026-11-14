@@ -321,6 +321,40 @@ public sealed class MainWindowShellTests
         Assert.Contains("O disco não respondeu.", library.ErrorMessage, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Abrir_o_jogo_da_biblioteca_sem_projeto_leva_a_Ficha_e_traduz_a_ficha_sem_projeto()
+    {
+        using var temp = new TempFolder();
+        var config = temp.SubFolder("config");
+        await GameSheetSamples.SeedAsync(config, translate: false, ct: TestContext.Current.CancellationToken);
+        var game = LibrarySamples.Games().First(g => g.ProjectPath is null && g.Engine.Translatable) with { VndbId = GameSheetSamples.Id };
+        var file = LibrarySamples.Save(temp.SubFolder("biblioteca"), LibrarySamples.Library([game]));
+        var library = new LibraryViewModel(file, new FakeFolderPicker(null), action => action());
+        var vm = new MainWindowViewModel(new StartViewModel(new RecentProjectsFile(config), new FakeFolderPicker(null), new FixedClock(Now)), library: library);
+        vm.Sheet.ConfigDirectory = config;
+        vm.Sheet.TranslatorFactory = GameSheetSamples.Translator;
+        await library.LoadAsync();
+
+        library.OpenGameCommand.Execute(library.Cards[0]);
+        await vm.Sheet.Loading;
+
+        Assert.False(vm.HasProject);
+        Assert.True(vm.InProjectlessGame);
+        Assert.Same(vm.Sheet, vm.CurrentPage);
+        Assert.Equal("Ainda em inglês", vm.Sheet.StatusTitle);
+
+        vm.Sheet.SpoilerLevel = 1;
+        await vm.Sheet.TranslateCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, vm.Sheet.SpoilerLevel);
+        Assert.True(vm.Sheet.PrimaryIsReview);
+
+        vm.SelectedNav = vm.Nav.Single(n => n.Key == NavKey.Start);
+
+        Assert.False(vm.InProjectlessGame);
+        Assert.False(vm.Nav.Single(n => n.Key == NavKey.Sheet).IsEnabled);
+    }
+
     private sealed class ThrowingPicker(Exception error) : IFolderPicker
     {
         public Task<string?> PickFolderAsync(string title) => Task.FromException<string?>(error);

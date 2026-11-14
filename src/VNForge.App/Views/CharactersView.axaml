@@ -129,7 +129,7 @@
               Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenGameCommand}" CommandParameter="{Binding}"
               AutomationProperties.Name="{Binding AutomationName}">
         <!-- O passo da linha é de 80 px: 58 da capa, 10 e 11 de respiro e o divisor de 1 px do pé. -->
-        <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="16,10,16,11">
+        <Border BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1" Padding="24,10,24,11">
           <Grid ColumnDefinitions="44,*,150,*" ColumnSpacing="12">
             <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" BoxShadow="{DynamicResource Vnf.ShadowCover}" VerticalAlignment="Center" Width="44" Height="58">
               <Border CornerRadius="{DynamicResource Vnf.RadiusSm}" ClipToBounds="True" Background="{DynamicResource Vnf.BgInset}">
