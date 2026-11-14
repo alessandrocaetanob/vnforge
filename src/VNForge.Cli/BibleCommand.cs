@@ -6,6 +6,7 @@ using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
+using VNForge.Core.Library;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
@@ -682,7 +683,7 @@ internal static class BibleCommand
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-        File.WriteAllText(full, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AtomicFile.WriteAllText(full, text);
         output.WriteLine(json ? JsonEnvelope.Result(new { path = full, scenes = bible.Scenes.Count }) : $"Bíblia exportada em {full}.");
         return ErrorHandler.OkExitCode;
     }

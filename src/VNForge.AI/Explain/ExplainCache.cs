@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core.Library;
 
 namespace VNForge.AI.Explain;
 
@@ -64,7 +65,7 @@ internal sealed class ExplainCache
         }
     }
 
-    /// <summary>Grava num arquivo temporário e o move por cima do destino, para uma queda no meio não corromper o anterior.</summary>
+    /// <summary>Grava por <see cref="AtomicFile"/> (temporário, troca e releitura), para uma queda ou um disco que zera o rename não perder o anterior.</summary>
     public void Save(string path)
     {
         lock (gate)
@@ -79,9 +80,7 @@ internal sealed class ExplainCache
                 Directory.CreateDirectory(directory);
             }
 
-            var temporary = path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
-            File.Move(temporary, path, overwrite: true);
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(snapshot));
         }
     }
 

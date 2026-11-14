@@ -220,10 +220,11 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         }
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains(Path.Combine(ProjectPath, "text"), result.Error);
+        Assert.Contains(Path.Combine(ProjectPath, ".cache", "translations.json"), result.Error);
         var after = Snapshot(ProjectPath);
         Assert.DoesNotContain(after, file => file.Value.Length == 0);
-        // A copia .bak que a troca deixa ao lado e o log do comando ficam de fora; cada arquivo do projeto tem de estar como estava.
+        // A copia .bak que a troca deixa ao lado e o log do comando ficam de fora; o conjunto de arquivos e o conteudo de cada um tem de ser o de antes (nenhum arquivo novo, nem vazio, nem o cache).
+        Assert.Equal(before.Keys.Order(), after.Keys.Order());
         foreach (var (name, content) in before)
         {
             Assert.Equal(content, after[name]);

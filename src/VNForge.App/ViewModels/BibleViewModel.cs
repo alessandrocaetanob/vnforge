@@ -11,6 +11,7 @@ using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 
@@ -992,7 +993,7 @@ public sealed partial class BibleViewModel : ObservableObject
         }
 
         var path = Path.Combine(current.Root, "biblia.md");
-        File.WriteAllText(path, BibleMarkdown.Render(bible, current.Name), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AtomicFile.WriteAllText(path, BibleMarkdown.Render(bible, current.Name));
         Notice = $"Bíblia exportada em {path}.";
     }
 
