@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Projects;
 
@@ -89,16 +90,6 @@ public sealed class RecentProjectsFile(string directory, int capacity = RecentPr
 
     private void Save(List<RecentProject> items)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        var temporary = $"{Path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(items, Json));
-            File.Move(temporary, Path, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
+        AtomicFile.WriteAllText(Path, JsonSerializer.Serialize(items, Json));
     }
 }

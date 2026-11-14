@@ -345,6 +345,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     public async Task SetGameFolderAsync(string path, string? vndbId = null)
     {
         ErrorMessage = null;
+        ExistingProject = null;
         knownVndbId = vndbId;
         ResetVndb();
         IsBusy = true;
@@ -403,6 +404,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
         ErrorMessage = null;
         var previous = FolderNameOf(ProjectDirectory);
         ProjectDirectory = Path.GetFullPath(path);
+        FindExistingProject(ProjectDirectory);
         if (string.IsNullOrWhiteSpace(ProjectName) || ProjectName == previous)
         {
             ProjectName = FolderNameOf(ProjectDirectory);
@@ -575,7 +577,7 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
     {
         WizardStep.Game => HasGame && SelectedExe is not null,
         WizardStep.Vndb => CanGoNextFromVndb(),
-        WizardStep.Names => !string.IsNullOrWhiteSpace(ProjectName) && ProjectDirectory is not null,
+        WizardStep.Names => !HasExistingProject && !string.IsNullOrWhiteSpace(ProjectName) && ProjectDirectory is not null,
         WizardStep.Accents => true,
         WizardStep.Ai => RateError is null && LimitError is null,
         _ => false,
@@ -583,6 +585,8 @@ public sealed partial class NewProjectWizardViewModel : ObservableObject
 
     partial void OnStepChanged(WizardStep value)
     {
+        OnPropertyChanged(nameof(ShowOpenExisting));
+        OnPropertyChanged(nameof(ShowNext));
         if (value == WizardStep.Vndb && Stage == VndbStage.Skipped)
         {
             RestoreVndbAfterSkip();

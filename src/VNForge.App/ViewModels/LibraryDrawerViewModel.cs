@@ -115,9 +115,9 @@ public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, Li
     {
         PickerOptions.Clear();
         var tags = Library.UserTags;
-        foreach (var tag in tags.Tags)
+        foreach (var name in tags.Tags.Select(tag => tag.Name))
         {
-            PickerOptions.Add(new LibraryTagOptionViewModel(tag.Name, tag.Name, tags.GamesWith(tag.Name).Count, true, tags.Has(Card.Id, tag.Name)));
+            PickerOptions.Add(new LibraryTagOptionViewModel(name, name, tags.GamesWith(name).Count, true, tags.Has(Card.Id, name)));
         }
 
         OnPropertyChanged(nameof(HasNoOwnTags));
@@ -189,6 +189,9 @@ public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, Li
 
     public bool IsMatched => Card.Game.IsConfirmed;
 
+    /// <summary>O jogo ainda não tem projeto ligado: a gaveta oferece "Ligar a um projeto que já existe".</summary>
+    public bool HasNoProject => Card.Game.ProjectPath is null;
+
     public bool CanTranslate => Card.Game.Engine.Translatable;
 
     private LibraryVersionLabel? VersionLabel => Card.Version is { } version ? LibraryVersionLabel.For(version) : null;
@@ -214,9 +217,18 @@ public sealed partial class LibraryDrawerViewModel(LibraryCardViewModel card, Li
     public bool HasLastSwitch => LastSwitchText is not null;
 
     /// <summary>"Arquivos alterados": quantos a última injeção gravou e se todos têm cópia de segurança.</summary>
-    public string? FilesText => Card.Version is { Kind: LibraryTranslationKind.Translated, FilesChanged: > 0 } version
-        ? version.FilesWithoutOriginal == 0 ? $"{version.FilesChanged}, todos com cópia" : $"{version.FilesChanged}, {version.FilesWithoutOriginal} criados pelo patch"
-        : null;
+    public string? FilesText
+    {
+        get
+        {
+            if (Card.Version is not { Kind: LibraryTranslationKind.Translated, FilesChanged: > 0 } version)
+            {
+                return null;
+            }
+
+            return version.FilesWithoutOriginal == 0 ? $"{version.FilesChanged}, todos com cópia" : $"{version.FilesChanged}, {version.FilesWithoutOriginal} criados pelo patch";
+        }
+    }
 
     public bool HasFiles => FilesText is not null;
 

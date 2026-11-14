@@ -3,6 +3,7 @@ using VNForge.Core.Bible;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Images;
+using VNForge.Core.Library;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
 using VNForge.Core.Vndb;
@@ -634,19 +635,6 @@ public sealed class ProjectFolder
     private void WriteConfig(string json, bool overwrite) =>
         WriteAtomically(ConfigPath, json, overwrite);
 
-    // newTemporaryPath existe para o teste prender o temporário antes da escrita: o nome real leva um Guid que ninguém conhece de antemão.
-    internal static void WriteAtomically(string path, string content, bool overwrite, Action<int>? wait = null, Func<string>? newTemporaryPath = null)
-    {
-        var temporary = newTemporaryPath?.Invoke() ?? $"{path}.{Guid.NewGuid():N}.tmp";
-        var sleep = wait ?? Thread.Sleep;
-        try
-        {
-            ProjectFileIo.WriteAllText(temporary, content, Utf8SemBom, sleep);
-            ProjectFileIo.Move(temporary, path, overwrite, sleep);
-        }
-        finally
-        {
-            ProjectFileIo.DeleteQuietly(temporary);
-        }
-    }
+    internal static void WriteAtomically(string path, string content, bool overwrite, Action<int>? wait = null, Func<string>? newTemporaryPath = null) =>
+        AtomicFile.WriteAllText(path, content, wait, overwrite, newTemporaryPath);
 }

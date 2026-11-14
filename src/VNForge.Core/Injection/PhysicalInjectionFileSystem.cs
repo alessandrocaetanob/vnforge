@@ -1,3 +1,4 @@
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Injection;
@@ -17,7 +18,7 @@ public sealed class PhysicalInjectionFileSystem : IInjectionFileSystem
                 File.Copy(source, temporary, overwrite: true);
                 return 0;
             });
-            ProjectFileIo.Move(temporary, destination, overwrite: true);
+            AtomicFile.Replace(temporary, destination);
         }
         finally
         {

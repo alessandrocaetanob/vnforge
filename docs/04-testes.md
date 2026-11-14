@@ -1,36 +1,81 @@
 # Testes
 
-Regras da suíte de testes e o jeito de medi-la. A suíte foi refeita em 11/11/2026 (maratona da #620, [plano](plans/2026-11-11-suite-de-testes.md)); a medição de partida está em [testes/base-2026-11-11.md](testes/base-2026-11-11.md).
+Regras da suíte de testes e o jeito de medi-la. A fonte das regras é o [plano de testes por risco](plans/2026-11-14-plano-de-testes.md), aprovado em 14/11/2026, que substitui as regras da maratona da #620. A medição de partida da maratona está em [testes/base-2026-11-11.md](testes/base-2026-11-11.md).
 
-## Meta
+## O que um teste protege
 
-A cobertura de linhas e de ramos de cada projeto não cai: o piso é a base medida em 11/11/2026 na main (commit d19f70d4), com as exclusões do Sonar. O número de testes cai. O alvo é perto de 1.500 testes, o job `linux` do CI em até 5 minutos e a suíte local em até 2 minutos.
+Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta cobrir", é "que dano este teste evita". Teste que não aponta nenhum risco não entra, e o que já existe sem risco sai no corte.
 
-Se o orçamento de um projeto só fecha perdendo cobertura, a cobertura vence. O relatório da tarefa diz quantos testes ficaram acima do alvo e por quê.
+| Id | Risco | Onde já aconteceu | Como se testa |
+|---|---|---|---|
+| R1 | Estragar a pasta do jogo: injeção sem backup, restauração que não volta ao original | #452 (testar no jogo por cima de uma injeção) | Cenário de ponta a ponta no jogo sintético; backup e restauração byte a byte |
+| R2 | Perder trabalho do usuário ao gravar o projeto | #697 (36 arquivos com 0 byte), #669 e #678 (temporário com acesso negado) | Gravação conferida por releitura; falha de disco simulada; gravação concorrente |
+| R3 | Gerar arquivo que o jogo não lê | Regra 3 do `CLAUDE.md` | Ida e volta byte a byte de cada formato; vetores de ouro; um teste por campo reescrito |
+| R4 | Texto errado dentro do jogo: codificação, quebra, caixa estourada, falante | #434, #435, #448 (cp1252 e falante) | Tabela de casos com valor esperado explícito por regra de codificação e de quebra |
+| R5 | Gastar dinheiro com IA sem querer, ou vazar a chave | Regra 4 do `CLAUDE.md` | Chave só por ambiente ou cofre; limite de gasto recusa antes de chamar; preço por modelo; ids dos modelos |
+| R6 | Fluxo principal que trava o usuário | #688 (não liga projeto existente), #619 (erro ao abrir projeto), #689 (jogo mudou de pasta) | Uma jornada por fluxo principal, pelo ViewModel |
+| R7 | Arquivo externo estragado ou serviço fora do ar apaga ou esconde dado | #652 (pasta de projeto ilegível escondia os outros) | Arquivo ilegível e rede fora: recusa com aviso em português, nada é sobrescrito |
+| R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado). Os testes smoke por tela são os únicos que apontam R8; nenhum outro teste aponta R8, e a fidelidade ao quadro se prova pelo render, fora da suíte |
 
-## Regras
+## Camadas da suíte
 
-1. Um teste por comportamento que o usuário percebe ou que protege dado do usuário. Um caso que só muda o tema, o tamanho da janela ou um valor de exemplo vira um caso de `[Theory]` ou sai.
-2. Cada formato binário mantém o teste de ida e volta byte a byte (regra 3 do `CLAUDE.md`) e um teste por campo que a reescrita mínima altera.
-3. Nada de `Thread.Sleep` nem de espera por voltas. A espera é por condição, com prazo em tempo e mensagem de falha.
-4. Teste headless abre a janela, confere e fecha no mesmo teste. Nenhum teste guarda janela, bitmap ou projeto carregado em campo estático.
-5. Fixture de projeto é sintética e pequena (poucas cenas e poucas linhas), gerada em código. Nenhum arquivo de jogo entra no repositório.
-6. Antes de apagar um teste, confira que as linhas e os ramos que só ele cobria continuam cobertos por outro. Um teste que não cobre nada que outro já não cubra sai.
-7. Interface: um teste smoke headless por tela, que confere que a tela abre sem exceção e sem texto cortado. Sem comparação de pixel e sem asserção de medida. A lógica da tela fica em testes de ViewModel. As capturas PNG para o designer são uma ferramenta à parte, fora da suíte.
-8. Toda chamada à IA nos testes passa pelo provedor falso (regra da IA no `CLAUDE.md`).
+**Oráculos (R3, R4).** Vetores de ouro do YPF e dos hashes, Shift-JIS na página 932, o 0x5C no nome, cp1252 com « », ida e volta byte a byte de cada formato. Ficam sempre, mesmo sem ganho de cobertura: a maratona da #620 mostrou que o corte por cobertura apaga esses testes se ninguém os listar.
 
-### Orçamento por projeto
+**Gravação com falha de disco (R1, R2, R7). Planejada, #699.** Uma costura de sistema de arquivos no Core, que o teste troca por uma versão que falha do jeito que o mundo real falha: rename que devolve sucesso e deixa o destino vazio (o caso do rclone), arquivo travado por outro processo, disco cheio no meio da gravação, pasta somente leitura. Cada caminho que grava projeto, manifesto, backup ou biblioteca roda contra essas falhas. O esperado é erro em português e o arquivo anterior intacto, nunca sucesso com dado perdido. A costura entra na #699, e a conferência por releitura na #697.
 
-Alvo de testes por projeto, desde que a cobertura não fique abaixo do piso.
+**Cenários de ponta a ponta (R1 a R4). Planejados, #700.** Poucos, no Cli, sobre um jogo YU-RIS sintético gerado em código (#700):
 
-| Projeto | Testes |
-|---|---|
-| App | 350 |
-| Core | 500 |
-| Engines.YuRis | 250 |
-| Cli | 200 |
-| AI | 100 |
-| Vndb, Installer, Platform.Windows e Patching juntos | 100 |
+1. Extrair, traduzir com o provedor falso, injetar, restaurar: o jogo volta byte a byte ao original.
+2. Injetar por cima de uma injeção anterior e restaurar: volta ao original, não à primeira injeção.
+3. Mover o jogo de pasta e ligar o projeto (#689): a tradução continua aplicável e a restauração acha o backup.
+4. Texto com os casos difíceis de codificação e de caixa (acento antes de código de controle, falante com « », linha que estoura a caixa): o que sai no YBN bate com o valor esperado.
+5. Projeto gravado sobre o sistema de arquivos com falha: o comando sai com erro e nada fica com 0 byte.
+
+**Jornadas do App (R6).** Um teste por fluxo que a pessoa faz de ponta a ponta, pelo ViewModel, sem janela: abrir o app pela primeira vez, adicionar pasta à Biblioteca, criar projeto a partir de um jogo, ligar jogo a projeto existente, abrir a Ficha sem projeto, traduzir uma cena, revisar e aprovar, aplicar no jogo, restaurar o original, pausar e retomar a tradução noturna. Cada jornada confere o resultado que importa (arquivo gravado, projeto aberto, jogo alterado), não o texto dos botões no caminho.
+
+**Smoke por tela (R8).** O `ScreenSmokeTests` abre cada tela do catálogo e confere que não há exceção nem texto cortado. Sem pixel, sem medida e sem texto exato. A lógica da tela fica em teste de ViewModel.
+
+**Teste no ambiente real (manual, antes de cada pré-release). Planejado, #703.** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro ainda não existe: a #703 o cria em `docs/testes/roteiro-ambiente-real.md`.
+
+## O que sai e o que fica
+
+Saem:
+
+- Teste que não aponta nenhum risco da tabela.
+- Teste de apresentação: texto exato, visibilidade de botão, cor, ordem de chips, conteúdo de cabeçalho. A tela se confere pelo render ao lado do quadro.
+- Teste de getter, de construtor, de texto de ajuda e de contrato repetido por comando.
+- Variação de valor, tema ou tamanho que não seja caso de `[Theory]`.
+
+Ficam sempre, mesmo sem ganho de cobertura: os oráculos, os testes que protegem dado do usuário (R1, R2, R7), os de chave e gasto (R5). Teste que só roda numa plataforma fica quando aponta um risco; rodar numa plataforma só não o mantém.
+
+A cobertura é medida e aparece no relatório, mas é número informativo. Nenhum job reprova por ela e ela não impede o corte de um teste. Antes de apagar um teste, confira que o risco que só ele protegia continua protegido e liste os oráculos que ficaram, por nome.
+
+## Regras para issue nova
+
+- Correção de bug: um teste de regressão só quando o bug cai em R1 a R7. Ele falha antes da correção e passa depois.
+- Funcionalidade nova: os testes são as jornadas que ela cria, em geral de 1 a 3.
+- Mudança de tela (rótulo `interface`): nenhum teste novo. A prova é o render real ao lado do quadro.
+- Todo brief de builder traz `Testes: até N` e o risco de cada teste. O revisor recusa teste sem risco.
+- Nada de `Thread.Sleep` nem de espera por voltas: a espera é por condição, com prazo em tempo e mensagem de falha.
+- Nenhum teste guarda janela, bitmap ou projeto carregado em campo estático. Teste headless abre a janela, confere e fecha no mesmo teste.
+- Fixture de projeto é sintética e pequena, gerada em código. Nenhum arquivo de jogo entra no repositório.
+- Toda chamada à IA nos testes passa pelo provedor falso (regra da IA no `CLAUDE.md`).
+
+## Orçamento
+
+O alvo foi aprovado em 14/11. Os números de hoje são os da T8 da #620 (12/11), antes dos PRs #684 a #696. O corte entra nas issues #701 e #702.
+
+| Projeto | Hoje | Alvo | O que fica |
+|---|---|---|---|
+| App | 1.334 | 120 | ~50 smoke de tela, ~20 jornadas, o resto lógica de risco (gasto, gravação) |
+| Core | 1.562 | 300 | Gravação, backup, injeção, codificação, falha de disco |
+| Engines.YuRis | 277 | 250 | Oráculos de formato, quase todos |
+| Cli | 566 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava |
+| AI | 304 | 60 | Chave, gasto, preço, ids, formato da requisição |
+| Vndb, Installer, Platform.Windows, Patching | 169 | 60 | Patch e desinstalação byte a byte, cofre, recusa de caminho inválido |
+| Total | ~4.200 | ~850 | |
+
+Metas de tempo: o job `linux` do CI em até 5 minutos, a suíte local em até 2 minutos e a do App em até 60 s.
 
 ## Medir
 
@@ -43,13 +88,13 @@ dotnet tool install --tool-path .tmp/tools dotnet-coverage --version 18.11.2   #
 bash tools/cobertura.sh Core
 ```
 
-A última linha da saída traz as linhas e os ramos: `VNForge.Core  linhas 90.62% (17009/18769)  ramos 84.42% (11060/13101)`. Os números só valem com saída 0.
+A última linha da saída traz as linhas e os ramos: `VNForge.Core  linhas 90.62% (17009/18769)  ramos 84.42% (11060/13101)`. Os números só valem com saída 0. São informativos: nenhum job reprova por eles.
 
 O script roda o projeto de testes sob o `dotnet-coverage`, instrumenta só o dll de produção do projeto e conta as linhas e os ramos dos arquivos de `src/VNForge.<projeto>`. Ele aplica o `sonar.coverage.exclusions` de `.circleci/config.yml` (lido de lá a cada execução): `tools/**`, `App.axaml.cs`, `Program.cs`, `Views/**`, `Controls/**` e `AvaloniaFolderPicker.cs`. Uma linha que aparece em mais de um método (lambda, máquina de estado) conta uma vez.
 
-O código de produção medido é o do projeto que o teste tem o mesmo nome. Os testes do Cli não somam à cobertura do Core, por exemplo. É mais exigente do que a soma que o Sonar mostra, e é o piso de cada tarefa.
+O código de produção medido é o do projeto que o teste tem o mesmo nome. Os testes do Cli não somam à cobertura do Core, por exemplo. É mais exigente do que a soma que o Sonar mostra.
 
-O App leva uns 90 segundos com cobertura (`bash tools/cobertura.sh App`, em um processo só, na máquina de desenvolvimento) e cabe em um comando em primeiro plano; é essa medição, exata, que se compara com a base do App. As fatias só servem a quem medir numa máquina bem mais lenta, uma por chamada, somadas no fim:
+O App leva uns 90 segundos com cobertura (`bash tools/cobertura.sh App`, em um processo só, na máquina de desenvolvimento) e cabe em um comando em primeiro plano; é essa medição, exata, que se compara com a base do App, quando a tarefa pede a comparação. As fatias só servem a quem medir numa máquina bem mais lenta, uma por chamada, somadas no fim:
 
 ```bash
 VNFORGE_FATIAS=3 VNFORGE_FATIA=0 bash tools/cobertura.sh App
@@ -60,7 +105,7 @@ VNFORGE_FATIAS=3 VNFORGE_FATIA=juntar bash tools/cobertura.sh App
 
 Com fatias, o `dotnet-coverage merge` descarta os ramos e o script só sabe quantos ramos cada fatia cobriu, não quais. A saída traz então um mínimo (o número principal) e um máximo. Um App que cabe em um processo só (`VNFORGE_FATIAS=1`) dá o valor exato, e é com ele que se compara a base do App (85,35% de ramos). Se o processo único passar do limite de uma chamada, rode-o como puder e resuma o XML gravado com `VNFORGE_SO_RESUMIR=.tmp/cobertura/VNForge.App.Tests.0.cobertura.xml bash tools/cobertura.sh App`, que não roda teste.
 
-A base de `testes/base-2026-11-11.md` é do Windows e vale para as tarefas locais. Os testes que só valem no Windows pulam no Linux (Platform.Windows sobretudo), então meça no mesmo sistema da base. O piso do CI (`.circleci/piso-cobertura.txt`, conferido pelo passo Piso de cobertura) é uma medição do job `linux`, não a do Windows; ele conta a cobertura de todos os testes juntos e fica em `docs/testes/depois.md` ao lado da base.
+A base de `testes/base-2026-11-11.md` é do Windows. Os testes que só valem no Windows pulam no Linux (Platform.Windows sobretudo), então para comparar com a base meça no mesmo sistema. O `coverage.xml` do job `linux` conta a cobertura de todos os testes juntos e vai só para o Sonar.
 
 As fatias de uma medição têm que ser da mesma partição (o número de fatias e a divisão das classes). O script grava a partição ao lado das medições, apaga as medições de outra partição e recusa o `juntar` se faltar fatia ou se a partição não bater.
 
@@ -82,11 +127,11 @@ O job `linux` roda o App em dois processos, com `-trait Tipo=Tela` e `-trait- Ti
 
 ### Prova da tarefa
 
-`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo). Com cobertura, como o job: `dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml`, e depois `bash .circleci/piso-cobertura.sh coverage.xml` confere o piso. No Windows, o `dotnet-coverage` precisa receber o Git Bash pelo caminho curto (`cygpath -w -s $(command -v bash)`), porque o `bash` do PATH do Windows pode ser o do WSL.
+`bash .circleci/run-tests.sh` roda todos os projetos como o job `linux` e imprime o resumo por projeto (testes, saída e tempo). Com cobertura, como o job: `dotnet-coverage collect "bash .circleci/run-tests.sh" -f xml -o coverage.xml`. No Windows, o `dotnet-coverage` precisa receber o Git Bash pelo caminho curto (`cygpath -w -s $(command -v bash)`), porque o `bash` do PATH do Windows pode ser o do WSL.
 
 ## Relatório de cada tarefa
 
-O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo, cobertura de linhas e de ramos (do `tools/cobertura.sh`) e, no App, a memória do processo. A cobertura de linhas e de ramos depois tem que ser igual ou maior que a da base. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
+O builder registra, no relatório da tarefa, o antes e o depois de cada projeto que mexeu: testes, tempo e, no App, a memória do processo. A cobertura de linhas e de ramos (do `tools/cobertura.sh`) entra como informação, sem meta. Para cada teste novo ou mantido, o relatório diz o risco (R1 a R8) que ele protege; teste sem risco sai. Nenhuma tarefa muda código de produção, a não ser para expor uma costura de teste que falta, e isso vai no corpo do PR.
 
 ## Capturas das telas
 
