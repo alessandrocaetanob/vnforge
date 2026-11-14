@@ -673,6 +673,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
+        if (projectless is not null && target != NavKey.Sheet && Sheet.IsBusy)
+        {
+            // A Ficha é uma só no app: sair agora a trocaria pela do projeto aberto no meio da tradução.
+            Toasts.Show("A ficha deste jogo ainda está sendo traduzida. Espere terminar para sair dela.", ToastKind.Info, key: "game-sheet");
+            return false;
+        }
+
         // As páginas que leem os textos do disco (Conferência, Painel, Início, Testar e Lançar) precisam da edição pendente já gravada.
         return target is not (NavKey.Conference or NavKey.Dashboard or NavKey.Start or NavKey.Build or NavKey.Release) || Editor.Detail?.Flush() != false;
     }
@@ -1054,7 +1061,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (projectless is not null)
         {
             // O jogo que estava na Ficha sem projeto agora tem um: o cabeçalho e as abas passam a ser os do projeto.
+            // A Ficha, a capa e o título recarregam do projeto logo abaixo (ReadVndbLink), sem sobra do jogo sem projeto.
             projectless = null;
+            projectlessContext = null;
             RaiseShellChanged();
         }
 

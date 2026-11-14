@@ -625,7 +625,7 @@ public sealed partial class CharactersViewModel : ObservableObject
         "Engages in" => "Atividades",
         "Subject of" => "Situações",
         "Sexual Content" or "Sexual content" => "Conteúdo adulto",
-        _ => vndbGroup,
+        _ => string.IsNullOrWhiteSpace(vndbGroup) ? "Traços" : vndbGroup,
     };
 
     private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, List<VndbTrait> hidden)

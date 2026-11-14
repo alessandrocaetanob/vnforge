@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace VNForge.App.ViewModels;
 
 /// <summary>A barra do topo da Ficha (#690, #692): o estado do texto em português, o spoiler e o botão principal, que muda com a etapa.</summary>
@@ -38,41 +40,41 @@ public sealed partial class GameSheetViewModel
         get
         {
             var parts = Parts();
-            var singular = parts is ["a sinopse"] or ["a 1 tag"] or ["o 1 personagem"];
-            return $"{Capitalize(JoinParts(parts))} {(singular ? "está" : "estão")} como o VNDB entrega.";
+            if (parts.Count == 0)
+            {
+                return "O VNDB não trouxe texto para traduzir.";
+            }
+
+            var plural = parts.Count > 1 || parts[0].Plural;
+            var names = parts.Select(p => p.Text).ToList();
+            var joined = names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} e {names[^1]}";
+            return $"{char.ToUpperInvariant(joined[0])}{joined[1..]} {(plural ? "estão" : "está")} como o VNDB entrega.";
         }
     }
 
-    private List<string> Parts()
+    private readonly record struct SheetPart(string Text, bool Plural);
+
+    private List<SheetPart> Parts()
     {
-        var parts = new List<string>();
+        var parts = new List<SheetPart>();
         if (HasSynopsis)
         {
-            parts.Add("a sinopse");
+            parts.Add(new SheetPart("a sinopse", false));
         }
 
         var tags = card is null ? 0 : card.Tags.Count + card.HiddenSpoilerTags + card.HiddenAdultTags;
         if (tags > 0)
         {
-            parts.Add(tags == 1 ? "a 1 tag" : $"as {tags.ToString(System.Globalization.CultureInfo.InvariantCulture)} tags");
+            parts.Add(new SheetPart($"{(tags == 1 ? "a" : "as")} {tags.ToString(CultureInfo.InvariantCulture)} {(tags == 1 ? "tag" : "tags")}", tags > 1));
         }
 
         if (tiles.Count > 0)
         {
-            parts.Add(tiles.Count == 1 ? "o 1 personagem" : $"os {tiles.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)} personagens");
+            parts.Add(new SheetPart($"{(tiles.Count == 1 ? "o" : "os")} {tiles.Count.ToString(CultureInfo.InvariantCulture)} {(tiles.Count == 1 ? "personagem" : "personagens")}", tiles.Count > 1));
         }
 
         return parts;
     }
-
-    private static string JoinParts(List<string> parts) => parts.Count switch
-    {
-        0 => "o texto",
-        1 => parts[0],
-        _ => $"{string.Join(", ", parts.Take(parts.Count - 1))} e {parts[^1]}",
-    };
-
-    private static string Capitalize(string text) => string.Concat(char.ToUpperInvariant(text[0]), text[1..]);
 
     /// <summary>O botão principal da barra é "Traduzir a ficha" enquanto falta texto e "Revisar a ficha" depois; traduzir de novo vira ação discreta.</summary>
     public bool PrimaryIsTranslate => HasPending;

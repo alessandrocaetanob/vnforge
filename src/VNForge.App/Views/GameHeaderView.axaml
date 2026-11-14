@@ -126,6 +126,7 @@
                     <TextBlock Text="Ligar a um projeto que já existe"/>
                   </StackPanel>
                 </Button>
+                <TextBlock Name="UnsupportedEngine" Classes="secondary" FontSize="13" VerticalAlignment="Center" Text="Engine sem suporte para tradução" IsVisible="{Binding ShowUnsupportedEngine}"/>
                 <Button Name="TranslateGameButton" Padding="16,0" Height="32" FontSize="14" FontWeight="SemiBold" Command="{Binding TranslateProjectlessGameCommand}" IsVisible="{Binding CanTranslateProjectlessGame}"
                         AutomationProperties.Name="Traduzir este jogo">
                   <TextBlock Text="Traduzir este jogo"/>

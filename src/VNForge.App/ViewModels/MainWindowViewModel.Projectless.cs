@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
 using VNForge.Core.Library;
 
 namespace VNForge.App.ViewModels;
@@ -21,6 +22,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>"Traduzir este jogo" do cabeçalho só existe para uma engine que o VNForge traduz; as outras só guardam o jogo e a ficha na Biblioteca.</summary>
     public bool CanTranslateProjectlessGame => ProjectlessGame is { Engine.Translatable: true };
 
+    /// <summary>No lugar de "Traduzir este jogo": uma engine que o VNForge não traduz só guarda o jogo e a ficha na Biblioteca, e o cabeçalho diz isso em vez de calar.</summary>
+    public bool ShowUnsupportedEngine => InProjectlessGame && !CanTranslateProjectlessGame;
+
     /// <summary>"Ligar a um projeto que já existe" do cabeçalho da Ficha: o fluxo é o da #688, que liga este botão depois de entrar. Enquanto isso o botão fica escondido.</summary>
     public bool ShowLinkExistingProject => false;
 
@@ -42,6 +46,13 @@ public sealed partial class MainWindowViewModel
 
     private void OpenProjectlessSheet(LibraryGame game)
     {
+        if (Sheet.IsBusy)
+        {
+            // A Ficha é uma só no app: abrir outro jogo agora mostraria o andamento da tradução de um no outro.
+            Toasts.Show("A ficha de outro jogo ainda está sendo traduzida. Espere terminar para abrir este.", ToastKind.Info, key: "game-sheet");
+            return;
+        }
+
         var context = LibraryContext(game);
         projectless = game;
         projectlessContext = context;

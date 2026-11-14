@@ -374,6 +374,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(InProjectlessGame));
         OnPropertyChanged(nameof(ProjectlessGame));
         OnPropertyChanged(nameof(CanTranslateProjectlessGame));
+        OnPropertyChanged(nameof(ShowUnsupportedEngine));
         OnPropertyChanged(nameof(GameTabs));
         OnPropertyChanged(nameof(GameHeaderTitle));
         OnPropertyChanged(nameof(GameEngineLabel));
