@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -286,16 +287,7 @@ public sealed class RestorePointStore
 
             var point = new RestorePoint(id, title, now, count, [.. changes.Keys.Order(StringComparer.Ordinal)], formatting is not null);
             var manifest = Path.Combine(folder, ManifestFileName);
-            var temporary = $"{manifest}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                ProjectFileIo.WriteAllText(temporary, JsonSerializer.Serialize(new Manifest(CurrentVersion, point.Id, point.Title, point.CreatedAt, point.LineCount, point.Scripts, point.Formatting), Json), Utf8, Thread.Sleep);
-                ProjectFileIo.Move(temporary, manifest, overwrite: true);
-            }
-            finally
-            {
-                ProjectFileIo.DeleteQuietly(temporary);
-            }
+            AtomicFile.WriteAllText(manifest, JsonSerializer.Serialize(new Manifest(CurrentVersion, point.Id, point.Title, point.CreatedAt, point.LineCount, point.Scripts, point.Formatting), Json));
 
             Prune(now);
             return point;
@@ -340,16 +332,7 @@ public sealed class RestorePointStore
             return (true, false);
         }
 
-        var temporary = $"{project.FormattingPath}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            ProjectFileIo.WriteAllText(temporary, before, Utf8, Thread.Sleep);
-            ProjectFileIo.Move(temporary, project.FormattingPath, overwrite: true);
-        }
-        finally
-        {
-            ProjectFileIo.DeleteQuietly(temporary);
-        }
+        AtomicFile.WriteAllText(project.FormattingPath, before);
 
         return (true, false);
     }

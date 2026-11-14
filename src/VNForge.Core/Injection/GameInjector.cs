@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using VNForge.Core.Engines;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Injection;
@@ -618,20 +619,8 @@ public sealed partial class GameInjector
     /// <summary>A pasta de backup é desta chamada até o manifesto estar gravado: depois a marca sai e a pasta vira um backup comum.</summary>
     private static void ReleaseClaim(string backupDirectory) => File.Delete(Path.Combine(backupDirectory, ClaimFileName));
 
-    private static void WriteManifest(string backupDirectory, BackupManifest manifest)
-    {
-        var path = Path.Combine(backupDirectory, BackupManifest.FileName);
-        var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, manifest.Serialize(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            File.Move(temporary, path, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
-    }
+    private static void WriteManifest(string backupDirectory, BackupManifest manifest) =>
+        AtomicFile.WriteAllText(Path.Combine(backupDirectory, BackupManifest.FileName), manifest.Serialize());
 
     /// <summary>
     /// Todos os backups do projeto, do mais novo para o mais antigo, restaurados ou não, para a lista da tela Build. Só lê: um manifesto ilegível

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using VNForge.Core.Engines;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Images;
@@ -124,7 +125,7 @@ public static class ImageBuild
                 archive.WriteTo(output, replacements);
             }
 
-            File.Move(temp, target, overwrite: true);
+            AtomicFile.Replace(temp, target);
             return replaced;
         }
         catch (Exception ex) when (ArchiveOpener.IsReadFailure(ex) || ex is NotSupportedException or ArgumentException)

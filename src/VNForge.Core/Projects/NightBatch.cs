@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -126,17 +127,7 @@ public sealed class NightBatchStore(ProjectFolder project)
         ArgumentNullException.ThrowIfNull(state);
         System.IO.Directory.CreateDirectory(StoreDirectory);
         var path = PathOf(state.Id);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(state, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
-            ProjectFileIo.Move(temp, path, overwrite: true);
-        }
-        catch
-        {
-            ProjectFileIo.DeleteQuietly(temp);
-            throw;
-        }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(state, Json) + "\n");
     }
 
     /// <summary>

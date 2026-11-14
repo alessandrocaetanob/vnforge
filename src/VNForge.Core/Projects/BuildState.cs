@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using VNForge.Core.Engines;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.Core.Projects;
@@ -172,7 +173,7 @@ internal sealed record BuildState(
         var path = Path.Combine(project.CacheDirectory, StateFileName);
         var temp = path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(this, Json), Encoding.UTF8);
-        File.Move(temp, path, overwrite: true);
+        AtomicFile.Replace(temp, path);
 
         var directory = Path.Combine(project.CacheDirectory, ScriptsDirectoryName);
         if (!Directory.Exists(directory))

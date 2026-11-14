@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Memory;
 
@@ -79,27 +80,13 @@ internal sealed class UserEntriesFile<T>(string path, Func<string, List<T>, List
 
         sb.Append(entries.Count == 0 ? "]\n}\n" : "\n  ]\n}\n");
 
-        var temporary = $"{Path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            File.WriteAllText(temporary, sb.ToString(), new UTF8Encoding(false));
-            File.Move(temporary, Path, overwrite: true);
+            AtomicFile.WriteAllText(Path, sb.ToString());
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             throw new MemoryFileException(Path, e.Message, e);
-        }
-        finally
-        {
-            try
-            {
-                File.Delete(temporary);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                // O temporário solto não atrapalha nada; a próxima gravação usa outro nome.
-            }
         }
     }
 

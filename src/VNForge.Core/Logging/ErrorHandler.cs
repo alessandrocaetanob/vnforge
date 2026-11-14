@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using VNForge.Core.Output;
+using VNForge.Patching;
 
 namespace VNForge.Core.Logging;
 
@@ -113,7 +114,7 @@ public static class ErrorHandler
                 TryLog(() => logger.LogInformation("Operação cancelada pelo usuário"));
                 return CancelledExitCode;
 
-            case VNForgeException:
+            case VNForgeException or FileWriteVerificationException:
                 var expectedMessage = exception.Message;
                 Report(JsonEnvelope.ExpectedKind, expectedMessage, humanText: $"Erro: {expectedMessage}");
                 TryLog(() =>

@@ -1,6 +1,7 @@
 using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Engines.YuRis.Ypf;
+using VNForge.Patching;
 
 namespace VNForge.Engines.YuRis;
 
@@ -65,7 +66,7 @@ internal static class YuRisRepacker
     {
         if (scripts.Count == 0)
         {
-            File.Copy(source, target, overwrite: true);
+            FileSwap.Copy(source, target);
             return 0;
         }
 

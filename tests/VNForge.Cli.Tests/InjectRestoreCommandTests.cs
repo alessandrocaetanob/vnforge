@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Cli.Tests;
 
@@ -39,8 +40,8 @@ public sealed class InjectRestoreCommandTests : IDisposable
 
     private string GameFile => Path.Combine(_game, YsbinYpf);
 
-    private void PutBuild(string content = Traduzido) =>
-        File.WriteAllText(Path.Combine(_project.BuildDirectory, YsbinYpf), content);
+    private void PutBuild(string content = Traduzido, string file = YsbinYpf) =>
+        File.WriteAllText(Path.Combine(_project.BuildDirectory, file), content);
 
     private Task<RunResult> Run(params string[] args) =>
         _cli.RunAsync([.. args, "--project", _project.Root], TestContext.Current.CancellationToken);
@@ -306,5 +307,22 @@ public sealed class InjectRestoreCommandTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Não há backup", result.Error);
+    }
+
+    [Fact]
+    public async Task Inject_num_disco_que_zera_o_rename_no_segundo_arquivo_falha_e_o_jogo_volta_como_estava()
+    {
+        const string Segundo = "zz.ypf";
+        await File.WriteAllTextAsync(Path.Combine(_game, Segundo), Original, TestContext.Current.CancellationToken);
+        PutBuild();
+        PutBuild(Traduzido, Segundo);
+        using var disco = ProjectDisk.Use(new ZeroingDisk(destino => destino.EndsWith(Segundo, StringComparison.OrdinalIgnoreCase) && destino.StartsWith(_game, StringComparison.OrdinalIgnoreCase)));
+
+        var result = await Run(Inject, YesOption);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("depois de gravado", result.Error);
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
+        Assert.Equal(Original, await File.ReadAllTextAsync(Path.Combine(_game, Segundo), TestContext.Current.CancellationToken));
     }
 }
