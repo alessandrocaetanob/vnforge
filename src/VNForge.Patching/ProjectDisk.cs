@@ -1,7 +1,7 @@
 namespace VNForge.Patching;
 
 /// <summary>
-/// O que a gravação conferida (<c>AtomicFile</c>) precisa do disco e que o teste troca: se o volume do arquivo é um disco local (NTFS, ReFS) onde o rename sobre um
+/// O que a gravação conferida (<c>AtomicFile</c>) precisa do disco e que o teste troca: se o volume do arquivo é um disco local (NTFS, ReFS, exFAT, FAT32) onde o rename sobre um
 /// arquivo existente é confiável, e a própria troca. Num disco de rede ou FUSE a troca pode falhar sem avisar (rclone com cache em modo full devolve sucesso e
 /// deixa o destino com 0 byte), então o Core usa outro caminho e confere o resultado.
 /// </summary>
@@ -35,7 +35,7 @@ public static class ProjectDisk
     public static string? NonLocalWarning(string path) =>
         Current.IsLocal(path)
             ? null
-            : $"Aviso: '{path}' está num disco que não é local (rede, FUSE ou formato diferente de NTFS/ReFS). O VNForge confere cada gravação relendo o arquivo e usa um caminho mais lento; se a gravação falhar, o arquivo anterior fica guardado ao lado, com a extensão .bak.";
+            : $"Aviso: '{path}' está num disco que não é local (rede, FUSE ou formato que não é de disco local). O VNForge confere cada gravação relendo o arquivo e usa um caminho mais lento; se a gravação falhar, o arquivo anterior fica guardado ao lado, com a extensão .bak.";
 
     private sealed class Restore(IProjectDisk? previous) : IDisposable
     {

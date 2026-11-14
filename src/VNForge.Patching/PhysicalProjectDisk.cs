@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 
@@ -11,7 +12,10 @@ namespace VNForge.Patching;
 /// </summary>
 internal sealed partial class PhysicalProjectDisk(Func<string, string?> volumeOf, Func<string, bool> isLocalVolume) : IProjectDisk
 {
-    private readonly ConcurrentDictionary<string, bool> _volumes = new(StringComparer.OrdinalIgnoreCase);
+    // O veredito de um volume vale um minuto: uma pasta remontada ou uma letra trocada de disco não fica com o veredito antigo pelo processo todo.
+    private static readonly TimeSpan VerdictLifetime = TimeSpan.FromMinutes(1);
+
+    private readonly ConcurrentDictionary<string, (bool Local, long At)> _volumes = new(StringComparer.OrdinalIgnoreCase);
 
     public PhysicalProjectDisk()
         : this(OperatingSystem.IsWindows() ? WindowsVolumeOf : _ => "/", OperatingSystem.IsWindows() ? WindowsIsLocal : _ => true)
@@ -21,10 +25,25 @@ internal sealed partial class PhysicalProjectDisk(Func<string, string?> volumeOf
     public bool IsLocal(string path)
     {
         var volume = volumeOf(Path.GetFullPath(path));
-        return !string.IsNullOrEmpty(volume) && _volumes.GetOrAdd(volume, isLocalVolume);
+        if (string.IsNullOrEmpty(volume))
+        {
+            return false;
+        }
+
+        if (_volumes.TryGetValue(volume, out var known) && Stopwatch.GetElapsedTime(known.At) < VerdictLifetime)
+        {
+            return known.Local;
+        }
+
+        var local = isLocalVolume(volume);
+        _volumes[volume] = (local, Stopwatch.GetTimestamp());
+        return local;
     }
 
     public void Move(string source, string destination, bool overwrite) => File.Move(source, destination, overwrite);
+
+    // Formatos de disco local: o rename sobre arquivo existente é confiável neles. exFAT e FAT32 são os de pendrive e de HD externo (Fixed ou Removable).
+    private static readonly HashSet<string> LocalFormats = new(["NTFS", "ReFS", "exFAT", "FAT32", "FAT"], StringComparer.OrdinalIgnoreCase);
 
     private const int MaxPath = 32768;
 
@@ -85,7 +104,7 @@ internal sealed partial class PhysicalProjectDisk(Func<string, string?> volumeOf
         }
 
         var name = new string(format, 0, Array.IndexOf(format, '\0'));
-        return name.Equals("NTFS", StringComparison.OrdinalIgnoreCase) || name.Equals("ReFS", StringComparison.OrdinalIgnoreCase);
+        return LocalFormats.Contains(name);
     }
 
     [LibraryImport("kernel32.dll", EntryPoint = "GetVolumePathNameW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]

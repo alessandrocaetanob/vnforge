@@ -33,9 +33,14 @@ public static class FileSwap
     /// <exception cref="FileWriteVerificationException">O destino relido não bate com o temporário. Na troca com <c>.bak</c>, o conteúdo anterior já foi devolvido e a cópia ficou ao lado.</exception>
     public static void Replace(string temporary, string path, bool overwrite = true, Action<string, string, bool>? move = null, Action<string>? delete = null)
     {
+        Replace(temporary, path, overwrite, Measure(temporary), move, delete);
+    }
+
+    // expected é o que o destino tem que ter depois da troca: lido uma vez só (o arquivo pode ter centenas de MB), no temporário ou na origem de uma cópia.
+    private static void Replace(string temporary, string path, bool overwrite, Fingerprint expected, Action<string, string, bool>? move, Action<string>? delete)
+    {
         move ??= ProjectDisk.Current.Move;
         delete ??= File.Delete;
-        var expected = Measure(temporary);
         var existed = File.Exists(path);
         if (ProjectDisk.Current.IsLocal(path) || !existed || !overwrite)
         {
@@ -59,7 +64,7 @@ public static class FileSwap
 
     /// <summary>
     /// Copia <paramref name="source"/> para <paramref name="destination"/> por um temporário ao lado e <see cref="Replace"/>: o destino nunca fica pela metade nem vazio sem erro.
-    /// A cópia também é conferida contra a origem, porque um disco que não é local pode devolver a cópia vazia.
+    /// O destino é conferido contra a origem (lida uma vez), porque um disco que não é local pode devolver a cópia vazia.
     /// </summary>
     public static void Copy(string source, string destination, Action<string, string, bool>? move = null, Action<string>? delete = null)
     {
@@ -67,13 +72,9 @@ public static class FileSwap
         var temporary = $"{destination}.{Guid.NewGuid():N}.tmp";
         try
         {
+            var expected = Measure(source);
             File.Copy(source, temporary, overwrite: true);
-            if (Measure(temporary) != Measure(source))
-            {
-                throw new FileWriteVerificationException($"A cópia de '{source}' para '{destination}' não confere com a origem; o destino não foi alterado.");
-            }
-
-            Replace(temporary, destination, overwrite: true, move, delete);
+            Replace(temporary, destination, overwrite: true, expected, move, delete);
         }
         finally
         {
@@ -147,8 +148,8 @@ public static class FileSwap
         // Nome único: um X.bak que já exista ao lado (na pasta do jogo, arquivo do usuário) nunca é sobrescrito nem apagado.
         var backup = $"{path}.{Guid.NewGuid():N}.bak";
         File.Copy(path, backup, overwrite: true);
-        var old = Measure(backup);
-        if (old != Measure(path))
+        // Só o tamanho: o SHA-256 do original e da cópia seria mais duas leituras do arquivo inteiro a cada gravação. A leitura completa fica para o caminho de falha (Restore).
+        if (new FileInfo(backup).Length != new FileInfo(path).Length)
         {
             throw new FileWriteVerificationException($"A cópia de segurança de '{path}' não confere com o original; o arquivo não foi alterado.");
         }
@@ -159,14 +160,14 @@ public static class FileSwap
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            if (Unchanged(path, old))
+            if (Unchanged(path, backup))
             {
                 // O Delete falhou (arquivo preso): o destino é o de antes e a cópia não serve de nada.
                 DeleteQuietly(backup);
                 throw new FileWriteVerificationException($"Não foi possível gravar '{path}': {e.Message} O arquivo não foi alterado.", e);
             }
 
-            Restore(path, backup, old, e, delete);
+            Restore(path, backup, e, delete);
             throw new FileWriteVerificationException(
                 $"Não foi possível gravar '{path}': {e.Message} O conteúdo anterior foi devolvido ao arquivo e a cópia de segurança ficou em '{backup}'.", e);
         }
@@ -178,7 +179,7 @@ public static class FileSwap
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Restore(path, backup, old, e, delete);
+            Restore(path, backup, e, delete);
             throw new FileWriteVerificationException(
                 $"Não foi possível gravar '{path}': {e.Message} O conteúdo anterior foi devolvido ao arquivo e a cópia de segurança ficou em '{backup}'.", e);
         }
@@ -186,11 +187,11 @@ public static class FileSwap
         DeleteQuietly(backup);
     }
 
-    private static bool Unchanged(string path, Fingerprint old)
+    private static bool Unchanged(string path, string backup)
     {
         try
         {
-            return File.Exists(path) && Measure(path) == old;
+            return File.Exists(path) && Measure(path) == Measure(backup);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -198,10 +199,11 @@ public static class FileSwap
         }
     }
 
-    private static void Restore(string path, string backup, Fingerprint old, Exception cause, Action<string> delete)
+    private static void Restore(string path, string backup, Exception cause, Action<string> delete)
     {
         try
         {
+            var old = Measure(backup);
             delete(path);
             File.Copy(backup, path, overwrite: false);
             Verify(path, old, $"O arquivo '{path}'");
