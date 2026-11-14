@@ -1,34 +1,58 @@
+using System.Text;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Library;
 
+/// <summary>
+/// A gravação de arquivos do projeto e da biblioteca: escreve num temporário ao lado e o põe no lugar por <see cref="FileSwap"/>, que troca, relê o destino e
+/// usa o caminho com <c>.bak</c> em volume que não é local (a causa e a estratégia estão lá). Destino vazio ou diferente vira <see cref="WriteVerificationException"/>.
+/// </summary>
 internal static class AtomicFile
 {
-    /// <summary>Grava o texto sem deixar o arquivo pela metade: escreve num temporário ao lado e troca. <paramref name="wait"/> é a espera entre as tentativas da troca (padrão: dormir).</summary>
-    public static void WriteAllText(string path, string text, Action<int>? wait = null) =>
-        Write(path, temporary => File.WriteAllText(temporary, text), wait);
+    private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
+
+    /// <summary>Grava o texto (UTF-8 sem BOM). <paramref name="wait"/> é a espera entre as tentativas da troca (padrão: dormir); <paramref name="overwrite"/> falso recusa um destino existente.</summary>
+    public static void WriteAllText(string path, string text, Action<int>? wait = null, bool overwrite = true, Func<string>? newTemporaryPath = null) =>
+        WriteAllBytes(path, Utf8SemBom.GetBytes(text), wait, overwrite, newTemporaryPath);
 
     /// <summary>Como <see cref="WriteAllText"/>, para bytes (uma imagem não pode aparecer pela metade).</summary>
-    public static void WriteAllBytes(string path, byte[] bytes, Action<int>? wait = null) =>
-        Write(path, temporary => File.WriteAllBytes(temporary, bytes), wait);
-
-    private static void Write(string path, Action<string> writeTemporary, Action<int>? wait)
+    public static void WriteAllBytes(string path, byte[] bytes, Action<int>? wait = null, bool overwrite = true, Func<string>? newTemporaryPath = null)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        // newTemporaryPath existe para o teste prender o temporário antes da escrita: o nome real leva um Guid que ninguém conhece de antemão.
+        var temporary = newTemporaryPath?.Invoke() ?? $"{path}.{Guid.NewGuid():N}.tmp";
+        var sleep = wait ?? Thread.Sleep;
         try
         {
-            var sleep = wait ?? Thread.Sleep;
             ProjectFileIo.Retry<int>(null, () =>
             {
-                writeTemporary(temporary);
+                File.WriteAllBytes(temporary, bytes);
                 return 0;
             }, sleep);
-            ProjectFileIo.Move(temporary, path, overwrite: true, sleep);
+            Replace(temporary, path, overwrite, sleep);
         }
         finally
         {
             ProjectFileIo.DeleteQuietly(temporary);
+        }
+    }
+
+    /// <summary>
+    /// Põe o temporário já escrito no lugar de <paramref name="path"/>, esperando quem estiver segurando o arquivo e conferindo o resultado.
+    /// Quem grava por conta própria (um arquivo grande, um fluxo) chama isto no fim.
+    /// </summary>
+    /// <exception cref="WriteVerificationException">O destino relido não bate com o que foi gravado.</exception>
+    public static void Replace(string temporary, string path, bool overwrite = true, Action<int>? wait = null)
+    {
+        var sleep = wait ?? Thread.Sleep;
+        try
+        {
+            FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep));
+        }
+        catch (FileWriteVerificationException e)
+        {
+            throw new WriteVerificationException(e.Message, e);
         }
     }
 }

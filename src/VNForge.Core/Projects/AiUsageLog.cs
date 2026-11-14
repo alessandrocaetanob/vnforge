@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Projects;
 
@@ -78,7 +79,7 @@ public static class AiUsageLog
 
             Directory.CreateDirectory(project.CacheDirectory);
             File.WriteAllText(temp, JsonSerializer.Serialize(current + (run with { Runs = 1 }), Json) + "\n", new UTF8Encoding(false));
-            File.Move(temp, path, overwrite: true);
+            AtomicFile.Replace(temp, path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

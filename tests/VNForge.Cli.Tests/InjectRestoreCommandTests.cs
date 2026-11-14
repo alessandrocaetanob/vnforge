@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Cli.Tests;
 
@@ -306,5 +307,18 @@ public sealed class InjectRestoreCommandTests : IDisposable
 
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Não há backup", result.Error);
+    }
+
+    [Fact]
+    public async Task Inject_num_disco_que_zera_o_rename_falha_com_erro_e_o_jogo_fica_como_estava()
+    {
+        PutBuild();
+        using var disco = ProjectDisk.Use(new ZeroingDisk(destino => destino.StartsWith(_game, StringComparison.OrdinalIgnoreCase)));
+
+        var result = await Run(Inject, YesOption);
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("depois de gravado", result.Error);
+        Assert.Equal(Original, await File.ReadAllTextAsync(GameFile, TestContext.Current.CancellationToken));
     }
 }

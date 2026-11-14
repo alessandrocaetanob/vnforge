@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using VNForge.Patching;
 
 namespace VNForge.Core.Projects;
 
@@ -61,7 +62,7 @@ internal static class ProjectFileIo
     internal static void Move(string source, string destination, bool overwrite, Action<int> wait) =>
         Retry(destination, () =>
         {
-            File.Move(source, destination, overwrite);
+            ProjectDisk.Current.Move(source, destination, overwrite);
             return 0;
         }, wait);
 

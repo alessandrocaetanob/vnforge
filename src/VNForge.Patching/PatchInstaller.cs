@@ -420,7 +420,7 @@ public static class PatchInstaller
                 throw new PatchException($"A cópia de {Path.GetFileName(to)} não confere com o original.");
             }
 
-            File.Move(temp, to, overwrite: true);
+            FileSwap.Replace(temp, to);
         }
         catch (IOException ex)
         {
@@ -460,7 +460,7 @@ public static class PatchInstaller
                 throw new PatchException($"O patch gerou um {entry.Path} diferente do esperado: o arquivo está corrompido.");
             }
 
-            File.Move(temp, target, overwrite: true);
+            FileSwap.Replace(temp, target);
         }
         catch (Exception ex) when (ex is not PatchException and not OperationCanceledException)
         {
@@ -601,7 +601,7 @@ public static class PatchInstaller
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + TempSuffix;
         File.WriteAllBytes(temp, JsonSerializer.SerializeToUtf8Bytes(manifest, PatchJsonContext.Instance.InstallManifest));
-        File.Move(temp, path, overwrite: true);
+        FileSwap.Replace(temp, path);
     }
 
     internal sealed record InstallRecord(string Path, bool Existed, string? OriginalSha256, string InstalledSha256);

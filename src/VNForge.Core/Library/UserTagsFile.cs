@@ -100,19 +100,13 @@ public sealed class UserTagsFile(string directory)
     {
         ArgumentNullException.ThrowIfNull(tags);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        var temporary = $"{Path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            ProjectFileIo.WriteAllText(temporary, Serialize(tags), new UTF8Encoding(false), Thread.Sleep);
-            ProjectFileIo.Move(temporary, Path, overwrite: true);
+            AtomicFile.WriteAllText(Path, Serialize(tags));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             throw new LibraryException($"As tags não puderam ser gravadas em '{Path}': {e.Message}", e);
-        }
-        finally
-        {
-            ProjectFileIo.DeleteQuietly(temporary);
         }
     }
 

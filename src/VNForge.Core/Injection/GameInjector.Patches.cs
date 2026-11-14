@@ -1,5 +1,6 @@
 using VNForge.Core.Engines;
 using VNForge.Core.Projects;
+using VNForge.Patching;
 
 namespace VNForge.Core.Injection;
 
@@ -152,7 +153,6 @@ public sealed partial class GameInjector
 
     private static void CopyInto(string source, string destination)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        File.Copy(source, destination, overwrite: true);
+        FileSwap.Copy(source, destination);
     }
 }
