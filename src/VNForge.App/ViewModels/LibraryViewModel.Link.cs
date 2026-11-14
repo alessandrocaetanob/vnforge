@@ -234,7 +234,12 @@ public sealed partial class LibraryViewModel
             var first = preview.Mismatches[0];
             var rest = preview.Mismatches.Count - 1;
             var problem = first.IsMissing ? " não está na pasta do jogo." : " não bate com o original nem com o que o VNForge gravou.";
-            return LinkRefusal(rest == 0 ? problem : $"{problem} Mais {rest} {(rest == 1 ? "arquivo" : "arquivos")} também não conferem.")
+            if (rest > 0)
+            {
+                problem += $" Mais {rest} {(rest == 1 ? "arquivo" : "arquivos")} também não conferem.";
+            }
+
+            return LinkRefusal(problem)
                 with { FromFolder = preview.CurrentFolder, ToFolder = preview.TargetFolder, File = first.Path };
         }
 
