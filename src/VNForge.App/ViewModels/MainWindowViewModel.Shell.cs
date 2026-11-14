@@ -250,13 +250,20 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        if (Library.IsLinking)
+        {
+            // Zerar o que o shell guardou agora apagaria a intenção de abrir da ligação que ainda corre.
+            Toasts.Show("Já há uma ligação de projeto em andamento. Espere terminar para ligar outro.", ToastKind.Info, key: "library-link");
+            return;
+        }
+
         openAfterLink = null;
         var fromSheet = projectless?.Id == game.Id;
         await Library.LinkProjectAsync(game);
         if (!ReferenceEquals(CurrentPage, Library) && (Library.HasLinkDialog || Library.ErrorMessage is { Length: > 0 }))
         {
             // Ir à Biblioteca apaga o jogo sem projeto: guarda de onde a ligação saiu para o projeto abrir quando o diálogo for confirmado.
-            if (fromSheet && Library.HasLinkDialog)
+            if (fromSheet && Library.IsLinkDialogFor(game))
             {
                 openAfterLinkSheetGameId = game.Id;
             }
@@ -271,8 +278,15 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     private async Task LinkAndOpenAsync(string root, string? gameFolder)
     {
-        openAfterLink = null;
         var game = gameFolder is null ? null : Library.Games.FirstOrDefault(g => SameFolder(g.Folder, gameFolder));
+        if (game is not null && Library.IsLinking)
+        {
+            // Zerar o que o shell guardou agora apagaria a intenção de abrir da ligação que ainda corre.
+            Library.ReportProblem("Já há uma ligação de projeto em andamento. Espere terminar e abra o projeto de novo.");
+            return;
+        }
+
+        openAfterLink = null;
         if (game is null)
         {
             // Sem o jogo na Biblioteca não há conferência dos arquivos: só abre o projeto se ele já é deste jogo.
@@ -288,18 +302,12 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        if (Library.IsLinking)
-        {
-            Library.ReportProblem("Já há uma ligação de projeto em andamento. Espere terminar e abra o projeto de novo.");
-            return;
-        }
-
         await Library.LinkProjectAsync(game, root);
         if (SameFolder(Library.Games.FirstOrDefault(g => g.Id == game.Id)?.ProjectPath, root))
         {
             await OpenLibraryProjectAsync(root, game.VndbId, game.Title);
         }
-        else if (Library.HasLinkDialog)
+        else if (Library.IsLinkDialogFor(game))
         {
             openAfterLink = root;
         }

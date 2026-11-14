@@ -82,14 +82,10 @@ public sealed partial class MainWindowViewModel
         Sheet.ListCard = Library.ListCardForProject(null, game.VndbId);
         OnPropertyChanged(nameof(GameCoverRevealed));
         sheetItem.IsEnabled = true;
-        var alreadyOnSheet = ReferenceEquals(selectedNav, sheetItem);
         SelectedNav = sheetItem;
-        if (alreadyOnSheet)
-        {
-            // Com a Ficha já aberta a navegação não muda, então nada avisaria o cabeçalho e as abas de que o jogo é outro.
-            RaiseShellChanged();
-        }
 
+        // Com a Ficha já aberta a navegação não muda, então nada mais avisaria o cabeçalho e as abas de que o jogo é outro.
+        RaiseShellChanged();
         TranslateProjectlessGameCommand.NotifyCanExecuteChanged();
     }
 
