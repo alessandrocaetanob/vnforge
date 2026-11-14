@@ -32,13 +32,23 @@ internal static class CharactersSamples
     /// <summary>Cinco traços a mais para a Hana (sete no total): com mais de seis, o filtro ganha o link "Ver os N traços".</summary>
     internal static VndbTrait[] ExtraTraits => [.. Enumerable.Range(1, 5).Select(n => new VndbTrait($"i{100 + n}", $"Traço {n}", "i30", "Roupa", 0, false, Sexual: false))];
 
+    private static VndbImage? HanaImage(bool adultPortrait, bool portrait)
+    {
+        if (adultPortrait)
+        {
+            return new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 2, 0);
+        }
+
+        return portrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 0, 0) : null;
+    }
+
     internal static FakeVndbCatalog Catalog() => Catalog(manyTraits: false);
 
     /// <summary>Com <paramref name="adultPortrait"/>, o retrato da Hana é sexual no VNDB (nota 2 de 2) e ela ganha o traço sexual Nude.</summary>
     internal static FakeVndbCatalog Catalog(bool manyTraits, bool adultPortrait = false, bool portrait = false) => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
         [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = adultPortrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 2, 0) : portrait ? new VndbImage("https://t.vndb.org/ch/101.jpg", null, 100, 140, 0, 0) : null },
+            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = HanaImage(adultPortrait, portrait) },
             Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
             Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
             Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),

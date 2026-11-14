@@ -133,7 +133,18 @@ public sealed partial class MainWindowViewModel
 
     public bool GameProgressNone => InProjectlessGame || GameProgress.Percent(ReadyLines, TotalLines) == 0;
 
-    public string GameEngineLabel => projectless is { } game && InProjectlessGame ? game.Engine.Name : CurrentProject is { } project ? ProjectLabels.EngineName(project.EngineId) : string.Empty;
+    public string GameEngineLabel
+    {
+        get
+        {
+            if (projectless is { } game && InProjectlessGame)
+            {
+                return game.Engine.Name;
+            }
+
+            return CurrentProject is { } project ? ProjectLabels.EngineName(project.EngineId) : string.Empty;
+        }
+    }
 
     /// <summary>A parte pronta do jogo, de 0 a 100, para a barra da capa; vem do Painel e, antes de ele ler a pasta, do resumo do projeto.</summary>
     public double GameProgressPercent => InProjectlessGame ? 0 : GameProgress.Percent(ReadyLines, TotalLines);
