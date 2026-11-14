@@ -128,7 +128,7 @@ public sealed class GameSheetViewModelTests : IDisposable
         Assert.Equal(6, vm.CharacterTiles.Count);
         Assert.True(vm.CanShowAll);
         var kenta = vm.CharacterTiles[0];
-        Assert.Equal(("Kenta Aizawa", "相沢 健太", "Protagonista", "Aprovado", "Cabelo curto, Esportista"), (kenta.Name, kenta.Original, kenta.Role!.Text, kenta.Status!.Text, kenta.Line));
+        Assert.Equal(("Kenta Aizawa", "相沢 健太", "Protagonista", "Aprovado", "O protagonista. Volta à escola do irmão."), (kenta.Name, kenta.Original, kenta.Role!.Text, kenta.Status!.Text, kenta.Line));
         Assert.Equal(SheetTone.Approved, kenta.Role.Tone);
         Assert.Equal(["Protagonista", "Principal", "Principal", "Secundário", "Secundária", "Secundária"], vm.CharacterTiles.Select(t => t.Role!.Text));
         Assert.Equal(["Aprovado", "Revisado", "Traduzido", "Traduzido pela IA", "Traduzido pela IA", "Traduzido pela IA"], vm.CharacterTiles.Select(t => t.Status!.Text));
