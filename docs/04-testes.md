@@ -15,15 +15,15 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 | R5 | Gastar dinheiro com IA sem querer, ou vazar a chave | Regra 4 do `CLAUDE.md` | Chave só por ambiente ou cofre; limite de gasto recusa antes de chamar; preço por modelo; ids dos modelos |
 | R6 | Fluxo principal que trava o usuário | #688 (não liga projeto existente), #619 (erro ao abrir projeto), #689 (jogo mudou de pasta) | Uma jornada por fluxo principal, pelo ViewModel |
 | R7 | Arquivo externo estragado ou serviço fora do ar apaga ou esconde dado | #652 (pasta de projeto ilegível escondia os outros) | Arquivo ilegível e rede fora: recusa com aviso em português, nada é sobrescrito |
-| R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado) |
+| R8 | Tela diferente do quadro aprovado | #580 (reprovada) | Não é teste: render real ao lado do quadro antes do PR. Na suíte, só o smoke por tela (abre sem exceção e sem texto cortado). Os testes smoke por tela são os únicos que apontam R8; nenhum outro teste aponta R8, e a fidelidade ao quadro se prova pelo render, fora da suíte |
 
 ## Camadas da suíte
 
 **Oráculos (R3, R4).** Vetores de ouro do YPF e dos hashes, Shift-JIS na página 932, o 0x5C no nome, cp1252 com « », ida e volta byte a byte de cada formato. Ficam sempre, mesmo sem ganho de cobertura: a maratona da #620 mostrou que o corte por cobertura apaga esses testes se ninguém os listar.
 
-**Gravação com falha de disco (R1, R2, R7).** Uma costura de sistema de arquivos no Core, que o teste troca por uma versão que falha do jeito que o mundo real falha: rename que devolve sucesso e deixa o destino vazio (o caso do rclone), arquivo travado por outro processo, disco cheio no meio da gravação, pasta somente leitura. Cada caminho que grava projeto, manifesto, backup ou biblioteca roda contra essas falhas. O esperado é erro em português e o arquivo anterior intacto, nunca sucesso com dado perdido. A costura entra na #699, e a conferência por releitura na #697.
+**Gravação com falha de disco (R1, R2, R7). Planejada, #699.** Uma costura de sistema de arquivos no Core, que o teste troca por uma versão que falha do jeito que o mundo real falha: rename que devolve sucesso e deixa o destino vazio (o caso do rclone), arquivo travado por outro processo, disco cheio no meio da gravação, pasta somente leitura. Cada caminho que grava projeto, manifesto, backup ou biblioteca roda contra essas falhas. O esperado é erro em português e o arquivo anterior intacto, nunca sucesso com dado perdido. A costura entra na #699, e a conferência por releitura na #697.
 
-**Cenários de ponta a ponta (R1 a R4).** Poucos, no Cli, sobre um jogo YU-RIS sintético gerado em código (#700):
+**Cenários de ponta a ponta (R1 a R4). Planejados, #700.** Poucos, no Cli, sobre um jogo YU-RIS sintético gerado em código (#700):
 
 1. Extrair, traduzir com o provedor falso, injetar, restaurar: o jogo volta byte a byte ao original.
 2. Injetar por cima de uma injeção anterior e restaurar: volta ao original, não à primeira injeção.
@@ -35,7 +35,7 @@ Todo teste aponta um risco da tabela abaixo. A pergunta não é "que linha falta
 
 **Smoke por tela (R8).** O `ScreenSmokeTests` abre cada tela do catálogo e confere que não há exceção nem texto cortado. Sem pixel, sem medida e sem texto exato. A lógica da tela fica em teste de ViewModel.
 
-**Teste no ambiente real (manual, antes de cada pré-release).** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro fica em `docs/testes/roteiro-ambiente-real.md` (#703).
+**Teste no ambiente real (manual, antes de cada pré-release). Planejado, #703.** O Alessandro roda um roteiro curto, porque é onde os testes automáticos não chegam: projeto no H: e no W: (rclone), caminho com japonês, jogo real aberto depois da injeção. O roteiro ainda não existe: a #703 o cria em `docs/testes/roteiro-ambiente-real.md`.
 
 ## O que sai e o que fica
 
@@ -46,7 +46,7 @@ Saem:
 - Teste de getter, de construtor, de texto de ajuda e de contrato repetido por comando.
 - Variação de valor, tema ou tamanho que não seja caso de `[Theory]`.
 
-Ficam sempre, mesmo sem ganho de cobertura: os oráculos, os testes que protegem dado do usuário (R1, R2, R7), os de chave e gasto (R5) e os que só rodam numa plataforma.
+Ficam sempre, mesmo sem ganho de cobertura: os oráculos, os testes que protegem dado do usuário (R1, R2, R7), os de chave e gasto (R5). Teste que só roda numa plataforma fica quando aponta um risco; rodar numa plataforma só não o mantém.
 
 A cobertura é medida e aparece no relatório, mas é número informativo. Nenhum job reprova por ela e ela não impede o corte de um teste. Antes de apagar um teste, confira que o risco que só ele protegia continua protegido e liste os oráculos que ficaram, por nome.
 

@@ -1,5 +1,7 @@
 # A suíte depois da maratona, 12/11/2026
 
+O passo Piso de cobertura saiu do CI na #698 (14/11); os números abaixo ficam como histórico.
+
 Fecha a maratona da #620 (tarefa T8, #662). Compara a base de [base-2026-11-11.md](base-2026-11-11.md) com a suíte depois das tarefas T2 a T7, e traz o piso de cobertura que o job `linux` passa a conferir. Como medir: [04-testes.md](../04-testes.md).
 
 ## Resultado
