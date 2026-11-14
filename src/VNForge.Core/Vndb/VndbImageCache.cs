@@ -171,17 +171,8 @@ public sealed class VndbImageCache : IDisposable
         var path = PathFor(url, extension);
         try
         {
-            Directory.CreateDirectory(_directory);
-            var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
-                AtomicFile.Replace(temporary, path);
-            }
-            finally
-            {
-                File.Delete(temporary);
-            }
+            // A gravação conferida espera quem segura o arquivo com Thread.Sleep: fora da thread de quem chamou, que pode ser a da tela.
+            await Task.Run(() => AtomicFile.WriteAllBytes(path, bytes), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

@@ -15,8 +15,8 @@ public interface IProjectDisk
     /// <summary>Grava <paramref name="bytes"/> num arquivo novo (o temporário da troca). O padrão é <see cref="File.WriteAllBytes(string, byte[])"/>; o teste troca por uma gravação que falha no meio (disco cheio, pasta somente leitura).</summary>
     void WriteAllBytes(string path, byte[] bytes) => File.WriteAllBytes(path, bytes);
 
-    /// <summary>Copia <paramref name="source"/> para <paramref name="destination"/> sobrescrevendo (o temporário da troca e a cópia de segurança). O padrão é <see cref="File.Copy(string, string, bool)"/>.</summary>
-    void Copy(string source, string destination) => File.Copy(source, destination, overwrite: true);
+    /// <summary>Copia <paramref name="source"/> para <paramref name="destination"/> (o temporário da troca, a cópia de segurança e a devolução dela). O padrão é <see cref="File.Copy(string, string, bool)"/>.</summary>
+    void Copy(string source, string destination, bool overwrite) => File.Copy(source, destination, overwrite);
 }
 
 /// <summary>O disco que o Core usa; <see cref="Use"/> troca por um falso só na cadeia de chamadas do teste (não vaza para testes em paralelo).</summary>

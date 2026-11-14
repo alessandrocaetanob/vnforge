@@ -33,6 +33,7 @@ public sealed class DiskFailureTests : IDisposable
         { DiskFailure.Locked, false },
         { DiskFailure.DiskFull, true },
         { DiskFailure.ReadOnly, true },
+        { DiskFailure.TruncatedWrite, false },
     };
 
     private static ProjectConfig Config(string name, string game) => new(
@@ -72,7 +73,7 @@ public sealed class DiskFailureTests : IDisposable
             return;
         }
 
-        if (!Regex.IsMatch(error.Message, "Não foi possível gravar|depois de gravado"))
+        if (!Regex.IsMatch(error.Message, "Não foi possível (gravar|copiar)|depois de gravado"))
         {
             problems.Add($"{path}: a mensagem não está em português: {error.Message}");
         }
@@ -180,6 +181,67 @@ public sealed class DiskFailureTests : IDisposable
         File.WriteAllText(Path.Combine(project.BuildDirectory, name), translated);
     }
 
+    // Um volume que não é local em que a troca falha e a devolução do .bak também (o disco caiu de vez).
+    private sealed class DeadDisk(string path) : IProjectDisk
+    {
+        public bool IsLocal(string candidate) => false;
+
+        public void Move(string source, string destination, bool overwrite)
+        {
+            if (Same(destination, path))
+            {
+                throw new IOException(FailingDisk.SystemMessage);
+            }
+
+            File.Move(source, destination, overwrite);
+        }
+
+        public void Copy(string source, string destination, bool overwrite)
+        {
+            if (Same(destination, path))
+            {
+                throw new IOException(FailingDisk.SystemMessage);
+            }
+
+            File.Copy(source, destination, overwrite);
+        }
+    }
+
+    // R2: se a devolução do .bak falha, o arquivo anterior fica guardado ao lado e abrir o projeto de novo o recupera.
+    [Fact]
+    public void R2_devolucao_do_bak_que_falha_deixa_a_copia_ao_lado_e_o_proximo_abrir_a_recupera()
+    {
+        var path = Path.Combine(_temp.Path, "vnforge.json");
+        File.WriteAllText(path, "antigo");
+        Exception? error;
+        using (ProjectDisk.Use(new DeadDisk(path)))
+        {
+            error = Record.Exception(() => AtomicFile.WriteAllText(path, "novo", _ => { }));
+        }
+
+        Assert.Contains("A cópia de segurança está em", error!.Message);
+        Assert.False(File.Exists(path));
+        Assert.Equal("antigo", File.ReadAllText(Assert.Single(Directory.GetFiles(_temp.Path, "*.bak"))));
+
+        Assert.True(FileSwap.ExistsOrRecover(path));
+        Assert.Equal("antigo", File.ReadAllText(path));
+        Assert.Empty(Directory.GetFiles(_temp.Path, "*.bak"));
+    }
+
+    // R2: copiar uma origem que sumiu não vira "falha ao gravar o destino": a mensagem nomeia a origem.
+    [Fact]
+    public void R2_copia_de_origem_que_sumiu_diz_em_portugues_qual_origem_nao_existe()
+    {
+        var source = Path.Combine(_temp.Path, "sumiu.ypf");
+        var destination = Path.Combine(_temp.Path, "destino.ypf");
+        File.WriteAllText(destination, "antigo");
+
+        var error = Assert.IsType<FileNotFoundException>(Record.Exception(() => AtomicFile.Copy(source, destination)));
+
+        Assert.Contains($"'{source}' não existe", error.Message);
+        Assert.Equal("antigo", File.ReadAllText(destination));
+    }
+
     // R2: a conferência só vale se nenhum caminho do Core grava sem passar pela costura. Quem entra aqui sem passar por AtomicFile precisa dizer por que está certo.
     [Fact]
     public void R2_nenhum_caminho_do_core_grava_arquivo_sem_passar_pela_gravacao_conferida()
@@ -210,12 +272,12 @@ public sealed class DiskFailureTests : IDisposable
         ["Images/ImageBuild.cs"] = (1, "o fluxo vai para um temporário que AtomicFile.Replace troca e confere logo depois"),
         ["Jmdict/JmdictImporter.cs"] = (1, "índice reconstruível do dicionário, gerado num temporário e trocado por JmdictInstaller"),
         ["Jmdict/JmdictInstaller.cs"] = (2, "índice do dicionário (centenas de MB, reconstruível): a releitura SHA-256 dobraria a instalação"),
+        ["Projects/BuildState.cs"] = (1, "scripts guardados no cache do build: regeneráveis, ReadScript confere o tamanho, e a releitura SHA-256 custaria duas leituras por script num build de milhares"),
         ["Library/FileLock.cs"] = (1, "arquivo de trava, sem conteúdo"),
         ["Library/UserTagsFile.cs"] = (1, "arquivo de trava, sem conteúdo"),
         ["Logging/FileLoggerProvider.cs"] = (1, "log em modo append; perder uma linha não perde trabalho"),
         ["Projects/ProjectBuilder.cs"] = (3, "build/ é montado numa pasta de preparo e trocado por inteiro, com a anterior devolvida se falhar; é regenerado por vnf build"),
         ["Projects/RestorePointStore.cs"] = (4, "arquivos de uma pasta de ponto de restauração nova; o manifesto, gravado por AtomicFile por último, é o que faz o ponto existir"),
-        ["Vndb/VndbImageCache.cs"] = (1, "o temporário é escrito sem bloquear a tarefa e AtomicFile.Replace o troca e confere em seguida; é cache, baixado de novo se faltar"),
         ["Publishing/ReleaseService.cs"] = (2, "pacote do patch e textos do release numa pasta de saída que o vnf release regenera; o pacote é reaberto e conferido em seguida"),
     };
 }

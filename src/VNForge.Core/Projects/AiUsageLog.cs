@@ -113,16 +113,4 @@ public static class AiUsageLog
             return ReadOutcome.Unreadable;
         }
     }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Sobra um .tmp com nome único; não atrapalha a próxima gravação.
-        }
-    }
 }

@@ -17,6 +17,9 @@ public enum DiskFailure
 
     /// <summary>A pasta é somente leitura: criar o temporário dá acesso negado.</summary>
     ReadOnly,
+
+    /// <summary>A escrita do temporário termina sem erro com metade dos bytes.</summary>
+    TruncatedWrite,
 }
 
 /// <summary>
@@ -53,27 +56,31 @@ internal sealed partial class FailingDisk(DiskFailure failure, bool local, Func<
 
     public void WriteAllBytes(string path, byte[] bytes)
     {
-        FailTemporary(path, () => File.WriteAllBytes(path, bytes[..(bytes.Length / 2)]));
-        File.WriteAllBytes(path, bytes);
+        if (!FailTemporary(path, () => File.WriteAllBytes(path, bytes[..(bytes.Length / 2)])))
+        {
+            File.WriteAllBytes(path, bytes);
+        }
     }
 
-    public void Copy(string source, string destination)
+    public void Copy(string source, string destination, bool overwrite)
     {
-        FailTemporary(destination, () =>
+        var handled = FailTemporary(destination, () =>
         {
             var bytes = File.ReadAllBytes(source);
             File.WriteAllBytes(destination, bytes[..(bytes.Length / 2)]);
         });
-        File.Copy(source, destination, overwrite: true);
+        if (!handled)
+        {
+            File.Copy(source, destination, overwrite);
+        }
     }
 
-    // O disco cheio e a pasta somente leitura falham ao escrever o temporário, antes de o destino ser tocado.
-    private void FailTemporary(string temporary, Action writePartial)
+    // O disco cheio, a pasta somente leitura e a escrita truncada atuam no temporário, antes de o destino ser tocado; devolve verdadeiro quando a escrita foi tomada pela falha.
+    private bool FailTemporary(string temporary, Action writePartial)
     {
-        var final = TemporaryName().Replace(temporary, string.Empty);
-        if (!fails(final))
+        if (!TemporaryName().IsMatch(temporary) || !fails(TemporaryName().Replace(temporary, string.Empty)))
         {
-            return;
+            return false;
         }
 
         switch (failure)
@@ -83,6 +90,11 @@ internal sealed partial class FailingDisk(DiskFailure failure, bool local, Func<
                 throw new IOException("There is not enough space on the disk.", unchecked((int)0x80070070));
             case DiskFailure.ReadOnly:
                 throw new UnauthorizedAccessException($"Access to the path '{temporary}' is denied.");
+            case DiskFailure.TruncatedWrite:
+                writePartial();
+                return true;
+            default:
+                return false;
         }
     }
 

@@ -140,7 +140,9 @@ internal sealed record BuildState(
     public static void WriteScript(ProjectFolder project, string key, string hash, byte[] content)
     {
         var path = ScriptPath(project, key, hash);
-        AtomicFile.WriteAllBytes(path, content);
+        Directory.CreateDirectory(Path.Combine(project.CacheDirectory, ScriptsDirectoryName));
+        // Cache regenerável que ReadScript confere pelo tamanho: a conferência por SHA-256 custaria duas leituras por script num build de milhares.
+        File.WriteAllBytes(path, content);
     }
 
     /// <summary>Verdadeiro quando cada pacote do estado ainda está em <c>build/</c> com o tamanho registrado.</summary>
