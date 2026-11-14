@@ -33,14 +33,6 @@ internal static class ProjectFileIo
             return bytes;
         });
 
-    /// <summary>Grava <paramref name="content"/> em <paramref name="path"/> (um arquivo novo, o temporário da troca), esperando quem o estiver segurando logo depois de criado.</summary>
-    internal static void WriteAllText(string path, string content, System.Text.Encoding encoding, Action<int> wait) =>
-        Retry(null, () =>
-        {
-            File.WriteAllText(path, content, encoding);
-            return 0;
-        }, wait);
-
     /// <summary>Apaga o temporário sem deixar uma falha da limpeza (arquivo ainda preso) esconder a falha que já está subindo.</summary>
     internal static void DeleteQuietly(string path)
     {

@@ -61,7 +61,6 @@ public static class AiUsageLog
     {
         ArgumentNullException.ThrowIfNull(run);
         var path = PathFor(project);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
             var current = AiUsageTotals.Empty;
@@ -78,13 +77,11 @@ public static class AiUsageLog
             }
 
             Directory.CreateDirectory(project.CacheDirectory);
-            File.WriteAllText(temp, JsonSerializer.Serialize(current + (run with { Runs = 1 }), Json) + "\n", new UTF8Encoding(false));
-            AtomicFile.Replace(temp, path);
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(current + (run with { Runs = 1 }), Json) + "\n");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // O gasto fica sem registro; o resultado do comando já saiu.
-            TryDelete(temp);
         }
     }
 
@@ -114,18 +111,6 @@ public static class AiUsageLog
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return ReadOutcome.Unreadable;
-        }
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Sobra um .tmp com nome único; não atrapalha a próxima gravação.
         }
     }
 }

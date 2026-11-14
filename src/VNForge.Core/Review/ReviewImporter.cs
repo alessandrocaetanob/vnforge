@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -137,10 +138,18 @@ public static class ReviewImporter
         }
         catch
         {
-            // Falha de IO no meio: devolve os scripts já gravados para não deixar a importação pela metade.
+            // Falha de IO no meio: devolve os scripts já gravados para não deixar a importação pela metade. Uma devolução que falha não impede as outras,
+            // e o que sobe é a falha original.
             foreach (var key in written)
             {
-                File.WriteAllBytes(project.TextPath(key), originals[key]);
+                try
+                {
+                    AtomicFile.WriteAllBytes(project.TextPath(key), originals[key]);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // O próximo script ainda precisa voltar.
+                }
             }
 
             throw;

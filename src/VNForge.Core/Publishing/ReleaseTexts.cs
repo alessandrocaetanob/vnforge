@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 
@@ -51,7 +52,7 @@ public static class ReleaseTexts
         {
             var path = PathOf(project, version);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(scenes, Json) + "\n", new UTF8Encoding(false));
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(scenes, Json) + "\n");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

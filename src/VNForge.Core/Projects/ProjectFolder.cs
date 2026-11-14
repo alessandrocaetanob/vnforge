@@ -521,7 +521,7 @@ public sealed class ProjectFolder
         var path = Path.Combine(Root, ".gitignore");
         if (!File.Exists(path))
         {
-            File.WriteAllText(path, GitIgnoreContent, Utf8SemBom);
+            AtomicFile.WriteAllText(path, GitIgnoreContent);
         }
     }
 

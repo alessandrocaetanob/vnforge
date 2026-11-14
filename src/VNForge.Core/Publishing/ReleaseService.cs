@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using VNForge.Core.Engines;
 using VNForge.Core.Injection;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
 using VNForge.Core.Text;
@@ -402,7 +403,7 @@ public sealed partial class ReleaseService(IReadOnlyList<IEngine> engines, QaEng
     {
         var folder = Path.Combine(project.Root, FolderName);
         Directory.CreateDirectory(folder);
-        File.WriteAllText(Path.Combine(folder, record.Version + ".json"), JsonSerializer.Serialize(record, RecordJson) + "\n", new UTF8Encoding(false));
+        AtomicFile.WriteAllText(Path.Combine(folder, record.Version + ".json"), JsonSerializer.Serialize(record, RecordJson) + "\n");
     }
 
     /// <summary>O nome do instalador sem a extensão quando <see cref="ReleaseOptions.InstallerName"/> não diz: <c>&lt;jogo&gt;-&lt;idioma&gt;-&lt;versão&gt;</c>.</summary>

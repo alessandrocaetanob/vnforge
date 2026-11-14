@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core.Library;
 
 namespace VNForge.Core.Projects;
 
@@ -92,16 +93,7 @@ public sealed record SessionsFile(int Version, IReadOnlyList<ApprovalRecord> App
         }
 
         Directory.CreateDirectory(project.CacheDirectory);
-        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            ProjectFileIo.WriteAllText(temp, JsonSerializer.Serialize(sessions with { Version = CurrentVersion }, Json) + "\n", new UTF8Encoding(false), Thread.Sleep);
-            ProjectFileIo.Move(temp, path, overwrite: true);
-        }
-        finally
-        {
-            ProjectFileIo.DeleteQuietly(temp);
-        }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(sessions with { Version = CurrentVersion }, Json) + "\n");
     }
 
     /// <summary>

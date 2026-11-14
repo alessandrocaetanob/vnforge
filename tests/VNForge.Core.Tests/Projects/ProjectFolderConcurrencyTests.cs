@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Patching;
 
 namespace VNForge.Core.Tests.Projects;
 
@@ -239,7 +240,7 @@ public class ProjectFolderConcurrencyTests
         {
             var erro = Record.Exception(() => projeto.SaveText(Key, Unidades(3)));
 
-            Assert.IsType<UnauthorizedAccessException>(erro);
+            Assert.IsType<UnauthorizedAccessException>(Assert.IsType<FileWriteVerificationException>(erro).InnerException);
         }
         finally
         {

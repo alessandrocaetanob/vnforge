@@ -76,7 +76,7 @@ public sealed class PlayLogFile(string directory, TimeProvider? clock = null, Ti
 
             var stamp = (clock ?? TimeProvider.System).GetUtcNow().ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
             var copy = System.IO.Path.Combine(folder, InvalidCopyPrefix + stamp);
-            File.Copy(Path, copy, overwrite: true);
+            AtomicFile.Copy(Path, copy);
             return copy;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

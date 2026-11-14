@@ -141,6 +141,7 @@ internal sealed record BuildState(
     {
         var path = ScriptPath(project, key, hash);
         Directory.CreateDirectory(Path.Combine(project.CacheDirectory, ScriptsDirectoryName));
+        // Cache regenerável que ReadScript confere pelo tamanho: a conferência por SHA-256 custaria duas leituras por script num build de milhares.
         File.WriteAllBytes(path, content);
     }
 
@@ -171,9 +172,7 @@ internal sealed record BuildState(
     {
         Directory.CreateDirectory(project.CacheDirectory);
         var path = Path.Combine(project.CacheDirectory, StateFileName);
-        var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, Json), Encoding.UTF8);
-        AtomicFile.Replace(temp, path);
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(this, Json));
 
         var directory = Path.Combine(project.CacheDirectory, ScriptsDirectoryName);
         if (!Directory.Exists(directory))

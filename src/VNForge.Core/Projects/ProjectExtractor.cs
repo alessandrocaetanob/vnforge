@@ -2,6 +2,7 @@ using System.Globalization;
 using VNForge.Core.Engines;
 using VNForge.Core.Glossary;
 using VNForge.Core.Injection;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 using VNForge.Core.Vndb;
 
@@ -413,7 +414,7 @@ public static class ProjectExtractor
             Directory.CreateDirectory(folder);
             foreach (var (key, bytes) in backups)
             {
-                File.WriteAllBytes(Path.Combine(folder, Path.GetFileName(project.TextPath(key))), bytes);
+                AtomicFile.WriteAllBytes(Path.Combine(folder, Path.GetFileName(project.TextPath(key))), bytes);
             }
 
             backupFolder = folder;
@@ -430,7 +431,7 @@ public static class ProjectExtractor
             {
                 if (backups.TryGetValue(key, out var bytes))
                 {
-                    File.WriteAllBytes(project.TextPath(key), bytes);
+                    AtomicFile.WriteAllBytes(project.TextPath(key), bytes);
                 }
                 else
                 {

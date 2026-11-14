@@ -26,12 +26,20 @@ internal static class AtomicFile
         var sleep = wait ?? Thread.Sleep;
         try
         {
-            ProjectFileIo.Retry<int>(null, () =>
+            try
             {
-                File.WriteAllBytes(temporary, bytes);
-                return 0;
-            }, sleep);
-            Replace(temporary, path, overwrite, sleep);
+                ProjectFileIo.Retry<int>(null, () =>
+                {
+                    ProjectDisk.Current.WriteAllBytes(temporary, bytes);
+                    return 0;
+                }, sleep);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw FileWriteVerificationException.ForFailedWrite(path, e);
+            }
+
+            FileSwap.Replace(temporary, path, bytes, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep), file => ProjectFileIo.Delete(file, sleep));
         }
         finally
         {
@@ -54,6 +62,15 @@ internal static class AtomicFile
     public static void Copy(string source, string destination, Action<int>? wait = null)
     {
         var sleep = wait ?? Thread.Sleep;
-        FileSwap.Copy(source, destination, (from, to, over) => ProjectFileIo.Move(from, to, over, sleep), file => ProjectFileIo.Delete(file, sleep));
+        FileSwap.Copy(
+            source,
+            destination,
+            (from, to, over) => ProjectFileIo.Move(from, to, over, sleep),
+            file => ProjectFileIo.Delete(file, sleep),
+            (from, to, over) => ProjectFileIo.Retry<int>(null, () =>
+            {
+                ProjectDisk.Current.Copy(from, to, over);
+                return 0;
+            }, sleep));
     }
 }
