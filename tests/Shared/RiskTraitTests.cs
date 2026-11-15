@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace VNForge.Tests;
 
-/// <summary>A regra de docs/04-testes.md "toda classe de teste aponta um risco": falha se uma classe com teste não leva <c>[Trait("Risco", "R1" a "R9")]</c>. Este arquivo é compilado em cada projeto de teste, menos no App, que tem o seu; esta classe fica fora da própria conta.</summary>
+/// <summary>A regra de docs/04-testes.md "toda classe de teste aponta um risco": falha se uma classe com teste não leva <c>[Trait("Risco", "R1" a "R9")]</c>. Conta os métodos e os traits herdados de classe base. Este arquivo é compilado em cada projeto de teste, menos no App, que tem o seu; esta classe fica fora da própria conta.</summary>
 public sealed class RiskTraitTests
 {
     private static readonly string[] Risks = ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9"];
@@ -29,17 +29,21 @@ public sealed class RiskTraitTests
 
     private static bool IsTestClass(Type type) =>
         type != typeof(RiskTraitTests)
-        && type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly).Any(m => m.IsDefined(typeof(FactAttribute), inherit: true));
+        && !type.IsAbstract
+        && type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static).Any(m => m.IsDefined(typeof(FactAttribute), inherit: true));
 
     private static IEnumerable<string> Traits(Type type)
     {
-        for (var current = type; current is not null; current = current.DeclaringType)
+        for (var outer = type; outer is not null; outer = outer.DeclaringType)
         {
-            foreach (var trait in current.GetCustomAttributes<TraitAttribute>())
+            for (var current = outer; current is not null; current = current.BaseType)
             {
-                if (trait.Name == "Risco")
+                foreach (var trait in current.GetCustomAttributes<TraitAttribute>(inherit: false))
                 {
-                    yield return trait.Value;
+                    if (trait.Name == "Risco")
+                    {
+                        yield return trait.Value;
+                    }
                 }
             }
         }
