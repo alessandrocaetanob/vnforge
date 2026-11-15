@@ -85,7 +85,7 @@ internal static partial class LibraryCommand
         var library = FileOf(cli).Load();
         var game = library.Find(reference);
         var current = LibraryTranslationReader.Read(game, library.BackupLocations);
-        var switcher = new LibraryTranslationSwitcher(new GameTester(KnownEngines.All, cli.GameProcessStarter, cli.Qa), library.BackupLocations);
+        var switcher = new LibraryTranslationSwitcher(new GameTester(KnownEngines.All, cli.GameProcessStarter, cli.Qa), () => library.BackupLocations);
 
         // Estado desconhecido não pergunta: o switcher recusa com o motivo. Quem já está no destino não grava nada, então também não pergunta.
         var alreadyThere = toOriginal

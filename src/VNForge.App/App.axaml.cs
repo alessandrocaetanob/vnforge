@@ -162,7 +162,7 @@ public sealed class App : Application
                 TagsFile = new UserTagsFile(configDirectory),
                 Player = new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
                 PlayLog = playLog,
-                Switcher = new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+                Switcher = new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter()), () => UserBackupLocations.Read(file)),
                 Engines = engines,
                 PortugueseChecker = () => new PortugueseTranslationChecker(vndb),
             });

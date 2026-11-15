@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Cost;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 
 namespace VNForge.App.ViewModels;
@@ -112,12 +113,15 @@ public sealed partial class DashboardViewModel : ObservableObject
     private IReadOnlyList<ScriptGroupTotals> currentChapters = [];
     private bool currentLimitReached;
 
+    /// <summary>Onde os backups dos projetos estão (os Ajustes); o painel lê o backup mais recente de lá.</summary>
+    public Func<BackupLocations> BackupLocationsSource { get; set; } = () => BackupLocations.Default;
+
     /// <param name="loader">Lê o painel de uma pasta de projeto; o padrão lê o disco.</param>
     /// <param name="clock">O relógio do ritmo de revisão (o "hoje" e a janela de sete dias); o padrão é o do sistema.</param>
     /// <param name="renamer">Grava o novo nome de um capítulo (pasta do projeto, nome atual, nome novo); o padrão grava o <c>scripts.json</c>.</param>
     public DashboardViewModel(Func<string, ProjectDashboard>? loader = null, TimeProvider? clock = null, Action<string, string, string>? renamer = null)
     {
-        this.loader = loader ?? (root => ProjectDashboard.Read(ProjectFolder.Open(root)));
+        this.loader = loader ?? (root => ProjectDashboard.Read(ProjectFolder.Open(root).WithBackups(BackupLocationsSource())));
         this.clock = clock ?? TimeProvider.System;
         this.renamer = renamer ?? ((root, group, name) => ScriptGroupEditor.RenameGroup(ProjectFolder.Open(root), group, name));
         SinceTest.OpenRequested += (_, key) => NavigationRequested?.Invoke(this, new DashboardNavigation(NavKey.Editor, key, ChangedSinceTest: true));

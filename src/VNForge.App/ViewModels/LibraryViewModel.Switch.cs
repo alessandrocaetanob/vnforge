@@ -1,6 +1,7 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
 using VNForge.Core.Injection;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
@@ -134,11 +135,11 @@ public sealed partial class LibraryViewModel
     }
 
     /// <summary>O estado da pasta do jogo; uma pasta que não lê (o HD desligado, por exemplo) deixa só este jogo desconhecido, sem derrubar a Biblioteca.</summary>
-    private static LibraryTranslationState ReadVersion(LibraryGame game)
+    private LibraryTranslationState ReadVersion(LibraryGame game)
     {
         try
         {
-            return LibraryTranslationReader.Read(game);
+            return LibraryTranslationReader.Read(game, UserBackupLocations.Read(file));
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
