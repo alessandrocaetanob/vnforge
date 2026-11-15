@@ -3,6 +3,7 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R9")]
 public class LibraryAdultModeTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);

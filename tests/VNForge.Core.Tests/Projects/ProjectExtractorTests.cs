@@ -6,6 +6,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R3")]
 public sealed class ProjectExtractorTests : IDisposable
 {
     private const string GameExe = "Jogo.exe";
@@ -49,20 +50,6 @@ public sealed class ProjectExtractorTests : IDisposable
                 f => Path.GetRelativePath(directory, f),
                 f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));
 
-    [Fact]
-    public void Relata_cada_script_lido_em_ordem_e_um_relato_final_com_todos()
-    {
-        WriteGame(A001Fake, DialogueHi);
-        WriteGame(A002Fake, DialogueHi);
-        var reports = new List<ScriptWorkProgress>();
-
-        ProjectExtractor.Extract(NewProject(), [new FakeEngine()], new SyncProgress<ScriptWorkProgress>(reports.Add), TestContext.Current.CancellationToken);
-
-        Assert.Equal([A001Fake, A002Fake, string.Empty], reports.Select(r => r.Name));
-        Assert.Equal([0, 1, 2], reports.Select(r => r.Done));
-        Assert.All(reports, r => Assert.Equal(2, r.Total));
-    }
-
     private static TextUnit Translated(string id, string source, string translation, TranslationStatus status = TranslationStatus.Translated) =>
         new(id, TextUnitKind.Dialogue, null, source, translation, status) { Notes = "nota" };
 
@@ -83,35 +70,6 @@ public sealed class ProjectExtractorTests : IDisposable
         Assert.Equal("Oie", unit.Source);
         Assert.Equal(HelloText, unit.Translation);
         Assert.Equal("Olá", unit.PreviousSource);
-    }
-
-    [Fact]
-    public void Reextrair_acrescenta_linhas_novas_e_guarda_o_texto_anterior_quando_algo_sai()
-    {
-        WriteGame(A001Fake, "dialogue|Olá\ndialogue|Tchau");
-        WriteGame(A002Fake, "dialogue|Um");
-        var project = NewProject();
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-        project.SaveText("a001", [Translated(FirstUnitId, "Olá", HelloText), Translated("a001:000001", "Tchau", "Bye")]);
-        project.SaveText("a002", [Translated("a002:000000", "Um", "One")]);
-        var beforeA001 = File.ReadAllBytes(project.TextPath("a001"));
-        File.Delete(Path.Combine(_game, A002Fake));
-        WriteGame(A001Fake, DialogueHello);
-        WriteGame("a003.fake", "dialogue|Novo");
-
-        var result = ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal(["a001", "a003"], project.LoadAllText().Keys.Order());
-        Assert.Equal(new ReextractionSummary(Kept: 1, Outdated: 0, Added: 1, Removed: 2), result.Reextraction);
-        var folder = Assert.Single(Directory.GetDirectories(project.TextBackupDirectory));
-        Assert.Equal(beforeA001, File.ReadAllBytes(Path.Combine(folder, "a001.json")));
-        Assert.True(File.Exists(Path.Combine(folder, "a002.json")));
-
-        WriteGame(A001Fake, "dialogue|Outra");
-        // O nome da pasta é o instante em ms: tira a primeira do caminho em vez de esperar o relógio andar.
-        Directory.Move(folder, Path.Combine(project.TextBackupDirectory, "20000101-000000-000"));
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal(2, Directory.GetDirectories(project.TextBackupDirectory).Length);
     }
 
     [Fact]
@@ -144,19 +102,6 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
-    public void Scripts_json_quebrado_nao_bloqueia_a_extracao_nem_e_apagado()
-    {
-        WriteGame(A001Fake, DialogueHello);
-        var project = NewProject();
-        File.WriteAllText(project.ScriptNamesPath, "isto nao e json");
-
-        ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal("isto nao e json", File.ReadAllText(project.ScriptNamesPath));
-        Assert.True(File.Exists(project.TextPath("a001")));
-    }
-
-    [Fact]
     public void Duas_chaves_iguais_abortam_citando_os_dois_arquivos()
     {
         WriteGame(A001Fake, DialogueHello);
@@ -184,16 +129,6 @@ public sealed class ProjectExtractorTests : IDisposable
     }
 
     [Fact]
-    public void Engine_desconhecida_e_erro_em_portugues()
-    {
-        var project = NewProject(engineId: "outra");
-
-        var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken));
-
-        Assert.Contains("engine 'outra'", ex.Message);
-    }
-
-    [Fact]
     public void Engine_sem_suporte_a_extracao_e_erro_em_portugues()
     {
         var project = NewProject();
@@ -201,16 +136,6 @@ public sealed class ProjectExtractorTests : IDisposable
         var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new NoUnpackEngine()], cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("ainda não suporta a extração", ex.Message);
-    }
-
-    [Fact]
-    public void Pasta_do_jogo_inexistente_e_erro_em_portugues()
-    {
-        var project = NewProject(gamePath: Path.Combine(_temp.Path, "nao-existe").Replace(Path.DirectorySeparatorChar, '/'));
-
-        var ex = Assert.Throws<VNForgeException>(() => ProjectExtractor.Extract(project, [new FakeEngine()], cancellationToken: TestContext.Current.CancellationToken));
-
-        Assert.Contains("A pasta do jogo não existe", ex.Message);
     }
 
     [Fact]

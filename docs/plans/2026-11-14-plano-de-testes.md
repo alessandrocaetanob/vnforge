@@ -111,7 +111,7 @@ Cada tarefa vira uma issue com o rótulo `infra`. O corte usa o `tester` em `mod
   - Prova: `dotnet test tests/VNForge.App.Tests`
   - Pronto: perto de 120 testes, cada um com o risco no nome da classe ou num trait; as jornadas da lista existem; suíte local em até 60 s
   - Depende de: T1
-- [ ] **T5 · Core, Cli, AI e os menores por risco**
+- [x] **T5 · Core, Cli, AI e os menores por risco**
   - Issue: #702 (`infra`)
   - Testes: tester · modo=auditar, depois builder
   - Prova: `bash .circleci/run-tests.sh`

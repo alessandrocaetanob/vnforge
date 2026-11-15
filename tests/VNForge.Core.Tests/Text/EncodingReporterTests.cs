@@ -2,6 +2,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public sealed class EncodingReporterTests
 {
     private const string TextId0 = "a:000000";

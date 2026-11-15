@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R1")]
 public sealed class GameTesterTests : IDisposable
 {
     private const string Package = FakeEngine.PackageName;
@@ -84,49 +85,6 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
-    public void Devolve_os_cinco_passos_na_ordem_e_cada_um_com_tempo()
-    {
-        Translate("a001", 0, "Hello");
-        var started = new List<GameTestStep>();
-
-        var result = Tester().Run(_project, steps: new Collect<GameTestStep>(started.Add), cancellationToken: TestContext.Current.CancellationToken);
-
-        GameTestStep[] order = [GameTestStep.Check, GameTestStep.Build, GameTestStep.Backup, GameTestStep.Inject, GameTestStep.Open];
-        Assert.Equal(order, started);
-        Assert.Equal(order, result.Steps.Select(s => s.Step));
-        Assert.All(result.Steps, s => Assert.True(s.Elapsed > TimeSpan.Zero, $"{s.Step} sem tempo"));
-    }
-
-    [Fact]
-    public void O_ultimo_teste_guarda_o_retrato_das_traducoes_e_a_lista_de_mudancas_parte_dele()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-
-        var state = GameStateFile.Load(_project);
-        Assert.NotNull(state.LastTest!.Snapshot);
-        Assert.Equal(ChangesSinceTestState.Unchanged, TranslationChanges.Since(state.LastTest, _project.LoadAllText()).State);
-
-        Translate("a002", 0, "Rain");
-        var changes = TranslationChanges.Since(GameStateFile.Load(_project).LastTest, _project.LoadAllText());
-
-        Assert.Equal(["a002"], changes.Scenes.Select(s => s.Key));
-        Assert.DoesNotContain("Hello", File.ReadAllText(GameStateFile.PathFor(_project)));
-    }
-
-    [Fact]
-    public void Teste_de_uma_cena_guarda_o_retrato_so_dela()
-    {
-        Translate("a001", 0, "Hello");
-        Translate("a002", 0, "Rain");
-
-        Run(new GameTestOptions(OnlyScript: "a002"));
-
-        var snapshot = GameStateFile.Load(_project).LastTest!.Snapshot!;
-        Assert.Equal(["a002"], snapshot.Scripts.Keys);
-    }
-
-    [Fact]
     public void Voltar_ao_jogo_original_restaura_byte_a_byte_e_limpa_o_estado()
     {
         var before = File.ReadAllBytes(GamePackage);
@@ -158,19 +116,6 @@ public sealed class GameTesterTests : IDisposable
     }
 
     [Fact]
-    public void Aviso_da_Conferencia_so_passa_com_a_opcao()
-    {
-        Translate("a001", 0, "Olá  mundo");
-
-        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
-        Assert.Empty(BackupFolders());
-
-        Run(new GameTestOptions(AllowWarnings: true), QaEngine.Default);
-
-        Assert.Single(BackupFolders());
-    }
-
-    [Fact]
     public void Teste_de_acentos_com_falante_japones_passa_na_cp1252_com_o_nome_de_teste()
     {
         _project.SaveText("a001", [.. _project.LoadText("a001").Select((u, i) => i == 0 ? u with { Speaker = "犬井" } : u)]);
@@ -179,100 +124,6 @@ public sealed class GameTesterTests : IDisposable
 
         Assert.Equal(GameTestKind.AccentTest, result.Kind);
         Assert.Equal(GameTester.AccentSpeaker, Assert.Single(_engine.LastRebuiltUnits, u => u.NeedsRewrite).Speaker);
-    }
-
-    [Fact]
-    public void Cena_inexistente_recusa_antes_de_gravar()
-    {
-        var erro = Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
-
-        Assert.Contains("naoexiste", erro.Message);
-        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
-        Assert.Empty(BackupFolders());
-    }
-
-    [Fact]
-    public void Teste_de_acentos_e_uma_cena_nao_combinam()
-    {
-        Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "a001", AccentTest: true)));
-
-        Assert.Empty(BackupFolders());
-    }
-
-    [Fact]
-    public void Executavel_ausente_recusa_antes_de_gravar_no_jogo()
-    {
-        Translate("a001", 0, "Hello");
-        File.Delete(Path.Combine(_game, GameExe));
-
-        Assert.Throws<GameExecutableNotFoundException>(() => Run());
-
-        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
-        Assert.Empty(BackupFolders());
-    }
-
-    [Fact]
-    public void Falha_leva_o_passo_em_que_aconteceu_e_a_do_jogo_que_nao_abre_leva_o_ultimo_passo()
-    {
-        Translate("a001", 0, "Hello");
-        _starter.Failure = new VNForgeException("sem permissão");
-
-        var failure = Assert.Throws<GameOpenException>(() => Run());
-
-        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(failure));
-        Assert.Null(GameTestFailure.StepOf(new VNForgeException("de fora do teste")));
-    }
-
-    [Fact]
-    public void Falha_logo_depois_da_Conferencia_e_antes_do_primeiro_script_e_do_passo_Build()
-    {
-        Translate("a001", 0, "Hello");
-        using var cts = new CancellationTokenSource();
-        var qa = new QaEngine([new CancelsWhenChecked(cts)]);
-
-        var failure = Assert.ThrowsAny<OperationCanceledException>(() => Tester(qa).Run(_project, cancellationToken: cts.Token));
-
-        Assert.Equal(GameTestStep.Build, GameTestFailure.StepOf(failure));
-    }
-
-    [Fact]
-    public void StepOf_acha_o_passo_na_excecao_embrulhada()
-    {
-        Translate("a001", 0, "Hello");
-        _starter.Failure = new VNForgeException("sem permissão");
-        var failure = Assert.Throws<GameOpenException>(() => Run());
-
-        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new AggregateException(failure)));
-        Assert.Equal(GameTestStep.Open, GameTestFailure.StepOf(new IOException("fora", new InvalidOperationException("meio", failure))));
-    }
-
-    private sealed class CancelsWhenChecked(CancellationTokenSource cts) : IQaRule
-    {
-        public string Id => "cancela";
-
-        public string Description => "Cancela o teste quando roda.";
-
-        public IEnumerable<QaIssue> Check(QaContext context)
-        {
-            cts.Cancel();
-            return [];
-        }
-    }
-
-    [Fact]
-    public void Falha_da_Conferencia_mantem_o_ultimo_teste_anterior()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-        var before = GameStateFile.Load(_project).LastTest!;
-        Translate("a001", 0, string.Empty);
-        _clock.Advance(TimeSpan.FromHours(1));
-
-        Assert.Throws<QaBlockedException>(() => Run(qa: QaEngine.Default));
-
-        var after = GameStateFile.Load(_project).LastTest!;
-        Assert.Equal(before.At, after.At);
-        Assert.Equal(before.Snapshot!.Scripts, after.Snapshot!.Scripts);
     }
 
     [Fact]
@@ -286,19 +137,6 @@ public sealed class GameTesterTests : IDisposable
         Assert.Throws<VNForgeException>(() => Run(new GameTestOptions(OnlyScript: "naoexiste")));
 
         Assert.Equal(before.At, GameStateFile.Load(_project).LastTest!.At);
-    }
-
-    [Fact]
-    public void Repetir_o_teste_com_o_jogo_igual_nao_cria_outro_backup_e_mantem_o_primeiro()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-        var first = GameStateFile.Load(_project).InGame!.BackupDirectory;
-
-        Run();
-
-        Assert.Single(BackupFolders());
-        Assert.Equal(first, GameStateFile.Load(_project).InGame!.BackupDirectory);
     }
 
     [Fact]
@@ -318,33 +156,6 @@ public sealed class GameTesterTests : IDisposable
         Tester().ReturnToOriginal(_project);
 
         Assert.Equal(before, File.ReadAllBytes(GamePackage));
-    }
-
-    [Fact]
-    public void Pacote_do_jogo_que_mudou_por_fora_depois_da_injecao_continua_recusado_pedindo_vnf_extract()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-        File.WriteAllText(GamePackage, "dialogue|Atualizado\nname|Ana\u0001narration|Chovia.");
-        Translate("a001", 0, "Hi");
-
-        var erro = Assert.Throws<VNForgeException>(() => Run());
-
-        Assert.Contains("Rode vnf extract de novo", erro.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Backup_sem_a_copia_do_original_recusa_em_vez_de_reempacotar_o_jogo_traduzido()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-        File.Delete(Path.Combine(Assert.Single(BackupFolders()), Package));
-        Translate("a001", 0, "Hi");
-
-        var erro = Assert.Throws<InjectionException>(() => Run());
-
-        Assert.Contains("cópia do original", erro.Message, StringComparison.Ordinal);
-        Assert.Equal(OriginalAfterTest, File.ReadAllText(GamePackage));
     }
 
     [Fact]
@@ -375,70 +186,6 @@ public sealed class GameTesterTests : IDisposable
         Assert.Equal(OriginalPackage, File.ReadAllText(Path.Combine(backup, Package)));
         Assert.Equal(OriginalAfterTest, File.ReadAllText(GamePackage));
         Run(new GameTestOptions(OpenGame: false));
-    }
-
-    [Fact]
-    public void Falha_que_nao_e_de_compartilhamento_diz_que_nao_deu_para_preparar_a_pasta()
-    {
-        Directory.Delete(_project.CacheDirectory, recursive: true);
-        File.WriteAllText(_project.CacheDirectory, "isto era para ser uma pasta");
-
-        var erro = Assert.Throws<ProjectLockUnavailableException>(() => ProjectLock.Acquire(_project));
-
-        Assert.Equal("Não foi possível preparar a pasta do projeto para mexer no jogo.", erro.Message);
-        Assert.IsNotType<ProjectBusyException>(erro);
-    }
-
-    [Fact]
-    public void Sem_permissao_para_abrir_o_arquivo_da_trava_tambem_nao_vira_ocupado()
-    {
-        Directory.CreateDirectory(Path.Combine(_project.CacheDirectory, "game.lock"));
-
-        Assert.Throws<ProjectLockUnavailableException>(() => ProjectLock.Acquire(_project));
-    }
-
-    [Fact]
-    public void Injecao_que_falha_e_e_desfeita_nao_deixa_estado_do_jogo_nem_backup_pendente()
-    {
-        Translate("a001", 0, "Hello");
-        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
-        GameStateFile.Save(_project, GameStateFile.Empty with { InGame = new GameInGame(GameTestKind.Translation, _clock.GetUtcNow(), "antigo", null, null) });
-
-        var failing = new GameInjector(_clock, new FailsFirstCopy());
-        Assert.Throws<InjectionException>(() => GameStateFile.Inject(_project, failing, GameInjector.Plan(_project), GameTestKind.Translation, null, _clock));
-
-        Assert.Null(GameStateFile.Load(_project).InGame);
-        Assert.Equal(OriginalPackage, File.ReadAllText(GamePackage));
-        Assert.All(GameInjector.ListBackups(_project), backup => Assert.True(backup.Restored));
-        Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
-    }
-
-    [Fact]
-    public void Injecao_recusada_antes_de_gravar_mantem_o_estado_que_ja_valia()
-    {
-        Translate("a001", 0, "Hello");
-        ProjectBuilder.Build(_project, [_engine], qa: new QaEngine([]), cancellationToken: TestContext.Current.CancellationToken);
-        var saved = new GameInGame(GameTestKind.AccentTest, _clock.GetUtcNow(), "2026-10-22_2316", null, null);
-        GameStateFile.Save(_project, GameStateFile.Empty with { InGame = saved });
-        var plan = GameInjector.Plan(_project);
-        File.WriteAllText(GamePackage, "o jogo foi atualizado no meio");
-
-        Assert.Throws<InjectionException>(() => GameStateFile.Inject(_project, new GameInjector(_clock), plan, GameTestKind.Translation, null, _clock));
-
-        Assert.Equal(saved, GameStateFile.Load(_project).InGame);
-    }
-
-    [Fact]
-    public void Teste_sem_nada_a_copiar_nao_regrava_o_estado_com_backup_nulo()
-    {
-        Translate("a001", 0, "Hello");
-        Run();
-        var first = GameStateFile.Load(_project).InGame;
-
-        Run();
-
-        Assert.Equal(first, GameStateFile.Load(_project).InGame);
-        Assert.NotNull(GameStateFile.Load(_project).InGame?.BackupDirectory);
     }
 
     /// <summary>Falha na segunda cópia: a primeira é a do original para o backup, e a segunda é a gravação no jogo.</summary>

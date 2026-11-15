@@ -4,6 +4,7 @@ using VNForge.Core.Eval;
 
 namespace VNForge.AI.Tests.Eval;
 
+[Trait("Risco", "R5")]
 public sealed class EvalEstimatorTests : IDisposable
 {
     private readonly EvalProject _project = new();

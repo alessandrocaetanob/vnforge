@@ -4,6 +4,7 @@ using VNForge.Engines.YuRis.Ypf;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
+[Trait("Risco", "R3")]
 public partial class YpfArchiveFormatTests
 {
     private const string AYbn = "a.ybn";

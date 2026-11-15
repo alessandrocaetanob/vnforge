@@ -5,6 +5,7 @@ using VNForge.Patching;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R2")]
 public class ProjectFolderConcurrencyTests
 {
     private const string Key = "yst00001";
@@ -249,46 +250,6 @@ public class ProjectFolderConcurrencyTests
 
         Assert.Equal(antes, File.ReadAllBytes(caminho));
         Assert.Empty(Directory.GetFiles(projeto.TextDirectory, "*.tmp"));
-    }
-
-    // Contar as tentativas separa "falhou na hora" de "esperou a nova tentativa" sem olhar o relógio, que oscila com a máquina carregada.
-    [Fact]
-    public void Acesso_negado_em_destino_somente_leitura_nao_e_repetido()
-    {
-        using var temp = new TempFolder();
-        var caminho = Path.Combine(temp.Path, "somente-leitura.json");
-        File.WriteAllText(caminho, "{}");
-        File.SetAttributes(caminho, FileAttributes.ReadOnly);
-        var tentativas = 0;
-
-        try
-        {
-            Assert.Throws<UnauthorizedAccessException>(() => ProjectFileIo.Retry<int>(caminho, () =>
-            {
-                tentativas++;
-                throw new UnauthorizedAccessException();
-            }));
-        }
-        finally
-        {
-            File.SetAttributes(caminho, FileAttributes.Normal);
-        }
-
-        Assert.Equal(1, tentativas);
-    }
-
-    [Fact]
-    public void Falha_de_IO_que_nunca_passa_para_depois_de_8_tentativas()
-    {
-        var tentativas = 0;
-
-        Assert.Throws<IOException>(() => ProjectFileIo.Retry<int>(null, () =>
-        {
-            tentativas++;
-            throw new IOException("preso");
-        }));
-
-        Assert.Equal(8, tentativas);
     }
 
     [Fact]

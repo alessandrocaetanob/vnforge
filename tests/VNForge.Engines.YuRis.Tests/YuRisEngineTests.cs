@@ -5,6 +5,7 @@ using VNForge.Engines.YuRis.Tests.Ystb.Synthetic;
 
 namespace VNForge.Engines.YuRis.Tests;
 
+[Trait("Risco", "R3")]
 public sealed class YuRisEngineTests : IDisposable
 {
     private const string ScriptsArchiveKey = "scriptsArchive";

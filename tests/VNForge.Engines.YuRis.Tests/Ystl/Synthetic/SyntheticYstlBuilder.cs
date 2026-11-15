@@ -28,8 +28,6 @@ public sealed class SyntheticYstlBuilder
     private readonly List<SyntheticYstlScript> _scripts = [];
     private uint _version = 500;
     private bool? _writesTextCount;
-    private uint? _indexOverrideAt;
-    private uint _indexOverrideValue;
 
     public SyntheticYstlBuilder WithVersion(uint version)
     {
@@ -41,14 +39,6 @@ public sealed class SyntheticYstlBuilder
     public SyntheticYstlBuilder WithTextCount(bool writes)
     {
         _writesTextCount = writes;
-        return this;
-    }
-
-    /// <summary>Grava outro valor no campo <c>index</c> do script na posição dada.</summary>
-    public SyntheticYstlBuilder WithIndexAt(uint position, uint value)
-    {
-        _indexOverrideAt = position;
-        _indexOverrideValue = value;
         return this;
     }
 
@@ -73,7 +63,7 @@ public sealed class SyntheticYstlBuilder
         {
             var script = _scripts[i];
             var pathBytes = sjis.GetBytes(script.Path);
-            WriteUInt32(stream, _indexOverrideAt == i ? _indexOverrideValue : (uint)i);
+            WriteUInt32(stream, (uint)i);
             WriteUInt32(stream, (uint)pathBytes.Length);
             stream.Write(pathBytes);
             WriteUInt64(stream, script.ModifiedFileTime);

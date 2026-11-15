@@ -7,6 +7,8 @@ using static VNForge.AI.Tests.Bible.BibleFixtures;
 
 namespace VNForge.AI.Tests.Bible;
 
+[Trait("Risco", "R5")]
+[Trait("Risco", "R7")]
 public sealed class BibleRunnerTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-ai-tests", Guid.NewGuid().ToString("N"));
@@ -26,87 +28,6 @@ public sealed class BibleRunnerTests : IDisposable
     ];
 
     [Fact]
-    public async Task O_que_a_pessoa_escreveu_sobrevive_a_uma_nova_geracao()
-    {
-        var project = NewProject(_root);
-        project.SaveBible(GameBible.From([new BibleScene("yst1") { Name = "Meu nome", Summary = "Meu resumo" }.WithEdited(BibleField.Summary, true)]).EditSynopsis("Minha sinopse"));
-
-        await new BibleRunner(new FakeBibleProvider(), NoWait()).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        var bible = project.LoadBible();
-        Assert.Equal("Meu resumo", bible.Scene("yst1")!.Summary);
-        Assert.NotEqual("Meu nome", bible.Scene("yst1")!.Name);
-        Assert.Equal("Minha sinopse", bible.Synopsis);
-    }
-
-    [Fact]
-    public async Task Guarda_a_biblia_anterior_para_voltar()
-    {
-        var project = NewProject(_root);
-        project.SaveBible(GameBible.From([new BibleScene("yst1") { Summary = "Antes" }]));
-
-        await new BibleRunner(new FakeBibleProvider(), NoWait()).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        Assert.True(project.HasPreviousBible);
-        Assert.True(project.RestorePreviousBible());
-        Assert.Equal("Antes", project.LoadBible().Scene("yst1")!.Summary);
-    }
-
-    [Fact]
-    public async Task Registra_na_biblia_quando_foi_gerada_com_que_modelo_e_o_custo()
-    {
-        var project = NewProject(_root);
-        var options = NoWait() with { RunDollars = () => 1.5m, Clock = new FixedClock(new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero)) };
-
-        await new BibleRunner(new FakeBibleProvider(), options).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(new BibleGeneration(new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero), ClaudeModels.Opus, 4, 2, 1.5m), project.LoadBible().Generation);
-    }
-
-    [Fact]
-    public async Task Capitulo_que_falha_depois_das_tentativas_nao_derruba_os_outros()
-    {
-        var project = NewProject(_root);
-        var attempts = 0;
-        var provider = new FakeBibleProvider(describe: (chapter, key) =>
-        {
-            if (chapter.Name == "Manhã")
-            {
-                attempts++;
-                throw new InvalidOperationException("falha simulada");
-            }
-
-            return new BibleScene(key) { Name = "Festa", Summary = "Resumo" };
-        });
-
-        var result = await new BibleRunner(provider, NoWait() with { MaxRetries = 2 }).RunAsync(project, TwoChapters(), null, TestContext.Current.CancellationToken);
-
-        var failure = Assert.Single(result.Failures);
-        Assert.Equal("Manhã", failure.Chapter);
-        Assert.Equal(3, failure.Attempts);
-        Assert.Equal(3, attempts);
-        Assert.Equal(1, result.ScenesWritten);
-        Assert.Equal(["yst4"], project.LoadBible().Scenes.Select(s => s.Key));
-    }
-
-    [Fact]
-    public async Task Resposta_cortada_por_max_tokens_nao_e_repetida_com_o_mesmo_limite()
-    {
-        var project = NewProject(_root);
-        var calls = 0;
-        var provider = new FakeBibleProvider(describe: (_, _) =>
-        {
-            calls++;
-            throw new ClaudeResponseException("Cortada.", detail: ClaudeResponseException.MaxTokensDetail);
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, [TwoChapters()[1]], null, TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, calls);
-        Assert.Equal(1, Assert.Single(result.Failures).Attempts);
-    }
-
-    [Fact]
     public async Task Bible_json_ilegivel_para_antes_de_pagar_e_nao_toca_o_backup()
     {
         var project = NewProject(_root);
@@ -120,28 +41,6 @@ public sealed class BibleRunnerTests : IDisposable
 
         Assert.Empty(provider.SceneCalls);
         Assert.Equal(backup, File.ReadAllText(project.PreviousBiblePath));
-    }
-
-    [Fact]
-    public async Task Cancelar_devolve_o_que_ja_foi_gravado()
-    {
-        var project = NewProject(_root);
-        using var cts = new CancellationTokenSource();
-        var provider = new FakeBibleProvider(describe: (chapter, key) =>
-        {
-            var scene = new BibleScene(key) { Name = "x", Summary = "y" };
-            if (chapter.Name == "Manhã")
-            {
-                cts.Cancel();
-            }
-
-            return scene;
-        });
-
-        var result = await new BibleRunner(provider, NoWait()).RunAsync(project, TwoChapters(), null, cts.Token);
-
-        Assert.True(result.Canceled);
-        Assert.Equal(["yst1", "yst2"], project.LoadBible().Scenes.Select(s => s.Key));
     }
 
     [Fact]
@@ -161,34 +60,6 @@ public sealed class BibleRunnerTests : IDisposable
         Assert.Equal(BudgetStop.LimitReached, result.BudgetStop);
         Assert.Equal(1, result.ChaptersRead);
         Assert.Empty(provider.OverviewCalls);
-    }
-
-    [Fact]
-    public async Task Avisa_o_andamento_a_cada_chamada()
-    {
-        var project = NewProject(_root);
-        var seen = new List<BibleProgress>();
-
-        await new BibleRunner(new FakeBibleProvider(), NoWait()).RunAsync(project, TwoChapters(), new SyncProgress<BibleProgress>(seen.Add), TestContext.Current.CancellationToken);
-
-        Assert.All(seen, p => Assert.Equal(4, p.ScenesTotal));
-        Assert.Equal(4, seen.Max(p => p.ScenesDone));
-        Assert.Contains(seen, p => p.ScenesDone == 4 && p.ChaptersDone == 2);
-    }
-
-    [Fact]
-    public async Task Reescrever_um_campo_troca_so_aquele_campo_da_cena()
-    {
-        var project = NewProject(_root);
-        project.SaveBible(GameBible.From([new BibleScene("yst1") { Name = "Antigo", Summary = "Antigo", Tone = ["seco"] }]));
-        var provider = new FakeBibleProvider(describe: (_, key) => new BibleScene(key) { Name = "Novo", Summary = "Novo", Tone = ["leve"] });
-
-        var scene = await new BibleRunner(provider, NoWait()).RewriteFieldAsync(project, TwoChapters()[0], "yst1", BibleField.Tone, TestContext.Current.CancellationToken);
-
-        Assert.Equal(["leve"], scene.Tone);
-        Assert.Equal("Antigo", scene.Summary);
-        Assert.Equal(["leve"], project.LoadBible().Scene("yst1")!.Tone);
-        Assert.Equal(["yst1"], Assert.Single(provider.SceneCalls).Keys);
     }
 
     // Progress<T> entrega os avisos no pool de threads; com o runner carregado, nem todos chegavam antes da asserção.

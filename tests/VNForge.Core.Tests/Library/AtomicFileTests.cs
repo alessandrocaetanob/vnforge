@@ -5,6 +5,7 @@ using VNForge.Patching;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R2")]
 public class AtomicFileTests
 {
     private sealed class FakeDisk(bool local, Action<string, string, bool> move) : IProjectDisk

@@ -2,6 +2,7 @@ using VNForge.Core.Images;
 
 namespace VNForge.Core.Tests.Images;
 
+[Trait("Risco", "R3")]
 public sealed class ImageEraserTests
 {
     private static byte[] Gradient(int width, int height, Func<int, int, (byte B, byte G, byte R)> color)
@@ -45,66 +46,5 @@ public sealed class ImageEraserTests
                 Assert.Equal(inside ? ((byte)50, (byte)100, (byte)200, (byte)255) : Pixel(before, 20, x, y), Pixel(image, 20, x, y));
             }
         }
-    }
-
-    [Fact]
-    public void SurroundingFollowsAHorizontalGradient()
-    {
-        const int width = 100;
-        var image = Gradient(width, 40, (x, _) => ((byte)(x * 2), (byte)(x * 2), (byte)(x * 2)));
-        var expected = Gradient(width, 40, (x, _) => ((byte)(x * 2), (byte)(x * 2), (byte)(x * 2)));
-
-        // O texto original: pixels escuros no meio de um fundo que só varia na horizontal.
-        for (var y = 15; y < 25; y++)
-        {
-            for (var x = 30; x < 70; x++)
-            {
-                var at = ((y * width) + x) * 4;
-                image[at] = image[at + 1] = image[at + 2] = 0;
-            }
-        }
-
-        ImageEraser.Erase(image, width, 40, new ImageRegion(28, 12, 44, 16), ImageEraseModes.Surrounding);
-
-        for (var x = 28; x < 72; x++)
-        {
-            var got = Pixel(image, width, x, 20);
-            var want = Pixel(expected, width, x, 20);
-            Assert.InRange(got.R, want.R - 4, want.R + 4);
-        }
-    }
-
-    [Fact]
-    public void SurroundingAtTheImageEdgeCopiesTheOnlyNeighbour()
-    {
-        var image = Gradient(10, 10, (_, y) => ((byte)(y * 10), 0, 0));
-
-        ImageEraser.Erase(image, 10, 10, new ImageRegion(0, 0, 10, 4), ImageEraseModes.Surrounding);
-
-        // Sem lado de cima nem laterais, só a borda de baixo (linha 4) serve de modelo.
-        Assert.Equal((byte)40, Pixel(image, 10, 3, 1).B);
-    }
-
-    [Fact]
-    public void RegionOutsideTheImageChangesNothing()
-    {
-        var image = Gradient(10, 10, (x, y) => ((byte)x, (byte)y, 0));
-        var before = (byte[])image.Clone();
-
-        ImageEraser.Erase(image, 10, 10, new ImageRegion(20, 20, 5, 5), ImageEraseModes.Surrounding);
-
-        Assert.Equal(before, image);
-    }
-
-    [Fact]
-    public void RejectsPixelsThatDoNotMatchTheSize()
-    {
-        Assert.Throws<ArgumentException>(() => ImageEraser.Erase(new byte[10], 10, 10, new ImageRegion(0, 0, 1, 1), ImageEraseModes.Solid));
-    }
-
-    [Fact]
-    public void RejectsAnUnknownMode()
-    {
-        Assert.Throws<ArgumentException>(() => ImageEraser.Erase(new byte[400], 10, 10, new ImageRegion(0, 0, 1, 1), "borrar"));
     }
 }

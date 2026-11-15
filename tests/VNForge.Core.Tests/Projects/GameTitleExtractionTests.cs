@@ -3,6 +3,7 @@ using VNForge.Core.Projects;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>A extração lê o título original do jogo e o guarda no <c>vnforge.json</c> sem perder a tradução (#427).</summary>
+[Trait("Risco", "R4")]
 public sealed class GameTitleExtractionTests : IDisposable
 {
     private readonly TempFolder _temp = new();

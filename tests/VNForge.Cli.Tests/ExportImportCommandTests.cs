@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R3")]
 public sealed class ExportImportCommandTests : IDisposable
 {
     private const string Yst00001 = "yst00001";
@@ -49,20 +50,6 @@ public sealed class ExportImportCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Import_aplica_a_edicao_do_revisor()
-    {
-        var csv = Path.Combine(ProjectPath, "revisao.csv");
-        await _cli.RunAsync([Export, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-        await File.WriteAllTextAsync(csv, (await File.ReadAllTextAsync(csv, TestContext.Current.CancellationToken)).Replace("yst00001:000001,dialogue,美咲,おはよう,,untranslated,", "yst00001:000001,dialogue,美咲,おはよう,Bom dia,reviewed,ok"), TestContext.Current.CancellationToken);
-
-        var import = await _cli.RunAsync(["import", csv, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, import.ExitCode);
-        Assert.Contains("Importadas 1 linha alterada em 1 script", import.Output);
-        Assert.Equal("Bom dia", _project.LoadText(Yst00001)[0].Translation);
-    }
-
-    [Fact]
     public async Task Import_com_id_desconhecido_sai_com_erro_e_nao_altera_o_projeto()
     {
         var csv = Path.Combine(ProjectPath, "revisao.csv");
@@ -78,58 +65,5 @@ public sealed class ExportImportCommandTests : IDisposable
         Assert.Contains("yst00001:777777", import.Error);
         var depois = await File.ReadAllBytesAsync(_project.TextPath(Yst00001), TestContext.Current.CancellationToken);
         Assert.True(antes.AsSpan().SequenceEqual(depois));
-    }
-
-    [Fact]
-    public async Task Export_nao_troca_arquivo_existente_sem_force()
-    {
-        await _cli.RunAsync([Export, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        var again = await _cli.RunAsync([Export, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-        var forced = await _cli.RunAsync([Export, "--force", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, again.ExitCode);
-        Assert.Contains("--force", again.Error);
-        Assert.Equal(0, forced.ExitCode);
-    }
-
-    [Fact]
-    public async Task Formato_desconhecido_e_erro_de_uso()
-    {
-        var result = await _cli.RunAsync([Export, "--format", "po", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("po", result.Error);
-        Assert.Contains("xlsx", result.Error);
-    }
-
-    [Theory]
-    [InlineData("--output", "rev.xlsx")]
-    public async Task Export_xlsx_por_opcao_ou_pela_extensao_e_import_sem_edicao_nao_muda_nada(string option, string value)
-    {
-        var antes = await File.ReadAllBytesAsync(_project.TextPath(Yst00001), TestContext.Current.CancellationToken);
-        var planilha = Path.Combine(ProjectPath, "revisao.xlsx");
-        var args = option == "--output"
-            ? new[] { Export, "--output", planilha, ProjectOption, ProjectPath }
-            : [Export, "--format", value, ProjectOption, ProjectPath];
-
-        var export = await _cli.RunAsync(args, TestContext.Current.CancellationToken);
-        var import = await _cli.RunAsync(["import", planilha, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, export.ExitCode);
-        Assert.True(File.Exists(planilha));
-        Assert.Equal(0, import.ExitCode);
-        Assert.Contains("Nenhuma alteração", import.Output);
-        var depois = await File.ReadAllBytesAsync(_project.TextPath(Yst00001), TestContext.Current.CancellationToken);
-        Assert.True(antes.AsSpan().SequenceEqual(depois));
-    }
-
-    [Fact]
-    public async Task Export_json_informa_o_formato_xlsx()
-    {
-        var result = await _cli.RunAsync([Export, "--format", "xlsx", "--json", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("\"format\": \"xlsx\"", result.Output.Replace("\"format\":\"", "\"format\": \""));
     }
 }

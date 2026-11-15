@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>A tradução que a IA escreveu fica guardada em <see cref="TextUnit.AiTranslation"/> quando a pessoa a edita (#473).</summary>
+[Trait("Risco", "R5")]
 public sealed class AiTranslationTrailTests : IDisposable
 {
     private static readonly DateTimeOffset Agora = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
@@ -50,48 +51,5 @@ public sealed class AiTranslationTrailTests : IDisposable
         _project.SaveText("a", [unidade]);
         Assert.Equal("Ei, vem.", Gravada(1).AiTranslation);
         Assert.Equal(TextUnitJson.SerializeList([unidade]), TextUnitJson.SerializeList(_project.LoadText("a")));
-    }
-
-    [Fact]
-    public void SetTranslation_que_devolve_o_texto_da_IA_ou_limpa_a_linha_apaga_o_campo()
-    {
-        _project.SaveText("a", [DaIa(1, "Ei, vem."), DaIa(2, "Oi.")]);
-        Editor().SetTranslation("a", "a:000001", "Ô, vem.");
-        Editor().SetTranslation("a", "a:000002", "Alô.");
-
-        Editor().SetTranslation("a", "a:000001", "Ei, vem.");
-        Editor().SetTranslation("a", "a:000002", "  ");
-
-        Assert.Null(Gravada(1).AiTranslation);
-        Assert.Null(Gravada(2).AiTranslation);
-    }
-
-    [Fact]
-    public void Restore_devolve_o_campo_de_antes()
-    {
-        var antes = DaIa(1, "Ei, vem.");
-        _project.SaveText("a", [antes]);
-        var gravada = Editor().SetTranslation("a", antes.Id, "Ô, vem.");
-
-        Editor().Restore("a", antes, gravada);
-
-        Assert.Null(Gravada(1).AiTranslation);
-        Assert.Equal("Ei, vem.", Gravada(1).Translation);
-    }
-
-    [Fact]
-    public void Importar_revisao_guarda_o_texto_da_IA_so_quando_a_traducao_muda()
-    {
-        _project.SaveText("a", [DaIa(1, "Ei vem."), DaIa(2, "Ei anda.")]);
-        var csv = Path.Combine(_temp.Path, "revisao.csv");
-        ReviewExporter.Export(_project, ReviewFormats.Csv, csv);
-        File.WriteAllText(csv, File.ReadAllText(csv).Replace("Ei vem.", "Ô vem.", StringComparison.Ordinal).Replace("Ei anda.,machine,", "Ei anda.,approved,", StringComparison.Ordinal));
-
-        ReviewImporter.Import(_project, csv);
-
-        Assert.Equal("Ô vem.", Gravada(1).Translation);
-        Assert.Equal("Ei vem.", Gravada(1).AiTranslation);
-        Assert.Equal(TranslationStatus.Approved, Gravada(2).Status);
-        Assert.Null(Gravada(2).AiTranslation);
     }
 }

@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>As palavras ignoradas pelo corretor (#511) de ponta a ponta: o contexto do QA, a grade do Editor e o build com o arquivo ilegível.</summary>
+[Trait("Risco", "R7")]
 public sealed class IgnoredWordsProjectTests : IDisposable
 {
     private const string Quebrado = "<<<<<<< HEAD\n{\"version\":1,\"entries\":[]}\n=======\n>>>>>>> outro\n";

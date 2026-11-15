@@ -7,6 +7,7 @@ using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Engines.YuRis.Tests.Ystb;
 
+[Trait("Risco", "R3")]
 public class YstbWriterTests
 {
     private const string Source = "ybin/YST00001.ybn";

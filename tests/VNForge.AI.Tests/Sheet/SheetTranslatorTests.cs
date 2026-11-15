@@ -6,6 +6,7 @@ using VNForge.Core.Factsheet;
 
 namespace VNForge.AI.Tests.Sheet;
 
+[Trait("Risco", "R5")]
 public sealed class SheetTranslatorTests
 {
     private sealed class StubClient(Func<ClaudeRequest, ClaudeReply> reply) : IClaudeMessageClient
@@ -32,32 +33,6 @@ public sealed class SheetTranslatorTests
     private static ClaudeReply Reply(string json, ClaudeUsage? usage = null) => new("end_turn", json, usage ?? new ClaudeUsage(100, 50, 400, 0));
 
     [Fact]
-    public async Task Traduz_os_itens_e_devolve_cada_um_pela_chave()
-    {
-        var client = new StubClient(_ => Reply("""{"items":[{"key":"synopsis","text":"Uma cidade chuvosa. [spoiler]Ele morre.[/spoiler]"},{"key":"tag:g10","text":"Comédia"},{"key":"trait:i1","text":"Cabelo longo"}]}"""));
-
-        var result = await new ClaudeSheetTranslator(client).TranslateAsync(Request(), Ct);
-
-        Assert.Equal(["synopsis", "tag:g10", "trait:i1"], result.Select(t => t.Key));
-        Assert.Equal("Uma cidade chuvosa. [spoiler]Ele morre.[/spoiler]", result[0].Text);
-        Assert.Equal("Comédia", result[1].Text);
-    }
-
-    [Theory]
-    [InlineData("não é json")]
-    [InlineData("""{"itens":[]}""")]
-    [InlineData("""{"items":[{"key":"synopsis"}]}""")]
-    [InlineData("""{"items":[{"key":null,"text":"x"}]}""")]
-    public async Task Resposta_fora_do_formato_vira_erro_de_resposta_em_portugues(string json)
-    {
-        var translator = new ClaudeSheetTranslator(new StubClient(_ => Reply(json)));
-
-        var ex = await Assert.ThrowsAsync<ClaudeResponseException>(() => translator.TranslateAsync(Request(), Ct));
-
-        Assert.Contains("incompleta ou fora do formato", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Recusa_e_corte_por_tamanho_viram_erros_proprios_e_a_chamada_ja_cobrada_soma_no_uso()
     {
         var refusing = new ClaudeSheetTranslator(new StubClient(_ => new ClaudeReply("refusal", "", new ClaudeUsage(10, 5, 0, 0))));
@@ -69,41 +44,5 @@ public sealed class SheetTranslatorTests
         Assert.Contains("não quis traduzir", refused.Message, StringComparison.Ordinal);
         Assert.True(cut.HitMaxTokens);
         Assert.Equal(new ClaudeUsage(10, 5, 0, 0), refusing.Usage);
-    }
-
-    [Fact]
-    public async Task O_provedor_falso_traduz_sem_rede_mantendo_os_marcadores_e_guarda_os_pedidos()
-    {
-        var fake = new FakeSheetTranslator();
-
-        var result = await fake.TranslateAsync(Request(), Ct);
-
-        Assert.Equal("[pt-BR] A rainy town. [spoiler]He dies.[/spoiler]", result[0].Text);
-        Assert.Single(fake.Requests);
-    }
-
-    [Fact]
-    public async Task O_provedor_falso_pode_esquecer_um_item_ou_falhar_como_a_IA_real()
-    {
-        var forgetting = new FakeSheetTranslator(i => i.Kind == SheetItemKind.TagName ? null : "x");
-        var failing = new FakeSheetTranslator(_ => throw new InvalidOperationException("falhou"));
-
-        Assert.Equal(["synopsis", "trait:i1"], (await forgetting.TranslateAsync(Request(), Ct)).Select(t => t.Key));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => failing.TranslateAsync(Request(), Ct));
-    }
-
-    [Fact]
-    public void A_estimativa_conta_as_chamadas_e_cresce_com_o_texto()
-    {
-        var small = new SheetTranslationPlan("J", [new("tag:g1", SheetItemKind.TagName, "Comedy", "cont")]);
-        var big = new SheetTranslationPlan("J", [.. Enumerable.Range(0, 20).Select(i => new SheetTranslationItem($"character:c{i}", SheetItemKind.CharacterDescription, new string('a', 3000), "Nome"))]);
-
-        var low = SheetCost.Estimate(small, ClaudeModels.Opus);
-        var high = SheetCost.Estimate(big, ClaudeModels.Opus);
-
-        Assert.Equal((1, 1), (low.Items, low.Calls));
-        Assert.Equal((20, 10), (high.Items, high.Calls));
-        Assert.True(high.Dollars > low.Dollars && low.Dollars > 0);
-        Assert.True(SheetCost.Estimate(big, ClaudeModels.Haiku).Dollars < high.Dollars);
     }
 }

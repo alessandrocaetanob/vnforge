@@ -4,6 +4,7 @@ using VNForge.Engines.YuRis.Ypf;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
+[Trait("Risco", "R3")]
 public sealed class YpfFolderTests : IDisposable
 {
     private const string BackgroundPng = "fundo.png";

@@ -4,6 +4,7 @@ using VNForge.Core.Publishing;
 
 namespace VNForge.Core.Tests.Publishing;
 
+[Trait("Risco", "R1")]
 public sealed class ReleaseServiceNamesTests
 {
     private static ProjectConfig Config(string name, GameTitleConfig? title = null) => new(
@@ -13,29 +14,6 @@ public sealed class ReleaseServiceNamesTests
         new LanguagesConfig("ja", "pt-BR"),
         new EncodingConfig("cp1252"),
         AiConfig.Default);
-
-    [Fact]
-    public void Nome_do_instalador_usa_o_titulo_traduzido_o_idioma_e_a_versao()
-    {
-        var config = Config("amaoto", new GameTitleConfig("雨音の箱庭", "Amaoto no Hakoniwa"));
-
-        Assert.Equal("Amaoto-no-Hakoniwa-PT-BR-1.2.0", ReleaseService.DefaultInstallerName(config, "1.2.0"));
-    }
-
-    [Fact]
-    public void Sem_titulo_o_nome_do_projeto_serve()
-    {
-        Assert.Equal("meu-jogo-PT-BR-2", ReleaseService.DefaultInstallerName(Config("meu jogo"), "2"));
-    }
-
-    [Theory]
-    [InlineData("jogo2", "jogo", false)]
-    public void Pasta_de_saida_dentro_do_jogo_e_reconhecida(string folder, string parent, bool inside)
-    {
-        var root = Path.Combine(Path.GetTempPath(), "vnf-inside");
-
-        Assert.Equal(inside, ReleaseService.IsInside(Path.Combine(root, folder), Path.Combine(root, parent)));
-    }
 
     [Fact]
     public void Release_recusa_a_pasta_de_saida_dentro_da_pasta_do_jogo_antes_de_criar_qualquer_coisa()

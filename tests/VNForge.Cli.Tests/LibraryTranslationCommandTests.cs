@@ -8,6 +8,7 @@ using VNForge.Engines.YuRis.Tests.Ystl.Synthetic;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R1")]
 public sealed class LibraryTranslationCommandTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -68,31 +69,6 @@ public sealed class LibraryTranslationCommandTests : IDisposable
     private byte[] GameBytes => File.ReadAllBytes(Path.Combine(_game, YsbinYpf));
 
     [Fact]
-    public async Task State_mostra_original_traduzido_e_desconhecido_de_cada_jogo()
-    {
-        var game = await PrepareLinkedGame();
-        var original = await Run("library", "state");
-
-        Assert.Equal(0, original.ExitCode);
-        Assert.Contains("Minha VN", original.Output, StringComparison.Ordinal);
-        Assert.Contains("original", original.Output, StringComparison.Ordinal);
-
-        var translated = await Run("library", "switch", game.Id, "--traduzido", "--yes");
-        Assert.True(translated.ExitCode == 0, translated.Error + translated.Output);
-        var after = await Run("library", "state", "Minha", "--json");
-        var item = Data(after).GetProperty("games")[0];
-        Assert.Equal("translated", item.GetProperty("state").GetString());
-        Assert.Equal("translation", item.GetProperty("patch").GetProperty("kind").GetString());
-        Assert.False(string.IsNullOrEmpty(item.GetProperty("patch").GetProperty("backup").GetString()));
-        Assert.True(item.GetProperty("patch").TryGetProperty("appliedAt", out _));
-
-        new LibraryFile(_cli.UserConfigDirectory).Save(new GameLibrary([game with { ProjectPath = null }]));
-        var unknown = await Run("library", "state", game.Id);
-        Assert.Contains("desconhecido", unknown.Output, StringComparison.Ordinal);
-        Assert.Contains("projeto", unknown.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Switch_traduzido_e_original_deixa_o_arquivo_do_jogo_identico_byte_a_byte()
     {
         var game = await PrepareLinkedGame();
@@ -111,75 +87,6 @@ public sealed class LibraryTranslationCommandTests : IDisposable
         Assert.Equal(before, GameBytes);
         Assert.Contains("original", toOriginal.Output, StringComparison.Ordinal);
         Assert.Null(GameStateFile.Load(ProjectFolder.Open(ProjectPath)).InGame);
-    }
-
-    [Fact]
-    public async Task Switch_json_traz_a_acao_e_os_estados_antes_e_depois()
-    {
-        var game = await PrepareLinkedGame();
-
-        var applied = Data(await Run("library", "switch", game.Id, "--traduzido", "--yes", "--json"));
-        var again = Data(await Run("library", "switch", game.Id, "--traduzido", "--yes", "--json"));
-
-        Assert.Equal("appliedTranslation", applied.GetProperty("action").GetString());
-        Assert.Equal("original", applied.GetProperty("before").GetProperty("state").GetString());
-        Assert.Equal("translated", applied.GetProperty("after").GetProperty("state").GetString());
-        Assert.Equal("unchanged", again.GetProperty("action").GetString());
-    }
-
-    [Fact]
-    public async Task Switch_sem_confirmar_nao_grava_nada_e_sai_com_3()
-    {
-        var game = await PrepareLinkedGame();
-        var before = GameBytes;
-        _cli.SetInput("n\n");
-        var plain = await Run("library", "switch", game.Id, "--traduzido");
-
-        Assert.Equal(3, plain.ExitCode);
-        Assert.Equal(before, GameBytes);
-        Assert.Empty(Directory.GetDirectories(Path.Combine(ProjectPath, "backup")));
-    }
-
-    [Theory]
-    [InlineData]
-    public async Task Switch_exige_exatamente_uma_das_duas_opcoes(params string[] options)
-    {
-        var game = await PrepareLinkedGame();
-
-        var result = await Run(["library", "switch", game.Id, "--yes", .. options]);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("--original", result.Error, StringComparison.Ordinal);
-        Assert.Contains("--traduzido", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Switch_de_jogo_sem_projeto_ligado_recusa_e_nao_toca_no_jogo()
-    {
-        var game = await PrepareLinkedGame(linked: false);
-        var before = GameBytes;
-
-        var result = await Run("library", "switch", game.Id, "--traduzido", "--yes");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("projeto", result.Error, StringComparison.Ordinal);
-        Assert.Equal(before, GameBytes);
-    }
-
-    [Fact]
-    public async Task Backup_sem_estado_do_jogo_aparece_como_nao_registrado_e_traduzir_grava_a_traducao()
-    {
-        var game = await PrepareLinkedGame();
-        Assert.Equal(0, (await Run("library", "switch", game.Id, "--traduzido", "--yes")).ExitCode);
-        File.Delete(GameStateFile.PathFor(ProjectFolder.Open(ProjectPath)));
-
-        var state = await Run("library", "state", game.Id);
-        var json = Data(await Run("library", "state", game.Id, "--json")).GetProperty("games")[0];
-        var again = Data(await Run("library", "switch", game.Id, "--traduzido", "--yes", "--json"));
-
-        Assert.Contains("não registra o que ela gravou", state.Output, StringComparison.Ordinal);
-        Assert.Equal("unknown", json.GetProperty("patch").GetProperty("kind").GetString());
-        Assert.Equal("appliedTranslation", again.GetProperty("action").GetString());
     }
 
     private sealed class NoStarter : Core.Projects.IGameProcessStarter

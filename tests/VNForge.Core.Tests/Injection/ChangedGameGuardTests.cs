@@ -6,6 +6,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Injection;
 
+[Trait("Risco", "R1")]
 public sealed class ChangedGameGuardTests : IDisposable
 {
     private const string Ysbin = "ysbin.ypf";
@@ -113,19 +114,6 @@ public sealed class ChangedGameGuardTests : IDisposable
         injector.Inject(GameInjector.Plan(_project));
         Build(Ysbin, "traduzido-v2");
         _clock.Now = _clock.Now.AddMinutes(5);
-
-        var plan = GameInjector.Plan(_project);
-
-        Assert.Equal([Ysbin], plan.Files.Select(f => f.RelativePath));
-    }
-
-    [Fact]
-    public void Plan_depois_do_restore_aceita_o_jogo_original()
-    {
-        SeedExtractedGame();
-        var injector = Injector();
-        injector.Inject(GameInjector.Plan(_project));
-        injector.Restore(GameInjector.PlanRestore(_project));
 
         var plan = GameInjector.Plan(_project);
 

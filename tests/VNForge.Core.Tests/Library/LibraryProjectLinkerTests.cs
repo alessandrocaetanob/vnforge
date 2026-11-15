@@ -4,6 +4,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R6")]
 public sealed class LibraryProjectLinkerTests : IDisposable
 {
     private readonly TempFolder _root = new();
