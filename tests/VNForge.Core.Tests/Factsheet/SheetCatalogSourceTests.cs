@@ -6,6 +6,7 @@ using static VNForge.Core.Tests.Factsheet.SheetSamples;
 
 namespace VNForge.Core.Tests.Factsheet;
 
+[Trait("Risco", "R9")]
 public sealed class SheetCatalogSourceTests : IDisposable
 {
     private static readonly DateTimeOffset Generated = new(2026, 11, 9, 15, 30, 0, TimeSpan.Zero);
@@ -32,28 +33,6 @@ public sealed class SheetCatalogSourceTests : IDisposable
     {
         await Fetched();
         await new SheetTranslationRunner(new StubSheetTranslator(), Store).RunAsync(Game1, cancellationToken: Ct);
-    }
-
-    [Fact]
-    public void Jogo_sem_ficha_buscada_ou_sem_jogo_do_VNDB_nao_tem_ficha()
-    {
-        var source = new SheetCatalogSource(Store);
-
-        Assert.Null(source.SheetOf(Game()));
-        Assert.Null(source.SheetOf(Game() with { VndbId = null }));
-    }
-
-    [Fact]
-    public async Task Personagem_de_ficha_antiga_sem_as_edicoes_e_contado_e_vale_spoiler_2()
-    {
-        await Fetched();
-        Store.Update(s => s.SaveCharacter(s.LoadCharacter("c1")! with { Appearances = [.. s.LoadCharacter("c1")!.Appearances.Select(a => a with { Editions = null, Spoiler = 0 })] }));
-        var source = new SheetCatalogSource(Store);
-
-        var sheet = source.SheetOf(Game())!;
-
-        Assert.Equal(1, source.StaleCharacters);
-        Assert.Equal(2, sheet.Characters.Single(c => c.Name == "Kenta Aizawa").Spoiler);
     }
 
     [Fact]

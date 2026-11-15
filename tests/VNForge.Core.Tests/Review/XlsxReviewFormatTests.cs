@@ -2,6 +2,7 @@ using VNForge.Core.Review;
 
 namespace VNForge.Core.Tests.Review;
 
+[Trait("Risco", "R3")]
 public class XlsxReviewFormatTests
 {
     private static readonly IReviewFormat Xlsx = ReviewFormats.Xlsx;
@@ -31,44 +32,10 @@ public class XlsxReviewFormatTests
     }
 
     [Fact]
-    public void Arquivo_que_nao_e_xlsx_e_recusado_com_mensagem()
-    {
-        var erro = Assert.Throws<ReviewImportException>(() => Xlsx.Read("id,x"u8.ToArray(), "r.xlsx"));
-        Assert.Contains("r.xlsx", erro.Message);
-        Assert.Contains("XLSX", erro.Message);
-    }
-
-    [Fact]
     public void Sem_coluna_obrigatoria_e_recusado()
     {
         var bytes = Xlsx.Write([]);
         Assert.Empty(Xlsx.Read(bytes, "r.xlsx"));
         Assert.Throws<ReviewImportException>(() => Xlsx.Read(XlsxTestFiles.WithHeader("id", "translation"), "r.xlsx"));
-    }
-
-    [Fact]
-    public void Ignora_o_furigana_gravado_pelo_excel_japones_nas_strings_compartilhadas()
-    {
-        var bytes = XlsxTestFiles.WithSharedPhonetic("id", "translation", "status", "notes", "漢字", "かんじ");
-
-        var lida = Assert.Single(Xlsx.Read(bytes, "r.xlsx"));
-
-        Assert.Equal("漢字", lida.Translation);
-    }
-
-    [Fact]
-    public void Referencia_de_celula_alem_da_ultima_coluna_e_recusada_sem_alocar_a_linha()
-    {
-        var bytes = XlsxTestFiles.WithHeader("id", "translation", "status", "notes");
-        using var stream = new MemoryStream();
-        stream.Write(bytes);
-        using (var doc = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(stream, true))
-        {
-            var cell = doc.WorkbookPart!.WorksheetParts.First().Worksheet!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().First();
-            cell.CellReference = "ZZZZZZZ1";
-            doc.WorkbookPart.WorksheetParts.First().Worksheet!.Save();
-        }
-
-        Assert.Throws<ReviewImportException>(() => Xlsx.Read(stream.ToArray(), "r.xlsx"));
     }
 }

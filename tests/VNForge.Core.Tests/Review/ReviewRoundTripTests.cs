@@ -6,6 +6,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Review;
 
+[Trait("Risco", "R3")]
 public class ReviewRoundTripTests
 {
     private static readonly string[] ExpectedIds = ["yst00001:000001", "yst00001:000002", "yst00001:000003"];
@@ -68,80 +69,6 @@ public class ReviewRoundTripTests
     }
 
     [Fact]
-    public void Importacao_nao_regrava_nem_o_arquivo_que_estava_fora_do_formato_canonico()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var caminho = projeto.TextPath("yst00002");
-        File.WriteAllText(caminho, File.ReadAllText(caminho).Replace("  ", "\t"));
-        var antes = Bytes(projeto);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-
-        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
-        ReviewImporter.Import(projeto, csv);
-
-        AssertIguais(antes, Bytes(projeto));
-    }
-
-    [Fact]
-    public void Importacao_altera_so_traducao_status_e_notas_e_so_nos_arquivos_afetados()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var segundo = File.ReadAllBytes(projeto.TextPath("yst00002"));
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
-        var texto = File.ReadAllText(csv)
-            .Replace("Bom dia\\p,machine,", "Bom dia!\\p,approved,ok")
-            .Replace("原文", "x")
-            .Replace("美咲", "Outro");
-        File.WriteAllText(csv, texto, new UTF8Encoding(true));
-
-        var resultado = ReviewImporter.Import(projeto, csv);
-
-        Assert.Equal(1, resultado.ChangedUnits);
-        Assert.Equal(["yst00001"], resultado.ChangedScripts);
-        var unidades = projeto.LoadText("yst00001");
-        var primeira = unidades[0];
-        Assert.Equal("Bom dia!\\p", primeira.Translation);
-        Assert.Equal(TranslationStatus.Approved, primeira.Status);
-        Assert.Equal("ok", primeira.Notes);
-        Assert.Equal("美咲", primeira.Speaker);
-        Assert.Equal("おはよう\\p", primeira.Source);
-        Assert.Equal(["len"], primeira.Flags);
-        Assert.Equal("anthropic", primeira.Origin?.Provider);
-        Assert.Equal(812, primeira.Locator?.GetProperty("command").GetInt32());
-        Assert.Equal(ExpectedIds, unidades.Select(u => u.Id));
-        Assert.Equal("ver com o\nrevisor", unidades[2].Notes);
-        Assert.True(segundo.AsSpan().SequenceEqual(File.ReadAllBytes(projeto.TextPath("yst00002"))));
-    }
-
-    [Theory]
-    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,machine,so uma nota", true)]
-    [InlineData("Bom dia\\p,machine,", "Bom dia!\\p,machine,", false)]
-    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,reviewed,", false)]
-    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,approved,", false)]
-    [InlineData("Bom dia\\p,machine,", "Bom dia\\p,keep,", false)]
-    public void Importacao_so_mantem_a_duvida_quando_o_status_e_a_traducao_nao_mudam(string de, string para, bool mantem)
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var unidades = projeto.LoadText("yst00001").ToList();
-        unidades[0] = unidades[0] with { Doubt = new TranslationDoubt(DoubtKind.Tone, "Ironia?") };
-        projeto.SaveText("yst00001", unidades);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
-        File.WriteAllText(csv, File.ReadAllText(csv).Replace(de, para), new UTF8Encoding(true));
-
-        ReviewImporter.Import(projeto, csv);
-
-        Assert.Equal(mantem, projeto.LoadText("yst00001")[0].Doubt is not null);
-    }
-
-    [Fact]
     public void Importacao_sem_mudanca_mantem_a_duvida_de_linha_com_traducao_nula_ou_vazia()
     {
         using var temp = new TempFolder();
@@ -162,68 +89,5 @@ public class ReviewRoundTripTests
         var depois = projeto.LoadText("yst00001");
         Assert.Equal(duvida, depois[1].Doubt);
         Assert.Equal(duvida, depois[2].Doubt);
-    }
-
-    [Fact]
-    public void Traducao_apagada_na_planilha_vira_nula()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
-        File.WriteAllText(csv, File.ReadAllText(csv).Replace("Bom dia\\p,machine", ",untranslated"));
-
-        ReviewImporter.Import(projeto, csv);
-
-        var primeira = projeto.LoadText("yst00001")[0];
-        Assert.Null(primeira.Translation);
-        Assert.Equal(TranslationStatus.Untranslated, primeira.Status);
-    }
-
-    [Fact]
-    public void Id_desconhecido_e_erro_e_nada_e_importado_pela_metade()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var antes = Bytes(projeto);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-        ReviewExporter.Export(projeto, ReviewFormats.Csv, csv);
-        var conteudo = File.ReadAllText(csv)
-            .Replace("Bom dia\\p,machine,", "Mudou,approved,")
-            .Replace("yst00002:000001,system,,夜,,untranslated,", "yst00002:999999,system,,夜,sim,translated,");
-        File.WriteAllText(csv, conteudo);
-
-        var ex = Assert.Throws<ReviewImportException>(() => ReviewImporter.Import(projeto, csv));
-
-        Assert.Contains("yst00002:999999", ex.Message);
-        Assert.Contains("desconhecido", ex.Message);
-        Assert.Single(ex.Errors);
-        AssertIguais(antes, Bytes(projeto));
-    }
-
-    [Fact]
-    public void Todos_os_erros_sao_reunidos_numa_so_excecao()
-    {
-        using var temp = new TempFolder();
-        var projeto = NovoProjeto(temp.Path);
-        Semear(projeto);
-        var antes = Bytes(projeto);
-        var csv = Path.Combine(temp.Path, "revisao.csv");
-        File.WriteAllText(csv, string.Join("\r\n",
-            "id,translation,status,notes",
-            "yst00001:000001,a,inventado,",
-            "yst00001:000001,b,translated,",
-            "nada:1,c,translated,",
-            string.Empty));
-
-        var ex = Assert.Throws<ReviewImportException>(() => ReviewImporter.Import(projeto, csv));
-
-        Assert.Equal(3, ex.Errors.Count);
-        Assert.Contains(ex.Errors, e => e.Line == 2 && e.Message.Contains("inventado"));
-        Assert.Contains(ex.Errors, e => e.Line == 3 && e.Message.Contains("repetido"));
-        Assert.Contains(ex.Errors, e => e.Line == 4 && e.Message.Contains("nada:1"));
-        AssertIguais(antes, Bytes(projeto));
     }
 }

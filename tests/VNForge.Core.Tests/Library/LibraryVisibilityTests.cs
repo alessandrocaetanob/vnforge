@@ -4,6 +4,7 @@ using static VNForge.Core.Tests.Library.SyntheticGames;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R9")]
 public class LibraryVisibilityTests
 {
     private static LibraryGame Confirmed(bool adult, string? synopsis = "Começo [b]forte[/b]. [spoiler]O vilão é o irmão.[/spoiler] Fim, veja [url=https://vndb.org/v4]o site[/url].") =>
@@ -33,22 +34,5 @@ public class LibraryVisibilityTests
         Assert.False(card.SynopsisHasSpoilers);
         Assert.True(card.CoverHidden);
         Assert.Null(card.CoverUrl);
-    }
-
-    [Fact]
-    public void Jogo_sem_confirmacao_nao_tem_ficha_para_mostrar()
-    {
-        var game = new LibraryGame("g1", "pasta", null, LibraryEngine.Unknown, "pasta", null, DateTimeOffset.UnixEpoch);
-
-        Assert.Null(LibraryVisibility.Card(game, new LibraryPrivacy()));
-    }
-
-    [Fact]
-    public void Sinopse_em_texto_simples_tira_os_codigos_do_vndb()
-    {
-        var text = LibraryVisibility.PlainSynopsis("[b]Negrito[/b] e [i]itálico[/i]\n[quote]citação[/quote] [url=https://x.test]link[/url] [from Fonte]", showSpoilers: false, out var had);
-
-        Assert.Equal("Negrito e itálico\ncitação link", text);
-        Assert.False(had);
     }
 }

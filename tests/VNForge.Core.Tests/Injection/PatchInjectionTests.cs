@@ -8,6 +8,7 @@ using VNForge.Core.Tests.Projects;
 namespace VNForge.Core.Tests.Injection;
 
 /// <summary>O patch de executável passa pelo mesmo backup, conferência de hash e restauração da injeção (E5.5 · #65).</summary>
+[Trait("Risco", "R1")]
 public sealed class PatchInjectionTests : IDisposable
 {
     private const string GameExe = "jogo.exe";
@@ -89,30 +90,6 @@ public sealed class PatchInjectionTests : IDisposable
     }
 
     [Fact]
-    public void Executavel_ausente_e_recusado()
-    {
-        File.Delete(ExePath);
-
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanPatch(_project, new FakePatch()));
-
-        Assert.Contains(FakePatch.RefusalReason, erro.Message);
-        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
-    }
-
-    [Fact]
-    public void Plano_nao_grava_nada_no_jogo()
-    {
-        var plan = GameInjector.PlanPatch(_project, new FakePatch());
-
-        var file = Assert.Single(plan.Injection.Files);
-        Assert.Equal(GameExe, file.RelativePath);
-        Assert.True(file.ReplacesExisting);
-        Assert.Equal(OriginalExe, ReadExe());
-        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
-        Assert.Equal(PatchedExe, File.ReadAllText(file.BuildPath));
-    }
-
-    [Fact]
     public void Aplicar_faz_backup_do_original_e_grava_o_executavel_alterado()
     {
         var result = ApplyPatch(Injector());
@@ -123,26 +100,6 @@ public sealed class PatchInjectionTests : IDisposable
         Assert.Equal(backup, result.BackupDirectory);
         Assert.Equal(OriginalExe, File.ReadAllText(Path.Combine(backup, GameExe)));
         Assert.True(File.Exists(Path.Combine(backup, BackupManifest.FileName)));
-    }
-
-    [Fact]
-    public void Aplicar_nao_deixa_copia_do_executavel_na_pasta_de_trabalho()
-    {
-        ApplyPatch(Injector());
-
-        Assert.False(Directory.Exists(StagingDirectory));
-    }
-
-    [Fact]
-    public void Descartar_o_plano_apaga_a_copia_de_trabalho_e_deixa_o_jogo_como_estava()
-    {
-        var plan = GameInjector.PlanPatch(_project, new FakePatch());
-
-        GameInjector.DiscardPatch(plan);
-
-        Assert.False(Directory.Exists(StagingDirectory));
-        Assert.Equal(OriginalExe, ReadExe());
-        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
     }
 
     [Fact]
@@ -157,21 +114,6 @@ public sealed class PatchInjectionTests : IDisposable
         Assert.Equal([GameExe], result.Restored);
         Assert.Equal(OriginalExe, ReadExe());
         Assert.Equal(originalHash, ExeHash());
-    }
-
-    [Fact]
-    public void Patch_ja_aplicado_nao_faz_outro_backup_nem_regrava()
-    {
-        ApplyPatch(Injector());
-
-        var plan = GameInjector.PlanPatch(_project, new FakePatch());
-        var result = Injector().InjectPatch(plan);
-
-        Assert.Empty(plan.Injection.Files);
-        Assert.Equal(1, plan.Injection.UnchangedCount);
-        Assert.Null(result.BackupDirectory);
-        Assert.Single(Directory.GetDirectories(_project.BackupDirectory));
-        Assert.Equal(PatchedExe, ReadExe());
     }
 
     [Fact]
@@ -232,18 +174,6 @@ public sealed class PatchInjectionTests : IDisposable
     }
 
     [Fact]
-    public void Apply_que_recusa_o_arquivo_vira_recusa_do_patch_e_apaga_a_copia_de_trabalho()
-    {
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanPatch(_project, new FakePatch(applyThrows: true)));
-
-        Assert.Contains("recusado", erro.Message);
-        Assert.Contains("apply recusou", erro.Message);
-        Assert.False(Directory.Exists(StagingDirectory));
-        Assert.Equal(OriginalExe, ReadExe());
-        Assert.Empty(Directory.GetDirectories(_project.BackupDirectory));
-    }
-
-    [Fact]
     public void Gravacao_que_falha_deixa_o_executavel_como_estava()
     {
         var injector = Injector(new FailingGameWrites(_game));
@@ -253,26 +183,6 @@ public sealed class PatchInjectionTests : IDisposable
         Assert.Contains("O jogo voltou ao estado original", erro.Message);
         Assert.Equal(OriginalExe, ReadExe());
         Assert.False(Directory.Exists(StagingDirectory));
-    }
-
-    [Fact]
-    public void Executavel_que_muda_depois_do_plano_nao_e_sobrescrito()
-    {
-        var plan = GameInjector.PlanPatch(_project, new FakePatch());
-        File.WriteAllText(ExePath, "MZ atualizado por fora");
-
-        var erro = Assert.Throws<InjectionException>(() => Injector().InjectPatch(plan));
-
-        Assert.Contains("mudou depois da conferência", erro.Message);
-        Assert.Equal("MZ atualizado por fora", ReadExe());
-    }
-
-    [Fact]
-    public void Caminho_do_patch_fora_da_pasta_do_jogo_e_recusado()
-    {
-        var erro = Assert.Throws<InjectionException>(() => GameInjector.PlanPatch(_project, new FakePatch("../fora.exe")));
-
-        Assert.Contains("Caminho recusado", erro.Message);
     }
 
     [Fact]

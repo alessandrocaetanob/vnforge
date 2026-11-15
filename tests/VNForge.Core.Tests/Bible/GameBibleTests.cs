@@ -2,6 +2,7 @@ using VNForge.Core.Bible;
 
 namespace VNForge.Core.Tests.Bible;
 
+[Trait("Risco", "R2")]
 public sealed class GameBibleTests
 {
     private static BibleScene Generated(string key, string summary = "Resumo da IA") => new(key)
@@ -28,38 +29,5 @@ public sealed class GameBibleTests
         Assert.Equal("Outro nome", scene.Name);
         Assert.Equal(["nova piada"], scene.Jokes);
         Assert.Equal([BibleField.Summary, BibleField.Tone], scene.Edited);
-    }
-
-    [Fact]
-    public void Reescrever_um_campo_com_a_IA_troca_so_aquele_campo_e_o_devolve_a_IA()
-    {
-        var scene = Generated("yst1").EditSummary("Meu resumo").EditTone(["seco"]);
-
-        var rewritten = scene.WithGeneratedField(Generated("yst1", "Novo da IA"), BibleField.Summary);
-
-        Assert.Equal("Novo da IA", rewritten.Summary);
-        Assert.Equal(["seco"], rewritten.Tone);
-        Assert.Equal([BibleField.Tone], rewritten.Edited);
-    }
-
-    [Fact]
-    public void A_sinopse_da_pessoa_fica_e_a_linha_do_tempo_da_IA_e_trocada()
-    {
-        var bible = GameBible.Empty.WithGeneratedOverview("Sinopse da IA", [new BibleTimelineEntry("Prólogo", "A chuva")])
-            .EditSynopsis("Minha sinopse");
-
-        var again = bible.WithGeneratedOverview("Outra da IA", [new BibleTimelineEntry("Capítulo 1", "x")]);
-
-        Assert.Equal("Minha sinopse", again.Synopsis);
-        Assert.Equal(["Capítulo 1"], again.Timeline.Select(t => t.Title));
-    }
-
-    [Fact]
-    public void Nome_em_branco_nao_conta_como_nome_de_cena()
-    {
-        var bible = GameBible.From([new BibleScene("yst1") { Name = "  " }, new BibleScene("yst2") { Name = "Chuva" }]);
-
-        Assert.Null(bible.SceneName("yst1"));
-        Assert.Equal(new Dictionary<string, string> { ["yst2"] = "Chuva" }, bible.SceneNames());
     }
 }

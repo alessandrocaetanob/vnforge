@@ -25,14 +25,6 @@ internal static class VndbSamples
         }]}
         """;
 
-    public const string Releases = """
-        {"more":false,"results":[{
-          "id":"r900010","title":"Moon Flower","alttitle":"月の花","languages":[{"lang":"ja","title":"月の花","latin":"Tsuki no Hana","mtl":false,"main":true},{"lang":"pt-br","title":null,"latin":null,"mtl":true,"main":false}],
-          "platforms":["win"],"released":"2019-05-31","minage":15,"patch":false,"freeware":false,"official":true,"engine":"YU-RIS","voiced":4,
-          "vns":[{"id":"v900001","rtype":"complete"}]
-        }]}
-        """;
-
     public const string ListSecondPage = """
         {"more":false,"results":[{"id":"v900002","added":1700000300,"lastmod":1700000300,"voted":null,"vote":null,"started":null,"finished":null,"notes":null,"labels":[],"vn":{"title":"Outro"}}]}
         """;

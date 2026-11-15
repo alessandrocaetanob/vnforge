@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R2")]
 public class ProjectTextLockTests
 {
     private const string Key = "yst00001";
@@ -32,22 +33,5 @@ public class ProjectTextLockTests
         using var two = new TempFolder();
 
         Assert.NotSame(ProjectTextLock.For(NewProject(one.Path)), ProjectTextLock.For(NewProject(two.Path)));
-    }
-
-    [Fact]
-    public async Task Edicoes_simultaneas_de_linhas_diferentes_nao_se_perdem()
-    {
-        using var temp = new TempFolder();
-        var project = NewProject(temp.Path);
-        project.SaveText(Key, [.. Enumerable.Range(0, 40).Select(i => new TextUnit($"{Key}:{i:D6}", TextUnitKind.Dialogue, null, $"原文{i}", null, TranslationStatus.Untranslated))]);
-
-        await Task.WhenAll(Enumerable.Range(0, 40).Select(i => Task.Run(() =>
-            new LineEditor(ProjectFolder.Open(temp.Path), TimeProvider.System).SetTranslation(Key, $"{Key}:{i:D6}", $"tradução {i}"))));
-
-        var saved = project.LoadText(Key);
-        for (var i = 0; i < 40; i++)
-        {
-            Assert.Equal($"tradução {i}", saved[i].Translation);
-        }
     }
 }

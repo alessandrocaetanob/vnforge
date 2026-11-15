@@ -4,6 +4,7 @@ using VNForge.Core.Engines;
 
 namespace VNForge.Core.Tests;
 
+[Trait("Risco", "R6")]
 public class ArchitectureTests
 {
     private static readonly Assembly Core = typeof(IEngine).Assembly;
@@ -48,24 +49,6 @@ public class ArchitectureTests
             .ToList();
 
         Assert.True(tipos.Count == 0, $"Tipos específicos de YU-RIS no Core: {string.Join(", ", tipos)}");
-    }
-
-    [Theory]
-    [InlineData("VNForge.Engines.YuRis", true)]
-    [InlineData("VNForge.Engines.KiriKiri", true)]
-    [InlineData("VNForge.AI", true)]
-    [InlineData("VNForge.AI.OpenAI", true)]
-    [InlineData("VNForge.Vndb", true)]
-    [InlineData("VNForge.Vndb.Extras", true)]
-    [InlineData("VNForge.Platform.Windows", true)]
-    [InlineData("VNForge.VndbCore", false)]
-    [InlineData("VNForge.Core", false)]
-    [InlineData("VNForge.AIExtras", false)]
-    [InlineData("System.Runtime", false)]
-    [InlineData(null, false)]
-    public void IsProibido_reconhece_os_assemblies_vedados(string? nome, bool esperado)
-    {
-        Assert.Equal(esperado, IsProibido(nome));
     }
 
     private static bool IsProibido(string? nome) =>

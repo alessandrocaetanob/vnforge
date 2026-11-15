@@ -2,6 +2,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class GameEncodingsTests
 {
     // Bytes conferidos na tabela da página 932 da Microsoft (bestfit932.txt):

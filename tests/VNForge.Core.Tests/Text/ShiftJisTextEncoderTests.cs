@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class ShiftJisTextEncoderTests
 {
     private readonly ShiftJisTextEncoder _encoder = new();

@@ -5,6 +5,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R6")]
 public sealed class ProjectGameRelocatorMixedTests : IDisposable
 {
     private readonly TempFolder _temp = new();
