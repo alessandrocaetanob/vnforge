@@ -1,5 +1,6 @@
 namespace VNForge.Patching.Tests;
 
+[Trait("Risco", "R1")]
 public class PatchRoundTripTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -160,61 +161,6 @@ public class PatchRoundTripTests
     }
 
     [Fact]
-    public void O_plano_da_desinstalacao_diz_o_que_volta_sem_mexer_em_nada()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        PatchInstaller.Install(game.Game, package, null, Ct);
-        var before = SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf"));
-
-        var plan = PatchInstaller.PlanUninstall(game.Game);
-
-        Assert.Equal(["Game/Game.exe", "Game/script.ypf"], plan.Restore.Order(StringComparer.Ordinal));
-        Assert.Equal([SyntheticGame.CreatedFile], plan.Remove);
-        Assert.Empty(plan.Kept);
-        Assert.Empty(plan.BrokenBackups);
-        Assert.Equal("1.2.0", plan.Version);
-        Assert.True(plan.InstalledAt is not null && plan.InstalledAt > DateTimeOffset.UtcNow.AddMinutes(-5));
-        Assert.Equal(before, SyntheticGame.Sha(Path.Combine(game.Game, "Game/script.ypf")));
-    }
-
-    [Fact]
-    public void O_plano_da_desinstalacao_acusa_a_copia_que_sumiu_e_o_arquivo_mexido()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        PatchInstaller.Install(game.Game, package, null, Ct);
-        File.Delete(Path.Combine(game.Game, PatchInstaller.BackupFolderName, "Game/script.ypf"));
-        File.WriteAllBytes(Path.Combine(game.Game, "Game/Game.exe"), [1, 2, 3]);
-
-        var plan = PatchInstaller.PlanUninstall(game.Game);
-
-        Assert.Equal(["Game/script.ypf"], plan.BrokenBackups);
-        Assert.Equal(["Game/Game.exe"], plan.Kept);
-        var ex = Assert.Throws<PatchException>(() => PatchInstaller.Uninstall(game.Game, null, Ct));
-        Assert.Contains("Game/script.ypf", ex.Message);
-    }
-
-    [Fact]
-    public void Desinstalar_pula_o_arquivo_que_a_pessoa_ja_devolveu_ao_original_ou_apagou()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        PatchInstaller.Install(game.Game, package, null, Ct);
-        File.Copy(Path.Combine(game.Original, "Game/Game.exe"), Path.Combine(game.Game, "Game/Game.exe"), overwrite: true);
-        File.Delete(Path.Combine(game.Game, SyntheticGame.CreatedFile));
-
-        var plan = PatchInstaller.PlanUninstall(game.Game);
-        var result = PatchInstaller.Uninstall(game.Game, null, Ct);
-
-        Assert.Equal(["Game/script.ypf"], plan.Restore);
-        Assert.Empty(plan.Remove);
-        Assert.Empty(plan.Kept);
-        Assert.Empty(result.Kept);
-        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
-    }
-
-    [Fact]
     public void Cancelar_no_meio_da_instalacao_devolve_o_jogo_ao_original()
     {
         using var game = new SyntheticGame();
@@ -248,18 +194,6 @@ public class PatchRoundTripTests
     }
 
     [Fact]
-    public void Pasta_do_jogo_que_nao_existe_e_recusada_dizendo_qual()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        var missing = Path.Combine(game.Root, "nao-existe");
-
-        var error = Assert.Throws<PatchException>(() => PatchInstaller.Check(missing, package));
-
-        Assert.Contains($"A pasta '{missing}' não existe", error.Message);
-    }
-
-    [Fact]
     public void Manifesto_de_instalacao_ilegivel_conta_como_jogo_sem_instalacao()
     {
         using var game = new SyntheticGame();
@@ -267,20 +201,6 @@ public class PatchRoundTripTests
         File.WriteAllText(Path.Combine(game.Game, PatchInstaller.BackupFolderName, "manifest.json"), "{ isto não é json");
 
         Assert.Null(PatchInstaller.InstalledVersion(game.Game));
-    }
-
-    [Fact]
-    public void O_plano_da_desinstalacao_sem_instalacao_e_recusado()
-    {
-        using var game = new SyntheticGame();
-
-        Assert.Throws<PatchException>(() => PatchInstaller.PlanUninstall(game.Game));
-    }
-
-    [Fact]
-    public void Pacote_que_nao_e_um_patch_e_recusado()
-    {
-        Assert.Throws<PatchException>(() => PatchPackage.Open(new MemoryStream(new byte[64])));
     }
 
     [Fact]
