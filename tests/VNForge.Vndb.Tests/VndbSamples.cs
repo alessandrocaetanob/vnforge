@@ -15,8 +15,6 @@ internal static class VndbSamples
         }]}
         """;
 
-    public const string NoResults = """{"more":false,"results":[]}""";
-
     public const string Characters = """
         {"more":false,"results":[{
           "id":"c900001","name":"Hoshino Ami","original":"星野 亜美","aliases":["Ami"],"description":"A protagonista.",
@@ -27,23 +25,12 @@ internal static class VndbSamples
         }]}
         """;
 
-    public const string CharactersFirstPage = """{"more":true,"results":[{"id":"c900001","name":"Primeiro"}]}""";
-
-    public const string CharactersSecondPage = """{"more":false,"results":[{"id":"c900002","name":"Segundo"}]}""";
-
     public const string Releases = """
         {"more":false,"results":[{
           "id":"r900010","title":"Moon Flower","alttitle":"月の花","languages":[{"lang":"ja","title":"月の花","latin":"Tsuki no Hana","mtl":false,"main":true},{"lang":"pt-br","title":null,"latin":null,"mtl":true,"main":false}],
           "platforms":["win"],"released":"2019-05-31","minage":15,"patch":false,"freeware":false,"official":true,"engine":"YU-RIS","voiced":4,
           "vns":[{"id":"v900001","rtype":"complete"}]
         }]}
-        """;
-
-    public const string AuthInfo = """{"id":"u900","username":"alessandro","permissions":["listread","listwrite"]}""";
-
-    public const string ListFirstPage = """
-        {"more":true,"results":[{"id":"v900001","added":1700000000,"lastmod":1700000100,"voted":1700000200,"vote":80,"started":"2024-01-02","finished":null,"notes":"bom",
-        "labels":[{"id":2,"label":"Finished"},{"id":7,"label":"Voted"}],"vn":{"title":"Moon Flower"}}]}
         """;
 
     public const string ListSecondPage = """
