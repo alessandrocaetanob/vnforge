@@ -67,48 +67,6 @@ public static class SyntheticImages
         return bytes;
     }
 
-    /// <summary>WebP com chunk VP8X (o que carrega o tamanho sem precisar de pixels).</summary>
-    public static byte[] WebPExtended(int width, int height)
-    {
-        var bytes = new byte[30];
-        "RIFF"u8.CopyTo(bytes);
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), bytes.Length - 8);
-        "WEBPVP8X"u8.CopyTo(bytes.AsSpan(8));
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16), 10);
-        WriteUInt24(bytes.AsSpan(24), width - 1);
-        WriteUInt24(bytes.AsSpan(27), height - 1);
-        return bytes;
-    }
-
-    /// <summary>WebP com chunk VP8L (sem perdas).</summary>
-    public static byte[] WebPLossless(int width, int height)
-    {
-        var bytes = new byte[30];
-        "RIFF"u8.CopyTo(bytes);
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), bytes.Length - 8);
-        "WEBPVP8L"u8.CopyTo(bytes.AsSpan(8));
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16), 10);
-        bytes[20] = 0x2F;
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(21), (uint)((width - 1) | ((height - 1) << 14)));
-        return bytes;
-    }
-
-    /// <summary>WebP com chunk VP8 (com perdas).</summary>
-    public static byte[] WebPLossy(int width, int height)
-    {
-        var bytes = new byte[30];
-        "RIFF"u8.CopyTo(bytes);
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), bytes.Length - 8);
-        "WEBPVP8 "u8.CopyTo(bytes.AsSpan(8));
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16), 10);
-        bytes[23] = 0x9D;
-        bytes[24] = 0x01;
-        bytes[25] = 0x2A;
-        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(26), (ushort)width);
-        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(28), (ushort)height);
-        return bytes;
-    }
-
     private static void WriteUInt24(Span<byte> target, int value)
     {
         target[0] = (byte)value;

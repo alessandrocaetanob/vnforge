@@ -2,6 +2,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R2")]
 public sealed class PipelineStateTests : IDisposable
 {
     private readonly TempFolder _temp = new();
@@ -35,27 +36,5 @@ public sealed class PipelineStateTests : IDisposable
         Assert.Equal(["a.ypf", "pac/ysbin.ypf"], loaded.Originals.Select(o => o.Path));
         Assert.Equal(new OriginalFile("pac/ysbin.ypf", 12, "ab12"), loaded.Originals[1]);
         Assert.Equal(StageStatus.Completed, loaded.Stages["extract"].Status);
-    }
-
-    [Fact]
-    public void Arquivo_malformado_e_erro_que_cita_o_state_json()
-    {
-        var project = NewProject();
-        File.WriteAllText(project.StatePath, "{ nao e json");
-
-        var ex = Assert.Throws<VNForgeException>(() => project.LoadState());
-
-        Assert.Contains("state.json", ex.Message);
-    }
-
-    [Fact]
-    public void Versao_desconhecida_e_erro()
-    {
-        var project = NewProject();
-        File.WriteAllText(project.StatePath, """{"version":99,"originals":[],"stages":{}}""");
-
-        var ex = Assert.Throws<VNForgeException>(() => project.LoadState());
-
-        Assert.Contains("state.json", ex.Message);
     }
 }

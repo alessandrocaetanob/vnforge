@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class FoldTextEncoderTests
 {
     private readonly FoldTextEncoder _encoder = new();

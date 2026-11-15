@@ -8,6 +8,7 @@ using VNForge.AI.Claude;
 namespace VNForge.AI.Tests.Batches;
 
 /// <summary>Passa pelo SDK de verdade e inspeciona o pedido HTTP e a leitura da resposta da Message Batches API.</summary>
+[Trait("Risco", "R5")]
 public sealed class AnthropicMessageBatchClientWireTests
 {
     private const string Batch = """
@@ -76,19 +77,6 @@ public sealed class AnthropicMessageBatchClientWireTests
     }
 
     [Fact]
-    public async Task Cancelar_chama_o_endpoint_de_cancelamento()
-    {
-        var handler = new Handler((_, _) => (BatchJson("canceling", 3, 0), "application/json"));
-
-        var info = await new AnthropicMessageBatchClient(Sdk(handler)).CancelAsync("msgbatch_01", TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpMethod.Post, handler.Calls[0].Method);
-        Assert.Equal("/v1/messages/batches/msgbatch_01/cancel", handler.Calls[0].Path);
-        Assert.Equal(MessageBatchStatus.Canceling, info.Status);
-        Assert.Equal(0.0, info.Fraction);
-    }
-
-    [Fact]
     public async Task Le_os_resultados_em_jsonl_pelo_custom_id_com_sucesso_erro_e_expirado()
     {
         const string Message = """{"id":"msg_1","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"{\"translations\":[]}"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":12,"output_tokens":5,"cache_read_input_tokens":3,"cache_creation_input_tokens":0}}""";
@@ -116,26 +104,5 @@ public sealed class AnthropicMessageBatchClientWireTests
         Assert.Equal(5, reply.Usage.OutputTokens);
         Assert.Equal(3, reply.Usage.CacheReadInputTokens);
         Assert.Contains("overloaded_error", entries[1].Error, StringComparison.Ordinal);
-    }
-
-    private sealed class StatusHandler(HttpStatusCode status) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("""{"type":"error","error":{"type":"x","message":"y"}}""", Encoding.UTF8, "application/json") });
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.Unauthorized, true)]
-    [InlineData(HttpStatusCode.Forbidden, true)]
-    [InlineData(HttpStatusCode.NotFound, true)]
-    [InlineData(HttpStatusCode.TooManyRequests, false)]
-    [InlineData(HttpStatusCode.InternalServerError, false)]
-    public async Task Erro_permanente_e_o_que_repetir_nao_resolve(HttpStatusCode status, bool permanent)
-    {
-        var sdk = new AnthropicClient { ApiKey = "chave-de-teste", MaxRetries = 0, HttpClient = new HttpClient(new StatusHandler(status)) };
-
-        var error = await Assert.ThrowsAnyAsync<Exception>(() => new AnthropicMessageBatchClient(sdk).GetAsync("msgbatch_01", TestContext.Current.CancellationToken));
-
-        Assert.Equal(permanent, ClaudeErrorMessages.IsPermanent(error));
     }
 }

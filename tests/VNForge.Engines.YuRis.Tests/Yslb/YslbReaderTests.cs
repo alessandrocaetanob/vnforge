@@ -4,6 +4,7 @@ using VNForge.Engines.YuRis.Yslb;
 
 namespace VNForge.Engines.YuRis.Tests.Yslb;
 
+[Trait("Risco", "R3")]
 public class YslbReaderTests
 {
     private const string Source = "ysl.ybn";

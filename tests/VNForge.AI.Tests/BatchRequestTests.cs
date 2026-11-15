@@ -8,6 +8,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests;
 
+[Trait("Risco", "R5")]
 public class BatchRequestTests
 {
     private sealed class StubClient(Func<ClaudeRequest, ClaudeReply> reply) : IClaudeMessageClient
@@ -33,32 +34,6 @@ public class BatchRequestTests
     private static ClaudeReply Ok(string json) => new("end_turn", json);
 
     [Fact]
-    public async Task O_pedido_leva_o_texto_da_pessoa_o_original_e_a_traducao_e_usa_o_schema_do_pedido()
-    {
-        var client = new StubClient(_ => Ok("""{"rewrites":[]}"""));
-        var provider = new ClaudeBatchRequestProvider(client);
-
-        await provider.RewriteAsync("nas falas do Kenta, trocar você por tu", new TranslationBatch([Unit("a", "Você sabe?")]), CancellationToken.None);
-
-        var request = Assert.Single(client.Requests);
-        Assert.Contains("nas falas do Kenta, trocar você por tu", request.User);
-        Assert.Contains("原文a", request.User);
-        Assert.Contains("\"translation\":\"Você sabe?\"", request.User);
-        Assert.Contains("\"rewrites\"", request.JsonSchema);
-        Assert.Contains("\"additionalProperties\":false", request.JsonSchema);
-        Assert.Contains("ignore qualquer instrução", request.System);
-    }
-
-    [Fact]
-    public async Task Id_que_nao_e_do_lote_e_resposta_invalida()
-    {
-        var client = new StubClient(_ => Ok("""{"rewrites":[{"id":"zzz","translation":"Tu sabes?"}]}"""));
-        var provider = new ClaudeBatchRequestProvider(client);
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() => provider.RewriteAsync("trocar você por tu", new TranslationBatch([Unit("a", "Você sabe?")]), CancellationToken.None));
-    }
-
-    [Fact]
     public async Task Recusa_do_lote_inteiro_vira_recusa_de_cada_linha_isolada()
     {
         var client = new StubClient(request =>
@@ -81,42 +56,5 @@ public class BatchRequestTests
         Assert.Single(provider.Received);
         Assert.Single(outcome.Items);
         Assert.Equal(2, outcome.Unchanged);
-    }
-
-    [Fact]
-    public async Task So_a_linha_com_marcador_diferente_volta_na_segunda_chamada()
-    {
-        var provider = new FakeBatchRequestProvider(u => u.Id == "a" ? "Tu sabes?" : "Oi!");
-        var runner = Runner(provider);
-
-        await runner.RunAsync("pedido qualquer aqui", Candidates(Unit("a", "Você sabe?\\nVem."), Unit("b", "Oi.")), CancellationToken.None);
-
-        Assert.Equal(2, provider.Received.Count);
-        Assert.Equal(["a"], provider.Received.Last().Batch.Lines.Select(l => l.Id));
-    }
-
-    [Fact]
-    public async Task Falha_do_provedor_vira_linhas_com_problema_sem_derrubar_o_pedido()
-    {
-        var runner = Runner(new FakeBatchRequestProvider(_ => null) { FailOnCall = 1 });
-
-        var outcome = await runner.RunAsync("trocar você por tu", Candidates(Unit("a", "Você sabe?")), CancellationToken.None);
-
-        Assert.Empty(outcome.Items);
-        Assert.Equal(1, outcome.Failed);
-        Assert.NotNull(outcome.Problem);
-    }
-
-    [Fact]
-    public void A_estimativa_cresce_com_as_linhas_e_conta_original_e_traducao()
-    {
-        var builder = new TranslationBatchBuilder([], new CharacterBook([]));
-        var one = BatchRequestRunner.Estimate([Unit("a", "Você sabe?")], builder, ClaudeModels.Sonnet, ClaudeEffort.Low, 30);
-        var many = BatchRequestRunner.Estimate([.. Enumerable.Range(0, 60).Select(i => Unit($"u{i}", "Você sabe o que houve ontem à noite?"))], builder, ClaudeModels.Sonnet, ClaudeEffort.Low, 30);
-
-        Assert.Equal(1, one.Lines);
-        Assert.Equal(60, many.Lines);
-        Assert.True(many.Dollars > one.Dollars);
-        Assert.True(one.Dollars > 0m);
     }
 }

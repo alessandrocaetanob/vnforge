@@ -5,6 +5,7 @@ using VNForge.Engines.YuRis.Ypf;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
+[Trait("Risco", "R3")]
 public partial class YpfArchiveFormatTests
 {
     // ---- Mutações de layout: o que a gravação (#29) precisa copiar do original ----

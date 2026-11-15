@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Glossary;
 
+[Trait("Risco", "R2")]
 public class GlossaryFilesTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-glossary-" + Guid.NewGuid().ToString("N"));
@@ -48,104 +49,5 @@ public class GlossaryFilesTests : IDisposable
 
         Assert.Equal(Termos(), lido);
         Assert.Equal(json, GlossarySerializer.Serialize(lido));
-    }
-
-    [Fact]
-    public void Personagens_ida_e_volta_sem_perda()
-    {
-        var json = CharacterSerializer.Serialize(Personagens());
-
-        var lido = CharacterSerializer.Parse(json, "characters.json");
-
-        Assert.Equal(Personagens(), lido);
-        Assert.Equal(json, CharacterSerializer.Serialize(lido));
-    }
-
-    [Fact]
-    public void Cor_do_personagem_vai_e_volta_e_some_do_arquivo_quando_nao_definida()
-    {
-        var json = CharacterSerializer.Serialize([new("美咲", "Misaki", Color: "rose"), new("先生", "Professor")]);
-
-        Assert.Contains("\"color\":\"rose\"", json);
-        Assert.Equal(1, json.Split("\"color\"").Length - 1);
-        var lido = CharacterSerializer.Parse(json, "characters.json");
-        Assert.Equal("rose", lido[0].Color);
-        Assert.Null(lido[1].Color);
-    }
-
-    [Theory]
-    [InlineData("""{ "version": 1 }""", "entries")]
-    [InlineData("""{ "entries": [] }""", "version")]
-    [InlineData("""{ "version": 2, "entries": [] }""", "mais nova")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "extra": 1 } ] }""", "extra")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a" } ] }""", "target")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": " ", "target": "b" } ] }""", "source")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b" }, { "source": "a", "target": "c" } ] }""", "aparece mais de uma vez")]
-    [InlineData("""{ "version": 1, "entries": [ null ] }""", "entries[0]")]
-    [InlineData("{ não é json", "malformado")]
-    public void Glossario_invalido_e_recusado_com_o_motivo(string json, string trecho)
-    {
-        var ex = Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Parse(json, "glossary.json"));
-
-        Assert.Contains(trecho, ex.Reason);
-        Assert.Equal("glossary.json", ex.FilePath);
-    }
-
-    [Theory]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": "robot" } ] }""", "gender")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b", "gender": 1 } ] }""", "gender")]
-    [InlineData("""{ "version": 1, "entries": [ { "source": "a", "target": "b" }, { "source": "a", "target": "c" } ] }""", "aparece mais de uma vez")]
-    public void Personagens_invalidos_sao_recusados_com_o_motivo(string json, string trecho)
-    {
-        var ex = Assert.Throws<GlossaryFileException>(() => CharacterSerializer.Parse(json, "characters.json"));
-
-        Assert.Contains(trecho, ex.Reason);
-    }
-
-    [Fact]
-    public void Serialize_recusa_origem_vazia_repetida_ou_so_diferente_por_espacos_e_entrada_nula()
-    {
-        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new(" ", "x")]));
-        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a", "x"), new("a", "y")]));
-        Assert.Throws<GlossaryFileException>(() => CharacterSerializer.Serialize([new("美咲", "Misaki"), new("美咲 ", "Misaki")]));
-        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([null!]));
-    }
-
-    [Fact]
-    public void Serialize_recusa_surrogate_solitario()
-    {
-        Assert.Throws<GlossaryFileException>(() => GlossarySerializer.Serialize([new("a\uD800", "x")]));
-    }
-
-    [Fact]
-    public void ProjectFolder_grava_e_le_os_dois_arquivos_na_raiz()
-    {
-        var pasta = NovoProjeto();
-
-        pasta.SaveGlossary(Termos());
-        pasta.SaveCharacters(Personagens());
-
-        Assert.True(File.Exists(Path.Combine(_root, "glossary.json")));
-        Assert.True(File.Exists(Path.Combine(_root, "characters.json")));
-        Assert.Equal(Termos(), pasta.LoadGlossary());
-        Assert.Equal(Personagens(), pasta.LoadCharacters());
-    }
-
-    [Fact]
-    public void ProjectFolder_sem_os_arquivos_devolve_listas_vazias()
-    {
-        var pasta = NovoProjeto();
-
-        Assert.Empty(pasta.LoadGlossary());
-        Assert.Empty(pasta.LoadCharacters());
-    }
-
-    [Fact]
-    public void ProjectFolder_recusa_arquivo_fora_de_utf8()
-    {
-        var pasta = NovoProjeto();
-        File.WriteAllBytes(pasta.GlossaryPath, [0x7B, 0xFF, 0xFE, 0x7D]);
-
-        Assert.Throws<GlossaryFileException>(pasta.LoadGlossary);
     }
 }

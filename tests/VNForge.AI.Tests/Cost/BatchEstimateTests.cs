@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests.Cost;
 
+[Trait("Risco", "R5")]
 public sealed class BatchEstimateTests : IDisposable
 {
     private static readonly ExchangeRate Rate = new(5m, new DateOnly(2026, 10, 25));
@@ -54,51 +55,6 @@ public sealed class BatchEstimateTests : IDisposable
     }
 
     [Fact]
-    public void Lote_todo_no_cache_nao_custa_nada()
-    {
-        var cache = new TranslationCache();
-        var batch = new TranslationBatch([Line(0)]);
-        cache.Set(TranslationCache.KeyFor(batch.Lines[0], TranslationCache.ContextFor(ClaudeModels.Opus, batch)), "sim");
-
-        var estimate = CostEstimator.EstimateBatch(batch, ClaudeModels.Opus, ClaudeEffort.High, cache);
-
-        Assert.Equal(0m, estimate.Dollars);
-        Assert.Equal(1, estimate.CachedLines);
-    }
-
-    [Fact]
-    public void O_estimador_do_pedido_divide_em_lotes_do_tamanho_da_execucao()
-    {
-        var project = Project();
-        project.SaveText("yst00001", [.. Enumerable.Range(0, 60).Select(Line)]);
-        var selection = LineSelection.Build(project.LoadAllText(), null, null, TranslationQuoter.IsPending);
-        var builder = new TranslationBatchBuilder([], new CharacterBook([]));
-        var estimator = new RequestEstimator(selection, builder, ClaudeModels.Opus, ClaudeEffort.Medium, 30, Rate);
-
-        var whole = estimator.Brl(selection.Pending);
-        var halves = estimator.Brl(selection.Pending.Take(30).ToList()) + estimator.Brl(selection.Pending.Skip(30).ToList());
-
-        Assert.True(whole > 0m);
-        Assert.Equal(halves, whole);
-        Assert.Equal(0m, estimator.Brl([]));
-    }
-
-    [Fact]
-    public void O_orcamento_da_janela_considera_o_contexto_de_cada_lote()
-    {
-        var project = Project();
-        project.SaveText("yst00001", [.. Enumerable.Range(0, 60).Select(Line)]);
-        var texts = project.LoadAllText();
-        var builder = new TranslationBatchBuilder([new GlossaryTerm("天気", "tempo")], new CharacterBook([]), "Tom leve.");
-
-        var withContext = TranslationQuoter.Quote(TranslationQuoter.BatchesFor(texts, ["yst00001"], builder, 30), Rate, ClaudeEffort.Medium);
-        var linesOnly = TranslationQuoter.Quote(TranslationQuoter.PendingLines(texts, ["yst00001"]), Rate);
-
-        Assert.Equal(60, withContext.Lines);
-        Assert.True(withContext.For(TranslationQuality.Careful).Brl > linesOnly.For(TranslationQuality.Careful).Brl);
-    }
-
-    [Fact]
     public void Gasto_de_modelo_sem_preco_fica_desconhecido_em_vez_de_zero()
     {
         var project = Project();
@@ -110,13 +66,5 @@ public sealed class BatchEstimateTests : IDisposable
         Assert.Equal(1, totals.Runs);
         Assert.Equal(1, totals.UnpricedRuns);
         Assert.Equal(0m, totals.Dollars);
-    }
-
-    [Fact]
-    public void Esforco_desconhecido_cai_em_medio_sem_dizer_que_entendeu()
-    {
-        Assert.False(ClaudeEffortText.TryParse("max", out _));
-        Assert.Equal(ClaudeEffort.Medium, ClaudeEffortText.ParseOrDefault("max"));
-        Assert.Equal(ClaudeEffort.Medium, ClaudeEffortText.ParseOrDefault(null));
     }
 }

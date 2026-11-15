@@ -4,6 +4,7 @@ using VNForge.Engines.YuRis.Yscfg;
 
 namespace VNForge.Engines.YuRis.Tests.Yscfg;
 
+[Trait("Risco", "R3")]
 public class YscfgReaderTests
 {
     private const string Source = "yscfg.ybn";

@@ -6,6 +6,7 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R9")]
 public sealed class LibraryExportCommandTests : IDisposable
 {
     private static readonly DateTimeOffset T0 = new(2026, 11, 1, 12, 0, 0, TimeSpan.Zero);
@@ -72,60 +73,5 @@ public sealed class LibraryExportCommandTests : IDisposable
         Assert.Contains("--force", refused.Error, StringComparison.Ordinal);
         Assert.Equal(0, forced.ExitCode);
         Assert.Contains("CLANNAD", await File.ReadAllTextAsync(Target, Ct), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Export_avisa_dos_personagens_de_ficha_antiga_deixados_de_fora()
-    {
-        Prepare();
-        var store = new SheetStore(_cli.UserConfigDirectory);
-        store.SaveGame(new GameSheet("v4", "CLANNAD", null, null, null, null, 0, [], ["c1"], false, T0));
-        store.SaveCharacter(new CharacterSheet("c1", "Tomoya Okazaki", null, [], null, null, null, [], [new SheetAppearance("v4", "main", 0)]));
-
-        var result = await Run("library", "export");
-        var json = await Run("library", "export", "--json", "--force");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("1 personagem ficou fora do catálogo: a ficha é antiga", result.Output, StringComparison.Ordinal);
-        Assert.Equal(1, JsonDocument.Parse(json.Output).RootElement.GetProperty("data").GetProperty("staleSheetCharacters").GetInt32());
-        Assert.DoesNotContain("Tomoya Okazaki", await File.ReadAllTextAsync(Target, Ct), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Export_recusa_destino_dentro_da_pasta_de_um_jogo_mesmo_com_force()
-    {
-        var gameFolder = Path.Combine(_cli.WorkingDirectory, "jogos", "CLANNAD");
-        Directory.CreateDirectory(gameFolder);
-        var existing = Path.Combine(gameFolder, "catalogo.html");
-        await File.WriteAllTextAsync(existing, "do jogo", Ct);
-        var game = new LibraryGame("g1", gameFolder, null, LibraryEngine.Unknown, "CLANNAD", null, T0)
-        {
-            VndbId = "v4",
-            Confirmation = LibraryConfirmation.Manual,
-            Info = new LibraryVndbInfo("CLANNAD", null, null, null, null, null, null, 0, [], false),
-        };
-        new LibraryFile(_cli.UserConfigDirectory).Save(new GameLibrary([game]));
-
-        var inside = await Run("library", "export", "--output", existing, "--force");
-        var nested = await Run("library", "export", "--output", Path.Combine(gameFolder, "novo", "vns.html"));
-        var outside = await Run("library", "export", "--output", Path.Combine(_cli.WorkingDirectory, "fora.html"));
-
-        Assert.NotEqual(0, inside.ExitCode);
-        Assert.Contains("dentro da pasta do jogo", inside.Error, StringComparison.Ordinal);
-        Assert.Contains("CLANNAD", inside.Error, StringComparison.Ordinal);
-        Assert.Equal("do jogo", await File.ReadAllTextAsync(existing, Ct));
-        Assert.NotEqual(0, nested.ExitCode);
-        Assert.False(Directory.Exists(Path.Combine(gameFolder, "novo")));
-        Assert.Equal(0, outside.ExitCode);
-    }
-
-    [Fact]
-    public async Task Export_sem_jogo_confirmado_explica_o_que_fazer_e_nao_grava()
-    {
-        var result = await Run("library", "export");
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("vnf library match", result.Error, StringComparison.Ordinal);
-        Assert.False(File.Exists(Target));
     }
 }

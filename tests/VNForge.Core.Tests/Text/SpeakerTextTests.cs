@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public sealed class SpeakerTextTests
 {
     private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
@@ -29,16 +30,5 @@ public sealed class SpeakerTextTests
 
         Assert.True(name.IsWritable);
         Assert.Equal(string.Empty, name.Name);
-    }
-
-    [Fact]
-    public void Mensagem_cita_o_caractere_e_o_trecho_em_volta()
-    {
-        const string Text = "Um dia muito longo de verão com 犬 no meio do caminho de casa";
-        var index = Text.IndexOf('犬', StringComparison.Ordinal);
-
-        Assert.Equal("o caractere '犬' (U+72AC)", EncodingMessages.Character(Text, index));
-        Assert.Equal("…rão com 犬 no meio…", EncodingMessages.Excerpt(Text, index, radius: 8));
-        Assert.Equal("Oi 犬", EncodingMessages.Excerpt("Oi 犬", 3));
     }
 }

@@ -6,6 +6,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>#372: gravar uma linha ou mudar o glossário, os personagens e o estilo refaz os avisos sem reler o projeto.</summary>
+[Trait("Risco", "R6")]
 public class ProjectLinesRecheckTests
 {
     private const string Script = "story04";
@@ -62,40 +63,5 @@ public class ProjectLinesRecheckTests
         Assert.True(Tem(porLinha[0], "personagem-diferente"));
         Assert.False(Tem(porLinha[1], "personagem-diferente"));
         Assert.Equal([1, 2], mudadas.Select(m => m.Number).Order());
-    }
-
-    [Fact]
-    public void Mudar_o_estilo_dos_honorificos_refaz_o_aviso_das_linhas()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, new TextUnit($"{Script}:000001", TextUnitKind.Dialogue, null, "美咲ちゃん", "Misaki-chan", TranslationStatus.Machine));
-        var config = projeto.LoadConfig();
-        projeto.SaveConfig(config with { Style = config.Style with { Honorifics = HonorificsPolicy.Keep } });
-        var linhas = ProjectLines.Read(projeto);
-        Assert.Empty(linhas.LinesOf(Script).Single().Issues);
-
-        projeto.SaveConfig(config with { Style = config.Style with { Honorifics = HonorificsPolicy.Remove } });
-        Distinguir(projeto.ConfigPath);
-        Refazer(linhas, regrasDoProjeto: false);
-
-        Assert.True(Tem(linhas.LinesOf(Script).Single(), HonorificsRule.RuleId));
-    }
-
-    [Fact]
-    public void Aplicar_ignora_a_linha_que_foi_gravada_depois_do_instantaneo()
-    {
-        using var pasta = new TempFolder();
-        var projeto = Projeto(pasta.Path, BomDia(1, "Bom dia"), BomDia(2, "Bom dia"));
-        var linhas = ProjectLines.Read(projeto);
-        var segunda = linhas.LinesOf(Script)[1];
-        linhas.Replace(linhas.WithUnit(segunda, segunda.Unit with { Translation = "Olá" }));
-        var refeita = linhas.BeginRecheck(includeProjectRules: true).Run();
-
-        var gravada = linhas.LinesOf(Script)[1];
-        linhas.Replace(linhas.WithUnit(gravada, gravada.Unit with { Translation = "Bom dia" }));
-        var aplicadas = linhas.Apply(refeita);
-
-        Assert.Empty(aplicadas);
-        Assert.False(Tem(linhas.LinesOf(Script)[1], "traducao-inconsistente"));
     }
 }

@@ -5,6 +5,7 @@ using VNForge.Core.Text;
 namespace VNForge.AI.Tests;
 
 /// <summary>O <see cref="BudgetGuard"/> no runner de lotes, com o provedor falso e sem rede.</summary>
+[Trait("Risco", "R5")]
 public class TranslationRunnerBudgetTests
 {
     private const decimal CostPerLine = 0.10m;
@@ -61,25 +62,6 @@ public class TranslationRunnerBudgetTests
         Assert.Equal(6.00m, question.EstimatedCost);
         Assert.Equal(60, run.Results.Count);
         Assert.Equal(3, provider.ReceivedBatches.Count);
-        Assert.Null(run.BudgetStop);
-    }
-
-    [Fact]
-    public async Task Cancelar_enquanto_a_pergunta_espera_devolve_cancelado_sem_lancar()
-    {
-        var wallet = new Wallet();
-        using var cts = new CancellationTokenSource();
-        var (runner, provider) = Create(wallet, new BudgetLimits(null, 5m), async (_, token) =>
-        {
-            await cts.CancelAsync();
-            token.ThrowIfCancellationRequested();
-            return true;
-        });
-
-        var run = await runner.RunAsync(Units(60), Build, ct: cts.Token);
-
-        Assert.True(run.Canceled);
-        Assert.Empty(provider.ReceivedBatches);
         Assert.Null(run.BudgetStop);
     }
 

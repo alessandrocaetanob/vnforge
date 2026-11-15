@@ -9,6 +9,7 @@ using VNForge.Engines.YuRis.Ystb;
 namespace VNForge.Engines.YuRis.Tests.Text;
 
 /// <summary>#434: os delimitadores do falante na <c>cp1252</c> e os marcadores <c>es.CHAR.NAME.MARK.SET</c> do script do sistema.</summary>
+[Trait("Risco", "R4")]
 public class SpeakerMarkersTests
 {
     private const string ScriptName = "ybin/YST00073.ybn";
@@ -20,7 +21,6 @@ public class SpeakerMarkersTests
     private static readonly ITextEncoder Cp1252 = TextEncoderRegistry.Default.Create("cp1252");
 
     private static readonly ITextEncoder Cp1252Guillemets = TextEncoderRegistry.Default.Create("cp1252", SpeakerDelimiterStyle.Guillemets);
-
 
     private static readonly ShiftJisTextEncoder ShiftJis = new();
 

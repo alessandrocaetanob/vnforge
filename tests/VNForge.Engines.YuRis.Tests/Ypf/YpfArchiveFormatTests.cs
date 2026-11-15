@@ -7,6 +7,7 @@ using VNForge.Engines.YuRis.Ypf.Hashing;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
+[Trait("Risco", "R3")]
 public partial class YpfArchiveFormatTests
 {
     private static readonly YpfArchiveFormat Format = new();

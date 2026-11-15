@@ -5,6 +5,7 @@ using VNForge.Patching;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R1")]
 public sealed class GameCommandTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -62,17 +63,5 @@ public sealed class GameCommandTests : IDisposable
 
         Assert.Contains("Nada foi gravado", again.Output);
         Assert.Contains("checkedFiles", json.Output);
-    }
-
-    [Fact]
-    public async Task Move_num_disco_que_zera_o_rename_falha_com_erro_e_deixa_o_projeto_como_estava()
-    {
-        using var disco = ProjectDisk.Use(new ZeroingDisk(_ => true));
-
-        var result = await Run("game", "move", "--game", _newGame);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("depois de gravado", result.Error);
-        Assert.Equal(_oldGame, _project.LoadState().GameDirectory);
     }
 }

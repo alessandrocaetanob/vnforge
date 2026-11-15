@@ -43,38 +43,12 @@ public sealed class SyntheticYscmBuilder
         return this;
     }
 
-    /// <summary>Quantidade de mensagens de erro depois dos comandos (37 no yuri, 0x90 nas notas do VNTextPatch).</summary>
-    public SyntheticYscmBuilder WithErrorMessageCount(int count)
-    {
-        _errorMessageCount = count;
-        return this;
-    }
-
-    /// <summary>Tamanho da tabela final (256 nas duas fontes).</summary>
-    public SyntheticYscmBuilder WithTableSize(int size)
-    {
-        _tableSize = size;
-        return this;
-    }
-
     public SyntheticYscmBuilder AddCommand(string name, params string[] argumentNames) =>
         AddCommandWithArguments(name, argumentNames.Select(n => new SyntheticYscmArgument(n)).ToArray());
 
     public SyntheticYscmBuilder AddCommandWithArguments(string name, params SyntheticYscmArgument[] arguments)
     {
         _commands.Add(new SyntheticYscmCommand(checked((byte)_commands.Count), name, arguments));
-        return this;
-    }
-
-    /// <summary>Acrescenta <paramref name="count"/> comandos <c>CMD000</c>, <c>CMD001</c> e assim por diante.</summary>
-    public SyntheticYscmBuilder AddFillerCommands(int count)
-    {
-        var start = _commands.Count;
-        for (var i = 0; i < count; i++)
-        {
-            AddCommand($"CMD{start + i:D3}");
-        }
-
         return this;
     }
 

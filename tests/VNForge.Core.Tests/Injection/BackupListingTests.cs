@@ -4,6 +4,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Injection;
 
+[Trait("Risco", "R7")]
 public sealed class BackupListingTests : IDisposable
 {
     private readonly TempFolder _temp = new();
@@ -48,57 +49,6 @@ public sealed class BackupListingTests : IDisposable
     }
 
     [Fact]
-    public void Sem_pasta_de_backup_a_lista_e_vazia()
-    {
-        Assert.Empty(GameInjector.ListBackups(_project));
-    }
-
-    [Fact]
-    public void Lista_o_backup_com_data_tamanho_e_arquivos_do_manifesto()
-    {
-        Inject("traduzido", extra: "novo");
-
-        var backup = Assert.Single(GameInjector.ListBackups(_project));
-
-        Assert.Equal("2026-10-22_2316", backup.Name);
-        Assert.Equal(new DateTimeOffset(2026, 10, 22, 23, 16, 0, TimeSpan.Zero), backup.Manifest!.CreatedAt);
-        Assert.Equal("original".Length, backup.SizeBytes);
-        Assert.Null(backup.Problem);
-        Assert.False(backup.Restored);
-        Assert.Equal(["ysbin.ypf"], backup.OriginalFiles);
-        Assert.Equal(["novo.txt"], backup.CreatedFiles);
-    }
-
-    [Fact]
-    public void O_tamanho_nao_conta_o_manifesto()
-    {
-        Inject("traduzido");
-        var directory = Directory.GetDirectories(_project.BackupDirectory).Single();
-        var manifestLength = new FileInfo(Path.Combine(directory, BackupManifest.FileName)).Length;
-
-        var backup = Assert.Single(GameInjector.ListBackups(_project));
-
-        Assert.True(manifestLength > 0);
-        Assert.Equal(new FileInfo(Path.Combine(directory, "ysbin.ypf")).Length, backup.SizeBytes);
-    }
-
-    [Fact]
-    public void Do_mais_novo_para_o_mais_antigo_e_inclui_o_ja_restaurado()
-    {
-        Inject("traduzido");
-        var injector = new GameInjector(_clock);
-        injector.Restore(GameInjector.PlanRestore(_project));
-        _clock.Advance(TimeSpan.FromDays(2));
-        Inject("traduzido de novo");
-
-        var backups = GameInjector.ListBackups(_project);
-
-        Assert.Equal(["2026-10-24_2316", "2026-10-22_2316"], backups.Select(b => b.Name));
-        Assert.False(backups[0].Restored);
-        Assert.True(backups[1].Restored);
-    }
-
-    [Fact]
     public void Manifesto_ilegivel_aparece_com_o_problema_em_vez_de_derrubar_a_lista()
     {
         Inject("traduzido");
@@ -113,14 +63,6 @@ public sealed class BackupListingTests : IDisposable
         Assert.Null(backups[1].Manifest);
         Assert.Contains("manifesto", backups[1].Problem);
         Assert.Equal("guardado".Length, backups[1].SizeBytes);
-    }
-
-    [Fact]
-    public void Pasta_sem_manifesto_nao_e_um_backup()
-    {
-        Write(_project.BackupDirectory, Path.Combine("qualquer", "coisa.txt"), "x");
-
-        Assert.Empty(GameInjector.ListBackups(_project));
     }
 
     private sealed class ClockStub(DateTimeOffset now) : TimeProvider

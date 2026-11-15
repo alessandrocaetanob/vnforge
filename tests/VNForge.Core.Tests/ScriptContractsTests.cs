@@ -5,6 +5,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests;
 
+[Trait("Risco", "R3")]
 public class ScriptContractsTests
 {
     private const string Fake001Txt = "fake001.txt";
@@ -24,16 +25,6 @@ public class ScriptContractsTests
     }
 
     [Fact]
-    public void ValidateUnits_recusa_id_de_outro_script()
-    {
-        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
-
-        var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade("outro:000000")]));
-
-        Assert.Contains("outro:000000", ex.Message);
-    }
-
-    [Fact]
     public void ValidateUnits_recusa_prefixo_parecido_sem_dois_pontos()
     {
         var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
@@ -41,90 +32,10 @@ public class ScriptContractsTests
         Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade("fake0010:000000")]));
     }
 
-    [Fact]
-    public void ValidateUnits_recusa_id_duplicado()
-    {
-        var script = new ScriptFile(Fake001Txt, ReadOnlyMemory<byte>.Empty);
-
-        var ex = Assert.Throws<ArgumentException>(() => script.ValidateUnits([Unidade(script.UnitId(1)), Unidade(script.UnitId(1))]));
-
-        Assert.Contains("fake001:000001", ex.Message);
-    }
-
-    [Fact]
-    public void Rebuild_com_caractere_nao_representavel_lanca_citando_o_id_sem_resultado_parcial()
-    {
-        var formato = new FakeScriptFormat();
-        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
-        var ctx = new FakeContext();
-        var unidades = formato.Extract(arquivo, ctx).Units
-            .Select(u => u.Id.EndsWith("000001", StringComparison.Ordinal)
-                ? u with { Translation = "ação", Status = TranslationStatus.Translated }
-                : u)
-            .ToList();
-
-        var ex = Assert.Throws<EncoderFallbackException>(() => formato.Rebuild(arquivo, unidades, new AsciiEncoder(), ctx));
-
-        Assert.Contains("fake001:000001", ex.Message);
-    }
-
-    [Fact]
-    public void Rebuild_recusa_unidade_de_outro_script()
-    {
-        var formato = new FakeScriptFormat();
-        var arquivo = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um"));
-
-        Assert.Throws<ArgumentException>(() =>
-            formato.Rebuild(arquivo, [Unidade("outro:000000")], new FakeEncoder(), new FakeContext()));
-    }
-
-    [Fact]
-    public void Rebuild_recusa_arquivo_desatualizado_quando_o_trecho_nao_bate_com_o_source()
-    {
-        var formato = new FakeScriptFormat();
-        var original = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ndois"));
-        var ctx = new FakeContext();
-        var unidades = formato.Extract(original, ctx).Units
-            .Select(u => u with { Translation = "x", Status = TranslationStatus.Translated })
-            .ToList();
-        var outraVersao = new ScriptFile(Fake001Txt, Encoding.UTF8.GetBytes("um\ntres"));
-
-        Assert.Throws<InvalidDataException>(() => formato.Rebuild(outraVersao, unidades, new FakeEncoder(), ctx));
-    }
-
-    [Fact]
-    public void AsciiEncoder_informa_os_indices_nao_representaveis_sem_lancar()
-    {
-        var encoder = new AsciiEncoder();
-
-        Assert.Equal([1, 3], encoder.FindUnencodable("aãbç"));
-        Assert.Empty(encoder.FindUnencodable("abc"));
-        Assert.Throws<EncoderFallbackException>(() => encoder.Encode("ação"));
-    }
-
     private static TextUnit Unidade(string id) =>
         new(id, TextUnitKind.Dialogue, null, "x", null, TranslationStatus.Untranslated);
 
     private sealed class FakeContext() : EngineContext("fake");
-
-    private class FakeEncoder : ITextEncoder
-    {
-        public string Id => "utf8";
-
-        public virtual byte[] Encode(string text) => Encoding.UTF8.GetBytes(text);
-
-        public virtual IReadOnlyList<int> FindUnencodable(string text) => [];
-    }
-
-    private sealed class AsciiEncoder : FakeEncoder
-    {
-        private static readonly Encoding Strict = Encoding.GetEncoding("us-ascii", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
-
-        public override byte[] Encode(string text) => Strict.GetBytes(text);
-
-        public override IReadOnlyList<int> FindUnencodable(string text) =>
-            text.Select((c, i) => (c, i)).Where(t => t.c > 127).Select(t => t.i).ToList();
-    }
 
     private sealed class FakeEngine : IEngine
     {

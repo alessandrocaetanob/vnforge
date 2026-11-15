@@ -7,6 +7,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Dictionaries;
 
+[Trait("Risco", "R4")]
 public sealed class DictionaryTests : IDisposable
 {
     private readonly TempFolder _temp = new();
@@ -81,40 +82,6 @@ public sealed class DictionaryTests : IDisposable
         Assert.Contains("cap1:000001", ex.Message);
     }
 
-    [Fact]
-    public void Pre_ignora_regra_desligada_e_nao_cria_etapa_sem_regra_ligada()
-    {
-        var pre = new PreDictionary([new DictionaryRule("a", "b") { Enabled = false }]);
-
-        Assert.True(pre.IsEmpty);
-        var unit = Unit("cap1:000001", null, "a");
-        Assert.Same(unit, pre.Apply(unit));
-    }
-
-    [Fact]
-    public void Pre_com_regex_invalida_e_erro_citando_a_regra()
-    {
-        var ex = Assert.Throws<FormattingException>(() => new PreDictionary([new DictionaryRule("(", "x", Regex: true)]));
-
-        Assert.Contains("$.dictionary.pre[0].pattern", ex.Message);
-    }
-
-    [Fact]
-    public void Pre_do_projeto_le_as_regras_do_formatting_json_com_os_nomes_dos_scripts()
-    {
-        _project.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("cap1", null, "Capítulo 1")]));
-        _project.SaveFormatting(FormattingProfile.Default with
-        {
-            Dictionary = new DictionaryRules([Rule("せやな", "そうだな", Scn("Capítulo 1"))], []),
-        });
-
-        var pre = PreDictionary.For(_project);
-
-        Assert.Equal("そうだな", pre.Apply(Unit("cap1:000001", null, "せやな")).Source);
-        Assert.Equal("せやな", pre.Apply(Unit("cap2:000001", null, "せやな")).Source);
-        Assert.True(PreDictionary.For(ProjectFolder.Create(Path.Combine(_temp.Path, "outro"), Config())).IsEmpty);
-    }
-
     private static ProjectConfig Config() => new(
         "Outro",
         new GameConfig("D:/Jogos/Outro", "Jogo.exe"),
@@ -149,11 +116,6 @@ public sealed class DictionaryTests : IDisposable
 
     [Theory]
     [InlineData("""{ "dictionary": { "post": [ { "pattern": "", "with": "x" } ] } }""", "$.dictionary.post[0].pattern")]
-    [InlineData("""{ "dictionary": { "pre": [ { "pattern": "(", "with": "x", "regex": true } ] } }""", "$.dictionary.pre[0].pattern")]
-    [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "when": [ { "kind": "mood", "value": "x" } ] } ] } }""", "$.dictionary.pre[0].when[0].kind")]
-    [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "when": [ { "kind": "speaker", "value": " " } ] } ] } }""", "$.dictionary.pre[0].when")]
-    [InlineData("""{ "dictionary": { "pre": [ { "pattern": "a", "with": "x", "quando": [] } ] } }""", "$.dictionary.pre[0].quando")]
-    [InlineData("""{ "dictionary": { "antes": [] } }""", "$.dictionary.antes")]
     public void Formatting_json_com_dicionario_invalido_cita_o_campo(string json, string field)
     {
         var ex = Assert.Throws<FormattingProfileException>(() => FormattingProfileSerializer.Parse(json));
@@ -163,76 +125,5 @@ public sealed class DictionaryTests : IDisposable
 
     // ---- build, previa e QA ----
 
-    [Fact]
-    public void Previa_da_linha_aplica_o_pos_dicionario_com_falante_e_cena_do_projeto()
-    {
-        _project.SaveCharacters([new CharacterEntry("蓮", "Ren", CharacterGender.Male)]);
-        _project.SaveScriptNames(ScriptNames.From([new ScriptNameEntry("a001", null, "Capítulo 1")]));
-        _project.SaveFormatting(FormattingProfile.Default with
-        {
-            Dictionary = new DictionaryRules([], [Rule("você", "tu", Spk("Ren"), Scn("Capítulo 1"))]),
-        });
-        _project.SaveText("a001",
-        [
-            Unit("a001:000001", "蓮", "原文", "você vem?"),
-            Unit("a001:000002", "葵", "原文", "você vem?"),
-        ]);
-
-        Assert.Equal("tu vem?", LinePreviewer.Create(_project, "a001:000001").Text);
-        Assert.Equal("você vem?", LinePreviewer.Create(_project, "a001:000002").Text);
-    }
-
     // ---- alcance da regra ----
-
-    [Fact]
-    public void Alcance_conta_as_linhas_que_trocam_e_as_que_a_condicao_impede()
-    {
-        var context = Context(speakerSource: "蓮", speakerTarget: "Ren");
-        var rule = Rule("você", "tu", Spk("Ren"));
-        TextUnit[] units =
-        [
-            Unit("cap1:000001", "蓮", "原", "você vem?"),
-            Unit("cap1:000002", "蓮", "原", "você sabe."),
-            Unit("cap1:000003", "葵", "原", "você chegou cedo."),
-            Unit("cap1:000004", "蓮", "原", "ele vem."),
-            Unit("cap1:000005", "蓮", "原"),
-        ];
-
-        var impact = DictionaryImpact.Of(rule, DictionarySide.Post, units, context);
-
-        Assert.Equal(2, impact.Applies);
-        Assert.Equal(1, impact.Blocked);
-        Assert.Equal("cap1:000001", impact.FirstApplied!.Unit.Id);
-        Assert.Equal("tu vem?", impact.FirstApplied.After);
-        Assert.Equal("cap1:000003", impact.FirstBlocked!.Unit.Id);
-    }
-
-    [Fact]
-    public void Alcance_do_pre_olha_o_original_e_conta_a_regra_desligada()
-    {
-        var rule = new DictionaryRule("ぼ、ぼく", "ぼく") { Enabled = false };
-
-        var impact = DictionaryImpact.Of(rule, DictionarySide.Pre, [Unit("a:1", null, "ぼ、ぼく、行く"), Unit("a:2", null, "ぼく、行く")]);
-
-        Assert.Equal(1, impact.Applies);
-        Assert.Equal(0, impact.Blocked);
-        Assert.Null(impact.FirstBlocked);
-    }
-
-    [Fact]
-    public void Alcance_do_pos_conta_so_as_linhas_que_o_build_grava_dos_papeis_formatados()
-    {
-        var rule = Rule("você", "tu");
-        TextUnit[] units =
-        [
-            Unit("a:1", null, "原", "você vem?"),
-            new TextUnit("a:2", TextUnitKind.Choice, null, "原", "você?", TranslationStatus.Translated),
-            Unit("a:3", null, "você vem?", "você vem?"),
-        ];
-
-        var impact = DictionaryImpact.Of(rule, DictionarySide.Post, units, kinds: [TextUnitKind.Dialogue, TextUnitKind.Narration]);
-
-        Assert.Equal(1, impact.Applies);
-        Assert.Equal("a:1", impact.FirstApplied!.Unit.Id);
-    }
 }

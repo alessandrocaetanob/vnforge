@@ -73,7 +73,7 @@ Num terminal interativo com ANSI, as operações longas desenham uma barra que s
 
 - Registre o comando em `VnfCommands.Register` (`src/VNForge.Cli/VnfCommands.cs`), uma linha por comando.
 - Escreva o resultado em `parseResult.InvocationConfiguration.Output`, nunca em `Console.Out`, para a saída poder ser capturada nos testes. Para saída com cor, tabela, painel ou barra, use `cli.Ansi` (um `IAnsiConsole` sobre o mesmo writer) e os helpers `CliViews.NewTable`, `CliViews.NewPanel` e `DistributionBar`; `cli.RichOutput` diz se a invocação pode usar cor e animação. Dado do projeto vai por `CliViews.Escape` antes de entrar num markup.
-- Nos testes, `CliHarness` roda a CLI com terminal de texto simples e largura 100; `ConsoleHarness.Plain(width)` e `ConsoleHarness.Rich(width)` criam o console para testar um helper sozinho.
+- Nos testes, `CliHarness` roda a CLI com terminal de texto simples e largura 100.
 - Com `--json`, escreva `JsonEnvelope.Result(data, exitCode)` passando o mesmo `exitCode` que o comando devolve (por exemplo `2` no QA bloqueante).
 - Lance `VNForgeException` para erro previsto; use o `CancellationToken` da ação, que o Ctrl+C cancela.
 
