@@ -13,11 +13,21 @@ public sealed partial class BuildView : UserControl
 {
     private readonly NotifyCollectionChangedEventHandler follow;
     private BuildViewModel? followed;
+    private readonly System.ComponentModel.PropertyChangedEventHandler revealNotice;
 
     public BuildView()
     {
         InitializeComponent();
         follow = (_, _) => Dispatcher.UIThread.Post(() => LogScroll.ScrollToEnd(), DispatcherPriority.Background);
+        revealNotice = (_, e) =>
+        {
+            // O aviso do backup mora no cartão Backups, dentro de Detalhes técnicos: abre para a pessoa ver como terminou.
+            if (e.PropertyName == nameof(BuildViewModel.BackupNotice) && followed?.HasBackupNotice == true)
+            {
+                Technical.IsExpanded = true;
+                Technical.BringIntoView();
+            }
+        };
         DataContextChanged += (_, _) => FollowLog();
     }
 
@@ -77,6 +87,7 @@ public sealed partial class BuildView : UserControl
 
         followed = vm;
         vm.Log.CollectionChanged += follow;
+        vm.PropertyChanged += revealNotice;
     }
 
     private void Unfollow()
@@ -84,6 +95,7 @@ public sealed partial class BuildView : UserControl
         if (followed is not null)
         {
             followed.Log.CollectionChanged -= follow;
+            followed.PropertyChanged -= revealNotice;
             followed = null;
         }
     }

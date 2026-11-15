@@ -3,6 +3,7 @@ using VNForge.Core.Bible;
 using VNForge.Core.Formatting;
 using VNForge.Core.Glossary;
 using VNForge.Core.Images;
+using VNForge.Core.Injection;
 using VNForge.Core.Library;
 using VNForge.Core.Spelling;
 using VNForge.Core.Text;
@@ -67,7 +68,19 @@ public sealed class ProjectFolder
 
     public string BuildDirectory => Path.Combine(Root, "build");
 
+    /// <summary>O <c>backup/</c> do projeto: o padrão de onde os backups ficam e, com outra pasta escolhida nos Ajustes, onde estão os que vieram antes dela. Veja <see cref="Backups"/>.</summary>
     public string BackupDirectory => Path.Combine(Root, "backup");
+
+    /// <summary>Onde os backups deste projeto ficam e são lidos. Vale o padrão (<see cref="BackupDirectory"/>) até quem abriu o projeto passar o que os Ajustes escolheram, com <see cref="WithBackups"/>.</summary>
+    public BackupLocations Backups { get; private set; } = BackupLocations.Default;
+
+    /// <summary>Passa a pasta dos backups escolhida nos Ajustes (<see cref="GameLibrary.BackupLocations"/>) e devolve o próprio projeto.</summary>
+    public ProjectFolder WithBackups(BackupLocations locations)
+    {
+        ArgumentNullException.ThrowIfNull(locations);
+        Backups = locations;
+        return this;
+    }
 
     public static ProjectFolder Create(string root, ProjectConfig config)
     {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
@@ -125,7 +126,7 @@ public sealed partial class LibraryViewModel
             GameRelocationPreview? preview;
             try
             {
-                preview = await Task.Run(() => LibraryProjectLinker.PreviewFollowGame(game, folder), CancellationToken.None);
+                preview = await Task.Run(() => LibraryProjectLinker.PreviewFollowGame(game, folder, UserBackupLocations.Read(file)), CancellationToken.None);
             }
             catch (LibraryException e)
             {

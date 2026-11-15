@@ -61,14 +61,14 @@ public interface IReleasePublisher
 }
 
 /// <summary>O <see cref="ReleaseService"/> do <c>vnf release</c>, o mesmo que a CLI usa.</summary>
-public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? qa = null, TimeProvider? clock = null) : IReleasePublisher
+public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? qa = null, TimeProvider? clock = null, Func<BackupLocations>? backups = null) : IReleasePublisher
 {
     /// <summary>Quantas falas de exemplo "Mudou desde o patch" mostra: uma por cena, nas primeiras cenas.</summary>
     public const int ExampleCount = 3;
 
     public ReleaseReadiness Inspect(string projectRoot, CancellationToken cancellationToken)
     {
-        var project = ProjectFolder.Open(projectRoot);
+        var project = ProjectFolder.Open(projectRoot).WithBackups(backups?.Invoke() ?? BackupLocations.Default);
         var config = project.LoadConfig();
         var gameFolder = Path.GetFullPath(config.Game.Path, project.Root);
         var report = (qa ?? QaEngine.Default).Run(QaContext.FromProject(project));
@@ -150,7 +150,7 @@ public sealed class ReleasePublisher(IReadOnlyList<IEngine> engines, QaEngine? q
         ReleaseService.DefaultInstallerName(ProjectFolder.Open(projectRoot).LoadConfig(), version);
 
     public ReleaseResult Create(string projectRoot, ReleaseOptions options, IProgress<ReleaseProgress>? steps, CancellationToken cancellationToken) =>
-        new ReleaseService(engines, qa, clock).Create(ProjectFolder.Open(projectRoot), options, steps, cancellationToken);
+        new ReleaseService(engines, qa, clock).Create(ProjectFolder.Open(projectRoot).WithBackups(backups?.Invoke() ?? BackupLocations.Default), options, steps, cancellationToken);
 
     private static (ReleaseReference Reference, string? Problem, IReadOnlyList<ChangedGameFile>? Changed) CheckReference(ProjectFolder project)
     {

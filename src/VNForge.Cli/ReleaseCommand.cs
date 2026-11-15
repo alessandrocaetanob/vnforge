@@ -79,7 +79,7 @@ internal static class ReleaseCommand
 
     private static int Run(VnfCli cli, ParseResult parseResult, CancellationToken token)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
         var options = new ReleaseOptions(

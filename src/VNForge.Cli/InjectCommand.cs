@@ -18,7 +18,7 @@ internal static class InjectCommand
 
     private static int Run(VnfCli cli, ParseResult parseResult)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         var injector = new GameInjector();
         var plan = GameInjector.Plan(project);
         var output = parseResult.InvocationConfiguration.Output;

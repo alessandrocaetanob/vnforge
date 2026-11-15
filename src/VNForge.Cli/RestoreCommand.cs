@@ -9,18 +9,26 @@ namespace VNForge.Cli;
 /// <summary><c>vnf restore</c>: devolve à pasta do jogo os originais do backup mais recente.</summary>
 internal static class RestoreCommand
 {
+    private static readonly Option<string?> BackupOption = new("--backup")
+    {
+        Description = "Restaura só este backup (o nome da pasta ou o caminho dela), inclusive um feito com vnf backup.",
+        HelpName = "backup",
+    };
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("restore", "Devolve à pasta do jogo os arquivos originais do backup mais recente.");
+        command.Options.Add(BackupOption);
         command.SetAction(parseResult => Run(cli, parseResult));
         return command;
     }
 
     private static int Run(VnfCli cli, ParseResult parseResult)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         var injector = new GameInjector();
-        var plan = GameInjector.PlanRestore(project);
+        var chosen = parseResult.GetValue(BackupOption);
+        var plan = chosen is null ? GameInjector.PlanRestore(project) : GameInjector.PlanRestoreFrom(project, chosen);
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
 

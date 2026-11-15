@@ -40,8 +40,11 @@ public sealed record BuildLogLine(string Time, string Message, string Date)
 /// <summary>Uma linha do cartão Resultado: o nome do fato (<c>Scripts</c>, <c>ysbin.ypf</c>, <c>Acentuação</c>) e o valor.</summary>
 public sealed record ResultFact(string Label, string Value);
 
-/// <summary>Uma linha da lista de backups: a pasta, quanto ocupa e o que guarda.</summary>
-public sealed record BackupRow(string Name, string SizeText, string Note);
+/// <summary>Uma linha da lista de backups: a pasta, quanto ocupa e o que guarda; <c>Tag</c> é a etiqueta "à mão" ou "pasta anterior".</summary>
+public sealed record BackupRow(string Name, string SizeText, string Note, string? Tag = null, bool TagIsManual = false, string? Warning = null, string Directory = "", bool CanRestore = false)
+{
+    public bool HasTag => Tag is not null;
+}
 
 /// <summary>A severidade do InfoBar do cartão Resultado.</summary>
 public enum BuildResultTone
@@ -375,7 +378,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var timer = StartTimer();
         try
         {
-            var project = ProjectFolder.Open(summary.Root);
+            var project = OpenProject(summary.Root);
             var options = new BuildOptions(OnlyChanged);
             var allowWarnings = AllowWarnings;
             AppendLog("Iniciando o build: conferindo a tradução e reconstruindo os scripts.");
@@ -606,7 +609,7 @@ public sealed partial class BuildViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var project = ProjectFolder.Open(summary.Root);
+            var project = OpenProject(summary.Root);
             var executable = await Task.Run(() => new GameLauncher(starter).Launch(project));
             if (mine == epoch)
             {
@@ -633,7 +636,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var root = Project!.Root;
         var run = await RunAsync("Injetar no jogo", "Fazendo o backup e gravando os arquivos", (_, _) =>
         {
-            var project = ProjectFolder.Open(root);
+            var project = OpenProject(root);
             using var projectLock = ProjectLock.Acquire(project);
             EnsureBuildMatchesPlan(plan);
             return GameStateFile.Inject(project, new GameInjector(clock), plan, GameTestKind.Translation, null, clock);
@@ -673,7 +676,7 @@ public sealed partial class BuildViewModel : ObservableObject
             var patchRoot = Project!.Root;
             var run = await RunAsync("Aplicar patch no executável", "Fazendo o backup e gravando o executável", (_, _) =>
             {
-                using var projectLock = ProjectLock.Acquire(ProjectFolder.Open(patchRoot));
+                using var projectLock = ProjectLock.Acquire(OpenProject(patchRoot));
                 foreach (var plan in pending)
                 {
                     EnsureBuildMatchesPlan(plan.Injection);
@@ -720,7 +723,7 @@ public sealed partial class BuildViewModel : ObservableObject
         AppendLog($"Restaurando os originais do backup {plan.BackupDirectory}");
         var run = await RunAsync("Restaurar originais", "Devolvendo os arquivos do backup", (_, _) =>
         {
-            var project = ProjectFolder.Open(root);
+            var project = OpenProject(root);
             using var projectLock = ProjectLock.Acquire(project);
             EnsureBackupsMatchPlan(root, plan);
             var restored = new GameInjector(clock).Restore(plan);
@@ -770,9 +773,10 @@ public sealed partial class BuildViewModel : ObservableObject
     }
 
     /// <summary>Recusa a restauração se os backups mudaram depois do plano confirmado (surgiu um mais novo, por exemplo): restaurar o antigo devolveria o jogo a um estado velho.</summary>
-    private static void EnsureBackupsMatchPlan(string root, RestorePlan plan)
+    private void EnsureBackupsMatchPlan(string root, RestorePlan plan)
     {
-        var current = GameInjector.PlanRestore(ProjectFolder.Open(root));
+        var project = OpenProject(root);
+        var current = plan.Manifest.Kind == BackupManifest.ManualKind ? GameInjector.PlanRestoreFrom(project, plan.BackupDirectory) : GameInjector.PlanRestore(project);
         if (!SameRestore(current, plan))
         {
             throw new InjectionException($"Os backups mudaram depois da conferência (há um backup mais novo, {current.BackupDirectory}). Nada foi restaurado; confira o backup e restaure de novo.");
@@ -1124,7 +1128,7 @@ public sealed partial class BuildViewModel : ObservableObject
     /// </summary>
     private List<PatchPlan> PlanPatches(string root)
     {
-        var project = ProjectFolder.Open(root);
+        var project = OpenProject(root);
         var patches = FindPatches(project.LoadConfig()) ?? throw new VNForgeException("Este projeto não tem patch de executável.");
         lock (stagingGate)
         {
@@ -1274,6 +1278,8 @@ public sealed partial class BuildViewModel : ObservableObject
         QaErrorCount = state?.QaErrors ?? 0;
         ShowQaBanner(state);
         ShowBackups(state);
+        ShowBackupFolders(state);
+        BackupNowDescription = BackupGameDescription(state?.BackupGame ?? ManualBackupGame.Included);
         ShowResult(state);
         ShowGameState(state);
         UpdateCommands();
@@ -1299,20 +1305,51 @@ public sealed partial class BuildViewModel : ObservableObject
         Backups.Clear();
         foreach (var backup in state?.Backups ?? [])
         {
-            Backups.Add(new BackupRow(BackupRelative(backup.Name), FormatSize(backup.SizeBytes), DescribeBackup(backup)));
+            Backups.Add(DescribeRow(backup, state!));
         }
 
-        HasRestoreProblem = Backups.Count > 0 && restorePlan is null;
+        HasRestoreProblem = (state?.Backups ?? []).Any(b => !b.IsManual) && restorePlan is null;
         var separator = Path.DirectorySeparatorChar;
-        var count = Backups.Count;
-        var footer = $"Pasta backup{separator} do projeto";
-        if (state?.BackupIgnored == true)
+        var count = state?.Backups.Count(b => IsInCurrentRoot(b, state)) ?? 0;
+        var counted = count == 0 ? string.Empty : $" · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+        if (state?.Locations.IsCustom == true)
         {
-            footer += " · fora do git";
+            BackupFooterPath = state.CurrentRoot;
+            BackupFooter = counted;
+        }
+        else
+        {
+            var footer = $"Pasta backup{separator} do projeto";
+            if (state is { BackupIgnored: true })
+            {
+                footer += " · fora do git";
+            }
+
+            BackupFooterPath = string.Empty;
+            BackupFooter = footer + counted;
+        }
+        BackupSummary = SummarizeBackups(state?.Backups ?? []);
+    }
+
+    /// <summary>
+    /// Com a pasta padrão a lista é a de antes (com o nome precedido da pasta <c>backup</c>, sem etiqueta de pasta). Com uma pasta escolhida, os de lá aparecem só pelo nome e os da pasta
+    /// que ficou para trás levam a etiqueta "pasta anterior"; "à mão" marca o que a pessoa pediu.
+    /// </summary>
+    private static BackupRow DescribeRow(BackupInfo backup, ProjectState state)
+    {
+        var current = IsInCurrentRoot(backup, state);
+        var name = string.Equals(backup.Root, state.DefaultRoot, StringComparison.OrdinalIgnoreCase) ? BackupRelative(backup.Name) : backup.Name;
+        string? tag = null;
+        if (backup.IsManual)
+        {
+            tag = "à mão";
+        }
+        else if (!current)
+        {
+            tag = "pasta anterior";
         }
 
-        BackupFooter = count == 0 ? footer : $"{footer} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
-        BackupSummary = SummarizeBackups(state?.Backups ?? []);
+        return new BackupRow(name, FormatSize(backup.SizeBytes), DescribeBackup(backup), tag, backup.IsManual, Directory: backup.Directory, CanRestore: backup.IsManual && !backup.Restored && backup.Problem is null && backup.OriginalFiles.Count > 0);
     }
 
     private static string SummarizeBackups(IReadOnlyList<BackupInfo> backups)
@@ -1361,7 +1398,21 @@ public sealed partial class BuildViewModel : ObservableObject
         }
 
         var manifest = backup.Manifest!;
-        parts.Add($"injeção de {manifest.CreatedAt.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)}");
+        var day = manifest.CreatedAt.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture);
+        if (backup.IsManual)
+        {
+            if (backup.HasProject)
+            {
+                parts.Add("projeto");
+            }
+
+            parts.Add(day);
+        }
+        else
+        {
+            parts.Add($"injeção de {day}");
+        }
+
         if (manifest.RestoredAt is { } restored)
         {
             parts.Add($"restaurado em {restored.ToLocalTime().ToString(DayMonthFormat, CultureInfo.InvariantCulture)}");
@@ -1430,7 +1481,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var stale = Pending switch
         {
             BuildConfirmation.Inject => injectionPlan is null || confirmedInject is null || !SameInjection(injectionPlan, confirmedInject),
-            BuildConfirmation.Restore => restorePlan is null || confirmedRestore is null || !SameRestore(restorePlan, confirmedRestore),
+            BuildConfirmation.Restore => confirmedRestore is null || (confirmedRestore.Manifest.Kind != BackupManifest.ManualKind && (restorePlan is null || !SameRestore(restorePlan, confirmedRestore))),
             _ => false,
         };
         if (stale)
@@ -1442,7 +1493,7 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private ProjectState ReadState(string root, QaEngine engine)
     {
-        var project = ProjectFolder.Open(root);
+        var project = OpenProject(root);
         var config = project.LoadConfig();
         var gameFolder = Path.GetFullPath(config.Game.Path, project.Root);
         var gameExecutable = Path.GetFullPath(Path.Combine(gameFolder, config.Game.Exe));
@@ -1473,7 +1524,8 @@ public sealed partial class BuildViewModel : ObservableObject
 
         RestorePlan? restore = null;
         string backupMessage;
-        var backupLocation = project.BackupDirectory;
+        var backupLocation = project.Backups.CurrentRoot(project);
+        var backups = GameInjector.ListBackups(project);
         try
         {
             restore = GameInjector.PlanRestore(project);
@@ -1482,15 +1534,20 @@ public sealed partial class BuildViewModel : ObservableObject
         }
         catch (VNForgeException e)
         {
-            var hasBackups = Directory.Exists(project.BackupDirectory) && Directory.EnumerateDirectories(project.BackupDirectory).Any();
+            var hasBackups = backups.Any(b => !b.IsManual);
             backupMessage = hasBackups ? e.Message : "Nenhum backup ainda. O primeiro Injetar cria um nesta pasta.";
         }
 
         var qaCounts = CountQaIssues(project, engine);
         var saved = GameStateFile.Load(project);
-        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, GameInjector.ListBackups(project), IsBackupIgnored(project), qaCounts.Errors, qaCounts.Warnings, config.Game.Exe, ReadPatch(project, config))
+        return new ProjectState(gameFolder, gameExecutable, hasBuild, lastBuildAt, plan, planMessage, restore, backupLocation, backupMessage, backups, IsBackupIgnored(project), qaCounts.Errors, qaCounts.Warnings, config.Game.Exe, ReadPatch(project, config))
         {
             Saved = saved,
+            Locations = project.Backups,
+            CurrentRoot = project.Backups.CurrentRoot(project),
+            DefaultRoot = project.BackupDirectory,
+            Unreachable = project.Backups.Unreachable(project),
+            BackupGame = BackupGameOf(gameFolder, hasBuild),
             QaErrorKinds = qaCounts.ErrorKinds,
             Changes = ReadChanges(project, saved),
             SceneNames = TryScriptNames(project),
@@ -1582,6 +1639,16 @@ public sealed partial class BuildViewModel : ObservableObject
     private static bool IsExpected(Exception e) =>
         e is VNForgeException or IOException or UnauthorizedAccessException or OperationCanceledException;
 
+    private static ManualBackupGame BackupGameOf(string gameFolder, bool hasBuild)
+    {
+        if (!Directory.Exists(gameFolder))
+        {
+            return ManualBackupGame.NoGame;
+        }
+
+        return hasBuild ? ManualBackupGame.Included : ManualBackupGame.NoBuild;
+    }
+
     private sealed record ProjectState(
         string GameFolder,
         string GameExecutable,
@@ -1599,6 +1666,17 @@ public sealed partial class BuildViewModel : ObservableObject
         string GameExecutableRelative,
         PatchInfo Patch)
     {
+        /// <summary>Onde os backups do projeto estão e o que o backup à mão levaria.</summary>
+        public BackupLocations Locations { get; init; } = BackupLocations.Default;
+
+        public string CurrentRoot { get; init; } = string.Empty;
+
+        public string DefaultRoot { get; init; } = string.Empty;
+
+        public IReadOnlyList<string> Unreachable { get; init; } = [];
+
+        public ManualBackupGame BackupGame { get; init; } = ManualBackupGame.Included;
+
         /// <summary>O <c>.cache/game-state.json</c>: o build que está no jogo e o último teste.</summary>
         public GameStateFile? Saved { get; init; }
 

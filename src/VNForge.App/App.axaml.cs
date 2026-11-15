@@ -54,6 +54,7 @@ public sealed class App : Application
             var appSettings = new AppSettingsFile(configDirectory);
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), appSettings);
             settings.LocaleEmulator = new LocaleEmulatorSettingsViewModel(new LibraryFile(configDirectory), picker);
+            settings.Backups = new BackupSettingsViewModel(new LibraryFile(configDirectory), picker);
             settings.Folders = new FoldersViewModel(folders, picker, MainWindowViewModel.OpenInFileManager, () => Restart(desktop), new FoldersServices { Post = a => Avalonia.Threading.Dispatcher.UIThread.Post(a) });
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
@@ -127,6 +128,7 @@ public sealed class App : Application
                     ClaudeProviderFactory.CreateClient(RequireApiKey()),
                     new ClaudeOptions { Model = model, Effort = effort }),
             };
+            main.UseBackupLocations(() => UserBackupLocations.Read(new LibraryFile(configDirectory)));
             main.Conference.Shortener = suggester;
             settings.Vndb.ListChanged += (_, _) =>
             {
@@ -200,7 +202,7 @@ public sealed class App : Application
                 TagsFile = new UserTagsFile(configDirectory),
                 Player = new GamePlayer(launcher ?? new ProcessGameLauncher(), playLog, warn: message => post(() => library?.ReportProblem(message))),
                 PlayLog = playLog,
-                Switcher = new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter())),
+                Switcher = new LibraryTranslationSwitcher(new GameTester(engines, new ShellGameProcessStarter()), () => UserBackupLocations.Read(file)),
                 Engines = engines,
                 PortugueseChecker = () => new PortugueseTranslationChecker(vndb),
             });
