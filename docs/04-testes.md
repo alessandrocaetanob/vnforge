@@ -68,13 +68,13 @@ O alvo foi aprovado em 14/11. A coluna "Antes" é a contagem de 14/11, medida co
 
 | Projeto | Antes | Depois | Alvo | O que fica |
 |---|---|---|---|---|
-| App | 1.334 | 214 | 120 | 41 smoke de tela, uma jornada por fluxo principal, o resto lógica de risco (gasto, gravação, oráculos, R9); o alvo de 120 não fecha porque as regras de "fica sempre" já somam mais |
+| App | 1.334 | 215 | 120 | 41 smoke de tela, uma jornada por fluxo principal, o resto lógica de risco (gasto, gravação, oráculos, R9); o alvo de 120 não fecha porque as regras de "fica sempre" já somam mais |
 | Core | 1.589 | 392 | 300 | Gravação e falha de disco, injeção e backup byte a byte, chave e gasto, oráculos de codificação e de formato, R9 da biblioteca; o alvo de 300 não fecha porque as regras de "fica sempre" já somam mais |
-| Engines.YuRis | 277 | 247 | 250 | Oráculos de formato, quase todos |
-| Cli | 575 | 60 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava |
-| AI | 314 | 71 | 60 | Chave, gasto, preço, ids, formato da requisição, cache ilegível; passa do alvo porque tudo o que sobra é R5 |
-| Vndb, Installer, Platform.Windows, Patching | 185 | 64 | 60 | Patch e desinstalação byte a byte, cofre, recusa de caminho inválido, os testes que só rodam no Windows |
-| Total | ~4.300 | 1.048 | ~850 | |
+| Engines.YuRis | 277 | 250 | 250 | Oráculos de formato, quase todos |
+| Cli | 575 | 68 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava (um Theory de entrada inválida cobre os que não têm teste próprio), chave e gasto, o `vnf release` |
+| AI | 314 | 83 | 60 | Chave, gasto, preço, ids, formato da requisição, limite de gasto do arquivo do app, lote noturno (gravação única, resposta cortada, cancelamento), preço da Bíblia, cache ilegível; passa do alvo porque tudo o que sobra é R5 |
+| Vndb, Installer, Platform.Windows, Patching | 185 | 69 | 60 | Patch e desinstalação byte a byte, desinstalação sem cópia ou com arquivo mexido, cofre, recusa de caminho inválido, os testes que só rodam no Windows |
+| Total | ~4.300 | 1.077 | ~850 | |
 
 Metas de tempo: o job `linux` do CI em até 5 minutos, a suíte local em até 2 minutos e a do App em até 60 s.
 
