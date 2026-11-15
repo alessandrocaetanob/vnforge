@@ -95,7 +95,7 @@
 
     <!-- Os traços de um grupo do VNDB: o título da seção e as linhas dela. -->
     <DataTemplate x:Key="FacetSection" x:DataType="vm:CharacterFacetSection">
-      <StackPanel Spacing="8">
+      <StackPanel Spacing="6">
         <TextBlock Classes="lib-lbl" Text="{Binding Heading}"/>
         <ItemsControl ItemsSource="{Binding Facets}" ItemTemplate="{StaticResource Facet}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -196,8 +196,8 @@
                 <TextBox Grid.Column="1" Name="TraitSearchBox" Classes="bare" Text="{Binding TraitSearch}" PlaceholderText="Buscar traço" AutomationProperties.Name="Buscar traço"/>
               </Grid>
             </Border>
-            <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitSections}" ItemTemplate="{StaticResource FacetSection}">
-              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitSections}" ItemTemplate="{StaticResource FacetSection}" Margin="0,6,0,0">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="14"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             </ItemsControl>
             <Button Name="MoreTraits" Classes="subtle sm more-traits" HorizontalAlignment="Left" Padding="0" Command="{Binding ToggleAllTraitsCommand}"
                     IsVisible="{Binding CanShowAllTraits}" Content="{Binding ShowAllTraitsText}"/>
