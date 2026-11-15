@@ -163,7 +163,7 @@
             </Border>
             <!-- Backup à mão (#693): guarda os originais que o build troca e o projeto; não mexe no jogo. Em andamento, o botão trava e o Cancelar aparece. -->
             <Border Padding="20,12" AutomationProperties.Name="Fazer backup agora">
-              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="body-strong" Text="Fazer backup agora" IsVisible="{Binding !IsBackingUp}"/>
                   <TextBlock Classes="body-strong" Text="Fazendo backup" IsVisible="{Binding IsBackingUp}"/>
@@ -171,10 +171,10 @@
                   <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding BackupProgressText}" IsVisible="{Binding IsBackingUp}"/>
                   <ProgressBar Classes="thin" Minimum="0" Maximum="1" Value="{Binding BackupProgress}" Margin="0,4,0,0" IsVisible="{Binding IsBackingUp}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Command="{Binding BackUpNowCommand}" Content="Fazer backup"
-                        VerticalAlignment="Center" AutomationProperties.Name="Fazer backup"/>
-                <Button Grid.Column="2" Command="{Binding CancelBackupCommand}" Content="Cancelar" IsVisible="{Binding IsBackingUp}"
-                        VerticalAlignment="Center" AutomationProperties.Name="Cancelar o backup"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <Button Command="{Binding BackUpNowCommand}" Content="Fazer backup" AutomationProperties.Name="Fazer backup"/>
+                  <Button Command="{Binding CancelBackupCommand}" Content="Cancelar" IsVisible="{Binding IsBackingUp}" AutomationProperties.Name="Cancelar o backup"/>
+                </StackPanel>
               </Grid>
             </Border>
           </StackPanel>
@@ -392,7 +392,7 @@
                   <StackPanel Spacing="2" VerticalAlignment="Center" ToolTip.Tip="{Binding BackupLocation}" AutomationProperties.Name="Pasta do backup">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                       <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis">
-                        <Run Text="{Binding BackupFooterLabel, Mode=OneWay}"/><Run Classes="mono" Text="{Binding BackupFooterPath, Mode=OneWay}"/><Run Text="{Binding BackupFooter, Mode=OneWay}"/>
+                        <Run Text="{Binding BackupFooterLabel, Mode=OneWay}"/><Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding BackupFooterPath, Mode=OneWay}"/><Run Text="{Binding BackupFooter, Mode=OneWay}"/>
                       </TextBlock>
                       <Button Grid.Column="1" Classes="subtle sm" Command="{Binding OpenBackupSettingsCommand}" Content="Ajustes" IsVisible="{Binding HasBackupFolderChoice}"
                               AutomationProperties.Name="Abrir os Ajustes dos backups"/>
@@ -401,13 +401,16 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:BackupFolderLine">
                           <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis">
-                            <Run Text="{Binding Label, Mode=OneWay}"/><Run Classes="mono" Text="{Binding Path, Mode=OneWay}"/><Run Text="{Binding Rest, Mode=OneWay}"/>
+                            <Run Text="{Binding Label, Mode=OneWay}"/><Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding Path, Mode=OneWay}"/><Run Text="{Binding Rest, Mode=OneWay}"/>
                           </TextBlock>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </StackPanel>
                 </Border>
+                <TextBlock DockPanel.Dock="Bottom" Classes="caption" TextWrapping="Wrap" Margin="16,8,16,12" Foreground="{DynamicResource Vnf.SignalWarningFg}"
+                           Text="{Binding BackupFolderOffline}" IsVisible="{Binding BackupFolderOffline, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           AutomationProperties.Name="Pasta dos backups fora do ar"/>
                 <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,0,16,12" Text="{Binding BackupMessage}"
                            IsVisible="{Binding !HasBackups}"/>
                 <TextBlock DockPanel.Dock="Bottom" Classes="caption secondary" TextWrapping="Wrap" Margin="16,8,16,12" Text="{Binding BackupMessage}"

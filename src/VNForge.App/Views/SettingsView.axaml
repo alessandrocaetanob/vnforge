@@ -1125,7 +1125,7 @@
                        Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Margin="0,8,0,0">
               <Run Text="Cada projeto guarda os backups numa subpasta com o nome dele:"/>
-              <Run Classes="mono" Text="{Binding ExampleText, Mode=OneWay}"/><Run Text=". Vale para toda a Biblioteca."/>
+              <Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding ExampleText, Mode=OneWay}"/><Run Text=". Vale para toda a Biblioteca."/>
             </TextBlock>
             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
               <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="Deixe vazio para usar o padrão de hoje: a pasta backup\ dentro de cada projeto."/>

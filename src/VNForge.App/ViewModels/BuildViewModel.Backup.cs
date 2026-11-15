@@ -152,7 +152,7 @@ public sealed partial class BuildViewModel
                     using var projectLock = ProjectLock.Acquire(project);
                     var plan = GameInjector.PlanBackup(project);
                     var result = new GameInjector(clock, injectionFiles).BackUpNow(project, plan, new SyncProgress(p => ReportBackup(plan, p, reporter, shown)), linked.Token);
-                    return (Plan: plan, Result: result);
+                    return new BackupRun(plan, result);
                 });
             if (mine != epoch)
             {
@@ -294,6 +294,9 @@ public sealed partial class BuildViewModel
 
     private static bool IsInCurrentRoot(BackupInfo backup, ProjectState state) =>
         string.Equals(backup.Root, state.CurrentRoot, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>O resultado do trabalho de fundo; uma classe, porque <c>TaskRun.Value</c> de uma tupla nunca é nulo e a falha passaria por sucesso.</summary>
+    private sealed record BackupRun(ManualBackupPlan Plan, ManualBackupResult Result);
 
     /// <summary>Entrega o progresso na hora, na thread de quem copia (o <see cref="Progress{T}"/> posta para outra e perderia a ordem em relação ao fim do trabalho).</summary>
     private sealed class SyncProgress(Action<ManualBackupProgress> report) : IProgress<ManualBackupProgress>

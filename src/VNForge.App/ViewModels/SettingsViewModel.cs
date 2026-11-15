@@ -412,7 +412,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasBackups => Backups is not null;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos, 8 Backups, 9 VNDB).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab))]
     public partial int SelectedTab { get; set; }
@@ -443,8 +443,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Índice da aba Jogos.</summary>
     public const int GamesTab = 6;
 
-    /// <summary>Índice da aba Backups, logo depois de Jogos.</summary>
-    public const int BackupsTab = GamesTab + 1;
+    /// <summary>Índice da aba Backups (7 é Jogos, 9 é VNDB): o TabControl conta as abas escondidas, então o índice não muda com o que está visível.</summary>
+    public const int BackupsTab = 8;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }

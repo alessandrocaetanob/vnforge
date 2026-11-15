@@ -112,7 +112,7 @@ internal static class ScreenCatalog
         new("ajustes-dicionarios", SettingsTab(SettingsViewModel.DictionariesTab)),
         new("ajustes-aparencia", SettingsTab(5)),
         new("ajustes-privacidade", SettingsTab(SettingsViewModel.PrivacyTab)),
-        new("ajustes-vndb", SettingsTab(8, vndb: true)),
+        new("ajustes-vndb", SettingsTab(9, vndb: true)),
         new("ficha-vndb", Sheet(review: false)),
         new("ficha-revisao", Sheet(review: true)),
         new("ficha-nao-baixada", Sheet(review: false, seeded: false)),
