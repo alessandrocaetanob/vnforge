@@ -3,18 +3,65 @@ using VNForge.AI.Claude;
 using VNForge.AI.Settings;
 using VNForge.Core.Logging;
 using VNForge.Core.Output;
+using VNForge.Core.UserData;
 
 namespace VNForge.Cli;
 
-/// <summary><c>vnf config ai</c>: modelo e chave de API do usuário, gravados fora de qualquer projeto.</summary>
+/// <summary><c>vnf config ai</c>: modelo e chave de API do usuário, gravados fora de qualquer projeto. <c>vnf config pasta</c>: as pastas do usuário que o app e o <c>vnf</c> usam.</summary>
 internal static class ConfigCommand
 {
+    public const string FolderCommandName = "pasta";
+
     public static Command Create(VnfCli cli)
     {
         var command = new Command("config", "Configurações do usuário, guardadas fora do projeto.");
         command.Subcommands.Add(CreateAi(cli));
+        command.Subcommands.Add(CreateFolder(cli));
         return command;
     }
+
+    private static Command CreateFolder(VnfCli cli)
+    {
+        var command = new Command(FolderCommandName, "Mostra as pastas do usuário e de onde veio cada uma.");
+        command.SetAction(parseResult => RunFolder(cli, parseResult));
+        return command;
+    }
+
+    private static int RunFolder(VnfCli cli, ParseResult parseResult)
+    {
+        var output = parseResult.InvocationConfiguration.Output;
+        var folders = cli.Folders ?? UserFolders.Resolve();
+        if (parseResult.GetValue(cli.Options.Json))
+        {
+            output.WriteLine(JsonEnvelope.Result(new
+            {
+                config = new { path = folders.Config.Path, source = SourceName(folders.Config.Source) },
+                cache = new { path = folders.Cache.Path, source = SourceName(folders.Cache.Source) },
+                pointer = folders.PointerPath,
+            }));
+        }
+        else
+        {
+            output.WriteLine($"Dados e configuração: {folders.Config.Path} ({DescribeFolder(folders, UserFolderKind.Config)})");
+            output.WriteLine($"Cache, capturas e registros: {folders.Cache.Path} ({DescribeFolder(folders, UserFolderKind.Cache)})");
+        }
+
+        if (folders.Problem is { } problem)
+        {
+            throw new UserFolderException(problem.Message);
+        }
+
+        return ErrorHandler.OkExitCode;
+    }
+
+    private static string SourceName(UserFolderSource source) => source.ToString().ToLowerInvariant();
+
+    private static string DescribeFolder(UserFolders folders, UserFolderKind kind) => folders.Of(kind).Source switch
+    {
+        UserFolderSource.Environment => $"variável de ambiente {(kind == UserFolderKind.Config ? UserFolders.ConfigVariable : UserFolders.CacheVariable)}",
+        UserFolderSource.Pointer => $"escolha feita no app, em {folders.PointerPath}",
+        _ => "padrão do Windows",
+    };
 
     private static Command CreateAi(VnfCli cli)
     {

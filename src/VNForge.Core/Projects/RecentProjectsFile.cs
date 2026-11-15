@@ -23,15 +23,8 @@ public sealed class RecentProjectsFile(string directory, int capacity = RecentPr
 
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
-    /// <summary>Pasta de configuração padrão: <c>%APPDATA%/VNForge</c>, ou a pasta temporária se o sistema não informar uma absoluta.</summary>
-    public static string DefaultDirectory()
-    {
-        var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var baseDirectory = !string.IsNullOrWhiteSpace(roaming) && System.IO.Path.IsPathRooted(roaming)
-            ? roaming
-            : System.IO.Path.GetTempPath();
-        return System.IO.Path.Combine(baseDirectory, "VNForge");
-    }
+    /// <summary>A pasta de dados e configuração do usuário, pela regra única de <see cref="UserData.UserFolders"/> (variável, ponteiro, <c>%APPDATA%/VNForge</c>).</summary>
+    public static string DefaultDirectory() => UserData.UserFolders.Resolve().Config.Path;
 
     /// <summary>Os projetos recentes, o mais recente primeiro. Arquivo ilegível vale como lista vazia; <see cref="Read"/> diz por quê.</summary>
     public IReadOnlyList<RecentProject> Load() => Read().Projects;
