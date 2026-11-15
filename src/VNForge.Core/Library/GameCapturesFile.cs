@@ -51,13 +51,8 @@ public sealed class GameCapturesFile
 
     public string Path { get; }
 
-    /// <summary><c>%LOCALAPPDATA%/VNForge/captures</c>, ou a pasta temporária se o sistema não informar uma absoluta.</summary>
-    public static string DefaultDirectory()
-    {
-        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var baseDirectory = !string.IsNullOrWhiteSpace(local) && System.IO.Path.IsPathRooted(local) ? local : System.IO.Path.GetTempPath();
-        return System.IO.Path.Combine(baseDirectory, "VNForge", "captures");
-    }
+    /// <summary><c>captures</c> dentro da pasta de cache do usuário, pela regra única de <see cref="UserData.UserFolders"/> (padrão: <c>%LOCALAPPDATA%/VNForge</c>).</summary>
+    public static string DefaultDirectory() => UserData.UserFolders.Current.CaptureDirectory;
 
     /// <exception cref="LibraryException">O índice existe e não pôde ser lido ou não segue o formato; a mensagem cita o arquivo.</exception>
     public GameCaptures Load() => _store.Load();

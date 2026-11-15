@@ -405,9 +405,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasLocaleEmulator => LocaleEmulator is not null;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos, 8 VNDB, 9 Pastas).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab))]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab), nameof(IsFoldersTab), nameof(ShowProjectCaption))]
     public partial int SelectedTab { get; set; }
 
     /// <summary>A aba Privacidade (o modo do conteúdo adulto); nula, a aba fica escondida. O shell a liga à Biblioteca.</summary>
@@ -420,8 +420,32 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>A aba Privacidade está aberta: o aviso de cima fala da Biblioteca, não do projeto.</summary>
     public bool IsPrivacyTab => SelectedTab == PrivacyTab;
 
+    /// <summary>A aba Pastas está aberta: o aviso de cima fala do VNForge inteiro, não do projeto.</summary>
+    public bool IsFoldersTab => SelectedTab == FoldersTab;
+
+    /// <summary>O aviso de cima das abas que valem para o projeto (todas menos Privacidade e Pastas).</summary>
+    public bool ShowProjectCaption => !IsPrivacyTab && !IsFoldersTab;
+
     /// <summary>Índice da aba Privacidade, logo depois de Aparência.</summary>
     public const int PrivacyTab = 6;
+
+    partial void OnSelectedTabChanged(int value)
+    {
+        if (value == FoldersTab)
+        {
+            _ = Folders?.RefreshAsync();
+        }
+    }
+
+    /// <summary>A aba Pastas (as pastas de dados e de cache, e a troca delas); nula, a aba fica escondida. O App liga as pastas reais ao montar a janela.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFolders))]
+    public partial FoldersViewModel? Folders { get; set; }
+
+    public bool HasFolders => Folders is not null;
+
+    /// <summary>Índice da aba Pastas, a última: depois de Privacidade, Jogos e VNDB, que só aparecem quando o app os liga.</summary>
+    public const int FoldersTab = 9;
 
     /// <summary>A aba VNDB (token e sincronização da lista); nula, a aba fica escondida. O App liga o serviço real ao montar a janela.</summary>
     [ObservableProperty]

@@ -16,6 +16,7 @@ using VNForge.Core.Logging;
 using VNForge.Core.Output;
 using VNForge.Core.Projects;
 using VNForge.Core.Qa;
+using VNForge.Core.UserData;
 using VNForge.Core.Vndb;
 using VNForge.Patching;
 using VNForge.Platform.Windows;
@@ -73,6 +74,12 @@ public sealed class VnfCli
 
     /// <summary>Pasta das configurações do usuário (modelo e chave de IA), sempre fora do projeto.</summary>
     public string UserConfigDirectory { get; }
+
+    /// <summary>
+    /// As pastas do usuário como a regra única do Core as achou (variável, ponteiro, padrão); nulo quando quem criou o <c>VnfCli</c> deu a pasta de configuração (os testes).
+    /// O <c>vnf</c> só lê a escolha: nunca pergunta e nunca grava o ponteiro, que é do app.
+    /// </summary>
+    internal UserFolders? Folders { get; private set; }
 
     /// <summary>Entrada padrão da invocação, de onde vêm respostas e segredos que não devem ir na linha de comando.</summary>
     public TextReader Input { get; }
@@ -208,15 +215,24 @@ public sealed class VnfCli
         CliTerminal? terminal = null,
         IVndbTokenStore? vndbTokenStore = null)
     {
-        var configDirectory = userConfigDirectory ?? AiUserSettingsFile.DefaultDirectory();
+        var folders = userConfigDirectory is null ? UserFolders.Current : null;
+        var configDirectory = userConfigDirectory ?? folders!.Config.Path;
         var cli = new VnfCli(
             currentDirectory ?? Directory.GetCurrentDirectory(),
-            userLogDirectory ?? VNForgeLogging.GetUserLogDirectory(),
+            userLogDirectory ?? folders?.LogDirectory ?? VNForgeLogging.GetUserLogDirectory(),
             configDirectory,
             input ?? Console.In,
             apiKeyStore ?? new DpapiApiKeyStore(configDirectory),
             vndbTokenStore ?? new DpapiVndbTokenStore(configDirectory),
-            terminal);
+            terminal)
+        {
+            Folders = folders,
+        };
+        if (folders is not null)
+        {
+            cli.UserCapturesDirectory = folders.CaptureDirectory;
+        }
+
         VnfCommands.Register(cli);
         return cli;
     }
@@ -272,6 +288,7 @@ public sealed class VnfCli
                             throw UsageError(parseResult, logger);
                         }
 
+                        ThrowIfFolderUnavailable(parseResult);
                         ThrowIfProjectMissing(settings);
                         await WarnIfProjectNotLocalAsync(settings, error).ConfigureAwait(false);
                         if (logger.IsEnabled(LogLevel.Debug))
@@ -324,6 +341,15 @@ public sealed class VnfCli
 
         var commandPath = PortugueseHelpAction.CommandPath(parseResult.CommandResult.Command);
         return new UsageException(string.Join(' ', messages.Distinct(StringComparer.Ordinal)), CliErrorHints.HelpHint(commandPath));
+    }
+
+    /// <summary>A variável ou o ponteiro aponta para uma pasta que não existe: o <c>vnf</c> para antes de gravar no padrão sem que a pessoa tenha pedido. <c>vnf config pasta</c> passa, porque é ele que diz o que está errado.</summary>
+    private void ThrowIfFolderUnavailable(ParseResult parseResult)
+    {
+        if (Folders?.Problem is { } problem && parseResult.CommandResult.Command is not { Name: ConfigCommand.FolderCommandName })
+        {
+            throw new UserFolderException(problem.Message);
+        }
     }
 
     private void ThrowIfProjectMissing(GlobalSettings settings)
