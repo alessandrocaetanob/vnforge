@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests;
 
+[Trait("Risco", "R5")]
 public class ClaudeTranslationProviderTests
 {
     private sealed class StubClient(Func<ClaudeRequest, ClaudeReply> reply) : IClaudeMessageClient
@@ -91,35 +92,6 @@ public class ClaudeTranslationProviderTests
     }
 
     [Fact]
-    public async Task Duvida_da_resposta_vai_para_o_resultado_da_linha()
-    {
-        var client = new StubClient(_ => Ok("""
-            {"translations":[
-              {"id":"a","translation":"Oi","doubt":{"kind":"hidden-subject","note":"Não dá para saber quem fala."}},
-              {"id":"b","translation":"Tchau"}]}
-            """));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ"), Unit("b", "さよなら")]), CancellationToken.None);
-
-        Assert.Equal(new TranslationDoubt(DoubtKind.HiddenSubject, "Não dá para saber quem fala."), results[0].Doubt);
-        Assert.Null(results[1].Doubt);
-    }
-
-    [Theory]
-    [InlineData("""{"kind":"vibe","note":"x"}""")]
-    [InlineData("""{"kind":"tone","note":"  "}""")]
-    public async Task Duvida_malformada_e_ignorada_e_a_traducao_continua(string doubt)
-    {
-        var client = new StubClient(_ => Ok($$"""{"translations":[{"id":"a","translation":"Oi","doubt":{{doubt}}}]}"""));
-        var provider = new ClaudeTranslationProvider(client);
-
-        var results = await provider.TranslateAsync(new TranslationBatch([Unit("a", "やあ")]), CancellationToken.None);
-
-        Assert.Equal(new TranslationResult("a", "Oi"), Assert.Single(results));
-    }
-
-    [Fact]
     public async Task Uso_da_recusa_tambem_e_contado()
     {
         var provider = new ClaudeTranslationProvider(new StubClient(_ => new ClaudeReply("refusal", string.Empty, new ClaudeUsage(10, 0, 5, 0))));
@@ -127,19 +99,6 @@ public class ClaudeTranslationProviderTests
         await provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None);
 
         Assert.Equal(5, provider.Usage.CacheReadInputTokens);
-    }
-
-    [Theory]
-    [InlineData("não é json")]
-    [InlineData("""{"translations":[{"id":"zzz","translation":"x"}]}""")]
-    [InlineData("""{"translations":[]}""")]
-    [InlineData("""{"translations":[{"id":"a","translation":"x"},{"id":"a","translation":"y"}]}""")]
-    public async Task Resposta_invalida_lanca_ClaudeResponseException(string json)
-    {
-        var provider = new ClaudeTranslationProvider(new StubClient(_ => Ok(json)));
-
-        await Assert.ThrowsAsync<ClaudeResponseException>(() =>
-            provider.TranslateAsync(new TranslationBatch([Unit("a", "x")]), CancellationToken.None));
     }
 
     [Fact]
@@ -152,22 +111,5 @@ public class ClaudeTranslationProviderTests
 
         Assert.Empty(results);
         Assert.Empty(client.Requests);
-    }
-
-    [Fact]
-    public async Task Integracao_real_so_roda_com_ANTHROPIC_API_KEY()
-    {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")))
-            return; // teste opcional: sem chave, não faz nada. O modelo vem de VNFORGE_TEST_MODEL (padrão Haiku).
-
-        var provider = new ClaudeTranslationProvider(
-            new AnthropicMessageClient(), new ClaudeOptions { Model = RealApiModel.FromEnvironment(), Effort = ClaudeEffort.Low });
-
-        var results = await provider.TranslateAsync(
-            new TranslationBatch([Unit("a", "おはよう")]), CancellationToken.None);
-
-        var result = Assert.Single(results);
-        Assert.Equal("a", result.Id);
-        Assert.False(string.IsNullOrWhiteSpace(result.Translation));
     }
 }

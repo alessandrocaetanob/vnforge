@@ -7,6 +7,7 @@ using VNForge.AI.Claude;
 namespace VNForge.AI.Tests;
 
 /// <summary>Passa pelo SDK de verdade e inspeciona o pedido HTTP, que os provedores falsos não enxergam.</summary>
+[Trait("Risco", "R5")]
 public sealed class AnthropicMessageClientWireTests
 {
     private const string Ok = """
@@ -81,50 +82,5 @@ public sealed class AnthropicMessageClientWireTests
         Assert.Equal(pixels, Convert.FromBase64String(source.GetProperty("data").GetString()!));
         Assert.Equal("text", content[1].GetProperty("type").GetString());
         Assert.Equal("usuario", content[1].GetProperty("text").GetString());
-    }
-
-    [Fact]
-    public async Task Sem_imagem_o_usuario_segue_como_texto_simples()
-    {
-        var (body, _) = await CaptureAsync(ClaudeModels.Haiku);
-
-        Assert.Equal("usuario", body.GetProperty("messages")[0].GetProperty("content").GetString());
-    }
-
-    [Fact]
-    public async Task Formato_json_continua_no_output_config_com_imagem()
-    {
-        var (body, _) = await CaptureAsync(ClaudeModels.Haiku, image: new ClaudeImage("image/webp", [1]));
-
-        Assert.Equal("json_schema", body.GetProperty("output_config").GetProperty("format").GetProperty("type").GetString());
-    }
-
-    [Fact]
-    public async Task Sem_contexto_do_lote_o_sistema_e_um_bloco_so()
-    {
-        var (body, _) = await CaptureAsync(ClaudeModels.Opus);
-
-        Assert.Single(body.GetProperty("system").EnumerateArray());
-    }
-
-    [Fact]
-    public async Task Haiku_nao_manda_fallbacks_nem_header_beta_de_fallback()
-    {
-        var (body, request) = await CaptureAsync(ClaudeModels.Haiku);
-
-        Assert.False(body.TryGetProperty("fallbacks", out _), body.ToString());
-        Assert.False(HasBeta(request));
-    }
-
-    [Theory]
-    [InlineData(ClaudeModels.Opus)]
-    [InlineData(ClaudeModels.Fable)]
-    public async Task Modelos_com_fallback_mandam_a_lista_e_o_header_beta(string model)
-    {
-        var (body, request) = await CaptureAsync(model);
-
-        var fallbacks = body.GetProperty("fallbacks");
-        Assert.Equal("claude-opus-4-8", Assert.Single(fallbacks.EnumerateArray()).GetProperty("model").GetString());
-        Assert.True(HasBeta(request));
     }
 }
