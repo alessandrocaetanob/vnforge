@@ -10,10 +10,11 @@ public enum SheetFieldKind
     Character,
     Tag,
     Trait,
+    Group,
 }
 
 /// <summary>
-/// Um texto da ficha pelo nome que a CLI e a tela usam: <c>synopsis</c>, <c>character:c12</c> (ou só <c>c12</c>), <c>tag:g7</c> ou <c>trait:i34</c>. É também a
+/// Um texto da ficha pelo nome que a CLI e a tela usam: <c>synopsis</c>, <c>character:c12</c> (ou só <c>c12</c>), <c>tag:g7</c>, <c>trait:i34</c> ou <c>group:i10</c> (o grupo do traço). É também a
 /// <see cref="SheetTranslationItem.Key"/> do pedido à IA.
 /// </summary>
 public sealed partial record SheetField(SheetFieldKind Kind, string? Id)
@@ -26,12 +27,15 @@ public sealed partial record SheetField(SheetFieldKind Kind, string? Id)
 
     public static SheetField OfTrait(string id) => new(SheetFieldKind.Trait, id);
 
-    /// <summary>A chave textual: <c>synopsis</c>, <c>character:c12</c>, <c>tag:g7</c>, <c>trait:i34</c>.</summary>
+    public static SheetField OfGroup(string id) => new(SheetFieldKind.Group, id);
+
+    /// <summary>A chave textual: <c>synopsis</c>, <c>character:c12</c>, <c>tag:g7</c>, <c>trait:i34</c>, <c>group:i10</c>.</summary>
     public string Key => Kind switch
     {
         SheetFieldKind.Synopsis => "synopsis",
         SheetFieldKind.Character => $"character:{Id}",
         SheetFieldKind.Tag => $"tag:{Id}",
+        SheetFieldKind.Group => $"group:{Id}",
         _ => $"trait:{Id}",
     };
 
@@ -49,7 +53,7 @@ public sealed partial record SheetField(SheetFieldKind Kind, string? Id)
         var match = Pattern().Match(value);
         if (!match.Success)
         {
-            throw new LibraryException($"'{value}' não é um texto da ficha. Use synopsis, character:c12 (ou c12), tag:g7 ou trait:i34.");
+            throw new LibraryException($"'{value}' não é um texto da ficha. Use synopsis, character:c12 (ou c12), tag:g7, trait:i34 ou group:i10.");
         }
 
         var id = match.Groups["id"].Value.ToLowerInvariant();
@@ -58,6 +62,7 @@ public sealed partial record SheetField(SheetFieldKind Kind, string? Id)
             "character" or "personagem" => SheetFieldKind.Character,
             "tag" => SheetFieldKind.Tag,
             "trait" or "traco" or "traço" => SheetFieldKind.Trait,
+            "group" or "grupo" => SheetFieldKind.Group,
             _ => id[0] switch
             {
                 'c' => SheetFieldKind.Character,
@@ -80,9 +85,10 @@ public sealed partial record SheetField(SheetFieldKind Kind, string? Id)
     {
         SheetFieldKind.Character => "personagem",
         SheetFieldKind.Tag => "tag",
+        SheetFieldKind.Group => "grupo de traços",
         _ => "traço",
     };
 
-    [GeneratedRegex(@"^(?:(?<kind>character|personagem|tag|trait|traco|traço):)?(?<id>[cgi]\d{1,9})$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 200)]
+    [GeneratedRegex(@"^(?:(?<kind>character|personagem|tag|trait|traco|traço|group|grupo):)?(?<id>[cgi]\d{1,9})$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 200)]
     private static partial Regex Pattern();
 }

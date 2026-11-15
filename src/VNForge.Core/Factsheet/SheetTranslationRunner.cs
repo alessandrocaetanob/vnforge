@@ -43,7 +43,7 @@ public sealed record SheetTranslationResult(int Translated, int Calls, IReadOnly
 public sealed record SheetTranslationProgress(int Done, int Total);
 
 /// <summary>
-/// Traduz a ficha de um jogo pela <see cref="ISheetTranslator"/>. Só pede o que falta: os nomes de tag e de traço que já foram traduzidos (para este ou para outro jogo)
+/// Traduz a ficha de um jogo pela <see cref="ISheetTranslator"/>. Só pede o que falta: os nomes de tag, de traço e de grupo de traços que já foram traduzidos (para este ou para outro jogo)
 /// não voltam à IA, e cada lote é gravado ao voltar, então uma execução interrompida ou com lote recusado não perde o que já traduziu. A resposta é conferida item a item:
 /// chave faltando, texto vazio ou trecho de spoiler que a IA perdeu deixa só aquele item pendente.
 /// </summary>
@@ -73,24 +73,28 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
             items.Add(new SheetTranslationItem(SheetField.OfCharacter(character.Id).Key, SheetItemKind.CharacterDescription, character.Description!.Source, character.Name));
         }
 
-        foreach (var tagId in game.Tags.Select(tag => tag.Id))
-        {
-            if (terms.Find(SheetTermKind.Tag, tagId) is { } term && Needs(term.Text, force))
-            {
-                items.Add(new SheetTranslationItem(SheetField.OfTag(tagId).Key, SheetItemKind.TagName, term.Text.Source, term.Context));
-            }
-        }
-
-        var traits = characters.SelectMany(c => c.Traits).Select(t => t.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
-        foreach (var id in traits)
-        {
-            if (terms.Find(SheetTermKind.Trait, id) is { } term && Needs(term.Text, force))
-            {
-                items.Add(new SheetTranslationItem(SheetField.OfTrait(id).Key, SheetItemKind.TraitName, term.Text.Source, term.Context));
-            }
-        }
+        AddNames(items, terms, SheetTermKind.Tag, game.Tags.Select(tag => tag.Id), force);
+        AddNames(items, terms, SheetTermKind.Trait, characters.SelectMany(c => c.Traits).Select(t => t.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), force);
+        AddNames(items, terms, SheetTermKind.Group, SheetTerms.GroupIdsOf(characters), force);
 
         return new SheetTranslationPlan(game.Title, items);
+    }
+
+    private static void AddNames(List<SheetTranslationItem> items, SheetTerms terms, SheetTermKind kind, IEnumerable<string> ids, bool force)
+    {
+        var itemKind = kind switch
+        {
+            SheetTermKind.Tag => SheetItemKind.TagName,
+            SheetTermKind.Group => SheetItemKind.TraitGroupName,
+            _ => SheetItemKind.TraitName,
+        };
+        foreach (var id in ids)
+        {
+            if (terms.Find(kind, id) is { } term && Needs(term.Text, force))
+            {
+                items.Add(new SheetTranslationItem(SheetTerms.KeyOf(kind, id), itemKind, term.Text.Source, term.Context));
+            }
+        }
     }
 
     /// <summary>Traduz o que falta, em lotes, e grava cada lote que voltar.</summary>
@@ -134,6 +138,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                     new SheetTranslationItem(field.Key, SheetItemKind.CharacterDescription, description.Source, character.Name),
                 SheetFieldKind.Tag when terms.Find(SheetTermKind.Tag, field.Id!) is { } term => new SheetTranslationItem(field.Key, SheetItemKind.TagName, term.Text.Source, term.Context),
                 SheetFieldKind.Trait when terms.Find(SheetTermKind.Trait, field.Id!) is { } term => new SheetTranslationItem(field.Key, SheetItemKind.TraitName, term.Text.Source, term.Context),
+                SheetFieldKind.Group when terms.Find(SheetTermKind.Group, field.Id!) is { } term => new SheetTranslationItem(field.Key, SheetItemKind.TraitGroupName, term.Text.Source, term.Context),
                 _ => null,
             };
             items.Add(item ?? throw new LibraryException($"{field.Key} não está na ficha deste jogo."));
@@ -283,7 +288,7 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
                         case SheetFieldKind.Character when SaveCharacter(s, field, item, target, force, overwrite):
                             saved++;
                             break;
-                        case SheetFieldKind.Tag or SheetFieldKind.Trait when ReplaceTerm(terms, field, item, target, force, overwrite):
+                        case SheetFieldKind.Tag or SheetFieldKind.Trait or SheetFieldKind.Group when ReplaceTerm(terms, field, item, target, force, overwrite):
                             saved++;
                             break;
                     }
@@ -306,7 +311,12 @@ public sealed class SheetTranslationRunner(ISheetTranslator translator, SheetSto
 
     private static bool ReplaceTerm(SheetTerms terms, SheetField field, SheetTranslationItem item, string target, bool force, bool overwrite)
     {
-        var kind = field.Kind == SheetFieldKind.Tag ? SheetTermKind.Tag : SheetTermKind.Trait;
+        var kind = field.Kind switch
+        {
+            SheetFieldKind.Tag => SheetTermKind.Tag,
+            SheetFieldKind.Group => SheetTermKind.Group,
+            _ => SheetTermKind.Trait,
+        };
         if (terms.Find(kind, field.Id!) is not { } term || !Fresh(term.Text, item, force, overwrite))
         {
             return false;

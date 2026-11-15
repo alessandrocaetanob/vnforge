@@ -93,6 +93,16 @@
       </CheckBox>
     </DataTemplate>
 
+    <!-- Os traços de um grupo do VNDB: o título da seção e as linhas dela. -->
+    <DataTemplate x:Key="FacetSection" x:DataType="vm:CharacterFacetSection">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="lib-lbl" Text="{Binding Heading}"/>
+        <ItemsControl ItemsSource="{Binding Facets}" ItemTemplate="{StaticResource Facet}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+    </DataTemplate>
+
     <!-- O personagem da grade: retrato quadrado, nome, original, papel e quantos jogos. -->
     <DataTemplate x:Key="CardTemplate" x:DataType="vm:CharacterListItem">
       <Button Classes="libcard" Width="160" Margin="0,0,0,24" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).OpenCharacterCommand}"
@@ -124,8 +134,8 @@
 
     <!-- O traço marcado (.v3-chip.on): clicar o tira do filtro. -->
     <DataTemplate x:Key="ActiveTrait" x:DataType="vm:CharacterFacet">
-      <c:FilterChip Margin="0,0,8,0" Label="{Binding Label}" Removable="True" IsChecked="True" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RemoveTraitCommand}"
-                    CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label, StringFormat='Tirar o traço {0} do filtro'}"/>
+      <c:FilterChip Margin="0,0,8,0" Label="{Binding ChipLabel}" Removable="True" IsChecked="True" Command="{Binding $parent[v:CharactersView].((vm:CharactersViewModel)DataContext).RemoveTraitCommand}"
+                    CommandParameter="{Binding}" AutomationProperties.Name="{Binding ChipLabel, StringFormat='Tirar o traço {0} do filtro'}"/>
     </DataTemplate>
 
     <!-- Um jogo da Biblioteca em que o personagem aparece: a capa, o título, o papel nele e de onde o papel saiu. -->
@@ -186,8 +196,8 @@
                 <TextBox Grid.Column="1" Name="TraitSearchBox" Classes="bare" Text="{Binding TraitSearch}" PlaceholderText="Buscar traço" AutomationProperties.Name="Buscar traço"/>
               </Grid>
             </Border>
-            <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitFacets}" ItemTemplate="{StaticResource Facet}">
-              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl Name="TraitFilters" ItemsSource="{Binding TraitSections}" ItemTemplate="{StaticResource FacetSection}" Margin="0,6,0,0">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="14"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             </ItemsControl>
             <Button Name="MoreTraits" Classes="subtle sm more-traits" HorizontalAlignment="Left" Padding="0" Command="{Binding ToggleAllTraitsCommand}"
                     IsVisible="{Binding CanShowAllTraits}" Content="{Binding ShowAllTraitsText}"/>

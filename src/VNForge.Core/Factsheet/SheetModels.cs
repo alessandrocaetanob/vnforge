@@ -96,6 +96,36 @@ public static class SheetLabels
         _ => role,
     };
 
+    private static readonly string[] TraitGroupOrder = ["Hair", "Eyes", "Body", "Clothes", "Personality", "Role", "Items", "Engages in", "Subject of", "Sexual Content"];
+
+    private static readonly Dictionary<string, string> TraitGroupNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Hair"] = "Cabelo",
+        ["Eyes"] = "Olhos",
+        ["Body"] = "Corpo",
+        ["Clothes"] = "Roupas",
+        ["Personality"] = "Personalidade",
+        ["Role"] = "Ocupação",
+        ["Items"] = "Objetos",
+        ["Engages in"] = "Atividades",
+        ["Subject of"] = "Situações",
+        ["Sexual Content"] = "Conteúdo adulto",
+    };
+
+    /// <summary>A ordem do grupo de traços (Cabelo, Olhos, Corpo, Roupas, Personalidade...); grupo que o VNDB criar depois vai por último.</summary>
+    public static int TraitGroupRank(string vndbGroup) =>
+        Array.FindIndex(TraitGroupOrder, g => string.Equals(g, vndbGroup?.Trim(), StringComparison.OrdinalIgnoreCase)) is var i and >= 0 ? i : TraitGroupOrder.Length;
+
+    /// <summary>
+    /// O nome de um grupo de traços do VNDB em português, do dicionário fixo do app; um grupo que o dicionário não conhece fica com o nome do VNDB, em inglês. A tradução da ficha vale mais que
+    /// este nome (<see cref="SheetTerms.ShownGroup"/>).
+    /// </summary>
+    public static string TraitGroup(string vndbGroup)
+    {
+        var name = vndbGroup?.Trim() ?? string.Empty;
+        return TraitGroupNames.GetValueOrDefault(name, name);
+    }
+
     /// <summary>A etapa de um texto da ficha, como a CLI e a tela a escrevem.</summary>
     public static string Status(Text.TranslationStatus status) => status switch
     {

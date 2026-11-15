@@ -49,7 +49,7 @@ public static class SheetFetcher
         {
             foreach (var trait in vndb.Traits)
             {
-                newTerms += terms.Ensure(SheetTermKind.Trait, trait.Id, trait.Name, trait.GroupName) ? 1 : 0;
+                newTerms += EnsureTraitTerms(terms, trait);
             }
 
             var character = Character(vndb, vn.Id, store.LoadCharacter(vndb.Id));
@@ -80,6 +80,18 @@ public static class SheetFetcher
         store.SaveGame(sheet);
         store.SaveTerms(terms);
         return new SheetFetchResult(sheet, merged.Count, newTerms);
+    }
+
+    /// <summary>O termo do traço e o do grupo dele, que a ficha traduz à parte; devolve quantos entraram novos.</summary>
+    private static int EnsureTraitTerms(SheetTerms terms, VndbTrait trait)
+    {
+        var added = terms.Ensure(SheetTermKind.Trait, trait.Id, trait.Name, trait.GroupName) ? 1 : 0;
+        if (SheetTerms.IsGroupId(trait.GroupId) && !string.IsNullOrWhiteSpace(trait.GroupName))
+        {
+            added += terms.Ensure(SheetTermKind.Group, trait.GroupId, trait.GroupName, null) ? 1 : 0;
+        }
+
+        return added;
     }
 
     private static CharacterSheet Character(VndbCharacter vndb, string visualNovelId, CharacterSheet? existing)

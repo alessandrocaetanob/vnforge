@@ -34,7 +34,7 @@ public sealed class SheetTranslationTests : IDisposable
 
         var failure = Assert.Single(result.Failures);
         Assert.Contains("recusou", failure.Message, StringComparison.Ordinal);
-        Assert.Equal(11 - failure.Keys.Count, result.Translated);
+        Assert.Equal(14 - failure.Keys.Count, result.Translated);
         Assert.True(result.Calls >= 2);
     }
 
