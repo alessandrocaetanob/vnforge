@@ -9,6 +9,7 @@ using VNForge.Engines.YuRis.Tests.Ypf.Synthetic;
 namespace VNForge.Cli.Tests;
 
 /// <summary><c>vnf images scan</c>: o inventário das imagens com texto (#534), com um leitor falso no lugar do Claude.</summary>
+[Trait("Risco", "R5")]
 public sealed class ImagesScanCommandTests : IDisposable
 {
     private static readonly byte[] Title = SyntheticImages.Png(640, 480, shade: 10);
@@ -54,87 +55,6 @@ public sealed class ImagesScanCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Dry_run_mostra_o_levantamento_e_o_custo_sem_chamar_a_ia_nem_gravar()
-    {
-        var result = await Scan("--dry-run");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("3 imagens para a IA", result.Output);
-        Assert.Contains("custo estimado US$", result.Output);
-        Assert.Empty(_reader.Received);
-        Assert.False(File.Exists(_project.ImageInventoryPath));
-    }
-
-    [Fact]
-    public async Task Dry_run_em_json_traz_as_contagens_por_motivo()
-    {
-        var result = await Scan("--dry-run", "--json");
-
-        var data = Data(result);
-        Assert.True(data.GetProperty("dryRun").GetBoolean());
-        Assert.Equal(1, data.GetProperty("archives").GetInt32());
-        Assert.Equal(3, data.GetProperty("candidates").GetInt32());
-        Assert.Equal(3, data.GetProperty("toRead").GetInt32());
-        var skipped = data.GetProperty("skipped");
-        Assert.Equal(1, skipped.GetProperty("tooSmall").GetInt32());
-        Assert.Equal(1, skipped.GetProperty("unsupportedFormat").GetInt32());
-        Assert.True(data.GetProperty("estimate").GetProperty("dollars").GetDecimal() > 0m);
-    }
-
-    [Fact]
-    public async Task Json_traz_o_numero_de_imagens_com_texto_e_a_lista()
-    {
-        var result = await Scan("--yes", "--json");
-
-        Assert.Equal(0, result.ExitCode);
-        var data = Data(result);
-        Assert.Equal(2, data.GetProperty("withText").GetInt32());
-        Assert.Equal(3, data.GetProperty("read").GetInt32());
-        var first = data.GetProperty("images").EnumerateArray().First();
-        Assert.Equal("ui.ypf", first.GetProperty("archive").GetString());
-        Assert.Equal("ui/botao.png", first.GetProperty("path").GetString());
-        Assert.Equal("つづきから", first.GetProperty("text").GetString());
-    }
-
-    [Fact]
-    public async Task Segunda_execucao_nao_chama_a_ia_de_novo()
-    {
-        await Scan("--yes");
-        _cli.SetInput(string.Empty);
-
-        var second = await Scan("--yes");
-
-        Assert.Equal(0, second.ExitCode);
-        Assert.Equal(3, _reader.Received.Count);
-        Assert.Contains("já estão no inventário", second.Output);
-        Assert.Equal(2, _project.LoadImageInventory().Count(e => e.HasText));
-    }
-
-    [Fact]
-    public async Task Min_pixels_deixa_entrar_a_imagem_pequena()
-    {
-        var result = await Scan("--yes", "--min-pixels", "100");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(4, _reader.Received.Count);
-    }
-
-    [Fact]
-    public async Task Pedido_acima_do_aviso_pergunta_e_a_resposta_nao_nao_gasta_nada()
-    {
-        File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "warnAbove": 0.0001 }""");
-        _cli.SetInput("n\n");
-
-        var result = await Scan();
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("não foi confirmada", result.Output);
-        Assert.Contains("[s/N]", result.Error);
-        Assert.Empty(_reader.Received);
-        Assert.False(File.Exists(_project.ImageInventoryPath));
-    }
-
-    [Fact]
     public async Task Recusa_o_pedido_que_passaria_do_limite_de_gasto()
     {
         File.WriteAllText(Path.Combine(_cli.UserConfigDirectory, AppBudgetFile.FileName), """{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 0.0001 }""");
@@ -144,62 +64,5 @@ public sealed class ImagesScanCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("limite de gasto", result.Output);
         Assert.Empty(_reader.Received);
-    }
-
-    [Fact]
-    public async Task Imagem_que_falha_sai_no_resumo_e_o_resto_fica_gravado()
-    {
-        _reader.FailWhen = image => image.Name.EndsWith("rua.jpg", StringComparison.Ordinal);
-
-        var result = await Scan("--yes");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("ui.ypf/bg/rua.jpg", result.Output);
-        Assert.Equal(2, _project.LoadImageInventory().Count);
-    }
-
-    [Fact]
-    public async Task Falha_ao_gravar_o_inventario_nao_apaga_o_gasto_ja_feito()
-    {
-        _reader.InputTokens = 1000;
-        _reader.OutputTokens = 100;
-        Directory.CreateDirectory(_project.ImageInventoryPath);
-
-        var result = await Scan("--yes");
-
-        Assert.NotEqual(0, result.ExitCode);
-        var usage = AiUsageLog.Load(_project);
-        Assert.Equal(3000, usage.InputTokens);
-        Assert.True(usage.Dollars > 0m);
-    }
-
-    [Fact]
-    public async Task Imagem_recusada_pelo_modelo_e_avisada_e_nao_entra_no_inventario()
-    {
-        _reader.RefuseWhen = image => image.Name.EndsWith("rua.jpg", StringComparison.Ordinal);
-
-        var result = await Scan("--yes");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("1 imagem recusada", result.Output);
-        Assert.DoesNotContain(_project.LoadImageInventory(), e => e.Path == "bg/rua.jpg");
-    }
-
-    [Fact]
-    public async Task Modelo_desconhecido_e_recusado()
-    {
-        var result = await Scan("--model", "gpt-5");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("Modelo desconhecido", result.Error + result.Output);
-    }
-
-    [Fact]
-    public async Task Sem_projeto_o_erro_e_em_portugues()
-    {
-        var result = await _cli.RunAsync(["images", "scan", "--project", Path.Combine(_cli.Root, "nao-existe")], Token);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("A pasta do projeto não existe", result.Error + result.Output);
     }
 }

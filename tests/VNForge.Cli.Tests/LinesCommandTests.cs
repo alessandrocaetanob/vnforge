@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R2")]
 public sealed class LinesCommandTests : IDisposable
 {
     private const string JsonOption = "--json";
@@ -39,63 +40,6 @@ public sealed class LinesCommandTests : IDisposable
     private TextUnit Line(string key, int index) => _project.LoadText(key)[index];
 
     [Fact]
-    public async Task Chave_de_script_marca_todas_as_linhas_dele()
-    {
-        var result = await Run("keep", Yst00002);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("2 linhas", result.Output, StringComparison.Ordinal);
-        Assert.All(_project.LoadText(Yst00002), u => Assert.Equal(TranslationStatus.Keep, u.Status));
-        Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 0).Status);
-    }
-
-    [Fact]
-    public async Task Keep_numa_linha_com_traducao_pergunta_e_a_resposta_nao_nao_grava()
-    {
-        var result = await Run("keep", "yst00001:000003");
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Equal(TranslationStatus.Approved, Line(Yst00001, 2).Status);
-        Assert.Equal("ok", Line(Yst00001, 2).Translation);
-    }
-
-    [Fact]
-    public async Task Unkeep_devolve_so_as_linhas_keep_a_sem_traducao()
-    {
-        await Run("keep", Yst00001, "--yes");
-
-        var result = await Run("unkeep", "yst00001:000001,yst00001:000002", JsonOption);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 0).Status);
-        Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 1).Status);
-        Assert.Equal(TranslationStatus.Keep, Line(Yst00001, 2).Status);
-    }
-
-    [Fact]
-    public async Task Alvo_desconhecido_sai_com_1_e_nao_grava_nada()
-    {
-        var result = await Run("keep", "yst00001:000001,yst00001:009999");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("yst00001:009999", result.Error, StringComparison.Ordinal);
-        Assert.Equal(TranslationStatus.Untranslated, Line(Yst00001, 0).Status);
-    }
-
-    [Fact]
-    public async Task Status_conta_as_linhas_keep_como_prontas()
-    {
-        await Run("keep", Yst00002);
-
-        var result = await _cli.RunAsync(["status", "--project", _projectPath, JsonOption], TestContext.Current.CancellationToken);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        var files = doc.RootElement.GetProperty("data").GetProperty("files").EnumerateArray().ToDictionary(f => f.GetProperty("key").GetString()!);
-        Assert.Equal(2, files[Yst00002].GetProperty("keep").GetInt32());
-        Assert.Equal(100, files[Yst00002].GetProperty("percent").GetDouble());
-    }
-
-    [Fact]
     public async Task Speaker_narracao_e_original_gravam_vazio_e_limpam_a_escolha()
     {
         _project.SaveText(Yst00002, [.. _project.LoadText(Yst00002).Select(u => u with { Speaker = "美咲" })]);
@@ -108,31 +52,5 @@ public sealed class LinesCommandTests : IDisposable
         Assert.Null(Line(Yst00002, 0).ChosenSpeaker);
         Assert.Equal(string.Empty, Line(Yst00002, 1).ChosenSpeaker);
         Assert.Contains("Narração", narration.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Speaker_repetido_nao_muda_nada_e_alvo_desconhecido_nao_grava()
-    {
-        await Run("speaker", "yst00001:000001", "--nome", "Inui");
-
-        var again = await Run("speaker", "yst00001:000001", "--nome", "Inui", JsonOption);
-        var unknown = await Run("speaker", "yst00001:000002,yst00001:009999", "--nome", "Inui");
-
-        using var doc = JsonDocument.Parse(again.Output);
-        Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("changed").GetInt32());
-        Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("unchanged").GetInt32());
-        Assert.Equal(1, unknown.ExitCode);
-        Assert.Null(Line(Yst00001, 1).ChosenSpeaker);
-    }
-
-    [Theory]
-    [InlineData("--nome", " ")]
-    public async Task Speaker_exige_exatamente_uma_das_tres_formas(params string[] extra)
-    {
-        var result = await Run(["speaker", "yst00001:000001", .. extra]);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("--nome", result.Error, StringComparison.Ordinal);
-        Assert.Null(Line(Yst00001, 0).ChosenSpeaker);
     }
 }

@@ -2,12 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Cli\VNForge.Cli.csproj" />
-    <!-- O assistente de novo projeto tem de gerar o mesmo projeto que o vnf init (WizardEquivalenceTests). -->
+    <!-- O BuildScreenTests confere a tela de build do App contra o vnf build. -->
     <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\docs\design\tokens.json" Link="design\tokens.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

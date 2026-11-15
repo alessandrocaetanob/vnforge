@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R5")]
 public sealed class AiUsageRecordingTests : IDisposable
 {
     private const string UnitId = "yst00001:000001";

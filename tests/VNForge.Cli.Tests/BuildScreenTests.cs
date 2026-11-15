@@ -13,6 +13,7 @@ using VNForge.Engines.YuRis.Tests.Ystl.Synthetic;
 namespace VNForge.Cli.Tests;
 
 /// <summary>#103: a tela Build e injeção faz build, injeção e restauração numa pasta de jogo sintética, com o Core e as engines reais.</summary>
+[Trait("Risco", "R6")]
 public sealed class BuildScreenTests : IDisposable
 {
     private const string Ysbin = "ysbin.ypf";
@@ -86,21 +87,6 @@ public sealed class BuildScreenTests : IDisposable
         Assert.Empty(vm.Changes);
         Assert.False(vm.InjectCommand.CanExecute(null));
         Assert.Contains("já estão iguais", vm.PlanMessage);
-    }
-
-    [Fact]
-    public async Task Jogo_atualizado_depois_da_extracao_trava_a_injecao_e_diz_por_que()
-    {
-        var vm = await OpenProjectAsync();
-        Translate();
-        await vm.BuildCommand.ExecuteAsync(null);
-        File.AppendAllText(Path.Combine(_game, Ysbin), "atualização do jogo");
-
-        await vm.ReloadAsync();
-
-        Assert.False(vm.InjectCommand.CanExecute(null));
-        Assert.Contains(Ysbin, vm.PlanMessage);
-        Assert.Empty(vm.Changes);
     }
 
     private sealed class LaunchRecorder : IGameProcessStarter

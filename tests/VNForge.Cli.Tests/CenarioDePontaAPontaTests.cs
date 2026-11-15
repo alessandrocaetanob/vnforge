@@ -16,6 +16,10 @@ namespace VNForge.Cli.Tests;
 /// Os cinco cenários de ponta a ponta do plano de testes (T3, #700): cada um roda os comandos do CLI de verdade sobre um jogo YU-RIS sintético
 /// (um <c>ysbin.ypf</c> e um <c>bgm.ypf</c> montados em código), com o provedor falso no lugar da IA.
 /// </summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R2")]
+[Trait("Risco", "R3")]
+[Trait("Risco", "R4")]
 public sealed class CenarioDePontaAPontaTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";

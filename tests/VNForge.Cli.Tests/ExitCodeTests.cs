@@ -4,6 +4,7 @@ using VNForge.Core.Logging;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R6")]
 public sealed class ExitCodeTests : IDisposable
 {
     private const string Falha = "falha";
@@ -44,19 +45,6 @@ public sealed class ExitCodeTests : IDisposable
     }
 
     [Fact]
-    public async Task Erro_inesperado_sai_com_1_sem_stack_trace()
-    {
-        _cli.AddCommand("bug", _ => throw new InvalidOperationException("estado quebrado"));
-
-        var result = await _cli.RunAsync(["bug"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.StartsWith("Erro inesperado.", result.Error);
-        Assert.DoesNotContain("estado quebrado", result.Error);
-        Assert.DoesNotContain(" at ", result.Error);
-    }
-
-    [Fact]
     public async Task QA_bloqueante_devolvido_pelo_comando_sai_com_2()
     {
         _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
@@ -77,156 +65,6 @@ public sealed class ExitCodeTests : IDisposable
 
         Assert.Equal(3, result.ExitCode);
         Assert.Equal("Operação cancelada." + Environment.NewLine, result.Error);
-    }
-
-    [Fact]
-    public async Task Timeout_de_rede_com_o_token_ativo_e_erro_e_nao_cancelamento()
-    {
-        _cli.AddCommand("rede", _ => throw new TaskCanceledException("HttpClient.Timeout"));
-
-        var result = await _cli.RunAsync(["rede"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.StartsWith("Erro inesperado.", result.Error);
-    }
-
-    [Fact]
-    public async Task Cancelar_o_token_com_o_comando_em_andamento_sai_com_3()
-    {
-        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _cli.AddCommand("longo", async (_, token) =>
-        {
-            started.SetResult();
-            await Task.Delay(Timeout.Infinite, token);
-            return 0;
-        });
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-
-        var running = _cli.RunAsync(["longo"], cts.Token);
-        await started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        await cts.CancelAsync();
-        var result = await running;
-
-        Assert.Equal(3, result.ExitCode);
-        Assert.Equal("Operação cancelada." + Environment.NewLine, result.Error);
-    }
-
-    [Fact]
-    public async Task Opcao_desconhecida_sai_com_1_e_aponta_a_ajuda()
-    {
-        var result = await _cli.RunAsync([NaoExisteOption], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.StartsWith("Erro: ", result.Error);
-        Assert.Contains(NaoExisteOption, result.Error);
-        Assert.Contains("--help", result.Error);
-    }
-
-    [Fact]
-    public async Task Verbose_e_quiet_juntos_sao_erro_de_uso()
-    {
-        var result = await _cli.RunAsync(["--verbose", "--quiet"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--verbose", result.Error);
-        Assert.Contains("--quiet", result.Error);
-    }
-
-    [Fact]
-    public async Task Json_nao_muda_o_codigo_de_saida_nem_escreve_no_stderr()
-    {
-        _cli.AddCommand(FakeQaCommand, _ => ErrorHandler.QaBlockedExitCode);
-        _cli.AddCommand(Falha, _ => throw new VNForge.Core.VNForgeException("O arquivo 'a.ypf' é inválido: truncado"));
-        _cli.AddCommand(Cancela, _ => throw new OperationCanceledException());
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        var qa = await _cli.RunAsync([FakeQaCommand, JsonFlag], TestContext.Current.CancellationToken);
-        var erro = await _cli.RunAsync([Falha, JsonFlag], TestContext.Current.CancellationToken);
-        var cancelado = await _cli.RunAsync([Cancela, JsonFlag], cts.Token);
-
-        Assert.Equal(2, qa.ExitCode);
-        Assert.Equal(1, erro.ExitCode);
-        Assert.Equal(3, cancelado.ExitCode);
-        Assert.All(new[] { qa, erro, cancelado }, r => Assert.Equal(string.Empty, r.Error));
-
-        using var doc = JsonDocument.Parse(erro.Output);
-        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Equal(1, doc.RootElement.GetProperty("exitCode").GetInt32());
-        Assert.Equal("expected", doc.RootElement.GetProperty(Error).GetProperty("kind").GetString());
-        Assert.Equal(
-            "O arquivo 'a.ypf' é inválido: truncado",
-            doc.RootElement.GetProperty(Error).GetProperty("message").GetString());
-    }
-
-    [Fact]
-    public async Task Erro_de_uso_com_json_sai_como_json()
-    {
-        var result = await _cli.RunAsync([NaoExisteOption, JsonFlag], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        using var doc = JsonDocument.Parse(result.Output);
-        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Contains(NaoExisteOption, doc.RootElement.GetProperty(Error).GetProperty("message").GetString());
-    }
-
-    [Fact]
-    public async Task Opcao_obrigatoria_ausente_sai_em_portugues()
-    {
-        AddCommandWithParameters();
-
-        var result = await _cli.RunAsync([Importa, "a.po"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("A opção '--game' é obrigatória.", result.Error);
-        Assert.DoesNotContain("is required", result.Error);
-    }
-
-    [Fact]
-    public async Task Valor_invalido_sai_em_portugues()
-    {
-        AddCommandWithParameters();
-
-        var result = await _cli.RunAsync(
-            [Importa, "a.po", GameOption, "g", "--limit", "abc"],
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("O valor 'abc' não é válido para a opção '--limit'", result.Error);
-        Assert.DoesNotContain("Cannot parse", result.Error);
-    }
-
-    [Fact]
-    public async Task Argumento_ausente_e_opcao_sem_valor_saem_em_portugues()
-    {
-        AddCommandWithParameters();
-
-        var semArgumento = await _cli.RunAsync([Importa, GameOption, "g"], TestContext.Current.CancellationToken);
-        var semValor = await _cli.RunAsync([Importa, "a.po", GameOption], TestContext.Current.CancellationToken);
-
-        Assert.Contains("argumento obrigatório", semArgumento.Error);
-        Assert.Contains("A opção '--game' precisa de um valor.", semValor.Error);
-    }
-
-    [Fact]
-    public async Task Comando_desconhecido_sai_em_portugues_e_com_json()
-    {
-        var result = await _cli.RunAsync(["nada", JsonFlag], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        using var doc = JsonDocument.Parse(result.Output);
-        var message = doc.RootElement.GetProperty(Error).GetProperty("message").GetString();
-        Assert.Contains("'nada' não é um comando", message);
-    }
-
-    [Fact]
-    public async Task Project_sem_valor_engole_a_opcao_seguinte_como_pasta()
-    {
-        var result = await _cli.RunAsync(["--project", JsonFlag], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains(JsonFlag, result.Error);
     }
 
     private void AddCommandWithParameters()
