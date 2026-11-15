@@ -24,6 +24,9 @@ public sealed class SheetTerms
 {
     private readonly Dictionary<string, SheetTerm> _terms = new(StringComparer.Ordinal);
 
+    /// <summary>Os termos do arquivo cujo tipo esta versão não conhece; <see cref="SheetStore"/> os devolve ao gravar.</summary>
+    internal List<SheetStore.TermEntry> Unrecognized { get; } = [];
+
     public IReadOnlyList<SheetTerm> All => [.. _terms.Values.OrderBy(t => t.Kind).ThenBy(t => t.Id, StringComparer.Ordinal)];
 
     /// <summary>A chave de um termo na ficha e na CLI: <c>tag:g12</c>, <c>trait:i34</c> ou <c>group:i10</c>.</summary>

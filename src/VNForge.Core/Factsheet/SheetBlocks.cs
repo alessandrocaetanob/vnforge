@@ -1,14 +1,16 @@
 using VNForge.Core.Library;
 using VNForge.Core.Text;
+using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Factsheet;
 
-/// <summary>O que um bloco da revisão da ficha é: a sinopse, os nomes das tags do jogo ou um personagem (descrição e traços).</summary>
+/// <summary>O que um bloco da revisão da ficha é: a sinopse, os nomes das tags do jogo, um personagem (descrição e traços) ou os nomes dos grupos de traços do jogo.</summary>
 public enum SheetBlockKind
 {
     Synopsis,
     Tags,
     Character,
+    TraitGroups,
 }
 
 /// <summary>
@@ -77,6 +79,7 @@ public static class SheetBlocks
             blocks.Add(new SheetBlock(SheetBlockKind.Tags, "tags", "Gêneros e tags", null, [List("Gêneros e tags", tags)]));
         }
 
+        var groupTraits = new List<VndbTrait>();
         var byId = characters.ToDictionary(c => c.Id, StringComparer.Ordinal);
         foreach (var character in game.CharacterIds.Select(id => byId.GetValueOrDefault(id)).OfType<CharacterSheet>())
         {
@@ -91,22 +94,12 @@ public static class SheetBlocks
                 pairs.Add(new SheetPair($"Descrição de {character.Name}", [SheetField.OfCharacter(character.Id)], [description], false));
             }
 
-            var visible = character.Traits.Where(t => t.Spoiler == 0 && !t.Lie && !SheetViewer.IsTraitHidden(t, visibility)).ToList();
+            var visible = ReviewTraits(character, visibility);
+            groupTraits.AddRange(visible);
             var traits = visible.Select(t => (Field: SheetField.OfTrait(t.Id), t.Name, Term: terms.Find(SheetTermKind.Trait, t.Id))).ToList();
             if (traits.Count > 0)
             {
                 pairs.Add(List($"Traços de {character.Name}", traits, [.. visible.Select(t => t.GroupName ?? string.Empty)]));
-            }
-
-            var groups = visible
-                .Where(t => !string.IsNullOrWhiteSpace(t.GroupId))
-                .DistinctBy(t => t.GroupId, StringComparer.Ordinal)
-                .Select(t => (Field: SheetField.OfGroup(t.GroupId), Name: t.GroupName ?? string.Empty, Term: terms.Find(SheetTermKind.Group, t.GroupId)))
-                .Where(g => g.Term is not null)
-                .ToList();
-            if (groups.Count > 0)
-            {
-                pairs.Add(List($"Grupos dos traços de {character.Name}", groups));
             }
 
             if (pairs.Count > 0)
@@ -115,8 +108,29 @@ public static class SheetBlocks
             }
         }
 
+        var groups = GroupItems(groupTraits, terms);
+        if (groups.Count > 0)
+        {
+            blocks.Add(new SheetBlock(SheetBlockKind.TraitGroups, "groups", "Grupos dos traços", null, [List("Grupos dos traços", groups)]));
+        }
+
         return blocks;
     }
+
+    /// <summary>Os traços de um personagem que a revisão oferece: sem spoiler, sem mentira e sem o que a <paramref name="visibility"/> esconde.</summary>
+    internal static List<VndbTrait> ReviewTraits(CharacterSheet character, SheetVisibility visibility) =>
+        [.. character.Traits.Where(t => t.Spoiler == 0 && !t.Lie && !SheetViewer.IsTraitHidden(t, visibility))];
+
+    /// <summary>Um item por grupo de <paramref name="traits"/>, na ordem dos grupos do VNDB e sem repetir, só dos que já têm termo na ficha (ficha buscada antes de o grupo ser traduzível não tem).</summary>
+    internal static List<(SheetField Field, string Name, SheetTerm? Term)> GroupItems(IEnumerable<VndbTrait> traits, SheetTerms terms) =>
+    [
+        .. traits
+            .Where(t => SheetTerms.IsGroupId(t.GroupId))
+            .DistinctBy(t => t.GroupId, StringComparer.Ordinal)
+            .OrderBy(t => SheetLabels.TraitGroupRank(t.GroupName))
+            .Select(t => (Field: SheetField.OfGroup(t.GroupId), Name: t.GroupName ?? string.Empty, Term: terms.Find(SheetTermKind.Group, t.GroupId)))
+            .Where(g => g.Term is not null),
+    ];
 
     /// <summary>
     /// Grava a tradução escrita à mão. Um texto só vai inteiro; uma lista (tags, traços) precisa de um nome por item do original, separados por vírgula e na mesma ordem. O que muda vira

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Tests.Projects;
@@ -34,5 +35,24 @@ public sealed class SheetFetchAndStoreTests
         Assert.Contains(Game1, Assert.Throws<LibraryException>(() => store.LoadGame(Game1)).Message, StringComparison.Ordinal);
         Assert.Contains("versão 9", Assert.Throws<LibraryException>(store.LoadTerms).Message, StringComparison.Ordinal);
         Assert.Equal("{ não é json", File.ReadAllText(store.GamePath(Game1)));
+    }
+
+    [Fact]
+    public void Termo_de_tipo_desconhecido_e_ignorado_na_leitura_e_volta_intacto_na_gravacao()
+    {
+        using var folder = new TempFolder();
+        var store = new SheetStore(folder.Path);
+        var terms = new SheetTerms();
+        terms.Ensure(SheetTermKind.Tag, "g1", "Comedy", null);
+        store.SaveTerms(terms);
+        var file = JsonNode.Parse(File.ReadAllText(store.TermsPath))!;
+        file["data"]!["terms"]!.AsArray().Add(JsonNode.Parse("{\"kind\":\"future\",\"id\":\"z9\",\"source\":\"Novo\"}"));
+        File.WriteAllText(store.TermsPath, file.ToJsonString());
+
+        var loaded = store.LoadTerms();
+        store.SaveTerms(loaded);
+
+        Assert.Equal(["tag:g1"], loaded.All.Select(t => SheetTerms.KeyOf(t.Kind, t.Id)));
+        Assert.Contains("\"future\"", File.ReadAllText(store.TermsPath), StringComparison.Ordinal);
     }
 }
