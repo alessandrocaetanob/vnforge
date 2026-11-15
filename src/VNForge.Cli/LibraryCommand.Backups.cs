@@ -52,9 +52,9 @@ internal static partial class LibraryCommand
             return ErrorHandler.OkExitCode;
         }
 
-        output.WriteLine(folder is null
-            ? $"Pasta dos backups: o padrão, a pasta backup dentro de cada projeto.{(changed ? " Gravado." : string.Empty)}"
-            : $"Pasta dos backups: {folder}.{(changed ? " Gravado." : string.Empty)}");
+        var saved = changed ? " Gravado." : string.Empty;
+        var where = folder ?? "o padrão, a pasta backup dentro de cada projeto";
+        output.WriteLine($"Pasta dos backups: {where}.{saved}");
         foreach (var old in previous)
         {
             output.WriteLine($"Pasta anterior: {old} (os backups dela continuam na lista e na restauração)");

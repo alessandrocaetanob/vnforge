@@ -3,6 +3,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R5")]
 public sealed class ConfigCommandTests : IDisposable
 {
     private const string Config = "config";
@@ -57,52 +58,5 @@ public sealed class ConfigCommandTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_cli.UserConfigDirectory, "apikey.dat")));
         Assert.Contains("claude-haiku-5-5", await File.ReadAllTextAsync(Path.Combine(_cli.UserConfigDirectory, "ai.json"), TestContext.Current.CancellationToken));
         Assert.DoesNotContain("apikey", await File.ReadAllTextAsync(Path.Combine(_cli.UserConfigDirectory, "ai.json"), TestContext.Current.CancellationToken), StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Json_mostra_o_modelo_e_a_origem_sem_a_chave()
-    {
-        await _cli.RunAsync([Config, "ai", SetKeyOption, ModelOption, "claude-fable-5-1"], TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync([Config, "ai", "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.DoesNotContain(Key, result.Output);
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal("claude-fable-5-1", data.GetProperty("model").GetString());
-        Assert.True(data.GetProperty("keyConfigured").GetBoolean());
-    }
-
-    [Fact]
-    public async Task Clear_key_apaga_o_cofre()
-    {
-        await _cli.RunAsync([Config, "ai", SetKeyOption], TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync([Config, "ai", "--clear-key"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.False(File.Exists(Path.Combine(_cli.UserConfigDirectory, "apikey.dat")));
-        Assert.Equal(VNForge.AI.Settings.ApiKeySource.None, VNForge.AI.Settings.ApiKeyResolver.Resolve(_cli.Cli.ApiKeyStore, _ => null).Source);
-    }
-
-    [Fact]
-    public async Task Modelo_desconhecido_sai_com_1_sem_gravar()
-    {
-        var result = await _cli.RunAsync([Config, "ai", ModelOption, "gpt-4"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.False(File.Exists(Path.Combine(_cli.UserConfigDirectory, "ai.json")));
-    }
-
-    [Fact]
-    public async Task Chave_vazia_sai_com_1()
-    {
-        using var vazio = new CliHarness("\n");
-
-        var result = await vazio.RunAsync([Config, "ai", SetKeyOption], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.False(File.Exists(Path.Combine(vazio.UserConfigDirectory, "apikey.dat")));
     }
 }

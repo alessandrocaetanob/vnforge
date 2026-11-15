@@ -1339,7 +1339,16 @@ public sealed partial class BuildViewModel : ObservableObject
     {
         var current = IsInCurrentRoot(backup, state);
         var name = string.Equals(backup.Root, state.DefaultRoot, StringComparison.OrdinalIgnoreCase) ? BackupRelative(backup.Name) : backup.Name;
-        var tag = backup.IsManual ? "à mão" : !current ? "pasta anterior" : null;
+        string? tag = null;
+        if (backup.IsManual)
+        {
+            tag = "à mão";
+        }
+        else if (!current)
+        {
+            tag = "pasta anterior";
+        }
+
         return new BackupRow(name, FormatSize(backup.SizeBytes), DescribeBackup(backup), tag, backup.IsManual, Directory: backup.Directory, CanRestore: backup.IsManual && !backup.Restored && backup.Problem is null && backup.OriginalFiles.Count > 0);
     }
 
@@ -1538,7 +1547,7 @@ public sealed partial class BuildViewModel : ObservableObject
             CurrentRoot = project.Backups.CurrentRoot(project),
             DefaultRoot = project.BackupDirectory,
             Unreachable = project.Backups.Unreachable(project),
-            BackupGame = !Directory.Exists(gameFolder) ? ManualBackupGame.NoGame : hasBuild ? ManualBackupGame.Included : ManualBackupGame.NoBuild,
+            BackupGame = BackupGameOf(gameFolder, hasBuild),
             QaErrorKinds = qaCounts.ErrorKinds,
             Changes = ReadChanges(project, saved),
             SceneNames = TryScriptNames(project),
@@ -1629,6 +1638,16 @@ public sealed partial class BuildViewModel : ObservableObject
 
     private static bool IsExpected(Exception e) =>
         e is VNForgeException or IOException or UnauthorizedAccessException or OperationCanceledException;
+
+    private static ManualBackupGame BackupGameOf(string gameFolder, bool hasBuild)
+    {
+        if (!Directory.Exists(gameFolder))
+        {
+            return ManualBackupGame.NoGame;
+        }
+
+        return hasBuild ? ManualBackupGame.Included : ManualBackupGame.NoBuild;
+    }
 
     private sealed record ProjectState(
         string GameFolder,

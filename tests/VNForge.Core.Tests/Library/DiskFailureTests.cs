@@ -13,6 +13,9 @@ namespace VNForge.Core.Tests.Library;
 /// O esperado é erro em português e o arquivo anterior com os mesmos bytes, nunca sucesso com dado perdido. Um caso por tipo de falha, e cada caso percorre todos os
 /// caminhos da sua área e junta o que deu errado, para um teste só dizer quais caminhos falharam.
 /// </summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R2")]
+[Trait("Risco", "R7")]
 public sealed class DiskFailureTests : IDisposable
 {
     private const string Key = "yst00001";

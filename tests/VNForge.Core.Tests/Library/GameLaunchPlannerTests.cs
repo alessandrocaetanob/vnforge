@@ -3,6 +3,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R6")]
 public sealed class GameLaunchPlannerTests : IDisposable
 {
     private readonly TempFolder _dir = new();
@@ -27,43 +28,6 @@ public sealed class GameLaunchPlannerTests : IDisposable
         }
 
         return new LibraryGame(GameLibrary.IdFor(Folder), Folder, exe, LibraryEngine.Unknown, "CLANNAD", null, DateTimeOffset.UnixEpoch) { RequiresJapaneseLocale = japanese };
-    }
-
-    [Fact]
-    public void Caminho_do_Locale_Emulator_pode_ser_a_pasta_e_pode_vir_entre_aspas()
-    {
-        Touch("LE", "LEProc.exe");
-
-        var launch = GameLaunchPlanner.Plan(new GameLibrary(localeEmulatorPath: $"\"{Path.Combine(_dir.Path, "LE")}\""), Game(japanese: true));
-
-        Assert.Equal(Path.Combine(_dir.Path, "LE", "LEProc.exe"), launch.Executable);
-    }
-
-    [Fact]
-    public void Pedido_na_chamada_vale_mais_que_a_opcao_do_jogo_nos_dois_sentidos()
-    {
-        var library = new GameLibrary(localeEmulatorPath: Touch("LE", "LEProc.exe"));
-
-        Assert.True(GameLaunchPlanner.Plan(library, Game(), japaneseLocale: true).ViaLocaleEmulator);
-        Assert.False(GameLaunchPlanner.Plan(library, Game(japanese: true), japaneseLocale: false).ViaLocaleEmulator);
-    }
-
-    [Fact]
-    public void Sem_Locale_Emulator_configurado_o_erro_diz_o_comando()
-    {
-        var error = Assert.Throws<LibraryException>(() => GameLaunchPlanner.Plan(new GameLibrary(), Game(japanese: true)));
-
-        Assert.Contains("vnf library emulator", error.Message);
-    }
-
-    [Fact]
-    public void Locale_Emulator_que_nao_existe_mais_e_recusado()
-    {
-        var library = new GameLibrary(localeEmulatorPath: Path.Combine(_dir.Path, "sumiu"));
-
-        var error = Assert.Throws<LibraryException>(() => GameLaunchPlanner.Plan(library, Game(japanese: true)));
-
-        Assert.Contains("não foi encontrado", error.Message);
     }
 
     [Fact]

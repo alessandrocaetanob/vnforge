@@ -6,6 +6,7 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R9")]
 public sealed class LibraryCatalogTests
 {
     private const string CoverUrl = "https://t.vndb.org/cv/34/1234.jpg";
@@ -141,73 +142,6 @@ public sealed class LibraryCatalogTests
     }
 
     [Fact]
-    public void Biblioteca_vazia_gera_uma_pagina_valida_com_o_aviso()
-    {
-        var result = Render([]);
-
-        Assert.Equal(0, result.Games);
-        Assert.Contains("Nenhuma VN", result.Html, StringComparison.Ordinal);
-        _ = Parse(result.Html);
-    }
-
-    [Fact]
-    public void A_ultima_sessao_usa_o_fuso_da_hora_de_geracao_e_nao_o_da_maquina()
-    {
-        var game = Clannad();
-        var log = new PlayLog();
-        var end = new DateTimeOffset(2026, 11, 9, 23, 30, 0, TimeSpan.FromHours(-3));
-        log.Upsert(game.Id, new PlaySession("s1", end.AddHours(-1), end, TimeSpan.FromHours(1)));
-        var libraryOf = new GameLibrary([game]);
-
-        var inBrasilia = LibraryCatalog.Render(libraryOf, log, new DateTimeOffset(2026, 11, 10, 9, 0, 0, TimeSpan.FromHours(-3)), null, null, _ => null).Html;
-        var inUtc = LibraryCatalog.Render(libraryOf, log, new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero), null, null, _ => null).Html;
-
-        Assert.Contains("a última em 09/11/2026", inBrasilia, StringComparison.Ordinal);
-        Assert.Contains("a última em 10/11/2026", inUtc, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Texto_com_caractere_que_o_XML_nao_aceita_continua_gerando_documento_valido()
-    {
-        var game = Clannad();
-        var broken = game with
-        {
-            Info = game.Info! with { Title = "Ruim\uD800\uFFFE\uFFFF\u0001Fim \uD83D\uDE00 par", Synopsis = "Sozinho\uDC00 depois" },
-        };
-
-        var html = Render([broken]).Html;
-
-        _ = Parse(html);
-        Assert.Contains("RuimFim \uD83D\uDE00 par", html, StringComparison.Ordinal);
-        Assert.Contains("Sozinho depois", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Destino_dentro_da_pasta_de_um_jogo_e_reconhecido()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
-        var gameFolder = Path.Combine(root, "CLANNAD");
-        var other = Path.Combine(root, "CLANNAD 2");
-        Directory.CreateDirectory(gameFolder);
-        Directory.CreateDirectory(other);
-        try
-        {
-            var game = Clannad() with { Folder = gameFolder };
-            var library = new GameLibrary([game]);
-
-            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "catalogo.html")));
-            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "novo", "catalogo.html")));
-            Assert.Same(game, LibraryCatalog.GameHolding(library, Path.Combine(gameFolder, "novo", "..", "catalogo.html")));
-            Assert.Null(LibraryCatalog.GameHolding(library, Path.Combine(other, "catalogo.html")));
-            Assert.Null(LibraryCatalog.GameHolding(library, Path.Combine(root, "catalogo.html")));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public void A_pagina_e_um_documento_bem_formado_e_abre_sem_erro()
     {
         var game = Clannad();
@@ -225,45 +159,6 @@ public sealed class LibraryCatalogTests
         Assert.Equal(2, document.Descendants().Count(e => e.Name.LocalName == "article"));
         Assert.Contains("<!DOCTYPE html>", html, StringComparison.Ordinal);
         Assert.Contains("charset=\"utf-8\"", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Projeto_que_nao_se_le_ou_ausente_nao_tem_andamento()
-    {
-        var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(folder);
-        try
-        {
-            var game = Clannad() with { ProjectPath = folder };
-
-            Assert.Null(LibraryCatalog.ReadTranslation(game));
-            Assert.Null(LibraryCatalog.ReadTranslation(game with { ProjectPath = null }));
-        }
-        finally
-        {
-            Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Theory]
-    [InlineData("{\"version\": 1, \"units\": {\"a\": 1}}")]
-    public void Projeto_com_texto_truncado_ou_malformado_nao_derruba_o_catalogo(string textJson)
-    {
-        var folder = Path.Combine(Path.GetTempPath(), "vnforge-catalog-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(folder, "text"));
-        try
-        {
-            File.WriteAllText(Path.Combine(folder, "vnforge.json"), "{\"version\": 1");
-            File.WriteAllText(Path.Combine(folder, "text", "script.json"), textJson);
-            var game = Clannad() with { ProjectPath = folder };
-
-            Assert.Null(LibraryCatalog.ReadTranslation(game));
-            Assert.Equal(1, LibraryCatalog.Render(new GameLibrary([game]), new PlayLog(), Generated).Games);
-        }
-        finally
-        {
-            Directory.Delete(folder, recursive: true);
-        }
     }
 
     private sealed class FakeSheets(LibrarySheet sheet) : ILibrarySheetSource

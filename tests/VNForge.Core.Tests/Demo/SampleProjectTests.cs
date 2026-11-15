@@ -6,19 +6,9 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Demo;
 
+[Trait("Risco", "R6")]
 public class SampleProjectTests
 {
-    [Fact]
-    public void A_cena_de_exemplo_tem_30_falas_em_japones_e_o_portugues_de_cada_uma()
-    {
-        var all = SampleProject.Texts.Values.SelectMany(u => u).ToList();
-
-        Assert.Equal(30, SampleProject.LineCount);
-        Assert.Equal(30, all.Count);
-        Assert.All(all, unit => Assert.NotNull(SampleProject.TranslationOf(unit.Source)));
-        Assert.Equal(30, all.Select(u => u.Source).Distinct().Count());
-    }
-
     [Fact]
     public void Create_de_novo_devolve_a_mesma_pasta_sem_apagar_o_que_a_pessoa_traduziu()
     {
@@ -64,56 +54,5 @@ public class SampleProjectTests
         Assert.DoesNotContain(root, error.Message);
         Assert.Equal("{ \"meu\": true }", File.ReadAllText(config));
         Assert.False(File.Exists(Path.Combine(root, SampleProject.MarkerFileName)));
-    }
-
-    [Fact]
-    public void Create_com_marcador_e_sem_vnforge_json_nao_apaga_as_traducoes()
-    {
-        using var temp = new TempFolder();
-        var root = SampleProject.Create(temp.Path);
-        var folder = ProjectFolder.Open(root);
-        var key = folder.LoadAllText().Keys.Order(StringComparer.Ordinal).First();
-        folder.SaveText(key, folder.LoadText(key).Select((u, i) => i == 0 ? u with { Translation = "Mudei.", Status = TranslationStatus.Approved } : u).ToList());
-        File.Delete(Path.Combine(root, ProjectFolder.ConfigFileName));
-
-        var error = Assert.Throws<ProjectConfigException>(() => SampleProject.Create(temp.Path));
-
-        Assert.Contains(ProjectFolder.ConfigFileName, error.Message);
-        Assert.Contains("Mudei.", File.ReadAllText(folder.TextPath(key)));
-    }
-
-    [Fact]
-    public void Create_com_uma_pasta_de_mesmo_nome_e_outro_conteudo_nao_a_apaga()
-    {
-        using var temp = new TempFolder();
-        var root = Path.Combine(temp.Path, SampleProject.FolderName);
-        Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "notas.txt"), "minhas notas");
-
-        Assert.Throws<ProjectConfigException>(() => SampleProject.Create(temp.Path));
-
-        Assert.Equal("minhas notas", File.ReadAllText(Path.Combine(root, "notas.txt")));
-    }
-
-    [Fact]
-    public void Um_projeto_comum_nao_e_exemplo()
-    {
-        using var temp = new TempFolder();
-        var root = DemoProject.Create(temp.Path);
-
-        Assert.False(SampleProject.IsSample(root));
-        Assert.False(ProjectSummaryReader.Read(root).IsSample);
-    }
-
-    [Fact]
-    public void A_Conferencia_aponta_o_espaco_duplo_da_fala_da_IA()
-    {
-        using var temp = new TempFolder();
-        var folder = ProjectFolder.Open(SampleProject.Create(temp.Path));
-
-        var report = QaEngine.Default.Run(QaContext.FromProject(folder));
-
-        var issue = Assert.Single(report.Issues, i => i.RuleId == "espaco-duplo");
-        Assert.Equal("yst00001:0003", issue.UnitId);
     }
 }

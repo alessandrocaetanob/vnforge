@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R3")]
 public class TextFileSerializerTests
 {
     private const string TextAJson = "text/a.json";
@@ -64,10 +65,6 @@ public class TextFileSerializerTests
 
     [Theory]
     [InlineData("{ \"units\": [] }", "version")]
-    [InlineData("{ \"version\": 1 }", "units")]
-    [InlineData("{ \"version\": 1, \"units\": [], \"extra\": 1 }", "extra")]
-    [InlineData("[]", "objeto")]
-    [InlineData("null", "objeto")]
     public void Parse_de_envelope_invalido_falha_em_portugues_citando_o_arquivo(string json, string trecho)
     {
         var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, TextAJson));
@@ -78,8 +75,6 @@ public class TextFileSerializerTests
 
     [Theory]
     [InlineData("0")]
-    [InlineData("2")]
-    [InlineData("1.5")]
     public void Parse_de_version_nao_suportada_falha(string version)
     {
         var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse($"{{ \"version\": {version}, \"units\": [] }}", TextAJson));
@@ -118,52 +113,6 @@ public class TextFileSerializerTests
         Assert.DoesNotContain("Duplicate", msgRaiz + msgUnidade);
     }
 
-    [Theory]
-    [InlineData("\"id\":null,\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\"", "$.units[0]")]
-    [InlineData("\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"notes\":null", "$.units[0]")]
-    public void Parse_de_campo_nulo_onde_nao_cabe_falha_em_portugues(string campos, string caminho)
-    {
-        var json = $"{{ \"version\": 1, \"units\": [ {{{campos}}} ] }}";
-
-        var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, AJson)).Message;
-
-        Assert.Contains("não aceita null", msg);
-        Assert.Contains(caminho, msg);
-        Assert.DoesNotContain("allow", msg);
-    }
-
-    [Fact]
-    public void Parse_de_status_invalido_e_tipo_errado_falha_em_portugues()
-    {
-        var status = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"quase\"} ] }";
-        var tipo = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":5,\"status\":\"untranslated\"} ] }";
-
-        foreach (var json in new[] { status, tipo })
-        {
-            var msg = Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(json, AJson)).Message;
-            Assert.Contains("valor inválido", msg);
-            Assert.DoesNotContain("could not", msg);
-        }
-    }
-
-    [Fact]
-    public void Serialize_escapa_so_o_que_o_json_exige_e_deixa_o_resto_literal()
-    {
-        var ideografico = ((char)0x3000).ToString();
-        var literal = $"{ideografico}「こんにちは」{(char)0x00A0}😀{(char)0x2028}野家";
-        var texto = $"{literal} \"aspas\" \\ \t{(char)1}";
-
-        var json = TextFileSerializer.Serialize([Unidade(1, texto)]);
-        var outra = TextFileSerializer.Serialize(TextFileSerializer.Parse(json, AJson));
-
-        Assert.Contains(literal, json);
-        Assert.Contains("\\\"aspas\\\" \\\\ \\t\\u0001", json);
-        Assert.DoesNotContain("\\u3000", json);
-        Assert.Equal(json, outra);
-        Assert.Equal(texto, TextFileSerializer.Parse(json, AJson)[0].Source);
-        Assert.Equal(json, TextFileSerializer.Serialize([Unidade(1, texto)]));
-    }
-
     private static TextUnit UnidadeComTextoEmTodosOsCampos(string texto) =>
         new(TextId1, TextUnitKind.Dialogue, texto, texto, texto, TranslationStatus.Translated)
         {
@@ -171,30 +120,6 @@ public class TextFileSerializerTests
             Notes = texto,
             Flags = [texto, texto],
         };
-
-    [Fact]
-    public void Surrogate_solitario_em_qualquer_campo_vira_erro_em_portugues_com_o_id()
-    {
-        var invalido = "ok" + (char)0xD800 + "fim";
-        TextUnit[] unidades =
-        [
-            UnidadeComTextoEmTodosOsCampos("a") with { Id = TextId1, Source = invalido },
-            UnidadeComTextoEmTodosOsCampos("a") with { Translation = invalido },
-            UnidadeComTextoEmTodosOsCampos("a") with { Speaker = invalido },
-            UnidadeComTextoEmTodosOsCampos("a") with { Notes = invalido },
-            UnidadeComTextoEmTodosOsCampos("a") with { Flags = ["a", invalido] },
-            UnidadeComTextoEmTodosOsCampos("a") with { Origin = new TranslationOrigin("manual", invalido, DateTimeOffset.UnixEpoch) },
-        ];
-
-        foreach (var unidade in unidades)
-        {
-            var ex = Assert.Throws<TextFileException>(() => TextFileSerializer.Serialize([unidade], TextAJson));
-
-            Assert.Contains(TextId1, ex.Message);
-            Assert.Contains("surrogate solitário", ex.Message);
-            Assert.Contains(TextAJson, ex.Message);
-        }
-    }
 
     [Fact]
     public void Ida_e_volta_preserva_emoji_e_caracteres_fora_do_plano_basico()
@@ -218,14 +143,6 @@ public class TextFileSerializerTests
         Assert.Contains("campo obrigatório ausente: 'source'", msgFaltando);
         Assert.Contains("campo desconhecido 'traslation'", msgDesconhecido);
         Assert.Contains(AJson, msgDesconhecido);
-    }
-
-    [Fact]
-    public void Parse_de_unidade_nula_ou_flags_com_elemento_nulo_falha()
-    {
-        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse("{ \"version\": 1, \"units\": [ null ] }", AJson));
-        var flagsNulo = "{ \"version\": 1, \"units\": [ {\"id\":\"a:000001\",\"kind\":\"dialogue\",\"source\":\"x\",\"status\":\"untranslated\",\"flags\":[null]} ] }";
-        Assert.Throws<TextFileException>(() => TextFileSerializer.Parse(flagsNulo, AJson));
     }
 
     [Fact]

@@ -32,7 +32,6 @@ public sealed record SyntheticYstb(
 public sealed class SyntheticYstbBuilder(SyntheticYscm yscm)
 {
     public const uint KeyV290 = 0xD36FAC96;
-    public const uint KeyV200 = 0x07B4024A;
 
     private readonly List<SyntheticYstbInstruction> _instructions = [];
     private readonly MemoryStream _resources = new();
@@ -56,13 +55,6 @@ public sealed class SyntheticYstbBuilder(SyntheticYscm yscm)
     public SyntheticYstbBuilder WithPadding(uint padding)
     {
         _padding = padding;
-        return this;
-    }
-
-    /// <summary>Acrescenta bytes no fim dos recursos, sem argumento que aponte para eles.</summary>
-    public SyntheticYstbBuilder AddResource(byte[] bytes)
-    {
-        _resources.Write(bytes);
         return this;
     }
 

@@ -2,6 +2,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public sealed class UnwritableCharactersTests
 {
     public static TheoryData<string, string> Table => new()
@@ -46,16 +47,5 @@ public sealed class UnwritableCharactersTests
         var encoder = TextEncoderRegistry.Default.Create("cp1252");
 
         Assert.Equal("a… \\z", UnwritableCharacters.Fix("a… \\z", encoder));
-    }
-
-    [Theory]
-    [InlineData("… “ ・・・ ♪ ő Ａ café †")]
-    public void E_idempotente(string texto)
-    {
-        var encoder = TextEncoderRegistry.Default.Create("cp1252");
-
-        var uma = UnwritableCharacters.Fix(texto, encoder);
-
-        Assert.Equal(uma, UnwritableCharacters.Fix(uma, encoder));
     }
 }

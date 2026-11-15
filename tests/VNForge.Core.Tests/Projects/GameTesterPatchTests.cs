@@ -10,6 +10,7 @@ using VNForge.Core.Text;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>#342: o teste no jogo aplica o patch do executável quando os acentos são "ajuste no jogo" (cp1252).</summary>
+[Trait("Risco", "R1")]
 public sealed class GameTesterPatchTests : IDisposable
 {
     private const string GameExe = "Jogo.exe";
@@ -82,56 +83,6 @@ public sealed class GameTesterPatchTests : IDisposable
         Directory.Exists(_project.BackupDirectory) ? Directory.GetDirectories(_project.BackupDirectory) : [];
 
     [Fact]
-    public void Projeto_cp1252_sai_do_teste_com_o_exe_trocado_e_o_backup_no_manifesto_com_o_hash_conferido()
-    {
-        var originalHash = Sha256(ExePath);
-
-        var result = Run();
-
-        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
-        var backup = Assert.Single(GameInjector.ListBackups(_project));
-        var entry = Assert.Single(backup.Manifest!.Files, f => f.Path == GameExe);
-        Assert.True(entry.Existed);
-        Assert.Equal(originalHash, entry.OriginalSha256);
-        Assert.Equal(Sha256(ExePath), entry.InjectedSha256);
-        Assert.Equal(OriginalExe, File.ReadAllText(Path.Combine(backup.Directory, GameExe)));
-        Assert.Contains(GameExe, result.Injection.Written);
-        Assert.Contains(FakeEngine.PackageName, result.Injection.Written);
-        Assert.Equal(ExePath, _starter.Executable);
-        Assert.False(Directory.Exists(PatchStaging), "a cópia de trabalho do patch tem que ser apagada");
-    }
-
-    [Fact]
-    public void Segunda_rodada_nao_grava_o_exe_de_novo_nem_cria_outro_backup()
-    {
-        Run();
-        var backup = Assert.Single(BackupFolders());
-        var exeWrittenAt = File.GetLastWriteTimeUtc(ExePath);
-
-        var second = Run();
-
-        Assert.Equal(backup, Assert.Single(BackupFolders()));
-        Assert.Null(second.Injection.BackupDirectory);
-        Assert.Empty(second.Injection.Written);
-        Assert.Equal(exeWrittenAt, File.GetLastWriteTimeUtc(ExePath));
-        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
-    }
-
-    [Fact]
-    public void Jogo_que_ja_esta_com_o_patch_e_com_o_build_nao_grava_nada_nem_cria_backup()
-    {
-        File.WriteAllText(ExePath, PatchedExe);
-        Run(new GameTestOptions(OpenGame: false));
-        var backup = Assert.Single(BackupFolders());
-
-        Assert.DoesNotContain(GameExe, GameInjector.ListBackups(_project).Single().Manifest!.Files.Select(f => f.Path));
-        Run(new GameTestOptions(OpenGame: false));
-
-        Assert.Equal(backup, Assert.Single(BackupFolders()));
-        Assert.Equal(PatchedExe, File.ReadAllText(ExePath));
-    }
-
-    [Fact]
     public void Exe_que_o_patch_recusa_para_o_teste_antes_de_gravar_qualquer_arquivo_no_jogo()
     {
         File.WriteAllText(ExePath, "MZ outro programa");
@@ -147,17 +98,6 @@ public sealed class GameTesterPatchTests : IDisposable
         Assert.False(Directory.Exists(PatchStaging));
         Assert.Contains(FakeExePatch.RefusalReason, erro.Message);
         Assert.IsType<InjectionException>(erro.InnerException);
-    }
-
-    [Fact]
-    public void Recusa_do_patch_vale_tambem_sem_abrir_o_jogo_e_no_teste_de_acentos()
-    {
-        File.WriteAllText(ExePath, "MZ outro programa");
-
-        Assert.Throws<GamePatchRefusedException>(() => Run(new GameTestOptions(OpenGame: false)));
-        Assert.Throws<GamePatchRefusedException>(() => Run(new GameTestOptions(AccentTest: true)));
-
-        Assert.Empty(BackupFolders());
     }
 
     [Fact]

@@ -41,21 +41,6 @@ public static class SyntheticYpfSamples
         { 500, Off32, Mur, Mur },
     };
 
-    internal static SyntheticYpfBuilder SampleBuilder(
-        uint version,
-        SyntheticYpfOffsetSize offsetSize,
-        SyntheticYpfHashAlgorithm nameHash,
-        SyntheticYpfHashAlgorithm dataHash) =>
-        new SyntheticYpfBuilder(version)
-            .WithOffsetSize(offsetSize)
-            .WithNameHash(nameHash)
-            .WithDataHash(dataHash)
-            .AddFile(Script1, SmallBinary, SyntheticYpfFileType.Ybn)
-            .AddFile(Image, Repetitive, SyntheticYpfFileType.Png, compress: true)
-            .AddFile(Sound, [1, 2, 3, 4, 5, 6, 7, 8, 9], SyntheticYpfFileType.Ogg)
-            .AddFile(Script2, Repetitive, SyntheticYpfFileType.Ybn, compress: true)
-            .AddFile(Empty, [], SyntheticYpfFileType.Ybn);
-
     internal static SyntheticYpfBuilder DefaultSample(uint version) =>
         new SyntheticYpfBuilder(version)
             .AddFile(Script1, SmallBinary)

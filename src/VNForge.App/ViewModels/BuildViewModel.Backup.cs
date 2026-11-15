@@ -308,9 +308,15 @@ public sealed partial class BuildViewModel
         {
             var count = group.Count();
             var counted = $" · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
-            PreviousBackupFolders.Add(string.Equals(group.Key, state.DefaultRoot, StringComparison.OrdinalIgnoreCase)
-                ? new BackupFolderLine("Anterior: ", $"backup{Path.DirectorySeparatorChar}", $" do projeto{(state.BackupIgnored ? " · fora do git" : string.Empty)}{counted}")
-                : new BackupFolderLine("Anterior: ", group.Key, counted));
+            if (string.Equals(group.Key, state.DefaultRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                var ignored = state.BackupIgnored ? " · fora do git" : string.Empty;
+                PreviousBackupFolders.Add(new BackupFolderLine("Anterior: ", $"backup{Path.DirectorySeparatorChar}", $" do projeto{ignored}{counted}"));
+            }
+            else
+            {
+                PreviousBackupFolders.Add(new BackupFolderLine("Anterior: ", group.Key, counted));
+            }
         }
 
         if (state.Unreachable.Count > 0)

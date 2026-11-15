@@ -17,8 +17,6 @@ internal sealed class TestClock(DateTimeOffset wall) : TimeProvider
         _wall += by;
     }
 
-    public void SetWall(DateTimeOffset value) => _wall = value;
-
     public override DateTimeOffset GetUtcNow() => _wall;
 
     public override long GetTimestamp() => _ticks;

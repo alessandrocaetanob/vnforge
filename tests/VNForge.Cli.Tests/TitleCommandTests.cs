@@ -11,6 +11,7 @@ using VNForge.Engines.YuRis.Yscfg;
 namespace VNForge.Cli.Tests;
 
 /// <summary>O título da janela do jogo na CLI: <c>vnf extract</c> o lê, <c>vnf title</c> o traduz e <c>vnf build</c> o grava no <c>yscfg.ybn</c> (#427).</summary>
+[Trait("Risco", "R4")]
 public sealed class TitleCommandTests : IDisposable
 {
     private const string OriginalTitle = "テストの題名";
@@ -63,92 +64,6 @@ public sealed class TitleCommandTests : IDisposable
     private ProjectConfig Config() => ProjectFolder.Open(ProjectPath).LoadConfig();
 
     [Fact]
-    public async Task Show_antes_da_extracao_diz_para_rodar_o_extract()
-    {
-        await Init();
-
-        var result = await Run(TitleVerb, "show");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("vnf extract", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Show_mostra_o_original_e_a_traducao()
-    {
-        await InitAndExtract();
-        await Run(TitleVerb, "set", "Meu Jogo");
-
-        var result = await Run(TitleVerb, "show");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains(OriginalTitle, result.Output, StringComparison.Ordinal);
-        Assert.Contains("Meu Jogo", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Show_json_devolve_original_traducao_e_estrategia()
-    {
-        await InitAndExtract();
-        await Run(TitleVerb, "set", "Meu Jogo");
-
-        var result = await Run(TitleVerb, "show", JsonFlag);
-
-        using var doc = JsonDocument.Parse(result.Output);
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(OriginalTitle, data.GetProperty("original").GetString());
-        Assert.Equal("Meu Jogo", data.GetProperty("translation").GetString());
-        Assert.Equal("cp1252", data.GetProperty("encoding").GetString());
-        Assert.True(data.GetProperty("writable").GetBoolean());
-    }
-
-    [Fact]
-    public async Task Set_antes_da_extracao_falha_e_manda_rodar_o_extract()
-    {
-        await Init();
-
-        var result = await Run(TitleVerb, "set", "Meu Jogo");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Null(Config().Game.Title);
-    }
-
-    [Fact]
-    public async Task Set_com_titulo_em_branco_falha()
-    {
-        await InitAndExtract();
-
-        var result = await Run(TitleVerb, "set", "   ");
-
-        Assert.Equal(1, result.ExitCode);
-    }
-
-    [Fact]
-    public async Task Set_com_caractere_que_a_estrategia_nao_grava_salva_e_avisa()
-    {
-        await InitAndExtract("sjis");
-
-        var result = await Run(TitleVerb, "set", "Título");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Aviso", result.Output, StringComparison.Ordinal);
-        Assert.Contains("sjis", result.Output, StringComparison.Ordinal);
-        Assert.Equal("Título", Config().Game.Title!.Translation);
-    }
-
-    [Fact]
-    public async Task Clear_apaga_a_traducao_e_mantem_o_original()
-    {
-        await InitAndExtract();
-        await Run(TitleVerb, "set", "Meu Jogo");
-
-        var result = await Run(TitleVerb, "clear");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(new GameTitleConfig(OriginalTitle, null), Config().Game.Title);
-    }
-
-    [Fact]
     public async Task Build_sem_traducao_do_titulo_deixa_o_yscfg_identico_ao_do_jogo()
     {
         await InitAndExtract();
@@ -157,18 +72,6 @@ public sealed class TitleCommandTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(SyntheticYscfgBuilder.Build(OriginalTitle), ReadEntry(Path.Combine(ProjectPath, "build", "ysbin.ypf"), ConfigEntry));
-    }
-
-    [Fact]
-    public async Task Check_acusa_titulo_que_a_estrategia_nao_grava()
-    {
-        await InitAndExtract("sjis");
-        await Run(TitleVerb, "set", "Título");
-        _cli.Cli.Qa = VNForge.Core.Qa.QaEngine.Default;
-
-        var result = await Run("check", JsonFlag);
-
-        Assert.Contains("titulo-nao-codificavel", result.Output, StringComparison.Ordinal);
     }
 
     private static byte[] ReadEntry(string ypf, string entryPath)

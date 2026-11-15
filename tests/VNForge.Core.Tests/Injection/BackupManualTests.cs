@@ -5,6 +5,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Injection;
 
+[Trait("Risco", "R1")]
 public sealed class BackupManualTests : IDisposable
 {
     private readonly TempFolder _temp = new();

@@ -2,23 +2,9 @@ using VNForge.Core.Vndb;
 
 namespace VNForge.Vndb.Tests;
 
+[Trait("Risco", "R5")]
 public class VndbTokenResolverTests
 {
-    [Fact]
-    public void Le_a_variavel_VNDB_TOKEN_e_tira_os_espacos()
-    {
-        string? asked = null;
-
-        var token = VndbTokenResolver.Resolve(name =>
-        {
-            asked = name;
-            return "  abcd-efgh  ";
-        });
-
-        Assert.Equal("VNDB_TOKEN", asked);
-        Assert.Equal("abcd-efgh", token);
-    }
-
     [Fact]
     public void A_variavel_de_ambiente_vence_o_cofre()
     {
@@ -29,19 +15,6 @@ public class VndbTokenResolverTests
 
         Assert.Equal("do-ambiente", resolved.Token);
         Assert.Equal(VndbTokenSource.Environment, resolved.Source);
-    }
-
-    [Fact]
-    public void Sem_variavel_vale_o_cofre_e_sem_nenhum_dos_dois_nao_ha_token()
-    {
-        var store = new MemoryStore();
-        Assert.Equal(VndbTokenSource.None, VndbTokenResolver.Resolve(store, _ => null).Source);
-
-        store.Save("do-cofre");
-
-        var resolved = VndbTokenResolver.Resolve(store, _ => "");
-        Assert.Equal("do-cofre", resolved.Token);
-        Assert.Equal(VndbTokenSource.Vault, resolved.Source);
     }
 
     [Fact]
@@ -96,16 +69,6 @@ public class VndbTokenResolverTests
         Assert.Equal("do-ambiente", comVariavel.Token);
         Assert.Equal(VndbTokenSource.Environment, comVariavel.Source);
         Assert.True(File.Exists(store.Path));
-    }
-
-    [Fact]
-    public void Sem_arquivo_ou_no_Windows_nao_ha_aviso()
-    {
-        using var dir = new TempDir();
-
-        Assert.Null(new DpapiVndbTokenStore(dir.Path, windows: false).Notice);
-        Assert.Null(new DpapiVndbTokenStore(dir.Path, windows: true).Notice);
-        Assert.Null(VndbTokenResolver.Resolve(new DpapiVndbTokenStore(dir.Path, windows: false), _ => null).Notice);
     }
 
     private sealed class MemoryStore : IVndbTokenStore

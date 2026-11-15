@@ -5,6 +5,7 @@ namespace VNForge.Platform.Windows.Tests;
 
 /// <summary>Registram uma tecla de verdade, por isso só rodam no Windows. Usam a F24, que nenhum teclado tem e nenhum programa registra, para não tomar a F9 de quem roda os testes.</summary>
 [SupportedOSPlatform("windows")]
+[Trait("Risco", "R6")]
 public sealed partial class GlobalHotkeyTests
 {
     private const uint F24 = 0x87;

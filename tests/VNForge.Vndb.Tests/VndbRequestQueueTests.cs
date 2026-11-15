@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace VNForge.Vndb.Tests;
 
+[Trait("Risco", "R7")]
 public class VndbRequestQueueTests
 {
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(5);

@@ -13,4 +13,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- A regra "toda classe de teste leva um trait de risco": o App tem a sua; os outros projetos de teste compilam esta. -->
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests')) And '$(MSBuildProjectName)' != 'VNForge.App.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\RiskTraitTests.cs" Link="RiskTraitTests.cs" />
+  </ItemGroup>
+
 </Project>

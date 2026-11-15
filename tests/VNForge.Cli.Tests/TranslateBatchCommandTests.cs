@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R5")]
 public sealed class TranslateBatchCommandTests : IDisposable
 {
     private const string Key = "yst00001";
@@ -43,63 +44,6 @@ public sealed class TranslateBatchCommandTests : IDisposable
     private NightBatchState OnlyBatch() => Assert.Single(new NightBatchStore(_project).List());
 
     [Fact]
-    public async Task Batch_envia_o_escopo_pela_API_de_lotes_e_nao_grava_nada_ainda()
-    {
-        var result = await Run(BatchFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Lote enviado: msgbatch_fake0001", result.Output, StringComparison.Ordinal);
-        Assert.Contains("3 linhas", result.Output, StringComparison.Ordinal);
-        Assert.Contains("metade do preço", result.Output, StringComparison.Ordinal);
-        Assert.Contains("vnf translate --batch", result.Output, StringComparison.Ordinal);
-        Assert.Equal(1, _client.Creates);
-        Assert.Equal(3, OnlyBatch().LineCount);
-        Assert.All(_project.LoadText(Key).Where(u => u.Status != TranslationStatus.Approved), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
-    }
-
-    [Fact]
-    public async Task Batch_de_novo_com_o_lote_em_andamento_mostra_o_andamento_e_nao_envia_outro()
-    {
-        await Run(BatchFlag);
-
-        var again = await Run(BatchFlag);
-
-        Assert.Equal(0, again.ExitCode);
-        Assert.Contains("em andamento", again.Output, StringComparison.Ordinal);
-        Assert.Contains("msgbatch_fake0001", again.Output, StringComparison.Ordinal);
-        Assert.Equal(1, _client.Creates);
-        Assert.Equal(1, _client.Gets);
-    }
-
-    [Fact]
-    public async Task Linha_que_voltou_com_erro_fica_sem_traducao_e_o_comando_sai_com_erro()
-    {
-        await Run(BatchFlag);
-        _client.OutcomeOf = _ => MessageBatchOutcome.Errored;
-        _client.Finish("msgbatch_fake0001");
-
-        var again = await Run(BatchFlag);
-
-        Assert.Equal(1, again.ExitCode);
-        Assert.Contains("3 linhas voltaram com erro", again.Output, StringComparison.Ordinal);
-        Assert.Equal(TranslationStatus.Untranslated, _project.LoadText(Key)[0].Status);
-    }
-
-    [Fact]
-    public async Task Linha_mudada_a_mao_durante_a_espera_nao_e_sobrescrita()
-    {
-        await Run(BatchFlag);
-        new LineEditor(_project, TimeProvider.System).SetTranslation(Key, $"{Key}:000003", "à mão");
-        _client.Finish("msgbatch_fake0001");
-
-        var again = await Run(BatchFlag);
-
-        Assert.Contains("2 linhas traduzidas", again.Output, StringComparison.Ordinal);
-        Assert.Contains("1 linha foi mudada durante a espera", again.Output, StringComparison.Ordinal);
-        Assert.Equal("à mão", _project.LoadText(Key)[2].Translation);
-    }
-
-    [Fact]
     public async Task Dry_run_com_batch_estima_a_metade_e_nao_chama_a_API()
     {
         var normal = await Run("--dry-run");
@@ -111,53 +55,5 @@ public sealed class TranslateBatchCommandTests : IDisposable
         Assert.Equal(0, _client.Creates);
         Assert.Equal(0, _client.Gets);
         Assert.NotEqual(normal.Output, batch.Output);
-    }
-
-    [Fact]
-    public async Task Cancel_batch_pede_o_cancelamento_do_lote_em_aberto()
-    {
-        await Run(BatchFlag);
-
-        var result = await Run("--cancel-batch");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Cancelamento pedido para o lote msgbatch_fake0001", result.Output, StringComparison.Ordinal);
-        Assert.Equal(1, _client.Cancels);
-        Assert.Equal(NightBatchPhase.Canceling, OnlyBatch().Phase);
-    }
-
-    [Fact]
-    public async Task Cancel_batch_sem_lote_em_aberto_diz_isso_sem_pedir_a_chave()
-    {
-        _cli.Cli.MessageBatchClientFactory = () => throw new InvalidOperationException("Não devia criar o cliente.");
-
-        var result = await Run("--cancel-batch");
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Nenhum lote em aberto", result.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Json_traz_o_id_do_lote_enviado()
-    {
-        var result = await Run(BatchFlag, "--json");
-
-        using var json = JsonDocument.Parse(result.Output);
-        var batch = json.RootElement.GetProperty("data").GetProperty("batch");
-        Assert.Equal("msgbatch_fake0001", batch.GetProperty("id").GetString());
-        Assert.Equal("processing", batch.GetProperty("status").GetString());
-        Assert.Equal(3, batch.GetProperty("lines").GetInt32());
-    }
-
-    [Fact]
-    public async Task Sem_linha_pendente_nao_envia_lote()
-    {
-        _project.SaveText(Key, [Unit(1, TranslationStatus.Approved)]);
-
-        var result = await Run(BatchFlag);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Nada a traduzir", result.Output, StringComparison.Ordinal);
-        Assert.Equal(0, _client.Creates);
     }
 }

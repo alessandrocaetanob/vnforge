@@ -5,6 +5,7 @@ using VNForge.Engines.YuRis.Yscm;
 
 namespace VNForge.Engines.YuRis.Tests.Yscm;
 
+[Trait("Risco", "R3")]
 public class YscmReaderTests
 {
     private const string ReturnCodeCommand = "RETURNCODE";

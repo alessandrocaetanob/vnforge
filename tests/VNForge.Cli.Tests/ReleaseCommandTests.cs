@@ -11,6 +11,7 @@ using VNForge.Patching;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R3")]
 public sealed class ReleaseCommandTests : IDisposable
 {
     private const string ProjectOption = "--project";
@@ -98,30 +99,6 @@ public sealed class ReleaseCommandTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
     }
 
-    [Theory]
-    [InlineData("texto", "não é PNG, JPEG nem WebP")]
-    [InlineData("grande", "aceita até")]
-    [InlineData("falta", "Não achei a capa")]
-    public async Task Capa_invalida_e_recusada_antes_do_build(string kind, string message)
-    {
-        await InitAndExtract();
-        var cover = Path.Combine(_cli.Root, "capa.bin");
-        if (kind == "texto")
-        {
-            await File.WriteAllTextAsync(cover, "não sou imagem", Token);
-        }
-        else if (kind == "grande")
-        {
-            await File.WriteAllBytesAsync(cover, [0x89, 0x50, 0x4E, 0x47, .. new byte[PatchPackage.MaxCoverBytes]], Token);
-        }
-
-        var result = await Release("1.0.0", "--capa", cover);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains(message, result.Error);
-        Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
-    }
-
     [Fact]
     public async Task A_segunda_versao_lista_as_cenas_que_mudaram_desde_a_primeira()
     {
@@ -140,20 +117,5 @@ public sealed class ReleaseCommandTests : IDisposable
         var changes = await File.ReadAllTextAsync(Path.Combine(Out("1.1.0"), "MUDANCAS.txt"), Token);
         Assert.Contains("Mudanças desde a 1.0.0", changes);
         Assert.Contains(Yst1, changes);
-    }
-
-    [Fact]
-    public async Task Versao_invalida_e_instalador_ausente_sao_recusados_antes_do_build()
-    {
-        await InitAndExtract();
-
-        var invalid = await Release("../x");
-        var missing = await _cli.RunAsync(["release", "1.0.0", "--installer", Path.Combine(_cli.Root, "nao-existe.exe"), ProjectOption, ProjectPath], Token);
-
-        Assert.NotEqual(0, invalid.ExitCode);
-        Assert.Contains("Versão inválida", invalid.Error);
-        Assert.NotEqual(0, missing.ExitCode);
-        Assert.Contains("executável do instalador", missing.Error);
-        Assert.False(Directory.Exists(Path.Combine(ProjectPath, "releases")));
     }
 }

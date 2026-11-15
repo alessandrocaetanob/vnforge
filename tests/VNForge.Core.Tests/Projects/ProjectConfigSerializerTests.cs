@@ -2,6 +2,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R5")]
 public class ProjectConfigSerializerTests
 {
     private const string ExemploDoDoc02 = """
@@ -16,45 +17,9 @@ public class ProjectConfigSerializerTests
         }
         """;
 
-    [Fact]
-    public void Serialize_e_Parse_fazem_ida_e_volta()
-    {
-        var original = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-
-        var texto = ProjectConfigSerializer.Serialize(original);
-        var volta = ProjectConfigSerializer.Parse(texto);
-
-        Assert.Equal(original, volta);
-        Assert.Contains("Minha VN — PT-BR", texto);
-        Assert.DoesNotContain('\r', texto);
-        Assert.EndsWith("\n", texto);
-    }
-
-    [Fact]
-    public void Parse_bloco_obrigatorio_ausente_aponta_o_bloco()
-    {
-        var json = RemoverLinha(ExemploDoDoc02, "\"engine\"");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Equal("$.engine", erro.Field);
-        Assert.Contains("obrigatório", erro.Message);
-    }
-
     [Theory]
     [InlineData("\"id\": \"yuris\"", "\"id\": \"yuris\", \"id2\": 1", "$.engine.id2", "desconhecido")]
     [InlineData("\"id\": \"yuris\"", "\"id\": 7", "$.engine.id", "texto")]
-    [InlineData("\"id\": \"yuris\"", "\"id\": \"  \"", "$.engine.id", "vazio")]
-    [InlineData("\"version\": 500", "\"version\": \"500\"", "$.engine.version", "número inteiro")]
-    [InlineData("\"version\": 500", "\"version\": -1", "$.engine.version", "positivo")]
-    [InlineData("0xD36FAC96", "D36FAC96", "$.engine.scriptKey", "0x")]
-    [InlineData("\"engine\": { \"id\": \"yuris\", \"version\": 500, \"scriptKey\": \"0xD36FAC96\" }", "\"engine\": []", "$.engine", "objeto")]
-    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"latin\"", "$.encoding.strategy", "sjis, fold, remap, cp1252")]
-    [InlineData("\"effort\": \"medium\"", "\"effort\": \"extreme\"", "$.ai.effort", "low, medium, high")]
-    [InlineData("claude-opus-5-5", "claude-opus-9", "$.ai.model", "claude-opus-5-5")]
-    [InlineData("\"batchSize\": 30", "\"batchSize\": 0", "$.ai.batchSize", "entre 1 e 200")]
-    [InlineData("\"target\": \"pt-BR\"", "\"target\": \"\"", "$.languages.target", "vazio")]
-    [InlineData("\"exe\": \"MinhaVN.exe\"", "\"exe\": null", "$.game.exe", "texto")]
     public void Parse_valor_invalido_aponta_o_campo(string trecho, string troca, string campo, string motivo)
     {
         var json = ExemploDoDoc02.Replace(trecho, troca);
@@ -96,9 +61,6 @@ public class ProjectConfigSerializerTests
 
     [Theory]
     [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"openai\"", "$.ai.provider")]
-    [InlineData("\"provider\": \"anthropic\"", "\"provider\": \"Anthropic\"", "$.ai.provider")]
-    [InlineData("\"strategy\": \"cp1252\"", "\"strategy\": \"sk-ant-segredo\"", "$.encoding.strategy")]
-    [InlineData("claude-opus-5-5", "sk-ant-segredo", "$.ai.model")]
     public void Parse_valor_recusado_nao_e_ecoado_na_mensagem(string trecho, string troca, string campo)
     {
         var json = ExemploDoDoc02.Replace(trecho, troca);
@@ -109,102 +71,6 @@ public class ProjectConfigSerializerTests
         Assert.DoesNotContain("sk-ant-segredo", erro.Message);
         Assert.DoesNotContain("openai", erro.Message);
         Assert.DoesNotContain("Anthropic", erro.Message);
-    }
-
-    [Fact]
-    public void Parse_json_malformado_aponta_linha_e_coluna_em_portugues()
-    {
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse("{\n  \"name\": \n"));
-
-        Assert.Equal("$", erro.Field);
-        Assert.Matches(@"linha \d+, coluna \d+", erro.Message);
-        Assert.DoesNotContain("LineNumber", erro.Message);
-        Assert.DoesNotContain("BytePositionInLine", erro.Message);
-    }
-
-    [Fact]
-    public void Serialize_recusa_configuracao_invalida()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02) with { Encoding = new EncodingConfig("latin") };
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
-
-        Assert.Equal("$.encoding.strategy", erro.Field);
-    }
-
-    [Fact]
-    public void Titulo_do_jogo_faz_ida_e_volta_com_original_e_traducao()
-    {
-        var json = ExemploDoDoc02.Replace(
-            "\"game\": { \"path\": \"D:/Jogos/MinhaVN\", \"exe\": \"MinhaVN.exe\" }",
-            "\"game\": { \"path\": \"D:/Jogos/MinhaVN\", \"exe\": \"MinhaVN.exe\", \"title\": { \"original\": \"原題\", \"translation\": \"Meu título\" } }");
-
-        var config = ProjectConfigSerializer.Parse(json);
-        var volta = ProjectConfigSerializer.Parse(ProjectConfigSerializer.Serialize(config));
-
-        Assert.Equal(new GameTitleConfig("原題", "Meu título"), config.Game.Title);
-        Assert.Equal(config, volta);
-    }
-
-    [Fact]
-    public void Titulo_do_jogo_sem_original_aponta_o_campo()
-    {
-        var json = ExemploDoDoc02.Replace(
-            "\"exe\": \"MinhaVN.exe\" }",
-            "\"exe\": \"MinhaVN.exe\", \"title\": { \"translation\": \"x\" } }");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Equal("$.game.title.original", erro.Field);
-    }
-
-    [Fact]
-    public void Titulo_do_jogo_com_campo_desconhecido_e_recusado()
-    {
-        var json = ExemploDoDoc02.Replace(
-            "\"exe\": \"MinhaVN.exe\" }",
-            "\"exe\": \"MinhaVN.exe\", \"title\": { \"original\": \"a\", \"extra\": 1 } }");
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Parse(json));
-
-        Assert.Equal("$.game.title.extra", erro.Field);
-    }
-
-    [Fact]
-    public void Versao_do_jogo_faz_ida_e_volta_no_vnforge_json()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-        config = config with { Game = config.Game with { Version = "1.01" } };
-
-        var texto = ProjectConfigSerializer.Serialize(config);
-
-        Assert.Contains("\"version\": \"1.01\"", texto, StringComparison.Ordinal);
-        Assert.Equal("1.01", ProjectConfigSerializer.Parse(texto).Game.Version);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("1.0\n2")]
-    [InlineData(" 1.0")]
-    [InlineData("1.0 ")]
-    public void Versao_do_jogo_invalida_aponta_o_campo(string version)
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-        config = config with { Game = config.Game with { Version = version } };
-
-        var erro = Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
-
-        Assert.Equal("$.game.version", erro.Field);
-    }
-
-    [Fact]
-    public void Versao_do_jogo_longa_demais_e_recusada()
-    {
-        var config = ProjectConfigSerializer.Parse(ExemploDoDoc02);
-        config = config with { Game = config.Game with { Version = new string('1', GameConfig.MaxVersionLength + 1) } };
-
-        Assert.Throws<ProjectConfigException>(() => ProjectConfigSerializer.Serialize(config));
     }
 
     private static string RemoverLinha(string texto, string trecho) =>

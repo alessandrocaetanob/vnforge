@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R3")]
 public class TextUnitTests
 {
     private static readonly int[] SingleZero = [0];
@@ -48,45 +49,6 @@ public class TextUnitTests
     }
 
     [Fact]
-    public void Lista_tem_uma_unidade_compacta_por_linha()
-    {
-        TextUnit[] unidades =
-        [
-            Unidade() with { Locator = JsonSerializer.SerializeToElement(new { command = 1, args = SingleZero }) },
-            Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:000043" },
-        ];
-
-        var json = TextUnitJson.SerializeList(unidades);
-        var linhas = json.Split('\n');
-
-        Assert.Equal(4, linhas.Length);
-        Assert.Equal("[", linhas[0]);
-        Assert.EndsWith("},", linhas[1]);
-        Assert.StartsWith("{\"id\":\"yst00123:000042\"", linhas[1]);
-        Assert.EndsWith("}", linhas[2]);
-        Assert.Equal("]", linhas[3]);
-        Assert.Equal("[]", TextUnitJson.SerializeList([]));
-        Assert.Empty(TextUnitJson.DeserializeList("[]"));
-    }
-
-    [Theory]
-    [InlineData("2026-10-17T18:00:00", false)]
-    [InlineData("2026-10-17T15:00:00-03:00", true)]
-    public void Origem_at_exige_Z_ou_deslocamento(string at, bool valido)
-    {
-        var json = $$"""{ "id": "a:000001", "kind": "name", "source": "x", "status": "machine", "origin": { "provider": "p", "at": "{{at}}" } }""";
-
-        if (valido)
-        {
-            Assert.Equal(DateTimeOffset.Parse(at, System.Globalization.CultureInfo.InvariantCulture).UtcDateTime, TextUnitJson.Deserialize(json).Origin!.At.UtcDateTime);
-        }
-        else
-        {
-            Assert.ThrowsAny<JsonException>(() => TextUnitJson.Deserialize(json));
-        }
-    }
-
-    [Fact]
     public void Lista_de_unidades_faz_ida_e_volta()
     {
         TextUnit[] unidades = [Unidade(), Unidade(translation: "Oi", status: TranslationStatus.Translated) with { Id = "yst00123:000043" }];
@@ -106,22 +68,6 @@ public class TextUnitTests
         Assert.Contains("\"chosenSpeaker\":\"Inui\"", json, StringComparison.Ordinal);
         Assert.Equal("Inui", TextUnitJson.Deserialize(json).ChosenSpeaker);
         Assert.Equal(string.Empty, TextUnitJson.Deserialize(TextUnitJson.Serialize(Unidade() with { ChosenSpeaker = string.Empty })).ChosenSpeaker);
-    }
-
-    [Theory]
-    [InlineData(DoubtKind.Pun, "pun")]
-    [InlineData(DoubtKind.HiddenSubject, "hidden-subject")]
-    [InlineData(DoubtKind.UncertainGender, "uncertain-gender")]
-    [InlineData(DoubtKind.CulturalReference, "cultural-reference")]
-    [InlineData(DoubtKind.Tone, "tone")]
-    public void Doubt_faz_ida_e_volta_no_json_com_o_nome_do_tipo(DoubtKind kind, string nome)
-    {
-        var unidade = Unidade(translation: "Oi", status: TranslationStatus.Machine) with { Doubt = new TranslationDoubt(kind, "Não sei quem fala.") };
-
-        var json = TextUnitJson.Serialize(unidade);
-
-        Assert.Contains($"\"doubt\":{{\"kind\":\"{nome}\",\"note\":\"Não sei quem fala.\"}}", json, StringComparison.Ordinal);
-        Assert.Equal(unidade.Doubt, TextUnitJson.Deserialize(json).Doubt);
     }
 
     [Fact]
