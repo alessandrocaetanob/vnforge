@@ -36,9 +36,12 @@ public sealed class SheetTerms
         _ => "trait",
     };
 
+    /// <summary>O id de um grupo de traços como o VNDB o escreve (<c>i10</c>); qualquer outro texto não vira termo, porque <see cref="SheetField.Parse"/> não o aceitaria.</summary>
+    internal static bool IsGroupId(string? id) => id is { Length: > 1 and <= 10 } && id[0] == 'i' && id.AsSpan(1).IndexOfAnyExceptInRange('0', '9') < 0;
+
     /// <summary>Os ids dos grupos de traços dos personagens, sem repetir e em ordem; traço de ficha gravada sem o id do grupo não conta.</summary>
     internal static IEnumerable<string> GroupIdsOf(IEnumerable<CharacterSheet> characters) =>
-        characters.SelectMany(c => c.Traits).Select(t => t.GroupId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        characters.SelectMany(c => c.Traits).Select(t => t.GroupId).Where(IsGroupId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
     public SheetTerm? Find(SheetTermKind kind, string id) => _terms.GetValueOrDefault(KeyOf(kind, id));
 

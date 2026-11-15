@@ -8,12 +8,18 @@ namespace VNForge.App.ViewModels;
 public sealed record CharacterRequest(string Id, bool RevealSpoilers);
 
 /// <summary>Uma linha do filtro da área Personagens (um papel ou um traço): o nome, quantos personagens ela pega e se está marcada.</summary>
-public sealed partial class CharacterFacet(string key, string label, int count) : ObservableObject
+public sealed partial class CharacterFacet(string key, string label, int count, string group = "") : ObservableObject
 {
     /// <summary>O código do papel (<c>main</c>) ou o id do traço (<c>i34</c>).</summary>
     public string Key { get; } = key;
 
     public string Label { get; } = label;
+
+    /// <summary>O grupo do VNDB do traço (Cabelo, Olhos); vazio no papel e no traço sem grupo.</summary>
+    public string Group { get; } = group;
+
+    /// <summary>O traço como o chip do filtro marcado o escreve: com o grupo ("Cabelo: Black"), porque dois traços de grupos diferentes podem ter o mesmo nome.</summary>
+    public string ChipLabel => Group.Length > 0 ? $"{Group}: {Label}" : Label;
 
     public int Count { get; } = count;
 
@@ -21,6 +27,13 @@ public sealed partial class CharacterFacet(string key, string label, int count) 
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+}
+
+/// <summary>Os traços de um grupo do VNDB no filtro: o título da seção (Cabelo) e as linhas dela.</summary>
+public sealed record CharacterFacetSection(string Title, IReadOnlyList<CharacterFacet> Facets)
+{
+    /// <summary>O título em maiúsculas, como o rótulo "TRAÇO" da barra.</summary>
+    public string Heading => Title.ToUpper(CultureInfo.GetCultureInfo("pt-BR"));
 }
 
 /// <summary>

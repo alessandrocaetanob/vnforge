@@ -284,7 +284,8 @@
                       <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                         <StackPanel Spacing="4">
                           <c:OverlineText Classes="overline" Text="VNDB, em inglês"/>
-                          <TextBlock Classes="secondary" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding Original}"/>
+                          <TextBlock Classes="secondary" FontSize="14" LineHeight="22" TextWrapping="Wrap" Text="{Binding Original}" IsVisible="{Binding !HasOriginalNames}"/>
+                          <TextBlock Classes="secondary" FontSize="14" LineHeight="22" TextWrapping="Wrap" c:NotedNames.Source="{Binding OriginalNames}" IsVisible="{Binding HasOriginalNames}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                           <c:OverlineText Classes="overline" Text="Português"/>

@@ -1,3 +1,4 @@
+using VNForge.App.Controls;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,6 +20,7 @@ public sealed partial class ReviewPairViewModel : ObservableObject
         var hidden = pair.HasSpoilers && !spoilersShown;
         CanEdit = !hidden;
         Original = hidden ? Plain(pair.Original, false) : pair.Original;
+        OriginalNames = !hidden && pair.Notes is { } notes && notes.Any(n => n.Length > 0) ? [.. pair.Texts.Select((text, i) => new NotedName(text.Source, notes[i]))] : null;
         saved = hidden ? Plain(pair.Target ?? string.Empty, false) : pair.Target ?? string.Empty;
         Draft = saved;
         Hint = hidden ? "Este texto tem spoiler. Mostre o spoiler (Tudo) para ler e editar." : string.Empty;
@@ -38,6 +40,11 @@ public sealed partial class ReviewPairViewModel : ObservableObject
     public string Title => Pair.Title;
 
     public string Original { get; }
+
+    /// <summary>O original de uma lista cujos nomes têm uma nota (o grupo do traço), para a tela escrever "Black (Hair)"; nulo nos outros pares.</summary>
+    public IReadOnlyList<NotedName>? OriginalNames { get; }
+
+    public bool HasOriginalNames => OriginalNames is not null;
 
     public SheetPill Pill { get; }
 

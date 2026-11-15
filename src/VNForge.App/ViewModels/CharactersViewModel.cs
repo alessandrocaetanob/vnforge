@@ -36,7 +36,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     private readonly HashSet<string> selectedRoles = new(StringComparer.Ordinal);
     private readonly HashSet<string> selectedTraits = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> traitNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TraitInfo> traitInfos = new(StringComparer.Ordinal);
     private Snapshot? snapshot;
     private (string Id, bool RevealSpoilers)? pending;
     private string? openId;
@@ -132,6 +132,9 @@ public sealed partial class CharactersViewModel : ObservableObject
     /// <summary>Os traços que a barra mostra: os marcados primeiro e depois os mais comuns; todos com "Ver os N traços" ou com a busca de traço.</summary>
     public IReadOnlyList<CharacterFacet> TraitFacets { get; private set; } = [];
 
+    /// <summary>Os mesmos traços de <see cref="TraitFacets"/> separados por grupo do VNDB (Cabelo, Olhos...), na ordem do <see cref="SheetLabels.TraitGroupRank"/>: dois traços de mesmo nome em grupos diferentes ficam cada um na sua seção.</summary>
+    public IReadOnlyList<CharacterFacetSection> TraitSections { get; private set; } = [];
+
     public IReadOnlyList<CharacterFacet> ActiveTraits { get; private set; } = [];
 
     public CharacterPage? Page { get; private set; }
@@ -208,7 +211,7 @@ public sealed partial class CharactersViewModel : ObservableObject
                 extras = null;
                 selectedRoles.Clear();
                 selectedTraits.Clear();
-                traitNames.Clear();
+                traitInfos.Clear();
                 SearchText = string.Empty;
                 TraitSearch = string.Empty;
                 ShowAllTraits = false;
@@ -278,6 +281,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             Items = [];
             RoleFacets = [];
             TraitFacets = [];
+            TraitSections = [];
             ActiveTraits = [];
             Page = null;
             Subtitle = string.Empty;
@@ -386,34 +390,42 @@ public sealed partial class CharactersViewModel : ObservableObject
                 selectedRoles))
         ];
 
-        var counts = basis.SelectMany(c => c.Traits.DistinctBy(t => t.Id)).GroupBy(t => t.Id).ToDictionary(g => g.Key, g => (Name: g.First().Name, Count: g.Count()), StringComparer.Ordinal);
+        var counts = basis.SelectMany(c => c.Traits.DistinctBy(t => t.Id)).GroupBy(t => t.Id).ToDictionary(g => g.Key, g => (Info: TraitInfo.Of(g.First()), Count: g.Count()), StringComparer.Ordinal);
         foreach (var pair in counts)
         {
-            traitNames[pair.Key] = pair.Value.Name;
+            traitInfos[pair.Key] = pair.Value.Info;
         }
 
         // Um traço marcado fica na lista mesmo quando a busca de texto o deixou sem personagens.
         foreach (var key in selectedTraits.Where(k => !counts.ContainsKey(k)))
         {
-            counts[key] = (traitNames.GetValueOrDefault(key, key), 0);
+            counts[key] = (traitInfos.GetValueOrDefault(key, TraitInfo.Unknown(key)), 0);
         }
 
         var search = TitleSimilarity.Normalize(TraitSearch ?? string.Empty);
         var facets = counts
-            .Where(p => search.Length == 0 || selectedTraits.Contains(p.Key) || TitleSimilarity.Normalize(p.Value.Name).Contains(search, StringComparison.Ordinal))
+            .Where(p => search.Length == 0 || selectedTraits.Contains(p.Key) || TitleSimilarity.Normalize(p.Value.Info.Name).Contains(search, StringComparison.Ordinal))
             .OrderByDescending(p => selectedTraits.Contains(p.Key))
             .ThenByDescending(p => p.Value.Count)
-            .ThenBy(p => p.Value.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(p => NewFacet(p.Key, p.Value.Name, p.Value.Count, selectedTraits))
+            .ThenBy(p => p.Value.Info.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(p => (Info: p.Value.Info, Facet: NewFacet(p.Key, p.Value.Info.Name, p.Value.Count, selectedTraits, p.Value.Info.Group)))
             .ToList();
         allTraitCount = facets.Count;
-        TraitFacets = ShowAllTraits || search.Length > 0 ? facets : [.. facets.Take(FirstTraits)];
-        ActiveTraits = [.. facets.Where(f => f.IsSelected)];
+        var shown = ShowAllTraits || search.Length > 0 ? facets : [.. facets.Take(FirstTraits)];
+        TraitFacets = [.. shown.Select(f => f.Facet)];
+        TraitSections =
+        [
+            .. shown.GroupBy(f => f.Info.GroupKey, StringComparer.Ordinal)
+                .Select(g => (Rank: g.First().Info.Rank, Section: new CharacterFacetSection(g.First().Info.Group.Length > 0 ? g.First().Info.Group : "Traços", [.. g.Select(f => f.Facet)])))
+                .OrderBy(g => g.Rank)
+                .Select(g => g.Section),
+        ];
+        ActiveTraits = [.. facets.Where(f => f.Facet.IsSelected).Select(f => f.Facet)];
     }
 
-    private CharacterFacet NewFacet(string key, string label, int count, HashSet<string> selection)
+    private CharacterFacet NewFacet(string key, string label, int count, HashSet<string> selection, string group = "")
     {
-        var facet = new CharacterFacet(key, label, count) { IsSelected = selection.Contains(key) };
+        var facet = new CharacterFacet(key, label, count, group) { IsSelected = selection.Contains(key) };
         facet.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(CharacterFacet.IsSelected))
@@ -613,26 +625,11 @@ public sealed partial class CharactersViewModel : ObservableObject
         return chips;
     }
 
-    /// <summary>Os grupos do VNDB em português, na ordem do quadro; Cabelo, Olhos, Corpo e Roupas viram um só, Aparência.</summary>
-    private static readonly string[] GroupOrder = ["Aparência", "Personalidade", "Ocupação", "Objetos", "Atividades", "Situações", "Conteúdo adulto"];
-
-    private static string GroupName(string vndbGroup) => vndbGroup switch
-    {
-        "Hair" or "Eyes" or "Body" or "Clothes" => "Aparência",
-        "Personality" => "Personalidade",
-        "Role" => "Ocupação",
-        "Items" => "Objetos",
-        "Engages in" => "Atividades",
-        "Subject of" => "Situações",
-        "Sexual Content" or "Sexual content" => "Conteúdo adulto",
-        _ => string.IsNullOrWhiteSpace(vndbGroup) ? "Traços" : vndbGroup,
-    };
-
     private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, List<VndbTrait> hidden)
     {
-        var groups = card.Traits.GroupBy(t => GroupName(t.Group))
-            .OrderBy(g => Array.IndexOf(GroupOrder, g.Key) is var rank and >= 0 ? rank : GroupOrder.Length)
-            .Select(g => new CharacterTraitGroup(g.Key, [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))]))
+        var groups = card.Traits.GroupBy(t => TraitInfo.Of(t).GroupKey, StringComparer.Ordinal)
+            .OrderBy(g => TraitInfo.Of(g.First()).Rank)
+            .Select(g => new CharacterTraitGroup(g.First().Group.Length > 0 ? g.First().Group : "Traços", [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))]))
             .ToList();
         if (hidden.Count > 0)
         {
@@ -757,6 +754,15 @@ public sealed partial class CharactersViewModel : ObservableObject
         SearchText = string.Empty;
         applying = false;
         Rebuild();
+    }
+
+    /// <summary>De onde um traço é: o grupo do VNDB (<see cref="GroupKey"/> é o id, ou o nome quando a ficha foi gravada sem id), o nome do grupo para mostrar e a posição dele na ordem dos grupos.</summary>
+    private sealed record TraitInfo(string Name, string GroupKey, string Group, int Rank)
+    {
+        public static TraitInfo Of(SheetTraitCard trait) =>
+            new(trait.Name, trait.GroupId.Length > 0 ? trait.GroupId : trait.GroupOriginal, trait.Group, SheetLabels.TraitGroupRank(trait.GroupOriginal));
+
+        public static TraitInfo Unknown(string id) => new(id, string.Empty, string.Empty, SheetLabels.TraitGroupRank(string.Empty));
     }
 
     private sealed record Snapshot(GameLibrary Library, IReadOnlyList<CharacterSheet> Characters, SheetTerms Terms, GameEditions Editions);

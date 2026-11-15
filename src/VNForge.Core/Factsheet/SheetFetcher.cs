@@ -86,7 +86,7 @@ public static class SheetFetcher
     private static int EnsureTraitTerms(SheetTerms terms, VndbTrait trait)
     {
         var added = terms.Ensure(SheetTermKind.Trait, trait.Id, trait.Name, trait.GroupName) ? 1 : 0;
-        if (!string.IsNullOrWhiteSpace(trait.GroupId) && !string.IsNullOrWhiteSpace(trait.GroupName))
+        if (SheetTerms.IsGroupId(trait.GroupId) && !string.IsNullOrWhiteSpace(trait.GroupName))
         {
             added += terms.Ensure(SheetTermKind.Group, trait.GroupId, trait.GroupName, null) ? 1 : 0;
         }
