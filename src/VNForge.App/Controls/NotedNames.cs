@@ -25,7 +25,8 @@ public static class NotedNames
     private static void Fill(TextBlock block, IReadOnlyList<NotedName>? names)
     {
         block.Text = null;
-        block.Inlines?.Clear();
+        block.Inlines ??= [];
+        block.Inlines.Clear();
         if (names is null)
         {
             return;
@@ -33,12 +34,12 @@ public static class NotedNames
 
         for (var i = 0; i < names.Count; i++)
         {
-            block.Inlines?.Add(new Run(i == 0 ? names[i].Name : ", " + names[i].Name));
+            block.Inlines.Add(new Run(i == 0 ? names[i].Name : ", " + names[i].Name));
             if (names[i].Note.Length > 0)
             {
                 var note = new Run(" (" + names[i].Note + ")");
                 note.Bind(TextElement.ForegroundProperty, block.GetResourceObservable("Vnf.TextTertiary"));
-                block.Inlines?.Add(note);
+                block.Inlines.Add(note);
             }
         }
     }

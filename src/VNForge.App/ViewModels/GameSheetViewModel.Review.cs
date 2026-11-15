@@ -1,8 +1,8 @@
-using VNForge.App.Controls;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using VNForge.App.Controls;
 using VNForge.App.Services;
 using VNForge.Core.Factsheet;
 using VNForge.Core.Library;

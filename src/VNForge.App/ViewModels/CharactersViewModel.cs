@@ -129,10 +129,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     public IReadOnlyList<CharacterFacet> RoleFacets { get; private set; } = [];
 
-    /// <summary>Os traços que a barra mostra: os marcados primeiro e depois os mais comuns; todos com "Ver os N traços" ou com a busca de traço.</summary>
-    public IReadOnlyList<CharacterFacet> TraitFacets { get; private set; } = [];
-
-    /// <summary>Os mesmos traços de <see cref="TraitFacets"/> separados por grupo do VNDB (Cabelo, Olhos...), na ordem do <see cref="SheetLabels.TraitGroupRank"/>: dois traços de mesmo nome em grupos diferentes ficam cada um na sua seção.</summary>
+    /// <summary>Os traços que a barra mostra (os marcados primeiro e depois os mais comuns; todos com "Ver os N traços" ou com a busca), separados por grupo do VNDB (Cabelo, Olhos...) na ordem do <see cref="SheetLabels.TraitGroupRank"/>: dois traços de mesmo nome em grupos diferentes ficam cada um na sua seção.</summary>
     public IReadOnlyList<CharacterFacetSection> TraitSections { get; private set; } = [];
 
     public IReadOnlyList<CharacterFacet> ActiveTraits { get; private set; } = [];
@@ -149,7 +146,7 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     public bool HasFilter => selectedRoles.Count > 0 || selectedTraits.Count > 0 || !string.IsNullOrWhiteSpace(SearchText);
 
-    public bool CanShowAllTraits => allTraitCount > TraitFacets.Count || ShowAllTraits;
+    public bool CanShowAllTraits => allTraitCount > TraitSections.Sum(s => s.Facets.Count) || ShowAllTraits;
 
     public string ShowAllTraitsText => ShowAllTraits ? "Ver menos" : $"Ver os {allTraitCount.ToString(CultureInfo.InvariantCulture)} traços";
 
@@ -280,7 +277,6 @@ public sealed partial class CharactersViewModel : ObservableObject
         {
             Items = [];
             RoleFacets = [];
-            TraitFacets = [];
             TraitSections = [];
             ActiveTraits = [];
             Page = null;
@@ -412,14 +408,7 @@ public sealed partial class CharactersViewModel : ObservableObject
             .ToList();
         allTraitCount = facets.Count;
         var shown = ShowAllTraits || search.Length > 0 ? facets : [.. facets.Take(FirstTraits)];
-        TraitFacets = [.. shown.Select(f => f.Facet)];
-        TraitSections =
-        [
-            .. shown.GroupBy(f => f.Info.GroupKey, StringComparer.Ordinal)
-                .Select(g => (Rank: g.First().Info.Rank, Section: new CharacterFacetSection(g.First().Info.Group.Length > 0 ? g.First().Info.Group : "Traços", [.. g.Select(f => f.Facet)])))
-                .OrderBy(g => g.Rank)
-                .Select(g => g.Section),
-        ];
+        TraitSections = [.. BySection(shown, f => f.Info).Select(s => new CharacterFacetSection(s.Title, [.. s.Items.Select(f => f.Facet)]))];
         ActiveTraits = [.. facets.Where(f => f.Facet.IsSelected).Select(f => f.Facet)];
     }
 
@@ -627,9 +616,8 @@ public sealed partial class CharactersViewModel : ObservableObject
 
     private static List<CharacterTraitGroup> Groups(LibraryCharacterCard card, List<VndbTrait> hidden)
     {
-        var groups = card.Traits.GroupBy(t => TraitInfo.Of(t).GroupKey, StringComparer.Ordinal)
-            .OrderBy(g => TraitInfo.Of(g.First()).Rank)
-            .Select(g => new CharacterTraitGroup(g.First().Group.Length > 0 ? g.First().Group : "Traços", [.. g.Select(t => new SheetChip(t.Name, IsWarning: t.Spoiler > 0))]))
+        var groups = BySection(card.Traits.Select(t => (Trait: t, Info: TraitInfo.Of(t))), p => p.Info)
+            .Select(s => new CharacterTraitGroup(s.Title, [.. s.Items.Select(p => new SheetChip(p.Trait.Name, IsWarning: p.Trait.Spoiler > 0))]))
             .ToList();
         if (hidden.Count > 0)
         {
@@ -756,14 +744,22 @@ public sealed partial class CharactersViewModel : ObservableObject
         Rebuild();
     }
 
-    /// <summary>De onde um traço é: o grupo do VNDB (<see cref="GroupKey"/> é o id, ou o nome quando a ficha foi gravada sem id), o nome do grupo para mostrar e a posição dele na ordem dos grupos.</summary>
-    private sealed record TraitInfo(string Name, string GroupKey, string Group, int Rank)
+    /// <summary>
+    /// De onde um traço é: <see cref="Group"/> é o nome do grupo para mostrar (vazio sem grupo) e <see cref="Rank"/> a posição dele na ordem dos grupos. As seções agrupam pelo título final,
+    /// então um traço de ficha gravada sem o id do grupo e outro com o id caem na mesma seção.
+    /// </summary>
+    private sealed record TraitInfo(string Name, string Group, int Rank)
     {
-        public static TraitInfo Of(SheetTraitCard trait) =>
-            new(trait.Name, trait.GroupId.Length > 0 ? trait.GroupId : trait.GroupOriginal, trait.Group, SheetLabels.TraitGroupRank(trait.GroupOriginal));
+        public string Title => Group.Length > 0 ? Group : "Traços";
 
-        public static TraitInfo Unknown(string id) => new(id, string.Empty, string.Empty, SheetLabels.TraitGroupRank(string.Empty));
+        public static TraitInfo Of(SheetTraitCard trait) => new(trait.Name, trait.Group, SheetLabels.TraitGroupRank(trait.GroupOriginal));
+
+        public static TraitInfo Unknown(string id) => new(id, string.Empty, SheetLabels.TraitGroupRank(string.Empty));
     }
+
+    /// <summary>O agrupamento por seção do filtro e do cartão: os itens por título de grupo, na ordem dos grupos do VNDB e, entre grupos que o app não conhece, na ordem em que aparecem.</summary>
+    private static List<(string Title, List<T> Items)> BySection<T>(IEnumerable<T> items, Func<T, TraitInfo> info) =>
+        [.. items.GroupBy(i => info(i).Title, StringComparer.Ordinal).OrderBy(g => g.Min(i => info(i).Rank)).Select(g => (g.Key, g.ToList()))];
 
     private sealed record Snapshot(GameLibrary Library, IReadOnlyList<CharacterSheet> Characters, SheetTerms Terms, GameEditions Editions);
 }
