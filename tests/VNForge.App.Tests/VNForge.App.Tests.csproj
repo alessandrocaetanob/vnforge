@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- Medido com tools/medir-testes.ps1 (issue #687): o PGO em camadas instrumenta o código recém-compilado de cada tela e custa uns 15% de CPU a este processo
+         de vida curta, que passa o tempo todo compilando XAML e estilos novos. A conserva de memória do coletor derruba o pico de uns 535 para uns 480 MB. -->
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Headless" />
     <!-- O render dos testes usa Skia de verdade. O libSkiaSharp padrão do Linux exige libfontconfig.so.1, que a imagem do CI não tem;
