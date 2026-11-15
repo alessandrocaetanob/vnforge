@@ -51,6 +51,7 @@ public sealed class App : Application
             var appSettings = new AppSettingsFile(configDirectory);
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), appSettings);
             settings.LocaleEmulator = new LocaleEmulatorSettingsViewModel(new LibraryFile(configDirectory), picker);
+            settings.Backups = new BackupSettingsViewModel(new LibraryFile(configDirectory), picker);
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
@@ -123,6 +124,7 @@ public sealed class App : Application
                     ClaudeProviderFactory.CreateClient(RequireApiKey()),
                     new ClaudeOptions { Model = model, Effort = effort }),
             };
+            main.UseBackupLocations(() => UserBackupLocations.Read(new LibraryFile(configDirectory)));
             main.Conference.Shortener = suggester;
             settings.Vndb.ListChanged += (_, _) =>
             {

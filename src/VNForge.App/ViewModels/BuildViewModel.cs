@@ -1310,15 +1310,23 @@ public sealed partial class BuildViewModel : ObservableObject
         HasRestoreProblem = (state?.Backups ?? []).Any(b => !b.IsManual) && restorePlan is null;
         var separator = Path.DirectorySeparatorChar;
         var count = state?.Backups.Count(b => IsInCurrentRoot(b, state)) ?? 0;
-        var footer = state?.Locations.IsCustom == true
-            ? state.CurrentRoot
-            : $"Pasta backup{separator} do projeto";
-        if (state is { BackupIgnored: true, Locations.IsCustom: false })
+        var counted = count == 0 ? string.Empty : $" · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+        if (state?.Locations.IsCustom == true)
         {
-            footer += " · fora do git";
+            BackupFooterPath = state.CurrentRoot;
+            BackupFooter = counted;
         }
+        else
+        {
+            var footer = $"Pasta backup{separator} do projeto";
+            if (state is { BackupIgnored: true })
+            {
+                footer += " · fora do git";
+            }
 
-        BackupFooter = count == 0 ? footer : $"{footer} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+            BackupFooterPath = string.Empty;
+            BackupFooter = footer + counted;
+        }
         BackupSummary = SummarizeBackups(state?.Backups ?? []);
     }
 

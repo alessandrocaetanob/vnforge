@@ -39,6 +39,24 @@
     <Style Selector="v|ChangedScenesPanel TextBlock.body-sm">
       <Setter Property="LineHeight" Value="20"/>
     </Style>
+    <!-- Etiquetas do cartão Backups: "à mão" em verde suave, "pasta anterior" em cinza com contorno. -->
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="{DynamicResource Vnf.BgInset}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Vnf.StrokeSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.chip > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="LineHeight" Value="16"/>
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.TextSecondary}"/>
+    </Style>
+    <Style Selector="Border.chip.hand">
+      <Setter Property="Background" Value="{DynamicResource Vnf.AccentSoft}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Border.chip.hand > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Vnf.AccentText}"/>
+    </Style>
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -132,7 +150,7 @@
             <c:ToggleRule Title="Reconstruir só scripts alterados"
                           Description="Vale para o teste e para o Novo build: reaproveita o que não mudou desde o último build. Os demais arquivos do pacote são copiados byte a byte do original."
                           IsChecked="{Binding OnlyChanged}"/>
-            <Border Padding="20,12">
+            <Border Padding="20,12" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="0,0,0,1">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="body-strong" Text="Testar só os acentos"/>
@@ -141,6 +159,22 @@
                 </StackPanel>
                 <Button Grid.Column="1" Command="{Binding TestAccentsCommand}" Content="Testar só os acentos"
                         VerticalAlignment="Center" AutomationProperties.Name="Testar só os acentos"/>
+              </Grid>
+            </Border>
+            <!-- Backup à mão (#693): guarda os originais que o build troca e o projeto; não mexe no jogo. Em andamento, o botão trava e o Cancelar aparece. -->
+            <Border Padding="20,12" AutomationProperties.Name="Fazer backup agora">
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="body-strong" Text="Fazer backup agora" IsVisible="{Binding !IsBackingUp}"/>
+                  <TextBlock Classes="body-strong" Text="Fazendo backup" IsVisible="{Binding IsBackingUp}"/>
+                  <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding BackupNowDescription}" IsVisible="{Binding !IsBackingUp}"/>
+                  <TextBlock Classes="caption secondary" LineHeight="18" TextWrapping="Wrap" Text="{Binding BackupProgressText}" IsVisible="{Binding IsBackingUp}"/>
+                  <ProgressBar Classes="thin" Minimum="0" Maximum="1" Value="{Binding BackupProgress}" Margin="0,4,0,0" IsVisible="{Binding IsBackingUp}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding BackUpNowCommand}" Content="Fazer backup"
+                        VerticalAlignment="Center" AutomationProperties.Name="Fazer backup"/>
+                <Button Grid.Column="2" Command="{Binding CancelBackupCommand}" Content="Cancelar" IsVisible="{Binding IsBackingUp}"
+                        VerticalAlignment="Center" AutomationProperties.Name="Cancelar o backup"/>
               </Grid>
             </Border>
           </StackPanel>
@@ -330,8 +364,22 @@
               </Grid>
             </Border>
 
-            <!-- Backups -->
-            <Border Grid.Row="1" Grid.Column="1" Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Backups">
+            <!-- Backups: o aviso do backup à mão (feito ou recusado) fica sobre o cartão. -->
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="12">
+            <Border Classes="infobar" Classes.success="{Binding !BackupNoticeIsError}" Classes.error="{Binding BackupNoticeIsError}" IsVisible="{Binding HasBackupNotice}"
+                    AutomationProperties.Name="Aviso do backup">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Check}" IsVisible="{Binding !BackupNoticeIsError}"/>
+                <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Error}" IsVisible="{Binding BackupNoticeIsError}"/>
+                <TextBlock Grid.Column="1" Classes="body-sm" TextWrapping="Wrap">
+                  <Run FontWeight="SemiBold" Text="{Binding BackupNoticeTitle, Mode=OneWay}"/>
+                  <Run Text="{Binding BackupNoticeDetail, Mode=OneWay}"/>
+                </TextBlock>
+                <Button Grid.Column="2" Classes="sm" VerticalAlignment="Top" Command="{Binding RunBackupNoticeCommand}" Content="{Binding BackupNoticeActionLabel}"
+                        IsVisible="{Binding HasBackupNoticeAction}" AutomationProperties.Name="Ação do aviso do backup"/>
+              </Grid>
+            </Border>
+            <Border Classes="panel" ClipToBounds="True" MinHeight="160" MaxHeight="380" AutomationProperties.Name="Backups">
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="48" Padding="16,0">
                   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -340,9 +388,25 @@
                                TextTrimming="CharacterEllipsis" Text="{Binding BackupSummary}" AutomationProperties.Name="Resumo dos backups"/>
                   </Grid>
                 </Border>
-                <Border DockPanel.Dock="Bottom" Classes="divider-top" Height="40" Padding="16,0">
-                  <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="{Binding BackupFooter}"
-                             ToolTip.Tip="{Binding BackupLocation}" AutomationProperties.Name="Pasta do backup"/>
+                <Border DockPanel.Dock="Bottom" Classes="divider-top" MinHeight="40" Padding="16,8">
+                  <StackPanel Spacing="2" VerticalAlignment="Center" ToolTip.Tip="{Binding BackupLocation}" AutomationProperties.Name="Pasta do backup">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding BackupFooterLabel, Mode=OneWay}"/><Run Classes="mono" Text="{Binding BackupFooterPath, Mode=OneWay}"/><Run Text="{Binding BackupFooter, Mode=OneWay}"/>
+                      </TextBlock>
+                      <Button Grid.Column="1" Classes="subtle sm" Command="{Binding OpenBackupSettingsCommand}" Content="Ajustes" IsVisible="{Binding HasBackupFolderChoice}"
+                              AutomationProperties.Name="Abrir os Ajustes dos backups"/>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding PreviousBackupFolders}" AutomationProperties.Name="Pastas anteriores dos backups">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BackupFolderLine">
+                          <TextBlock Classes="caption secondary" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding Label, Mode=OneWay}"/><Run Classes="mono" Text="{Binding Path, Mode=OneWay}"/><Run Text="{Binding Rest, Mode=OneWay}"/>
+                          </TextBlock>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
                 </Border>
                 <TextBlock Classes="body-sm secondary" TextWrapping="Wrap" Margin="16,0,16,12" Text="{Binding BackupMessage}"
                            IsVisible="{Binding !HasBackups}"/>
@@ -356,7 +420,12 @@
                           <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
                             <TextBlock Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
                             <TextBlock Grid.Column="1" Classes="caption secondary" Text="{Binding SizeText}"/>
-                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
+                            <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
+                              <Border Classes="chip" IsVisible="{Binding HasTag}" VerticalAlignment="Top" Margin="0,1,0,0" Padding="7,0" CornerRadius="9" Classes.hand="{Binding TagIsManual}">
+                                <TextBlock Classes="caption" FontWeight="SemiBold" Text="{Binding Tag}"/>
+                              </Border>
+                              <TextBlock Classes="caption secondary" TextWrapping="Wrap" Text="{Binding Note}"/>
+                            </StackPanel>
                           </Grid>
                         </Border>
                       </DataTemplate>
@@ -365,6 +434,7 @@
                 </ScrollViewer>
               </DockPanel>
             </Border>
+            </StackPanel>
           </Grid>
         </StackPanel>
       </c:TechnicalDetails>

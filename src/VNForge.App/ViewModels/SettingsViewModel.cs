@@ -405,6 +405,13 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasLocaleEmulator => LocaleEmulator is not null;
 
+    /// <summary>A pasta dos backups da aba Backups; nulo (e a aba escondida) onde o app não tem Biblioteca.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBackups))]
+    public partial BackupSettingsViewModel? Backups { get; set; }
+
+    public bool HasBackups => Backups is not null;
+
     /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab))]
@@ -435,6 +442,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     /// <summary>Índice da aba Jogos.</summary>
     public const int GamesTab = 6;
+
+    /// <summary>Índice da aba Backups, logo depois de Jogos.</summary>
+    public const int BackupsTab = GamesTab + 1;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }
@@ -686,6 +696,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         config = null;
         ErrorMessage = null;
         ProjectName = project?.Name;
+        Backups?.SetProject(project?.Root);
         ProjectBadge = project is null ? null : $"Projeto: {project.Name}";
         CanReadGameTitle = false;
         GameTitleReadMessage = null;

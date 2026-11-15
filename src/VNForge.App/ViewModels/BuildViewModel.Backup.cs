@@ -9,7 +9,7 @@ using VNForge.Core.Projects;
 namespace VNForge.App.ViewModels;
 
 /// <summary>Uma linha do rodapé do cartão Backups: uma pasta onde há backup do projeto, com quantos ela guarda (<c>Anterior: backup\ do projeto · fora do git · 2 backups</c>).</summary>
-public sealed record BackupFolderLine(string Label, string Text);
+public sealed record BackupFolderLine(string Label, string Path, string Rest);
 
 /// <summary>O que o aviso sobre o cartão Backups oferece depois de um backup à mão que terminou ou falhou.</summary>
 public enum BackupNoticeAction
@@ -84,6 +84,10 @@ public sealed partial class BuildViewModel
     /// <summary>"Atual:" antes da pasta nova, ou nada com o padrão (o rodapé fica como era).</summary>
     [ObservableProperty]
     public partial string BackupFooterLabel { get; private set; } = string.Empty;
+
+    /// <summary>A pasta atual em mono, depois do "Atual:"; vazio com a pasta padrão, quando o rodapé é o texto de sempre.</summary>
+    [ObservableProperty]
+    public partial string BackupFooterPath { get; private set; } = string.Empty;
 
     /// <summary>A pasta escolhida está fora do ar (disco desconectado): o cartão avisa que os backups dela não aparecem.</summary>
     [ObservableProperty]
@@ -191,6 +195,9 @@ public sealed partial class BuildViewModel
     }
 
     [RelayCommand]
+    private void OpenBackupSettings() => BackupSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    [RelayCommand]
     private void CancelBackup() => cancelBackup?.Invoke();
 
     [RelayCommand]
@@ -273,10 +280,10 @@ public sealed partial class BuildViewModel
         foreach (var group in state.Backups.Where(b => !IsInCurrentRoot(b, state)).GroupBy(b => b.Root, StringComparer.OrdinalIgnoreCase))
         {
             var count = group.Count();
-            var name = state.DefaultRoot is { } fallback && string.Equals(group.Key, fallback, StringComparison.OrdinalIgnoreCase)
-                ? $"backup{Path.DirectorySeparatorChar} do projeto{(state.BackupIgnored ? " · fora do git" : string.Empty)}"
-                : group.Key;
-            PreviousBackupFolders.Add(new BackupFolderLine("Anterior: ", $"{name} · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}"));
+            var counted = $" · {ProjectLabels.Number(count)} {Plural(count, "backup", "backups")}";
+            PreviousBackupFolders.Add(string.Equals(group.Key, state.DefaultRoot, StringComparison.OrdinalIgnoreCase)
+                ? new BackupFolderLine("Anterior: ", $"backup{Path.DirectorySeparatorChar}", $" do projeto{(state.BackupIgnored ? " · fora do git" : string.Empty)}{counted}")
+                : new BackupFolderLine("Anterior: ", group.Key, counted));
         }
 
         if (state.Unreachable.Count > 0)

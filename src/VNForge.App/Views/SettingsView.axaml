@@ -1112,6 +1112,37 @@
           </StackPanel>
         </TabItem>
 
+        <!-- Backups (#693): a pasta onde ficam os backups de todos os projetos, com o mesmo desenho do campo da aba Jogos. -->
+        <TabItem Header="Backups" IsVisible="{Binding HasBackups}">
+          <StackPanel Margin="0,16,0,0" Spacing="0" DataContext="{Binding Backups}" x:DataType="vm:BackupSettingsViewModel">
+            <c:OverlineText Classes="overline" Text="Pasta dos backups"/>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+              <TextBox Name="BackupFolderPath" Text="{Binding PathText}" PlaceholderText="D:\Backups\VNForge" AutomationProperties.Name="Pasta dos backups"/>
+              <Button Grid.Column="1" Command="{Binding ChooseCommand}" Content="Escolher a pasta"/>
+              <Button Grid.Column="2" Classes="accent" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" Content="Salvar"/>
+            </Grid>
+            <TextBlock Name="BackupFolderError" Classes="caption" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                       Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Margin="0,8,0,0">
+              <Run Text="Cada projeto guarda os backups numa subpasta com o nome dele:"/>
+              <Run Classes="mono" Text="{Binding ExampleText, Mode=OneWay}"/><Run Text=". Vale para toda a Biblioteca."/>
+            </TextBlock>
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="Deixe vazio para usar o padrão de hoje: a pasta backup\ dentro de cada projeto."/>
+              <Button Classes="subtle sm" Command="{Binding UseDefaultCommand}" Content="Usar o padrão"/>
+            </StackPanel>
+            <StackPanel Spacing="8" Margin="0,28,0,0" IsVisible="{Binding HasExisting}">
+              <c:OverlineText Classes="overline" Text="Backups que já existem"/>
+              <Border Classes="infobar">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                  <TextBlock Name="BackupExisting" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ExistingText}"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </TabItem>
+
         <!-- VNDB: o token da conta, no cofre do Windows, e a sincronização da lista (#550). Sem o serviço ligado, a aba não aparece. -->
         <TabItem Header="VNDB" IsVisible="{Binding Vndb, Converter={x:Static ObjectConverters.IsNotNull}}">
           <v:VndbSettingsView DataContext="{Binding Vndb}"/>
