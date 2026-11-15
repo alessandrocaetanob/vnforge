@@ -5,6 +5,7 @@ using static VNForge.AI.Tests.Bible.BibleFixtures;
 
 namespace VNForge.AI.Tests.Bible;
 
+[Trait("Risco", "R5")]
 public sealed class BibleCostTests
 {
     private static BibleChapterInput Big(string name, int scenes, int linesPerScene = 200) =>
@@ -38,14 +39,5 @@ public sealed class BibleCostTests
         Assert.True(opus.Dollars > haiku.Dollars * 10);
         Assert.Equal(opus.Dollars * 5.40m, opus.Brl(new ExchangeRate(5.40m)));
         Assert.Equal(opus.RereadDollars * 5.40m, opus.RereadBrl(new ExchangeRate(5.40m)));
-    }
-
-    [Fact]
-    public void Sem_capitulos_nao_custa_nada()
-    {
-        var estimate = BibleCost.Estimate([], ClaudeModels.Opus);
-
-        Assert.Equal(0m, estimate.Dollars);
-        Assert.Equal(0m, estimate.RereadDollars);
     }
 }

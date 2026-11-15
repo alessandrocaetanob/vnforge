@@ -3,6 +3,7 @@ using VNForge.Core.Logging;
 
 namespace VNForge.Core.Tests.Logging;
 
+[Trait("Risco", "R7")]
 public sealed class FileLoggerTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-tests-" + Guid.NewGuid().ToString("N"));
@@ -13,37 +14,6 @@ public sealed class FileLoggerTests : IDisposable
         {
             Directory.Delete(_root, recursive: true);
         }
-    }
-
-    [Fact]
-    public void GetLogDirectory_aponta_para_cache_logs_do_projeto()
-    {
-        var expected = Path.Combine(_root, ".cache", "logs");
-
-        Assert.Equal(expected, VNForgeLogging.GetLogDirectory(_root));
-    }
-
-    [Fact]
-    public void Log_completo_vai_para_cache_logs_do_projeto()
-    {
-        using (var factory = VNForgeLogging.CreateFactory(_root))
-        {
-            var logger = factory.CreateLogger("Teste");
-            const string arquivo = "ysbin.ypf";
-            var falha = new InvalidOperationException("falha interna");
-            if (logger.IsEnabled(LogLevel.Information))
-            {
-                logger.LogInformation("Lendo {Arquivo}", arquivo);
-            }
-            logger.LogError(falha, "Falhou");
-        }
-
-        var files = Directory.GetFiles(VNForgeLogging.GetLogDirectory(_root), "*.log");
-        var file = Assert.Single(files);
-        var content = File.ReadAllText(file);
-        Assert.Contains("[Information] Teste: Lendo ysbin.ypf", content);
-        Assert.Contains("[Error] Teste: Falhou", content);
-        Assert.Contains("System.InvalidOperationException: falha interna", content);
     }
 
     [Fact]

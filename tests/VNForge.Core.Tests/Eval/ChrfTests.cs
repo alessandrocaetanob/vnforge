@@ -2,9 +2,9 @@ using VNForge.Core.Eval;
 
 namespace VNForge.Core.Tests.Eval;
 
+[Trait("Risco", "R3")]
 public sealed class ChrfTests
 {
-
     [Fact]
     public void Vazio_contra_cheio_vale_zero_e_vazio_contra_vazio_vale_100()
     {

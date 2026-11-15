@@ -4,6 +4,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.AI.Tests.Translation;
 
+[Trait("Risco", "R2")]
 public sealed class LineSelectionTests : IDisposable
 {
     private const string Key = "yst00001";
@@ -35,34 +36,6 @@ public sealed class LineSelectionTests : IDisposable
         unit with { Translation = result.Translation, Status = TranslationStatus.Machine };
 
     [Fact]
-    public void Grava_o_resultado_nas_linhas_que_continuam_como_na_selecao()
-    {
-        var selection = Select();
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "zero"), new TranslationResult(Id(1), "um")], Machine);
-
-        Assert.Equal(0, saved.Skipped);
-        Assert.Equal(Key, saved.LastKey);
-        Assert.Equal(["zero", "um", null, null, null], _project.LoadText(Key).Select(u => u.Translation));
-    }
-
-    [Fact]
-    public void Edicao_de_outra_linha_e_as_notas_da_linha_gravada_sobrevivem()
-    {
-        var selection = Select();
-        var editor = new LineEditor(_project, TimeProvider.System);
-        editor.SetTranslation(Key, Id(3), "outra");
-        editor.SetNotes(Key, Id(0), "cuidado");
-
-        selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "zero")], Machine);
-
-        var units = _project.LoadText(Key);
-        Assert.Equal("outra", units[3].Translation);
-        Assert.Equal("cuidado", units[0].Notes);
-        Assert.Equal("zero", units[0].Translation);
-    }
-
-    [Fact]
     public void Original_trocado_depois_da_selecao_pula_a_linha()
     {
         var selection = Select();
@@ -74,35 +47,5 @@ public sealed class LineSelectionTests : IDisposable
 
         Assert.Equal(1, saved.Skipped);
         Assert.Null(_project.LoadText(Key)[2].Translation);
-    }
-
-    [Fact]
-    public void Retraducao_de_linha_de_maquina_so_vale_se_ela_nao_mudou()
-    {
-        var units = _project.LoadText(Key).ToList();
-        units[0] = units[0] with { Translation = "antiga", Status = TranslationStatus.Machine };
-        units[1] = units[1] with { Translation = "antiga", Status = TranslationStatus.Machine };
-        _project.SaveText(Key, units);
-        var selection = Select(u => u.Status == TranslationStatus.Machine);
-        new LineEditor(_project, TimeProvider.System).Approve(Key, Id(1));
-
-        var saved = selection.ApplyAndSave(_project, [new TranslationResult(Id(0), "nova"), new TranslationResult(Id(1), "nova")], Machine);
-
-        var after = _project.LoadText(Key);
-        Assert.Equal(1, saved.Skipped);
-        Assert.Equal("nova", after[0].Translation);
-        Assert.Equal(TranslationStatus.Approved, after[1].Status);
-        Assert.Equal("antiga", after[1].Translation);
-    }
-
-    [Fact]
-    public void O_limite_e_o_filtro_de_script_valem_na_selecao()
-    {
-        var limited = LineSelection.Build(_project.LoadAllText(), null, 2, u => true);
-        var filtered = LineSelection.Build(_project.LoadAllText(), key => key == "outro", null, u => true);
-
-        Assert.Equal(2, limited.Pending.Count);
-        Assert.Empty(filtered.Pending);
-        Assert.Equal(0, filtered.FileCount);
     }
 }

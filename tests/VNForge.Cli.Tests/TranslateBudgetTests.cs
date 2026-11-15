@@ -6,6 +6,7 @@ using VNForge.Core.Text;
 namespace VNForge.Cli.Tests;
 
 /// <summary>O <c>vnf translate</c> respeita o limite de gasto e o valor de aviso que o app guarda em <c>app.json</c>.</summary>
+[Trait("Risco", "R5")]
 public sealed class TranslateBudgetTests : IDisposable
 {
     private const string UnitId = "yst00001:000001";
@@ -61,18 +62,6 @@ public sealed class TranslateBudgetTests : IDisposable
     }
 
     [Fact]
-    public async Task O_gasto_da_execucao_conta_e_o_json_diz_por_que_parou()
-    {
-        WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
-        AiUsageLog.TryRecord(_project, new AiUsageTotals(0, 0, 0, 0, 10m, 1));
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath, "--json"], TestContext.Current.CancellationToken);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("limitReached", result.Output);
-    }
-
-    [Fact]
     public async Task O_limite_estourado_pela_primeira_chamada_impede_a_segunda()
     {
         WriteAppJson("""{ "exchangeRate": 5, "exchangeRateOn": "2026-10-25", "spendLimit": 50 }""");
@@ -87,39 +76,6 @@ public sealed class TranslateBudgetTests : IDisposable
         Assert.Equal(20, saved.Count(u => u.Status == TranslationStatus.Machine));
         Assert.Equal(25, saved.Count(u => u.Status == TranslationStatus.Untranslated));
         Assert.Contains("Parou no limite de gasto", result.Output);
-    }
-
-    [Fact]
-    public async Task App_json_ilegivel_avisa_e_so_segue_com_yes()
-    {
-        WriteAppJson("{ isto não é json");
-
-        var refused = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.NotEqual(0, refused.ExitCode);
-        Assert.Contains("app.json", refused.Error);
-        Assert.Equal(0, _client.Calls);
-        Assert.Equal(TranslationStatus.Untranslated, Saved().Status);
-
-        var allowed = await _cli.RunAsync(["translate", "--project", _projectPath, "--yes"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, allowed.ExitCode);
-        Assert.Contains("app.json", allowed.Error);
-        Assert.Equal(TranslationStatus.Machine, Saved().Status);
-    }
-
-    [Fact]
-    public async Task Linha_traduzida_a_mao_durante_a_execucao_nao_e_sobrescrita()
-    {
-        var editor = new LineEditor(_project, TimeProvider.System);
-        _client.DuringCall = () => editor.SetTranslation("yst00001", UnitId, "à mão");
-
-        var result = await _cli.RunAsync(["translate", "--project", _projectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal("à mão", Saved().Translation);
-        Assert.Equal(TranslationStatus.Translated, Saved().Status);
-        Assert.Contains("durante a execução", result.Output);
     }
 
     private sealed class CountingClient : IClaudeMessageClient

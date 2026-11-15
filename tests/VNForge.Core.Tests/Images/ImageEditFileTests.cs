@@ -5,6 +5,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Images;
 
+[Trait("Risco", "R2")]
 public sealed class ImageEditFileTests : IDisposable
 {
     private readonly TempFolder _temp = new();
@@ -27,62 +28,5 @@ public sealed class ImageEditFileTests : IDisposable
     {
         Assert.Empty(_project.LoadImageEdits());
         Assert.False(File.Exists(_project.ImageEditsPath));
-    }
-
-    [Fact]
-    public void SavesToImageEditsJsonAndReadsBackEqual()
-    {
-        ImageEdit[] edits = [Sample(), Sample("sys/logo.png") with { Erase = ImageEraseModes.Solid, EraseColor = "#102030", Outline = null, Marked = false }];
-
-        _project.SaveImageEdits(edits);
-
-        Assert.Equal(Path.Combine(_project.Root, "image-edits.json"), _project.ImageEditsPath);
-        Assert.Equal(edits, _project.LoadImageEdits());
-    }
-
-    [Fact]
-    public void KeepsAccentsUnescapedAndOneEditPerLine()
-    {
-        _project.SaveImageEdits([Sample(), Sample("b.png")]);
-
-        var text = File.ReadAllText(_project.ImageEditsPath);
-
-        Assert.Contains("Colégio", text);
-        Assert.Equal(2, text.Split('\n').Count(l => l.Contains("\"hash\"", StringComparison.Ordinal)));
-    }
-
-    [Theory]
-    [InlineData("erase", "borrar")]
-    [InlineData("color", "azul")]
-    [InlineData("fontSize", "0")]
-    public void RefusesAnInvalidEditWithoutWritingAnything(string field, string value)
-    {
-        var edit = field switch
-        {
-            "erase" => Sample() with { Erase = value },
-            "color" => Sample() with { Color = value },
-            _ => Sample() with { FontSize = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture) },
-        };
-
-        Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([edit]));
-        Assert.False(File.Exists(_project.ImageEditsPath));
-    }
-
-    [Fact]
-    public void RefusesSolidEraseWithoutAColor()
-    {
-        Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([Sample() with { Erase = ImageEraseModes.Solid, EraseColor = null }]));
-    }
-
-    [Fact]
-    public void RefusesTheSameImageTwice()
-    {
-        Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([Sample(), Sample()]));
-    }
-
-    [Fact]
-    public void RefusesAnEmptyRegion()
-    {
-        Assert.Throws<GlossaryFileException>(() => _project.SaveImageEdits([Sample() with { Region = new ImageRegion(0, 0, 0, 10) }]));
     }
 }

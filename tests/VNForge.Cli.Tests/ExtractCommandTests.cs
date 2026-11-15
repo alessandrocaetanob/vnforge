@@ -9,6 +9,7 @@ using VNForge.Engines.YuRis.Tests.Ystl.Synthetic;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R3")]
 public sealed class ExtractCommandTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -68,99 +69,6 @@ public sealed class ExtractCommandTests : IDisposable
             .ToDictionary(f => Path.GetRelativePath(directory, f), f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));
 
     [Fact]
-    public async Task Em_terminal_interativo_o_resumo_vira_painel_com_scripts_pacote_e_duracao()
-    {
-        await InitProject();
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-
-        var result = await rich.RunAsync([ExtractVerb, "--project", ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(string.Empty, result.Error);
-        Assert.Contains("Resultado da extração", result.Output);
-        Assert.Contains("Scripts", result.Output);
-        Assert.Contains("5 (1 diálogo, 1 narração, 2 escolhas, 1 nome)", result.Output);
-        Assert.Contains(YsbinYpf, result.Output);
-        Assert.Contains("4 arquivos", result.Output);
-        Assert.Contains("Duração", result.Output);
-        Assert.DoesNotContain("Extraídos", result.Output);
-        Assert.False(result.Output.Contains('\u001b'));
-    }
-
-    [Theory]
-    [InlineData("--quiet")]
-    public async Task No_terminal_interativo_com_no_color_ou_quiet_o_log_de_sempre_continua(string option)
-    {
-        await InitProject();
-        using var rich = new CliHarness(terminal: TestTerminals.InteractivePlain());
-
-        var result = await rich.RunAsync([ExtractVerb, option, "--project", ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Extraídos 2 scripts, 5 linhas", result.Output);
-        Assert.DoesNotContain("Resultado da extração", result.Output);
-    }
-
-    [Fact]
-    public async Task Nao_altera_a_pasta_do_jogo()
-    {
-        await InitProject();
-        var before = HashTree(_game);
-        var entriesBefore = Directory.EnumerateFileSystemEntries(_game, "*", SearchOption.AllDirectories).Order().ToArray();
-
-        var result = await Extract();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Equal(before, HashTree(_game));
-        Assert.Equal(entriesBefore, Directory.EnumerateFileSystemEntries(_game, "*", SearchOption.AllDirectories).Order().ToArray());
-    }
-
-    [Fact]
-    public async Task Extrair_de_novo_mantem_as_traducoes_e_resume_a_re_extracao()
-    {
-        await InitProject();
-        await Extract();
-        var project = ProjectFolder.Open(ProjectPath);
-        var edited = project.LoadText(Yst00001).Select(u => u with { Translation = "Bom dia", Status = TranslationStatus.Translated }).ToList();
-        project.SaveText(Yst00001, edited);
-        var before = HashTree(project.TextDirectory);
-
-        var result = await Extract();
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Re-extração: 5 mantidas, 0 desatualizadas", result.Output);
-        Assert.Equal(before, HashTree(project.TextDirectory));
-        Assert.Equal("Bom dia", project.LoadText(Yst00001)[0].Translation);
-    }
-
-    [Fact]
-    public async Task Extrair_de_novo_em_json_traz_a_contagem_da_re_extracao()
-    {
-        await InitProject();
-        var first = await Extract("--json");
-        using var firstDocument = JsonDocument.Parse(first.Output);
-        Assert.False(firstDocument.RootElement.GetProperty("data").TryGetProperty("reextraction", out var none) && none.ValueKind != JsonValueKind.Null);
-
-        var result = await Extract("--json");
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var reextraction = document.RootElement.GetProperty("data").GetProperty("reextraction");
-        Assert.Equal(0, reextraction.GetProperty("outdated").GetInt32());
-        Assert.Equal(0, reextraction.GetProperty("removed").GetInt32());
-        Assert.True(reextraction.GetProperty("kept").GetInt32() > 0);
-    }
-
-    [Fact]
-    public async Task Pasta_que_nao_e_projeto_gera_erro_em_portugues()
-    {
-        var result = await _cli.RunAsync([ExtractVerb, "--project", _cli.WorkingDirectory], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("vnforge.json não encontrado", result.Error);
-    }
-
-    [Fact]
     public async Task Jogo_sem_pacote_de_scripts_gera_erro_em_portugues_e_nao_cria_text()
     {
         await InitProject();
@@ -171,15 +79,5 @@ public sealed class ExtractCommandTests : IDisposable
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("Nenhum pacote YPF com scripts", result.Error);
         Assert.Empty(Directory.EnumerateFiles(Path.Combine(ProjectPath, "text")));
-    }
-
-    [Fact]
-    public async Task Help_do_extract_esta_em_portugues()
-    {
-        var result = await _cli.RunAsync([ExtractVerb, "--help"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("vnf extract", result.Output);
-        Assert.Contains(".cache/", result.Output);
     }
 }

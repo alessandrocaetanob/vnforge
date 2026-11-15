@@ -2,6 +2,7 @@ using VNForge.AI.Cost;
 
 namespace VNForge.AI.Tests.Cost;
 
+[Trait("Risco", "R5")]
 public class BudgetGuardTests
 {
     private static BudgetGuard Guard(decimal? limit, decimal? warn, decimal spent, Func<BudgetQuestion, CancellationToken, Task<bool>>? confirm = null) =>

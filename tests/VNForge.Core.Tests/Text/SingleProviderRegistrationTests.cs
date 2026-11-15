@@ -1,5 +1,6 @@
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class SingleProviderRegistrationTests
 {
     private const string AllowedFile = "GameEncodings.cs";

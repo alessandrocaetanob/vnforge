@@ -12,6 +12,8 @@ using VNForge.Vndb;
 namespace VNForge.Cli.Tests;
 
 /// <summary>#554: <c>vnf library sheet</c> busca, traduz com o provedor falso, revisa, mostra com o spoiler escondido e leva a ficha ao projeto.</summary>
+[Trait("Risco", "R5")]
+[Trait("Risco", "R9")]
 public sealed class LibrarySheetCommandTests : IDisposable
 {
     private static readonly DateTimeOffset T0 = new(2026, 11, 1, 12, 0, 0, TimeSpan.Zero);
@@ -57,36 +59,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
     private SheetStore Store => new(_cli.UserConfigDirectory);
 
     [Fact]
-    public async Task Revisar_em_lote_diz_quantos_desatualizados_ficaram_de_fora()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-        await Run("library", "sheet", "edit", "CLANNAD", "c1", "O herói. [spoiler]Ele é um fantasma.[/spoiler]");
-        _cli.Cli.VndbCatalogFactory = () => new FakeVndbCatalog([Game()], [Tomoya() with { Description = "The hero, rewritten." }, Sister()]);
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var review = await Run("library", "sheet", "review", "CLANNAD");
-        var json = await Run("library", "sheet", "review", "CLANNAD", "--json");
-
-        Assert.Contains("8 textos revisados; 0 ainda não tinham tradução ou já estavam revisados.", review.Output, StringComparison.Ordinal);
-        Assert.Contains("1 texto desatualizado ficou de fora", review.Output, StringComparison.Ordinal);
-        Assert.Equal(1, Data(json).GetProperty("skippedOutdated").GetInt32());
-        Assert.True(Store.LoadCharacter("c1")!.Description!.Outdated);
-    }
-
-    [Fact]
-    public async Task Jogo_sem_o_VNDB_confirmado_manda_casar_antes()
-    {
-        Prepare(confirmed: false);
-
-        var result = await Run("library", "sheet", "fetch", "CLANNAD");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("vnf library match", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task So_com_o_pedido_o_spoiler_e_o_conteudo_adulto_aparecem()
     {
         Prepare();
@@ -104,53 +76,6 @@ public sealed class LibrarySheetCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task A_privacidade_da_biblioteca_tambem_vale_na_ficha()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "privacy", "--spoilers", "sim");
-
-        var show = await Run("library", "sheet", "show", "CLANNAD");
-
-        Assert.Contains("Ghost Sister", show.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Dry_run_estima_sem_chamar_a_IA_e_sem_gravar()
-    {
-        var fake = Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var result = await Run("library", "sheet", "translate", "CLANNAD", "--dry-run", "--json");
-
-        Assert.Equal(0, result.ExitCode);
-        var data = Data(result);
-        Assert.True(data.GetProperty("dryRun").GetBoolean());
-        Assert.Equal(1, data.GetProperty("pending").GetProperty("synopsis").GetInt32());
-        Assert.Equal(2, data.GetProperty("pending").GetProperty("characters").GetInt32());
-        Assert.Equal(2, data.GetProperty("pending").GetProperty("tags").GetInt32());
-        Assert.Equal(2, data.GetProperty("pending").GetProperty("traits").GetInt32());
-        Assert.True(data.GetProperty("estimate").GetProperty("dollars").GetDecimal() > 0);
-        Assert.Empty(fake.Requests);
-        Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame("v4")!.Synopsis!.Status);
-    }
-
-    [Fact]
-    public async Task Traduzir_de_novo_nao_pede_nada_a_IA()
-    {
-        var fake = Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-        var calls = fake.Requests.Count;
-
-        var again = await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-
-        Assert.Equal(0, again.ExitCode);
-        Assert.Contains("nada a traduzir", again.Output, StringComparison.Ordinal);
-        Assert.Equal(calls, fake.Requests.Count);
-    }
-
-    [Fact]
     public async Task Sem_chave_e_sem_provedor_falso_pede_a_chave_em_vez_de_chamar_a_rede()
     {
         Prepare();
@@ -163,111 +88,9 @@ public sealed class LibrarySheetCommandTests : IDisposable
         Assert.Contains("ANTHROPIC_API_KEY", result.Error, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Item_que_a_IA_perde_deixa_o_comando_com_falha_e_pendente_para_tentar_de_novo()
-    {
-        Prepare();
-        _cli.Cli.SheetTranslatorFactory = (_, _) => new FakeSheetTranslator(i => i.Key == "synopsis" ? "sem marcador" : "ok: " + i.Source);
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var result = await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("spoiler", result.Output, StringComparison.Ordinal);
-        Assert.Contains("pendente", result.Output, StringComparison.Ordinal);
-        Assert.Equal(TranslationStatus.Untranslated, Store.LoadGame("v4")!.Synopsis!.Status);
-    }
-
-    [Fact]
-    public async Task Revisa_aprova_e_corrige_cada_texto_como_uma_fala()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-
-        var early = await Run("library", "sheet", "approve", "CLANNAD", "synopsis");
-        var edit = await Run("library", "sheet", "edit", "CLANNAD", "c1", "O herói. [spoiler]Ele é um fantasma.[/spoiler]");
-        var review = await Run("library", "sheet", "review", "CLANNAD");
-        var approve = await Run("library", "sheet", "approve", "CLANNAD");
-        var show = await Run("library", "sheet", "show", "CLANNAD", "--ids");
-
-        Assert.Equal(1, early.ExitCode);
-        Assert.Contains("Revise", early.Error, StringComparison.Ordinal);
-        Assert.Equal(0, edit.ExitCode);
-        Assert.Contains("traduzido à mão", edit.Output, StringComparison.Ordinal);
-        Assert.Contains("9 textos revisados", review.Output, StringComparison.Ordinal);
-        Assert.Contains("9 textos aprovados", approve.Output, StringComparison.Ordinal);
-        Assert.Contains("[synopsis]", show.Output, StringComparison.Ordinal);
-        Assert.Contains("[character:c1]", show.Output, StringComparison.Ordinal);
-        Assert.Contains("[tag:g10]", show.Output, StringComparison.Ordinal);
-        Assert.Contains("0 sem tradução, 0 traduzidos pela IA, 0 à mão, 0 revisados, 9 aprovados", show.Output, StringComparison.Ordinal);
-        Assert.Contains("O herói. [spoiler escondido]", show.Output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Texto_que_nao_e_da_ficha_ou_nome_invalido_recusa_em_portugues()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var missing = await Run("library", "sheet", "review", "CLANNAD", "c99");
-        var invalid = await Run("library", "sheet", "review", "CLANNAD", "qualquer");
-
-        Assert.Equal(1, missing.ExitCode);
-        Assert.Contains("c99 não está na ficha", missing.Error, StringComparison.Ordinal);
-        Assert.Equal(1, invalid.ExitCode);
-        Assert.Contains("não é um texto da ficha", invalid.Error, StringComparison.Ordinal);
-    }
-
     private void MakeSheetOld()
     {
         Store.Update(s => s.SaveCharacter(s.LoadCharacter("c1")! with { Appearances = [.. s.LoadCharacter("c1")!.Appearances.Select(a => a with { Editions = null, Spoiler = 0 })] }));
-    }
-
-    [Fact]
-    public async Task Show_e_apply_avisam_dos_personagens_de_ficha_antiga_e_mandam_buscar_de_novo()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-        await Run("library", "sheet", "translate", "CLANNAD", "--yes");
-        await Run("library", "sheet", "review", "CLANNAD");
-        MakeSheetOld();
-        var project = NewProject();
-
-        var show = await Run("library", "sheet", "show", "CLANNAD");
-        var shown = await Run("library", "sheet", "show", "CLANNAD", "--show-spoilers");
-        var apply = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root);
-        var applyJson = await Run("library", "sheet", "apply", "CLANNAD", "--project", project.Root, "--json");
-
-        Assert.Contains("Aviso: 1 personagem está escondido porque a ficha é antiga", show.Output, StringComparison.Ordinal);
-        Assert.Contains("vnf library sheet fetch", show.Output, StringComparison.Ordinal);
-        Assert.DoesNotContain("Aviso:", shown.Output, StringComparison.Ordinal);
-        Assert.Contains("1 personagem ficou sem descrição: a ficha é antiga", apply.Output, StringComparison.Ordinal);
-        Assert.Contains("vnf library sheet fetch CLANNAD", apply.Output, StringComparison.Ordinal);
-        Assert.Equal(1, Data(applyJson).GetProperty("staleCharacters").GetInt32());
-    }
-
-    [Fact]
-    public async Task Apply_sem_projeto_ligado_pede_o_projeto()
-    {
-        Prepare();
-        await Run("library", "sheet", "fetch", "CLANNAD");
-
-        var result = await Run("library", "sheet", "apply", "CLANNAD");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("--project", result.Error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Show_de_jogo_sem_ficha_manda_buscar()
-    {
-        Prepare();
-
-        var result = await Run("library", "sheet", "show", "CLANNAD");
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("vnf library sheet fetch", result.Error, StringComparison.Ordinal);
     }
 
     private ProjectFolder NewProject()

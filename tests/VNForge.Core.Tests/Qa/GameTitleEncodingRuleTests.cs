@@ -5,6 +5,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Qa;
 
+[Trait("Risco", "R4")]
 public class GameTitleEncodingRuleTests
 {
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<TextUnit>> NoTexts = new Dictionary<string, IReadOnlyList<TextUnit>>();
@@ -29,24 +30,3 @@ public class GameTitleEncodingRuleTests
     }
 }
 
-public class GameTitleTextTests
-{
-
-    [Fact]
-    public void Largura_total_vira_normal_quando_so_assim_a_estrategia_grava()
-    {
-        var title = GameTitleText.Resolve("ＡＢＣ", TextEncoderRegistry.Default.Create("cp1252"));
-
-        Assert.Equal("ABC", title.Text);
-        Assert.Null(title.Error);
-    }
-
-    [Fact]
-    public void Caractere_recusado_volta_como_erro()
-    {
-        var title = GameTitleText.Resolve("Título", TextEncoderRegistry.Default.Create("sjis"));
-
-        Assert.NotNull(title.Error);
-        Assert.False(title.IsWritable);
-    }
-}

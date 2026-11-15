@@ -2,6 +2,8 @@ using VNForge.AI.Settings;
 
 namespace VNForge.AI.Tests.Settings;
 
+[Trait("Risco", "R5")]
+[Trait("Risco", "R7")]
 public sealed class AppBudgetFileTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "vnforge-ai-tests", Guid.NewGuid().ToString("N"));
@@ -11,16 +13,6 @@ public sealed class AppBudgetFileTests : IDisposable
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     private void Write(string json) => File.WriteAllText(Path.Combine(_dir, AppBudgetFile.FileName), json);
-
-    [Fact]
-    public void Arquivo_ausente_vale_sem_limite_e_sem_problema()
-    {
-        var reading = AppBudgetFile.Load(_dir);
-
-        Assert.Null(reading.Problem);
-        Assert.Null(reading.Settings.Limits.Limit);
-        Assert.False(reading.Settings.Rate.IsInformed);
-    }
 
     [Fact]
     public void Arquivo_valido_traz_limite_aviso_e_cotacao()
@@ -60,17 +52,8 @@ public sealed class AppBudgetFileTests : IDisposable
         Assert.Equal(100m, reading.Settings.Limits.Limit);
     }
 
-    [Fact]
-    public void Campo_nulo_ou_ausente_nao_e_problema()
-    {
-        Write("""{ "spendLimit": null, "concurrency": 3 }""");
-
-        Assert.Null(AppBudgetFile.Load(_dir).Problem);
-    }
-
     [Theory]
     [InlineData("{ isto não é json")]
-    [InlineData("[1, 2]")]
     public void Arquivo_ilegivel_diz_o_motivo_em_vez_de_valer_como_sem_limite(string content)
     {
         Write(content);

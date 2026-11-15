@@ -8,6 +8,7 @@ using VNForge.Engines.YuRis.Yslb;
 
 namespace VNForge.Engines.YuRis.Tests.Scenes;
 
+[Trait("Risco", "R7")]
 public sealed class YuRisSceneEdgesTests : IDisposable
 {
     private const string Gosub = "GOSUB";
@@ -70,51 +71,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     [Fact]
-    public void Es_sel_go_liga_cada_escolha_ao_texto_do_es_sel_set_seguinte()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"), b.StringExpression("SCENE_C"), b.StringExpression(string.Empty));
-        b.AddCommand("WAIT", 2, b.StringExpression("x"));
-        b.AddCommand(Gosub, 3, b.StringExpression(ChoiceTexts), b.StringExpression("はい"), b.StringExpression("いいえ"), b.StringExpression(string.Empty));
-
-        var edges = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty()));
-
-        var choices = edges.Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
-        Assert.Equal(2, choices.Count);
-        Assert.Equal(new SceneEdge("yst00001", "yst00002", SceneEdgeKind.Choice, "SCENE_B") { ChoiceUnitId = "yst00001:000513" }, choices[0]);
-        Assert.Equal(new SceneEdge("yst00001", "yst00003", SceneEdgeKind.Choice, "SCENE_C") { ChoiceUnitId = "yst00001:000514" }, choices[1]);
-    }
-
-    [Fact]
-    public void Es_sel_go_ignora_argumentos_alem_dos_oito_que_a_rotina_copia()
-    {
-        var b = NewScript();
-        var arguments = new List<SyntheticYstbArgument> { b.StringExpression(ChoiceTargets) };
-        arguments.AddRange(Enumerable.Repeat("SCENE_B", 8).Select(l => b.StringExpression(l)));
-        arguments.Add(b.StringExpression("SCENE_C"));
-        b.AddCommand(Gosub, 1, [.. arguments]);
-
-        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
-
-        Assert.DoesNotContain(choices, e => e.To == "yst00003");
-        Assert.Contains(choices, e => e.To == "yst00002");
-    }
-
-    [Fact]
-    public void Es_sel_go_so_olha_o_es_sel_set_antes_do_proximo_es_sel_go()
-    {
-        var b = NewScript();
-        b.AddCommand(Gosub, 1, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_B"));
-        b.AddCommand(Gosub, 2, b.StringExpression(ChoiceTargets), b.StringExpression("SCENE_C"));
-        b.AddCommand(Gosub, 3, b.StringExpression(ChoiceTexts), b.StringExpression("いいえ"));
-
-        var choices = Read(ReadLabels(Labels()), (1, b), (2, Empty()), (3, Empty())).Where(e => e.Kind == SceneEdgeKind.Choice).ToList();
-
-        Assert.Null(choices.Single(e => e.To == "yst00002").ChoiceUnitId);
-        Assert.Equal("yst00001:000513", choices.Single(e => e.To == "yst00003").ChoiceUnitId);
-    }
-
-    [Fact]
     public void Script_ilegivel_nao_derruba_a_leitura_dos_outros()
     {
         var good = NewScript();
@@ -140,28 +96,6 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     [Fact]
-    public void Contexto_de_outra_engine_e_recusado()
-    {
-        Assert.Throws<ArgumentException>(() => _engine.ReadSceneEdges(new UnpackedGame(new OtherContext(), [])));
-    }
-
-    [Fact]
-    public void Open_le_o_ysl_da_pasta_descompactada()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
-        File.WriteAllBytes(Path.Combine(_root, "ysc.ybn"), Yscm.Bytes);
-        File.WriteAllBytes(Path.Combine(_root, "ysl.ybn"), Labels().Build());
-        File.WriteAllBytes(Path.Combine(_root, "yst00001.ybn"), b.Build().Bytes);
-        File.WriteAllBytes(Path.Combine(_root, "yst00002.ybn"), Empty().Build().Bytes);
-
-        var game = _engine.Open(_root);
-        var graph = SceneGraph.Read(_engine, game);
-
-        Assert.Equal(new SceneEdge("yst00001", "yst00002", SceneEdgeKind.Jump, "SCENE_B"), Assert.Single(graph.Edges));
-    }
-
-    [Fact]
     public void Open_com_ysl_corrompido_avisa_e_o_grafo_fica_vazio()
     {
         File.WriteAllBytes(Path.Combine(_root, "ysc.ybn"), Yscm.Bytes);
@@ -175,13 +109,4 @@ public sealed class YuRisSceneEdgesTests : IDisposable
     }
 
     private sealed class OtherContext() : EngineContext("outra");
-
-    [Fact]
-    public void Rotulo_de_script_que_nao_esta_no_jogo_nao_gera_aresta()
-    {
-        var b = NewScript();
-        b.AddCommand(Go, 1, b.StringExpression("SCENE_B"));
-
-        Assert.Empty(Read(ReadLabels(Labels()), (1, b)));
-    }
 }

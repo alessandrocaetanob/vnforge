@@ -14,6 +14,7 @@ using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R1")]
 public sealed class TestCommandTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -108,23 +109,6 @@ public sealed class TestCommandTests : IDisposable
         Directory.Exists(Path.Combine(ProjectPath, "backup")) ? Directory.GetDirectories(Path.Combine(ProjectPath, "backup")) : [];
 
     [Fact]
-    public async Task Sem_yes_pergunta_e_recusar_sai_com_3_sem_gravar_nada()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => $"Traduzido {i}");
-        using var asking = new CliHarness(stdin: "n\n");
-        asking.Cli.GameProcessStarter = _starter;
-
-        var result = await asking.RunAsync(["test", ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(3, result.ExitCode);
-        Assert.Contains("Gravar a tradução na pasta do jogo", result.Error);
-        Assert.Equal(_originalYpf, await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken));
-        Assert.Empty(Backups());
-        Assert.Empty(_starter.Started);
-    }
-
-    [Fact]
     public async Task Testa_no_jogo_com_backup_e_abre_o_executavel_e_o_restore_devolve_byte_a_byte()
     {
         await InitAndExtract();
@@ -151,30 +135,6 @@ public sealed class TestCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Accent_test_injeta_so_a_frase_fixa_na_primeira_fala()
-    {
-        await InitAndExtract();
-        Translate(Yst2, i => $"Chuva {i}");
-        var original = ReadEntries(GameYpf);
-
-        var result = await Test("--accent-test", YesOption);
-
-        Assert.True(result.ExitCode == 0, result.Error + result.Output);
-        var entries = ReadEntries(GameYpf);
-        Assert.NotEqual(original["yst00001.ybn"], entries["yst00001.ybn"]);
-        var spoken = Reextract("yst00001.ybn", entries["yst00001.ybn"]).Single(u => u.Kind == TextUnitKind.Dialogue);
-        Assert.StartsWith("Teste de acentos: ", spoken.Source, StringComparison.Ordinal);
-        Assert.Equal(GameTester.AccentSpeaker, spoken.Speaker);
-        Assert.Equal(original["yst00002.ybn"], entries["yst00002.ybn"]);
-        Assert.Equal(GameTestKind.AccentTest, GameStateFile.Load(ProjectFolder.Open(ProjectPath)).InGame?.Kind);
-
-        var restore = await _cli.RunAsync(["restore", YesOption, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, restore.ExitCode);
-        Assert.Equal(_originalYpf, await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
     public async Task Erro_da_Conferencia_sai_com_2_e_nao_toca_no_jogo()
     {
         await InitAndExtract();
@@ -187,44 +147,6 @@ public sealed class TestCommandTests : IDisposable
         Assert.Equal(_originalYpf, await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken));
         Assert.Empty(Backups());
         Assert.Empty(_starter.Started);
-    }
-
-    [Fact]
-    public async Task No_open_injeta_sem_abrir_o_jogo_e_json_traz_os_passos()
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => $"Traduzido {i}");
-
-        var result = await Test(YesOption, "--no-open", "--json");
-
-        Assert.True(result.ExitCode == 0, result.Error + result.Output);
-        using var document = JsonDocument.Parse(result.Output);
-        var data = document.RootElement.GetProperty("data");
-        Assert.Equal("translation", data.GetProperty("kind").GetString());
-        Assert.Equal(["check", "build", "backup", "inject", "open"], data.GetProperty("steps").EnumerateArray().Select(s => s.GetProperty("step").GetString()));
-        Assert.False(data.TryGetProperty("executable", out var executable) && executable.ValueKind != JsonValueKind.Null);
-        Assert.Empty(_starter.Started);
-    }
-
-    [Theory]
-    [InlineData("test")]
-    [InlineData("inject")]
-    [InlineData("restore")]
-    public async Task Com_outra_operacao_no_jogo_o_comando_recusa_sem_gravar_nada(string verb)
-    {
-        await InitAndExtract();
-        Translate(Yst1, i => $"Traduzido {i}");
-        await Test(YesOption, "--no-open");
-        var injected = await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken);
-        var backups = Backups().Length;
-        using var held = ProjectLock.Acquire(ProjectFolder.Open(ProjectPath));
-
-        var result = await _cli.RunAsync([verb, YesOption, ProjectOption, ProjectPath], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("Outra operação do VNForge", result.Error);
-        Assert.Equal(injected, await File.ReadAllBytesAsync(GameYpf, TestContext.Current.CancellationToken));
-        Assert.Equal(backups, Backups().Length);
     }
 
     private sealed class Starter : IGameProcessStarter

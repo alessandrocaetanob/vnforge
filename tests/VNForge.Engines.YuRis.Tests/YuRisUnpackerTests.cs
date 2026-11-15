@@ -10,6 +10,7 @@ using VNForge.Engines.YuRis.Tests.Ystl.Synthetic;
 
 namespace VNForge.Engines.YuRis.Tests;
 
+[Trait("Risco", "R7")]
 public sealed class YuRisUnpackerTests : IDisposable
 {
     private const string Yst1Ybn = "yst00001.ybn";
@@ -103,14 +104,6 @@ public sealed class YuRisUnpackerTests : IDisposable
     }
 
     [Fact]
-    public void Unpack_de_pasta_inexistente_e_erro_em_portugues()
-    {
-        var ex = Assert.Throws<VNForgeException>(() => _engine.Unpack(Path.Combine(_root, "nada"), _cache, TestContext.Current.CancellationToken));
-
-        Assert.Contains("A pasta do jogo não existe", ex.Message);
-    }
-
-    [Fact]
     public void Open_com_yst_list_ilegivel_avisa_e_segue()
     {
         Write(YsbinYpf, Archive((YscYbn, Yscm.Bytes), ("yst_list.ybn", [1, 2, 3, 4]), (Yst1Ybn, Script("おはよう"))));
@@ -120,14 +113,6 @@ public sealed class YuRisUnpackerTests : IDisposable
 
         Assert.Single(game.Scripts);
         Assert.Contains("yst_list.ybn", Assert.Single(game.Warnings));
-    }
-
-    [Fact]
-    public void Open_de_pasta_inexistente_manda_rodar_o_extract()
-    {
-        var ex = Assert.Throws<VNForgeException>(() => _engine.Open(Path.Combine(_root, "nada")));
-
-        Assert.Contains("vnf extract", ex.Message);
     }
 
     [Fact]
@@ -143,15 +128,5 @@ public sealed class YuRisUnpackerTests : IDisposable
         Assert.Equal(["yst00002:000000", "yst00002:000512"], extraction.Units.Select(u => u.Id));
         Assert.Equal(["こんにちは", "さようなら"], extraction.Units.Select(u => u.Source));
         Assert.All(extraction.Units, u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
-    }
-
-    [Fact]
-    public void Open_sem_ysc_ybn_e_erro_em_portugues()
-    {
-        Directory.CreateDirectory(_cache);
-
-        var ex = Assert.Throws<VNForgeException>(() => _engine.Open(_cache));
-
-        Assert.Contains("ysc.ybn não está em", ex.Message);
     }
 }

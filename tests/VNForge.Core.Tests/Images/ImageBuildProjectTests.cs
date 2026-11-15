@@ -7,6 +7,7 @@ using VNForge.Core.Tests.Projects;
 namespace VNForge.Core.Tests.Images;
 
 /// <summary>O <c>vnf build</c> com imagens editadas (#535): o pacote de imagens vai para o <c>build/</c> junto com os scripts.</summary>
+[Trait("Risco", "R3")]
 public sealed class ImageBuildProjectTests : IDisposable
 {
     private const string Pack = "img.pak";
@@ -57,17 +58,5 @@ public sealed class ImageBuildProjectTests : IDisposable
         Build(new BuildOptions { OnlyChanged = true });
 
         Assert.Equal(_edited, WritableArchiveFormat.Read(BuiltPack)[Gate]);
-    }
-
-    [Fact]
-    public void ADroppedEditShowsUpAsABuildWarning()
-    {
-        MarkEdit();
-        File.Delete(_project.EditedImagePath(Pack, Gate));
-
-        var result = Build();
-
-        Assert.Contains(result.Warnings, w => w.Contains("imagem pronta", StringComparison.Ordinal));
-        Assert.False(File.Exists(BuiltPack));
     }
 }

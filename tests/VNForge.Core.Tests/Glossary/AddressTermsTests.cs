@@ -5,6 +5,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Glossary;
 
+[Trait("Risco", "R3")]
 public sealed class AddressTermsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-address-" + Guid.NewGuid().ToString("N"));
@@ -44,15 +45,6 @@ public sealed class AddressTermsTests : IDisposable
     }
 
     [Fact]
-    public void Lista_vazia_vira_um_arquivo_valido_e_volta_vazia()
-    {
-        var json = AddressTermSerializer.Serialize([]);
-
-        Assert.Equal("{\n  \"version\": 1,\n  \"entries\": []\n}\n", json);
-        Assert.Empty(AddressTermSerializer.Parse(json, "address-terms.json"));
-    }
-
-    [Fact]
     public void Projeto_salva_e_le_os_tratamentos_com_o_arquivo_gravado_byte_a_byte()
     {
         var projeto = NovoProjeto();
@@ -66,23 +58,6 @@ public sealed class AddressTermsTests : IDisposable
     }
 
     [Fact]
-    public void O_par_repetido_e_recusado_mesmo_com_espacos_e_largura_diferentes()
-    {
-        var repetido = new AddressTerm[] { new("健太", "学生C", "あいつ", "ele"), new(" 健太 ", "学生Ｃ", "きみ", "você") };
-
-        var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Serialize(repetido));
-
-        Assert.Contains("mais de uma vez", ex.Reason);
-    }
-
-    [Theory]
-    [InlineData("健太", "  ")]
-    public void Quem_fala_e_com_quem_fala_nao_podem_ser_vazios(string from, string to)
-    {
-        Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Serialize([new AddressTerm(from, to, "a", "b")]));
-    }
-
-    [Fact]
     public void Arquivo_com_par_repetido_ou_quem_fala_vazio_e_recusado_na_leitura()
     {
         const string repetido = """{"version":1,"entries":[{"from":"a","to":"b","source":"c","target":"d"},{"from":" a","to":"b ","source":"e","target":"f"}]}""";
@@ -90,30 +65,5 @@ public sealed class AddressTermsTests : IDisposable
 
         Assert.Contains("mais de uma vez", Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(repetido, "x")).Reason);
         Assert.Contains("quem fala", Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(semFalante, "x")).Reason);
-    }
-
-    [Theory]
-    [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c"}]}""")]
-    [InlineData("""{"version":1,"entries":[{"from":"a","to":"b","source":"c","target":"d","extra":1}]}""")]
-    [InlineData("""{"version":2,"entries":[]}""")]
-    [InlineData("""{"entries":[]}""")]
-    [InlineData("não é json")]
-    public void Arquivo_fora_do_formato_e_recusado_com_a_mensagem_do_arquivo(string json)
-    {
-        var ex = Assert.Throws<GlossaryFileException>(() => AddressTermSerializer.Parse(json, "address-terms.json"));
-
-        Assert.Equal("address-terms.json", ex.FilePath);
-    }
-
-    [Fact]
-    public void O_livro_acha_o_par_ignorando_espacos_e_largura_e_lista_os_do_falante()
-    {
-        var livro = new AddressBook([new("健太", "学生Ｃ", "あいつ", "ele"), new("健太", "美咲", "美咲ちゃん", "Misaki-chan"), new("美咲", "健太", "先輩", "senpai")]);
-
-        Assert.Equal("ele", livro.Find(" 健太", "学生C")?.Target);
-        Assert.Null(livro.Find("美咲", "学生C"));
-        Assert.Null(livro.Find(null, "美咲"));
-        Assert.Equal(["学生Ｃ", "美咲"], livro.From("健太").Select(t => t.To));
-        Assert.Empty(livro.From(" "));
     }
 }

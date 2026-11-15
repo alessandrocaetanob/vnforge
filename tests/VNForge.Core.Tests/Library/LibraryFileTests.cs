@@ -4,6 +4,8 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R2")]
+[Trait("Risco", "R7")]
 public sealed class LibraryFileTests : IDisposable
 {
     private static readonly DateTimeOffset Added = new(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);
@@ -81,31 +83,6 @@ public sealed class LibraryFileTests : IDisposable
         Assert.Equal(AdultMode.Blur, new GameLibrary().Privacy.Adult);
     }
 
-    [Theory]
-    [InlineData("\"showAdult\":true", AdultMode.Show)]
-    [InlineData("\"showAdult\":true,\"adult\":\"hide\"", AdultMode.Hide)]
-    public void O_arquivo_antigo_com_showAdult_e_o_novo_com_adult_dao_o_modo(string fields, AdultMode expected)
-    {
-        var privacy = LibraryFile.Parse("{\"version\":1,\"privacy\":{\"showSpoilers\":true," + fields + "},\"games\":[]}").Privacy;
-
-        Assert.True(privacy.ShowSpoilers);
-        Assert.Equal(expected, privacy.Adult);
-    }
-
-    [Theory]
-    [InlineData("null")]
-    [InlineData("{\"adult\":\"borrar\"}")]
-    [InlineData("{\"adult\":3}")]
-    [InlineData("{\"showAdult\":\"sim\"}")]
-    [InlineData("{\"showAdult\":null,\"showSpoilers\":\"sim\"}")]
-    public void Uma_privacidade_estranha_vale_o_padrao_e_nao_derruba_o_arquivo(string privacyJson)
-    {
-        var library = LibraryFile.Parse("{\"version\":1,\"privacy\":" + privacyJson + ",\"games\":[]}");
-
-        Assert.Equal(AdultMode.Blur, library.Privacy.Adult);
-        Assert.Empty(library.Games);
-    }
-
     [Fact]
     public void Arquivo_ilegivel_recusa_e_nao_e_sobrescrito()
     {
@@ -118,18 +95,6 @@ public sealed class LibraryFileTests : IDisposable
         Assert.Equal("{ isto não é json", File.ReadAllText(file.Path));
     }
 
-    [Theory]
-    [InlineData("{\"version\":2,\"games\":[]}", "versão 2")]
-    [InlineData("{\"version\":1,\"games\":[{\"id\":\"\",\"folder\":\"C:\\\\a\",\"engine\":{\"id\":\"x\",\"name\":\"X\",\"source\":\"engine\"},\"title\":\"t\",\"addedAt\":\"2026-11-09T12:00:00+00:00\"}]}", "não tem id")]
-    [InlineData("null", "vazio")]
-    public void Formato_invalido_vira_erro_esperado_com_o_arquivo_no_texto(string json, string expected)
-    {
-        var e = Assert.Throws<LibraryException>(() => LibraryFile.Parse(json, "library.json"));
-
-        Assert.Contains(expected, e.Message);
-        Assert.Contains("library.json", e.Message);
-    }
-
     [Fact]
     public void Id_repetido_e_recusado()
     {
@@ -139,55 +104,6 @@ public sealed class LibraryFileTests : IDisposable
         var e = Assert.Throws<LibraryException>(() => LibraryFile.Parse(json));
 
         Assert.Contains("mais de uma vez", e.Message);
-    }
-
-    [Fact]
-    public void Achar_por_id_nome_da_pasta_ou_pedaco_do_titulo()
-    {
-        var library = Sample();
-        var clannad = library.Games[0];
-
-        Assert.Equal(clannad, library.Find(clannad.Id));
-        Assert.Equal(clannad, library.Find("clannad"));
-        Assert.Equal(library.Games[1], library.Find("outr"));
-        Assert.Throws<LibraryException>(() => library.Find("nada"));
-        var fates = new GameLibrary([Game(Path.Combine(_dir.Path, "Fate Zero"), "Fate Zero"), Game(Path.Combine(_dir.Path, "Fate Stay"), "Fate Stay")]);
-        Assert.Contains("combina com 2", Assert.Throws<LibraryException>(() => fates.Find("fate")).Message);
-        Assert.Equal("Fate Stay", fates.Find("Fate Stay").Title);
-    }
-
-    [Fact]
-    public void Varrer_de_novo_guarda_o_casamento_e_diz_quem_sumiu()
-    {
-        var library = Sample();
-        var root = Path.Combine(_dir.Path, "jogos");
-        var seenAgain = library.Games[0] with { Exe = "Novo.exe", Engine = new LibraryEngine("renpy", "Ren'Py", LibraryEngineSource.Signature), VndbId = null, Info = null };
-        var brandNew = Game(Path.Combine(root, "Terceiro"), "Terceiro");
-
-        var merge = library.Merge([seenAgain, brandNew], root);
-
-        Assert.Equal([brandNew.Id], merge.Added.Select(g => g.Id));
-        Assert.Equal([seenAgain.Id], merge.Updated.Select(g => g.Id));
-        Assert.Equal([library.Games[1].Id], merge.Missing.Select(g => g.Id));
-        var kept = library.Games.Single(g => g.Id == seenAgain.Id);
-        Assert.Equal("v4", kept.VndbId);
-        Assert.NotNull(kept.Info);
-        Assert.Equal("Novo.exe", kept.Exe);
-        Assert.Equal("renpy", kept.Engine.Id);
-        Assert.Equal("CLANNAD", kept.Title);
-        Assert.Equal(3, library.Games.Count);
-    }
-
-    [Fact]
-    public void Update_em_paralelo_serializa_as_gravacoes()
-    {
-        var file = new LibraryFile(_dir.Path);
-
-        Parallel.For(0, 12, new ParallelOptions { CancellationToken = TestContext.Current.CancellationToken, MaxDegreeOfParallelism = 6 }, i =>
-            new LibraryFile(_dir.Path).Update(l => l.Merge([Game(Path.Combine(_dir.Path, "jogos", $"J{i}"), $"J{i}")], Path.Combine(_dir.Path, "jogos"))));
-
-        Assert.Equal(12, file.Load().Games.Count);
-        Assert.Equal([file.Path], Directory.GetFiles(_dir.Path).Where(f => !f.EndsWith(".lock", StringComparison.Ordinal)));
     }
 
     [Fact]

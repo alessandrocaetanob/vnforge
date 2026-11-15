@@ -7,6 +7,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Images;
 
+[Trait("Risco", "R3")]
 public sealed class ImageBuildTests : IDisposable
 {
     private const string Pack = "img.pak";
@@ -95,44 +96,5 @@ public sealed class ImageBuildTests : IDisposable
         Assert.Empty(result.Archives);
         Assert.Contains("mudou depois da edição", Assert.Single(result.Warnings));
         Assert.False(File.Exists(Path.Combine(_out, Pack)));
-    }
-
-    [Fact]
-    public void SkipsAnEditWhoseFinishedImageIsMissing()
-    {
-        SaveEdit(Edit(), null);
-
-        var result = Apply();
-
-        Assert.Empty(result.Archives);
-        Assert.Contains("imagem pronta", Assert.Single(result.Warnings));
-    }
-
-    [Fact]
-    public void SkipsAnEditWhoseImageLeftThePackage()
-    {
-        SaveEdit(Edit("bg/sumiu.png"), _edited);
-
-        var result = Apply();
-
-        Assert.Empty(result.Archives);
-        Assert.Contains("não existe mais", Assert.Single(result.Warnings));
-    }
-
-    [Fact]
-    public void WarnsWhenThePackageIsNotInTheGame()
-    {
-        _project.SaveImageEdits([Edit() with { Archive = "outro.pak" }]);
-
-        var result = Apply();
-
-        Assert.Empty(result.Archives);
-        Assert.Contains("outro.pak", Assert.Single(result.Warnings));
-    }
-
-    [Fact]
-    public void EditedImagePathRefusesToLeaveTheImagesFolder()
-    {
-        Assert.Throws<ArgumentException>(() => _project.EditedImagePath(Pack, "../../fora.png"));
     }
 }

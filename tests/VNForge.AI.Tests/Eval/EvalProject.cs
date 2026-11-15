@@ -37,8 +37,6 @@ internal sealed class EvalProject : IDisposable
 
     public static string Id(int i) => $"{Key}:{i:D6}";
 
-    public IEnumerable<int> GoldIndexes => Enumerable.Range(0, _goldCount).Select(k => ContextLines + (_spaced ? 3 * k : k));
-
     private int Total => ContextLines + (_spaced ? 3 * _goldCount : _goldCount + 40);
 
     public string TextJson => File.ReadAllText(Folder.TextPath(Key));

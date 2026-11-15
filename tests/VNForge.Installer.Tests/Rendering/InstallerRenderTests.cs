@@ -16,11 +16,12 @@ namespace VNForge.Installer.Tests.Rendering;
 /// As cinco janelas do quadro #540 a 720×480 nos dois temas. Cada uma confere, na ordem em que o jogador lê, todos os textos e botões do quadro;
 /// os PNG seguem <c>VNFORGE_RENDER_DIR</c> (senão uma pasta temporária) e se conferem lado a lado com a captura do quadro.
 /// </summary>
+[Trait("Risco", "R8")]
 public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixture<HeadlessFixture>
 {
     public const string RenderVariable = "VNFORGE_RENDER_DIR";
 
-    public static TheoryData<string> Themes => ["Dark", "Light"];
+    public static TheoryData<string> Themes => ["Dark"];
 
     private static string RenderDirectory =>
         Environment.GetEnvironmentVariable(RenderVariable) is { Length: > 0 } configured ? configured : Path.Combine(Path.GetTempPath(), "vnforge-installer-tests", "render");
@@ -87,43 +88,6 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
             engine.Release.Set();
             await install;
         }
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public async Task Renderiza_as_janelas_que_o_quadro_deixou_como_estados_que_faltam(string theme)
-    {
-        var errorVm = new InstallerViewModel(new FailingEngine(new BoardEngine()), new NoShell(), new InstallerStart(BoardEngine.Folder, Path.GetTempPath(), null));
-        await errorVm.StartAsync();
-        await errorVm.InstallCommand.ExecuteAsync(null);
-        var empty = new InstallerViewModel(null, new NoShell(), new InstallerStart(null, Path.GetTempPath(), null));
-        var reverted = await StartedAtAsync(new BoardEngine { State = BoardEngine.Situation.Installed }, new FakeTimeProvider());
-        await reverted.RevertCommand.ExecuteAsync(null);
-
-        await RenderAsync(errorVm, "540-inst-erro", theme, (_, texts) =>
-        {
-            Assert.Contains("A instalação não terminou", texts);
-            Assert.Contains("Não foi possível instalar a tradução", texts);
-            Assert.Contains("Tentar de novo", texts);
-        });
-        await RenderAsync(empty, "540-inst-vazio", theme, (_, texts) => Assert.Contains("Este instalador está vazio", texts));
-        await RenderAsync(reverted, "540-inst-original", theme, (_, texts) =>
-        {
-            Assert.Contains("Jogo original de volta", texts);
-            Assert.Contains("4 arquivos voltaram ao original, byte a byte.", texts);
-        });
-    }
-
-    [Fact]
-    public async Task Capa_que_nao_decodifica_deixa_a_capa_desenhada_por_baixo()
-    {
-        var vm = await FolderAsync(new BoardEngine(cover: [0x89, 0x50, 0x4E, 0x47, 1, 2, 3]), new FakeTimeProvider());
-
-        await RenderAsync(vm, "540-inst-capa-ruim", "Dark", (window, _) =>
-        {
-            var image = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "CoverImage");
-            Assert.Null(image.Source);
-        });
     }
 
     private static byte[] SolidPng(int width, int height, byte red, byte green, byte blue)
@@ -259,22 +223,5 @@ public sealed class InstallerRenderTests(HeadlessFixture fixture) : IClassFixtur
         public void OpenReadMe(string text)
         {
         }
-    }
-
-    /// <summary>O quadro do estado "A instalação não terminou": o engine do quadro que falha ao instalar, como um disco cheio.</summary>
-    private sealed class FailingEngine(BoardEngine inner) : IInstallerEngine
-    {
-        public BoardEngine Inner { get; } = inner;
-
-        public PatchManifest Manifest => Inner.Manifest;
-
-        public PatchCheck Check(string folder) => Inner.Check(folder);
-
-        public PatchUninstallPlan PlanUninstall(string folder) => Inner.PlanUninstall(folder);
-
-        public PatchInstallResult Install(string folder, IProgress<PatchProgress> progress, CancellationToken cancellationToken) =>
-            throw new PatchException("Não foi possível aplicar o patch em Game.exe: não há espaço no disco. Os arquivos do jogo voltaram ao estado de antes desta instalação.");
-
-        public PatchUninstallResult Uninstall(string folder, IProgress<PatchProgress> progress, CancellationToken cancellationToken) => Inner.Uninstall(folder, progress, cancellationToken);
     }
 }

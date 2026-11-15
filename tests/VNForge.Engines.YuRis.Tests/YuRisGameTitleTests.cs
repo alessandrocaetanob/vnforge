@@ -12,6 +12,7 @@ using VNForge.Engines.YuRis.Yscfg;
 namespace VNForge.Engines.YuRis.Tests;
 
 /// <summary>O título da janela do jogo no YU-RIS: lido do <c>yscfg.ybn</c> do <c>ysbin.ypf</c> e devolvido ao pacote só com o campo do título trocado (#427).</summary>
+[Trait("Risco", "R4")]
 public sealed class YuRisGameTitleTests : IDisposable
 {
     private const string Title = "テストの題名";

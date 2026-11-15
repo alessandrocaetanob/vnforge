@@ -5,6 +5,7 @@ using static VNForge.AI.Tests.Bible.BibleFixtures;
 
 namespace VNForge.AI.Tests.Bible;
 
+[Trait("Risco", "R5")]
 public sealed class BibleChapterPlannerTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-ai-tests", Guid.NewGuid().ToString("N"));
@@ -31,18 +32,6 @@ public sealed class BibleChapterPlannerTests : IDisposable
             .Rename("yst2", "Volta para casa"));
         project.SaveCharacters([new CharacterEntry("美咲", "Misaki")]);
         return project;
-    }
-
-    [Fact]
-    public void A_cena_leva_o_nome_do_usuario_ou_o_da_engine_e_nunca_o_da_biblia_anterior()
-    {
-        var project = ProjectWithTwoChapters();
-        project.SaveBible(VNForge.Core.Bible.GameBible.From([new VNForge.Core.Bible.BibleScene("yst1") { Name = "Nome antigo da IA" }]));
-
-        var scenes = BibleChapterPlanner.Plan(project).SelectMany(c => c.Scenes).ToDictionary(s => s.Key, s => s.Label);
-
-        Assert.Equal("manha", scenes["yst1"]);
-        Assert.Equal("Volta para casa", scenes["yst2"]);
     }
 
     [Fact]

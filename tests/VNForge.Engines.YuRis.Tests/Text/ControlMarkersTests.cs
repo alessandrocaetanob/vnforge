@@ -4,6 +4,7 @@ using VNForge.Engines.YuRis.Text;
 
 namespace VNForge.Engines.YuRis.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class ControlMarkersTests
 {
     private static byte[] Sjis(string text) => GameEncodings.ShiftJis.GetBytes(text);
@@ -101,21 +102,6 @@ public class ControlMarkersTests
         public string Id => "sjis";
 
         public byte[] Encode(string text) => Strict.GetBytes(text);
-
-        public IReadOnlyList<int> FindUnencodable(string text) => [];
-    }
-
-    private sealed class RecordingEncoder : ITextEncoder
-    {
-        public List<string> Received { get; } = [];
-
-        public string Id => "recording";
-
-        public byte[] Encode(string text)
-        {
-            Received.Add(text);
-            return text.Select(c => (byte)c).ToArray();
-        }
 
         public IReadOnlyList<int> FindUnencodable(string text) => [];
     }

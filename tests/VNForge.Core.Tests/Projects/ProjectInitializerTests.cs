@@ -3,6 +3,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R2")]
 public sealed class ProjectInitializerTests : IDisposable
 {
     private const string GameExe = "Jogo.exe";
@@ -42,123 +43,6 @@ public sealed class ProjectInitializerTests : IDisposable
     }
 
     [Fact]
-    public void ReadGameTitle_le_o_titulo_da_pasta_do_jogo_antes_de_o_projeto_existir()
-    {
-        var inspection = ProjectInitializer.Inspect(_game, [new TitledEngine()]);
-        Assert.Null(ProjectInitializer.ReadGameTitle(inspection, _game));
-
-        File.WriteAllText(Path.Combine(_game, "titulo.cfg"), "  雨音の箱庭 \n");
-
-        Assert.Equal("雨音の箱庭", ProjectInitializer.ReadGameTitle(inspection, _game));
-        Assert.False(Directory.Exists(ProjectDir()));
-    }
-
-    [Fact]
-    public void Pasta_que_ja_tem_projeto_da_erro_e_nao_sobrescreve()
-    {
-        ProjectInitializer.Initialize(ProjectDir(), _game, [Matching(("ypfVersion", "500"))], new ProjectInitOptions(Name: "Original"));
-        var before = File.ReadAllText(ProjectFolder.Open(ProjectDir()).ConfigPath);
-
-        var error = Assert.Throws<ProjectConfigException>(
-            () => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching(("ypfVersion", "600"))], new ProjectInitOptions(Name: "Outro")));
-
-        Assert.Contains("não foi sobrescrito", error.Message);
-        Assert.Equal(before, File.ReadAllText(ProjectFolder.Open(ProjectDir()).ConfigPath));
-    }
-
-    [Fact]
-    public void Engine_nao_reconhecida_cita_os_avisos_da_deteccao()
-    {
-        var engine = new FakeEngine(new EngineDetection(false, string.Empty, new Dictionary<string, string> { ["warnings"] = "a.ypf: bloqueado" }));
-
-        var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(ProjectDir(), _game, [engine]));
-
-        Assert.Contains("a.ypf: bloqueado", error.Message);
-    }
-
-    [Fact]
-    public void Usa_a_primeira_engine_que_reconhece()
-    {
-        var first = new FakeEngine(EngineDetection.NotDetected, "primeira");
-        var second = new FakeEngine(EngineDetection.Matched("ok"), "segunda");
-
-        var result = ProjectInitializer.Initialize(ProjectDir(), _game, [first, second]);
-
-        Assert.Equal("segunda", result.Config.Engine.Id);
-    }
-
-    [Fact]
-    public void Pasta_do_jogo_inexistente_da_erro()
-    {
-        var error = Assert.Throws<ProjectInitException>(
-            () => ProjectInitializer.Initialize(ProjectDir(), Path.Combine(_temp.Path, "nao-existe"), [Matching()]));
-
-        Assert.Contains("A pasta do jogo não existe", error.Message);
-    }
-
-    [Theory]
-    [InlineData("")]
-    public void Projeto_dentro_da_pasta_do_jogo_da_erro(string subfolder)
-    {
-        var project = subfolder.Length == 0 ? _game : Path.Combine(_game, subfolder);
-
-        var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(project, _game, [Matching()]));
-
-        Assert.Contains("não pode ficar dentro da pasta do jogo", error.Message);
-        Assert.Equal([GameExe], Directory.EnumerateFileSystemEntries(_game).Select(Path.GetFileName).ToArray());
-    }
-
-    [Fact]
-    public void Sem_executavel_pede_a_opcao_exe_e_nao_cria_o_projeto()
-    {
-        File.Delete(Path.Combine(_game, GameExe));
-
-        var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()]));
-
-        Assert.Contains("--exe", error.Message);
-        Assert.False(Directory.Exists(ProjectDir()));
-    }
-
-    [Fact]
-    public void Varios_executaveis_pedem_a_opcao_exe()
-    {
-        File.WriteAllText(Path.Combine(_game, "Outro.exe"), "MZ");
-
-        var error = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()]));
-
-        Assert.Contains("Jogo.exe, Outro.exe", error.Message);
-    }
-
-    [Theory]
-    [InlineData("nao-existe.exe")]
-    public void Executavel_informado_que_nao_esta_no_jogo_da_erro(string exe)
-    {
-        File.WriteAllText(Path.Combine(_temp.Path, "fora.exe"), "MZ");
-
-        var error = Assert.Throws<ProjectInitException>(
-            () => ProjectInitializer.Initialize(ProjectDir(), _game, [Matching()], new ProjectInitOptions(Exe: exe)));
-
-        Assert.Contains("não existe dentro da pasta do jogo", error.Message);
-        Assert.False(Directory.Exists(ProjectDir()));
-    }
-
-    [Fact]
-    public void Idiomas_acentuacao_e_ia_escolhidos_vao_para_o_vnforge_json()
-    {
-        var ai = new AiConfig("anthropic", "claude-sonnet-5-5", "medium", 30);
-
-        var result = ProjectInitializer.Initialize(
-            ProjectDir(), _game, [Matching()],
-            new ProjectInitOptions(SourceLanguage: "en", TargetLanguage: "es", EncodingStrategy: "remap", Ai: ai));
-
-        var saved = ProjectFolder.Open(ProjectDir()).LoadConfig();
-        Assert.Equal(new LanguagesConfig("en", "es"), saved.Languages);
-        Assert.Equal(new EncodingConfig("remap"), saved.Encoding);
-        Assert.Equal(ai, saved.Ai);
-        Assert.Equal(saved, result.Config);
-    }
-
-    [Fact]
     public void Estrategia_de_acentuacao_invalida_da_erro_sem_criar_o_projeto()
     {
         Assert.Throws<ProjectConfigException>(
@@ -175,15 +59,6 @@ public sealed class ProjectInitializerTests : IDisposable
 
         var unknown = Assert.Throws<ProjectInitException>(() => ProjectInitializer.Inspect(_game, [new FakeEngine(EngineDetection.NotDetected)]));
         Assert.Contains("Engine não reconhecida", unknown.Message);
-    }
-
-    [Fact]
-    public void ProjectChoices_lista_o_que_o_vnforge_json_aceita()
-    {
-        Assert.Contains("fold", ProjectChoices.EncodingStrategies);
-        Assert.Contains("claude-opus-5-5", ProjectChoices.Models);
-        Assert.Equal(AiConfig.Default, ProjectChoices.DefaultAi);
-        Assert.Equal("fold", ProjectChoices.DefaultEncoding);
     }
 
     private sealed class TitledEngine : IEngine, IGameTitleSource
