@@ -283,9 +283,16 @@ public sealed partial class FoldersViewModel
     };
 
     /// <summary>A outra pasta do usuário, contra a qual a nova não pode se sobrepor: o rascunho da primeira pergunta, ou a em uso.</summary>
-    private string OtherFolderOf(UserFolderKind kind) => context == Context.FirstRun
-        ? (kind == UserFolderKind.Config ? DraftCache : DraftConfig)
-        : folders.Of(kind == UserFolderKind.Config ? UserFolderKind.Cache : UserFolderKind.Config).Path;
+    private string OtherFolderOf(UserFolderKind kind)
+    {
+        var config = kind == UserFolderKind.Config;
+        if (context == Context.FirstRun)
+        {
+            return config ? DraftCache : DraftConfig;
+        }
+
+        return folders.Of(config ? UserFolderKind.Cache : UserFolderKind.Config).Path;
+    }
 
     private void Proceed()
     {
@@ -425,9 +432,12 @@ public sealed partial class FoldersViewModel
             _ => $"Nada mudou. Os dados em {pendingFrom} não foram apagados.",
         };
         FailurePercent = error.Percent;
-        FailureWhere = error.Percent is { } percent && error.Folder is { } folder
-            ? $"Parou aos {percent}%, copiando {(Path.HasExtension(folder) ? "o arquivo" : "a pasta")} {folder}."
-            : string.Empty;
+        FailureWhere = string.Empty;
+        if (error.Percent is { } percent && error.Folder is { } folder)
+        {
+            var what = Path.HasExtension(folder) ? "o arquivo" : "a pasta";
+            FailureWhere = $"Parou aos {percent}%, copiando {what} {folder}.";
+        }
         CanUseAsIs = error.DestinationHasData;
         Mode = FolderDialogMode.Failed;
     }

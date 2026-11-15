@@ -116,9 +116,12 @@ public sealed class UserFolders
                     continue;
                 }
 
+                var config = kind == UserFolderKind.Config;
+                var variable = config ? ConfigVariable : CacheVariable;
+                var which = config ? "de dados" : "de cache";
                 var message = folder.Source == UserFolderSource.Environment
-                    ? $"{(kind == UserFolderKind.Config ? ConfigVariable : CacheVariable)} aponta para {folder.Path}, que não existe. Crie a pasta ou ajuste a variável."
-                    : $"A pasta {(kind == UserFolderKind.Config ? "de dados" : "de cache")} {folder.Path} não está disponível. Conecte a unidade e tente de novo.";
+                    ? $"{variable} aponta para {folder.Path}, que não existe. Crie a pasta ou ajuste a variável."
+                    : $"A pasta {which} {folder.Path} não está disponível. Conecte a unidade e tente de novo.";
                 return new UserFolderProblem(kind, folder.Source, folder.Path, message);
             }
 

@@ -10,6 +10,8 @@ namespace VNForge.Core.Tests.UserData;
 /// A pasta de dados do usuário (#694): a ordem de busca que o app e o <c>vnf</c> usam, a pergunta da primeira abertura que quem já usa o app não vê, e a troca de pasta
 /// que copia e confere sem perder arquivo. Tudo numa pasta temporária e com as variáveis na mão do teste: nada toca o <c>%APPDATA%</c> real.
 /// </summary>
+[Trait("Risco", "R2")]
+[Trait("Risco", "R6")]
 public sealed class PastaDoUsuarioTests : IDisposable
 {
     private readonly TempFolder _temp = new();

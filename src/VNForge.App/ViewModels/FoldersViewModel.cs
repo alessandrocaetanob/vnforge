@@ -171,9 +171,19 @@ public sealed partial class FolderCardViewModel : ObservableObject
     /// <summary>A variável de ambiente vale mais que a escolha do app, então trocar aqui não mudaria nada: o botão fica desligado e a dica diz por quê.</summary>
     public bool CanChange => folders.Of(Kind).Source != UserFolderSource.Environment;
 
-    public string ChangeTip => CanChange
-        ? "Escolher outra pasta e mover os arquivos para ela"
-        : $"Definida pela variável {(IsConfig ? UserFolders.ConfigVariable : UserFolders.CacheVariable)}; ajuste a variável para mudar.";
+    public string ChangeTip
+    {
+        get
+        {
+            if (CanChange)
+            {
+                return "Escolher outra pasta e mover os arquivos para ela";
+            }
+
+            var variable = IsConfig ? UserFolders.ConfigVariable : UserFolders.CacheVariable;
+            return $"Definida pela variável {variable}; ajuste a variável para mudar.";
+        }
+    }
 
     /// <summary>"26 arquivos · 31 MB" nos dados e "248 KB" no cache; vazio até a contagem terminar.</summary>
     [ObservableProperty]
@@ -185,7 +195,8 @@ public sealed partial class FolderCardViewModel : ObservableObject
     internal void SetSize(int files, long bytes)
     {
         var size = UserFolderMover.FormatSize(bytes);
-        SizeText = IsConfig ? $"{files} {(files == 1 ? "arquivo" : "arquivos")} · {size}" : size;
+        var noun = files == 1 ? "arquivo" : "arquivos";
+        SizeText = IsConfig ? $"{files} {noun} · {size}" : size;
     }
 
     [RelayCommand]
