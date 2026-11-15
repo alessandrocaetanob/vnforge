@@ -249,6 +249,51 @@ public sealed partial class GameInjector
     }
 
     /// <summary>
+    /// Monta a restauração de um só backup, o que <see cref="PlanRestore"/> não faz com os backups à mão: devolve os originais que ele guarda e nada mais.
+    /// Vale para qualquer backup de qualquer pasta do projeto (a atual, a anterior ou o <c>backup/</c>); <paramref name="backup"/> é o nome da pasta ou o caminho dela.
+    /// </summary>
+    /// <exception cref="InjectionException">O backup não está nas pastas do projeto, já foi restaurado, tem o manifesto ilegível ou só guarda o projeto.</exception>
+    public static RestorePlan PlanRestoreFrom(ProjectFolder project, string backup)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentException.ThrowIfNullOrWhiteSpace(backup);
+
+        var wanted = Path.IsPathRooted(backup) ? GameLibrary.NormalizeFolder(backup) : null;
+        var directory = BackupDirectories(project).FirstOrDefault(d => wanted is null
+                ? string.Equals(Path.GetFileName(d), backup, PathComparison)
+                : string.Equals(GameLibrary.NormalizeFolder(d), wanted, PathComparison))
+            ?? throw new InjectionException($"Não achei o backup '{backup}' nas pastas de backup do projeto ({string.Join(", ", project.Backups.Roots(project))}).");
+        var manifestPath = Path.Combine(directory, BackupManifest.FileName);
+        if (!ManifestExists(manifestPath, out var recovery))
+        {
+            throw new InjectionException($"A pasta '{directory}' não tem manifesto: não é um backup do VNForge.");
+        }
+
+        var (manifest, problem) = TryReadManifest(manifestPath);
+        if ((recovery ?? problem) is { } failure)
+        {
+            throw failure;
+        }
+
+        if (manifest!.RestoredAt is not null)
+        {
+            throw new InjectionException($"O backup '{directory}' já foi restaurado em {manifest.RestoredAt.Value.ToLocalTime():dd/MM/yyyy HH:mm}.");
+        }
+
+        if (manifest.Files.Count == 0)
+        {
+            throw new InjectionException($"O backup '{directory}' guarda só o projeto, sem arquivos do jogo. A cópia do projeto está em '{Path.Combine(directory, BackupManifest.ProjectFolderName)}'.");
+        }
+
+        var gameDirectory = Directory.Exists(manifest.GameDirectory) ? manifest.GameDirectory : ResolveGameDirectory(project);
+        var files = manifest.Files.OrderBy(e => e.Path, StringComparer.Ordinal).ToList();
+        return new RestorePlan(gameDirectory, directory, manifest with { Files = files }, files.ToDictionary(e => e.Path, _ => directory, PathComparer))
+        {
+            ConsumedBackups = [directory],
+        };
+    }
+
+    /// <summary>
     /// Um backup antigo sem manifesto legível só pode ser pulado se nenhuma cópia dentro dele fica sem outra fonte: o que só ele guarda não
     /// voltaria ao jogo. Devolve o aviso do que foi pulado.
     /// </summary>
@@ -637,7 +682,8 @@ public sealed partial class GameInjector
     /// Todos os backups do projeto, do mais novo para o mais antigo, restaurados ou não, para a lista da tela Build. Só lê: um manifesto ilegível
     /// vem com <see cref="BackupInfo.Problem"/> em vez de lançar, e uma pasta sem manifesto não é um backup.
     /// </summary>
-    public static IReadOnlyList<BackupInfo> ListBackups(ProjectFolder project)
+    /// <param name="includeManual">Falso para ver só o que as injeções fizeram: o backup à mão não diz o que está no jogo.</param>
+    public static IReadOnlyList<BackupInfo> ListBackups(ProjectFolder project, bool includeManual = true)
     {
         ArgumentNullException.ThrowIfNull(project);
 
@@ -652,6 +698,11 @@ public sealed partial class GameInjector
 
             var (manifest, readProblem) = TryReadManifest(manifestPath);
             var problem = recovery ?? readProblem;
+            if (!includeManual && manifest?.Kind == BackupManifest.ManualKind)
+            {
+                continue;
+            }
+
             backups.Add(new BackupInfo(Path.GetFileName(directory), directory, manifest, BackupSize(directory), problem?.Message));
         }
 
@@ -683,17 +734,15 @@ public sealed partial class GameInjector
                 throw found.Problem;
             }
 
-            // O backup à mão não é uma injeção: o jogo nunca esteve no build dele, e um original lido de lá ficaria preso a uma pasta que pode estar num disco desconectado.
-            if (found.Manifest!.Kind == BackupManifest.ManualKind)
-            {
-                continue;
-            }
-
-            yield return new BackupRecord(found.Directory, found.Manifest);
+            yield return new BackupRecord(found.Directory, found.Manifest!);
         }
     }
 
     /// <summary>Como <see cref="ReadBackups"/>, mas um manifesto ilegível vem com o <see cref="FoundBackup.Problem"/> em vez de lançar. Backups já restaurados não aparecem.</summary>
+    /// <remarks>
+    /// O backup à mão não entra: ele não é uma injeção, então não diz o que está no jogo, e um original lido dele ficaria preso a uma pasta que pode estar num disco desconectado.
+    /// Para restaurar um backup à mão, veja <see cref="PlanRestoreFrom"/>.
+    /// </remarks>
     private static IEnumerable<FoundBackup> ReadBackupsTolerant(ProjectFolder project)
     {
         foreach (var directory in BackupDirectories(project))
@@ -706,9 +755,8 @@ public sealed partial class GameInjector
 
             var (manifest, readProblem) = TryReadManifest(manifestPath);
             var problem = recovery ?? readProblem;
-            if (manifest?.RestoredAt is not null || manifest?.Files.Count == 0)
+            if (manifest?.RestoredAt is not null || manifest?.Kind == BackupManifest.ManualKind)
             {
-                // Sem arquivos do jogo (backup à mão só do projeto) não há o que restaurar nem o que o histórico da injeção aprender.
                 continue;
             }
 

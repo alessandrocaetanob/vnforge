@@ -52,7 +52,7 @@ internal static class BuildCommand
 
     private static async Task<int> RunAsync(VnfCli cli, ParseResult parseResult, TextWriter output, CancellationToken token)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         if (parseResult.GetValue(ReportOption))
         {
             return RunReport(parseResult.GetValue(cli.Options.Json), ProjectBuilder.ReportEncoding(project, encodingStrategy: parseResult.GetValue(EncodingOption)), output);

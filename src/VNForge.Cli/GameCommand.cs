@@ -31,7 +31,7 @@ internal static class GameCommand
 
     private static int Move(VnfCli cli, ParseResult parseResult, string folder)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         var result = ProjectGameRelocator.Move(project, Path.GetFullPath(folder, cli.CurrentDirectory));
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))

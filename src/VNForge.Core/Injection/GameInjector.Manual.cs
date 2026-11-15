@@ -234,5 +234,6 @@ public sealed partial class GameInjector
         }
     }
 
-    internal static string Megabytes(long bytes) => string.Create(CultureInfo.GetCultureInfo("pt-BR"), $"{bytes / 1024.0 / 1024.0:N1} MB");
+    /// <summary>O tamanho como a tela e a CLI o escrevem: <c>463,7 MB</c>.</summary>
+    public static string Megabytes(long bytes) => string.Create(CultureInfo.GetCultureInfo("pt-BR"), $"{bytes / 1024.0 / 1024.0:N1} MB");
 }

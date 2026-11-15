@@ -72,7 +72,8 @@ public sealed class BackupManualTests : IDisposable
         Assert.Equal("traduzido-ysbin", File.ReadAllText(Path.Combine(_game, "ysbin.ypf")));
 
         Directory.Delete(injection.BackupDirectory!, recursive: true);
-        Injector().Restore(GameInjector.PlanRestore(_project));
+        Assert.Throws<InjectionException>(() => GameInjector.PlanRestore(_project));
+        Injector().Restore(GameInjector.PlanRestoreFrom(_project, manual.Name));
 
         var restored = SnapshotOfGame();
         Assert.Equal(original.Keys.Order(), restored.Keys.Order());

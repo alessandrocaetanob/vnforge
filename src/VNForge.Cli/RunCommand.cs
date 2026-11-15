@@ -17,7 +17,7 @@ internal static class RunCommand
 
     private static int Run(VnfCli cli, ParseResult parseResult)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         var executable = new GameLauncher(cli.GameProcessStarter).Launch(project);
         var output = parseResult.InvocationConfiguration.Output;
 

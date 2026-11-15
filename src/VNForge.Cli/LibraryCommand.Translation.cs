@@ -47,8 +47,9 @@ internal static partial class LibraryCommand
     private static int State(VnfCli cli, ParseResult parseResult, string? reference)
     {
         var library = FileOf(cli).Load();
+        var backups = library.BackupLocations;
         var games = reference is null ? [.. library.Games.OrderBy(g => g.Title, StringComparer.CurrentCultureIgnoreCase)] : new List<LibraryGame> { library.Find(reference) };
-        var states = games.Select(g => (Game: g, State: LibraryTranslationReader.Read(g))).ToList();
+        var states = games.Select(g => (Game: g, State: LibraryTranslationReader.Read(g, backups))).ToList();
         var output = parseResult.InvocationConfiguration.Output;
         if (parseResult.GetValue(cli.Options.Json))
         {
@@ -81,9 +82,10 @@ internal static partial class LibraryCommand
 
         var json = parseResult.GetValue(cli.Options.Json);
         var output = parseResult.InvocationConfiguration.Output;
-        var game = FileOf(cli).Load().Find(reference);
-        var current = LibraryTranslationReader.Read(game);
-        var switcher = new LibraryTranslationSwitcher(new GameTester(KnownEngines.All, cli.GameProcessStarter, cli.Qa));
+        var library = FileOf(cli).Load();
+        var game = library.Find(reference);
+        var current = LibraryTranslationReader.Read(game, library.BackupLocations);
+        var switcher = new LibraryTranslationSwitcher(new GameTester(KnownEngines.All, cli.GameProcessStarter, cli.Qa), library.BackupLocations);
 
         // Estado desconhecido não pergunta: o switcher recusa com o motivo. Quem já está no destino não grava nada, então também não pergunta.
         var alreadyThere = toOriginal

@@ -167,6 +167,7 @@ internal static partial class LibraryCommand
         command.Subcommands.Add(CreateSwitch(cli));
         command.Subcommands.Add(CreateOption(cli));
         command.Subcommands.Add(CreateEmulator(cli));
+        command.Subcommands.Add(CreateBackupFolder(cli));
         command.Subcommands.Add(CreateNotes(cli));
         command.Subcommands.Add(CreateCapture(cli));
         return command;
