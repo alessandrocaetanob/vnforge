@@ -116,5 +116,6 @@
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Motion.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/GameShell.axaml"/>
     <StyleInclude Source="avares://VNForge.App/Themes/Controls/Library.axaml"/>
+    <StyleInclude Source="avares://VNForge.App/Themes/Controls/Folders.axaml"/>
   </Application.Styles>
 </Application>

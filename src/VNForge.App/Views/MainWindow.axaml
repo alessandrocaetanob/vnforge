@@ -194,5 +194,6 @@
     <v:CommandPaletteView DataContext="{Binding Palette}"/>
     <v:TranslateDialogView DataContext="{Binding Translate}"/>
     <v:UndoBatchDialogView DataContext="{Binding UndoBatch}"/>
+    <v:FoldersDialogView DataContext="{Binding Settings.Folders}"/>
   </Panel>
 </Window>

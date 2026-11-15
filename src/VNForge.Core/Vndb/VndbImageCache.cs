@@ -52,13 +52,8 @@ public sealed class VndbImageCache : IDisposable
         _slots = new SemaphoreSlim(maxConcurrentDownloads);
     }
 
-    /// <summary>A pasta de cache do usuário: <c>%LOCALAPPDATA%/VNForge/cache/vndb-images</c>, ou a temporária se o sistema não informar uma absoluta.</summary>
-    public static string DefaultDirectory()
-    {
-        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var baseDirectory = !string.IsNullOrWhiteSpace(local) && Path.IsPathRooted(local) ? local : Path.GetTempPath();
-        return Path.Combine(baseDirectory, "VNForge", "cache", "vndb-images");
-    }
+    /// <summary>A pasta de cache de imagens do usuário, dentro da pasta de cache de <see cref="UserData.UserFolders"/> (padrão: <c>%LOCALAPPDATA%/VNForge/cache/vndb-images</c>).</summary>
+    public static string DefaultDirectory() => UserData.UserFolders.Current.ImageCacheDirectory;
 
     /// <summary>O arquivo da imagem se ela já está no disco e a privacidade deixa ver; nulo senão. Não usa a rede.</summary>
     public string? Find(VndbImageRef image)

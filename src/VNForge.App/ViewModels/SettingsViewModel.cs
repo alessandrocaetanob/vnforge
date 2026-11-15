@@ -412,9 +412,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasBackups => Backups is not null;
 
-    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos, 8 Backups, 9 VNDB).</summary>
+    /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos, 8 VNDB, 9 Pastas, 10 Backups).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab), nameof(IsBackupsTab), nameof(IsProjectCaption))]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab), nameof(IsFoldersTab), nameof(IsBackupsTab), nameof(ShowProjectCaption))]
     public partial int SelectedTab { get; set; }
 
     /// <summary>A aba Privacidade (o modo do conteúdo adulto); nula, a aba fica escondida. O shell a liga à Biblioteca.</summary>
@@ -427,14 +427,35 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>A aba Privacidade está aberta: o aviso de cima fala da Biblioteca, não do projeto.</summary>
     public bool IsPrivacyTab => SelectedTab == PrivacyTab;
 
+    /// <summary>A aba Pastas está aberta: o aviso de cima fala do VNForge inteiro, não do projeto.</summary>
+    public bool IsFoldersTab => SelectedTab == FoldersTab;
+
     /// <summary>A aba Backups está aberta: a pasta vale para todos os projetos.</summary>
     public bool IsBackupsTab => SelectedTab == BackupsTab;
 
-    /// <summary>A legenda "Valem só para este projeto" só vale nas abas que são do projeto.</summary>
-    public bool IsProjectCaption => !IsPrivacyTab && !IsBackupsTab;
+    /// <summary>O aviso de cima das abas que valem para o projeto (todas menos Privacidade, Pastas e Backups).</summary>
+    public bool ShowProjectCaption => !IsPrivacyTab && !IsFoldersTab && !IsBackupsTab;
 
     /// <summary>Índice da aba Privacidade, logo depois de Aparência.</summary>
     public const int PrivacyTab = 6;
+
+    partial void OnSelectedTabChanged(int value)
+    {
+        if (value == FoldersTab)
+        {
+            _ = Folders?.RefreshAsync();
+        }
+    }
+
+    /// <summary>A aba Pastas (as pastas de dados e de cache, e a troca delas); nula, a aba fica escondida. O App liga as pastas reais ao montar a janela.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFolders))]
+    public partial FoldersViewModel? Folders { get; set; }
+
+    public bool HasFolders => Folders is not null;
+
+    /// <summary>Índice da aba Pastas: depois de Privacidade, Jogos e VNDB, que só aparecem quando o app os liga.</summary>
+    public const int FoldersTab = 9;
 
     /// <summary>A aba VNDB (token e sincronização da lista); nula, a aba fica escondida. O App liga o serviço real ao montar a janela.</summary>
     [ObservableProperty]
@@ -449,8 +470,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Índice da aba Jogos.</summary>
     public const int GamesTab = 6;
 
-    /// <summary>Índice da aba Backups (7 é Jogos, 9 é VNDB): o TabControl conta as abas escondidas, então o índice não muda com o que está visível.</summary>
-    public const int BackupsTab = 8;
+    /// <summary>Índice da aba Backups, depois de Pastas (6 é Privacidade, 7 Jogos, 8 VNDB, 9 Pastas): o TabControl conta as abas escondidas, então o índice não muda com o que está visível.</summary>
+    public const int BackupsTab = 10;
 
     [ObservableProperty]
     public partial string? ProjectName { get; private set; }

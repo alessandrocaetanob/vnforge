@@ -9,6 +9,7 @@ using VNForge.Core.Glossary;
 using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
+using VNForge.Core.UserData;
 using VNForge.Core.Vndb;
 using VNForge.Vndb;
 
@@ -112,7 +113,25 @@ internal static class ScreenCatalog
         new("ajustes-dicionarios", SettingsTab(SettingsViewModel.DictionariesTab)),
         new("ajustes-aparencia", SettingsTab(5)),
         new("ajustes-privacidade", SettingsTab(SettingsViewModel.PrivacyTab)),
-        new("ajustes-vndb", SettingsTab(9, vndb: true)),
+        new("ajustes-vndb", SettingsTab(8, vndb: true)),
+        new("ajustes-pastas", SettingsTab(SettingsViewModel.FoldersTab, folders: () => SampleFolders())),
+        new("pastas-trocar", SettingsTab(SettingsViewModel.FoldersTab, folders: () => SampleFolders(@"D:\Dados"), dialog: f => f.Config.ChangeCommand.ExecuteAsync(null))),
+        new("pastas-rede", SettingsTab(SettingsViewModel.FoldersTab, folders: () => SampleFolders(@"W:\"), dialog: f => f.Config.ChangeCommand.ExecuteAsync(null))),
+        new("pastas-falha", SettingsTab(SettingsViewModel.FoldersTab, folders: () => SampleFolders(@"D:\Dados"), dialog: async f =>
+        {
+            await f.Config.ChangeCommand.ExecuteAsync(null);
+            await f.ConfirmMoveCommand.ExecuteAsync(null);
+        })),
+        new("pastas-primeira-abertura", Library(empty: true, folders: f =>
+        {
+            f.ShowFirstRun();
+            return Task.CompletedTask;
+        })),
+        new("pastas-sumiu", Library(empty: true, folders: f =>
+        {
+            f.ShowMissing(new UserFolderProblem(UserFolderKind.Config, UserFolderSource.Pointer, @"D:\Dados\VNForge", string.Empty));
+            return Task.CompletedTask;
+        })),
         new("ficha-vndb", Sheet(review: false)),
         new("ficha-revisao", Sheet(review: true)),
         new("ficha-nao-baixada", Sheet(review: false, seeded: false)),
@@ -174,7 +193,7 @@ internal static class ScreenCatalog
     }
 
     /// <summary>A Biblioteca com os 12 jogos do quadro. <paramref name="montar"/> põe a tela no estado pedido antes de assentar.</summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> Library(Action<LibraryViewModel>? montar = null, bool empty = false, bool played = false, IEnumerable<LibraryGame>? games = null, AdultMode adultMode = AdultMode.Blur) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> Library(Action<LibraryViewModel>? montar = null, bool empty = false, bool played = false, IEnumerable<LibraryGame>? games = null, AdultMode adultMode = AdultMode.Blur, Func<FoldersViewModel, Task>? folders = null) =>
         async (_, theme) =>
         {
             var config = new TempFolder();
@@ -195,10 +214,33 @@ internal static class ScreenCatalog
                 await library.LoadAsync();
                 library.ChooseAdultMode(adultMode);
                 montar?.Invoke(library);
+                if (folders is not null)
+                {
+                    var sample = SampleFolders();
+                    host.Vm.Settings.Folders = sample;
+                    await folders(sample);
+                }
+
                 host.Settle();
             });
             return host;
         };
+
+    /// <summary>
+    /// As pastas do quadro da #694: o usuário fictício <c>ana</c> no padrão do Windows, com os tamanhos medidos na máquina do desenho (26 arquivos e 31 MB nos dados, 248 KB no cache).
+    /// O seletor devolve <paramref name="picked"/>; o plano de troca e a cópia são os do quadro (26 arquivos, 31 MB; a unidade W: é de rede; a cópia falha aos 38% em dictionary).
+    /// </summary>
+    private static FoldersViewModel SampleFolders(string? picked = null)
+    {
+        const string ana = @"C:\Users\ana\AppData";
+        var folders = UserFolders.Resolve(_ => null, ana + @"\Roaming", ana + @"\Local");
+        return new FoldersViewModel(folders, new FakeFolderPicker(picked), _ => { }, () => { }, new FoldersServices
+        {
+            Measure = path => path.Contains("Roaming", StringComparison.Ordinal) ? (26, 31L * 1024 * 1024) : (3, 248L * 1024),
+            Prepare = (kind, from, to, _) => new UserFolderMovePlan(kind, from, to, [.. Enumerable.Range(1, 26).Select(i => $"arquivo{i}.json")], 31L * 1024 * 1024, to.StartsWith("W:", StringComparison.Ordinal)),
+            Move = (_, _, _, _, _) => throw new UserFolderException("Faltou espaço em D:. A pasta nova precisa de 32 MB livres e tem 12 MB.", 38, "dictionary"),
+        });
+    }
 
     private static LibraryCardViewModel Card(LibraryViewModel library, string title) => library.Cards.Single(c => c.Title == title);
 
@@ -422,7 +464,7 @@ internal static class ScreenCatalog
     }
 
     /// <summary>Uma aba dos Ajustes. A do VNDB precisa do serviço da lista, que o app monta e a captura troca pelo catálogo falso com um token válido.</summary>
-    private static Func<string, ThemeVariant, Task<ScreenHost>> SettingsTab(int tab, bool vndb = false) => async (root, theme) =>
+    private static Func<string, ThemeVariant, Task<ScreenHost>> SettingsTab(int tab, bool vndb = false, Func<FoldersViewModel>? folders = null, Func<FoldersViewModel, Task>? dialog = null) => async (root, theme) =>
     {
         var host = await ScreenHost.OpenProjectAsync(root, theme);
         await Prepare(host, async () =>
@@ -440,7 +482,22 @@ internal static class ScreenCatalog
                 host.Own(config);
             }
 
+            if (folders is not null)
+            {
+                host.Vm.Settings.Folders = folders();
+            }
+
             host.Vm.Settings.SelectedTab = tab;
+            if (host.Vm.Settings.Folders is { } measured)
+            {
+                await measured.Loading;
+            }
+
+            if (dialog is not null)
+            {
+                await dialog(host.Vm.Settings.Folders!);
+            }
+
             host.Settle();
         });
         return host;
