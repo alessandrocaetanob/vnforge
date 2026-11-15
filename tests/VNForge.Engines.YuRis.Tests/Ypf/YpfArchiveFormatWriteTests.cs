@@ -5,7 +5,6 @@ using VNForge.Engines.YuRis.Ypf.Hashing;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
-[Trait("Risco", "R3")]
 public partial class YpfArchiveFormatTests
 {
     // ---- Gravação com reescrita mínima (#29) ----
@@ -303,6 +302,45 @@ public partial class YpfArchiveFormatTests
     // ---- Recusas ----
 
     [Fact]
+    public void WriteTo_ChaveInexistenteLancaArgumentExceptionSemGravarNada()
+    {
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
+        using var archive = Open(ypf.Bytes);
+        using var output = new MemoryStream();
+
+        var ex = Assert.Throws<ArgumentException>(() => archive.WriteTo(output, new Dictionary<string, byte[]>
+        {
+            [Key(SyntheticYpfSamples.Image)] = NewImage,
+            ["nao/existe.ybn"] = [1],
+        }));
+
+        Assert.Contains("nao/existe.ybn", ex.Message);
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
+    public void WriteTo_ConteudoNuloLancaArgumentExceptionSemGravarNada()
+    {
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
+        using var archive = Open(ypf.Bytes);
+        using var output = new MemoryStream();
+
+        Assert.Throws<ArgumentException>(() => archive.WriteTo(output, new Dictionary<string, byte[]> { [Key(SyntheticYpfSamples.Image)] = null! }));
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
+    public void WriteTo_DestinoSemGravacaoOuSemBuscaLancaArgumentException()
+    {
+        var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
+        using var archive = Open(ypf.Bytes);
+        using var readOnly = new MemoryStream(new byte[8], writable: false);
+
+        Assert.Throws<ArgumentException>(() => archive.WriteTo(readOnly, new Dictionary<string, byte[]>()));
+        Assert.Throws<ArgumentException>(() => archive.WriteTo(new NonSeekableStream(), new Dictionary<string, byte[]>()));
+    }
+
+    [Fact]
     public void WriteTo_DestinoIgualAoFluxoDeOrigemLancaArgumentException()
     {
         var ypf = SyntheticYpfSamples.DefaultSample(300).Build();
@@ -369,5 +407,10 @@ public partial class YpfArchiveFormatTests
         {
             File.Delete(path);
         }
+    }
+
+    private sealed class NonSeekableStream : MemoryStream
+    {
+        public override bool CanSeek => false;
     }
 }

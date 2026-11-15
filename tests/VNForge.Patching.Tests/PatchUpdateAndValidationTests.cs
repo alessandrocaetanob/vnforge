@@ -2,8 +2,6 @@ using System.Buffers.Binary;
 
 namespace VNForge.Patching.Tests;
 
-[Trait("Risco", "R1")]
-[Trait("Risco", "R7")]
 public class PatchUpdateAndValidationTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -90,8 +88,15 @@ public class PatchUpdateAndValidationTests
 
     public static TheoryData<string, string[]> InvalidPaths() => new()
     {
+        { "pasta reservada", ["_originais/manifest.json"] },
+        { "pasta reservada em outra caixa", ["_ORIGINAIS/x.bin"] },
+        { "temporário do instalador", ["Game/a.ypf.vnf-tmp"] },
+        { "duplicata exata", ["Game/a.bin", "Game/a.bin"] },
         { "duplicata só na caixa", ["Game/a.bin", "game/A.BIN"] },
+        { "barra invertida", ["Game\\a.bin"] },
+        { "segmento vazio", ["Game//a.bin"] },
         { "sai da pasta", ["../fora.bin"] },
+        { "absoluto", ["/etc/x"] },
     };
 
     [Theory]
@@ -107,6 +112,8 @@ public class PatchUpdateAndValidationTests
 
     [Theory]
     [InlineData(0, 100)]
+    [InlineData(6, 4)]
+    [InlineData(100, 1)]
     public void Delta_que_passa_do_fim_do_pacote_e_recusado(long offset, long length)
     {
         var package = ManualPackage([Entry("Game/a.bin", offset, length)], payloadBytes: 8);
@@ -116,6 +123,8 @@ public class PatchUpdateAndValidationTests
 
     [Theory]
     [InlineData(" ", 0L, 4L)]
+    [InlineData("Game/a.bin", -1L, 4L)]
+    [InlineData("Game/a.bin", 0L, -1L)]
     public void Entrada_sem_caminho_ou_com_tamanho_negativo_e_recusada(string path, long offset, long length)
     {
         var package = ManualPackage([Entry(path, offset, length)], payloadBytes: 8);
@@ -133,8 +142,21 @@ public class PatchUpdateAndValidationTests
         Assert.Contains("sem arquivos", error.Message);
     }
 
+    [Fact]
+    public void Manifesto_com_capa_grande_demais_e_recusado()
+    {
+        var package = ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8, new byte[PatchPackage.MaxCoverBytes + 1]);
+
+        var error = Assert.Throws<PatchException>(() => PatchPackage.Open(package));
+
+        Assert.Contains("capa grande demais", error.Message);
+    }
+
     [Theory]
     [InlineData(8, 2, "formato 2")]
+    [InlineData(12, 0, "manifesto inválido")]
+    [InlineData(12, -1, "manifesto inválido")]
+    [InlineData(12, int.MaxValue, "manifesto inválido")]
     public void Cabecalho_de_outro_formato_ou_com_tamanho_de_manifesto_invalido_e_recusado(int position, int value, string message)
     {
         var bytes = ManualPackage([Entry("Game/a.bin", 0, 8)], payloadBytes: 8).ToArray();

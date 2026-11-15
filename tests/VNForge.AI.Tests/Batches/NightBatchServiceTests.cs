@@ -54,6 +54,29 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Outra_instancia_retoma_o_lote_do_disco_e_grava_o_resultado_como_da_IA()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+        _clock.Advance(TimeSpan.FromHours(5));
+
+        var resumed = new NightBatchService(_client, ProjectFolder.Open(_project.Root), _clock);
+        var check = await resumed.CheckAsync(state.Id, TestContext.Current.CancellationToken);
+
+        Assert.True(check.JustApplied);
+        Assert.Equal(NightBatchPhase.Applied, check.State.Phase);
+        Assert.Equal(44, check.State.Outcome!.Translated);
+        var units = _project.LoadText(Key);
+        Assert.Equal("[PT] 原文0", units[0].Translation);
+        Assert.Equal(TranslationStatus.Machine, units[0].Status);
+        Assert.Equal("anthropic", units[0].Origin!.Provider);
+        Assert.Equal(ClaudeModels.Opus, units[0].Origin!.Model);
+        Assert.Equal(_clock.GetUtcNow(), units[0].Origin!.At);
+        Assert.Equal("aprovada 44", units[44].Translation);
+        Assert.Empty(resumed.Open());
+    }
+
+    [Fact]
     public async Task Gravar_de_novo_um_lote_ja_gravado_nao_chama_a_API_nem_muda_nada()
     {
         var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
@@ -103,6 +126,20 @@ public sealed class NightBatchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Resposta_que_nao_traz_os_ids_do_pedido_conta_como_erro_e_nao_grava()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Reply = _ => new ClaudeReply("end_turn", """{"translations":[{"id":"outro","translation":"x"}]}""", new ClaudeUsage(10, 5, 0, 0));
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(0, applied.Outcome!.Translated);
+        Assert.Equal(44, applied.Outcome.Failed);
+        Assert.Null(applied.Outcome.RestorePointId);
+    }
+
+    [Fact]
     public async Task Falha_ao_enviar_nao_deixa_estado_no_projeto()
     {
         _client.CreateFails = new HttpRequestException("sem rede");
@@ -110,6 +147,41 @@ public sealed class NightBatchServiceTests : IDisposable
         await Assert.ThrowsAsync<HttpRequestException>(() => Service().SubmitAsync(Order(), TestContext.Current.CancellationToken));
 
         Assert.Empty(new NightBatchStore(_project).List());
+    }
+
+    [Fact]
+    public async Task Resposta_cortada_por_max_tokens_conta_como_erro_e_ainda_cobra_os_tokens()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Reply = _ => new ClaudeReply("max_tokens", """{"translations":[{"id":"x","trans""", new ClaudeUsage(1000, 500, 0, 0));
+        _client.Finish(state!.Id);
+
+        var applied = (await Service().CheckAsync(state.Id, TestContext.Current.CancellationToken)).State;
+
+        Assert.Equal(0, applied.Outcome!.Translated);
+        Assert.Equal(44, applied.Outcome.Failed);
+        Assert.Equal(0, applied.Outcome.Refused);
+        Assert.Equal(0.021m, applied.Outcome.Dollars);
+        Assert.All(_project.LoadText(Key).Take(44), u => Assert.Equal(TranslationStatus.Untranslated, u.Status));
+    }
+
+    [Fact]
+    public async Task Dois_processos_vendo_o_lote_terminado_gravam_uma_vez_so()
+    {
+        var state = await Service().SubmitAsync(Order(), TestContext.Current.CancellationToken);
+        _client.Finish(state!.Id);
+
+        var checks = await Task.WhenAll(
+            Task.Run(() => Service().CheckAsync(state.Id, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken),
+            Task.Run(() => Service().CheckAsync(state.Id, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, checks.Count(c => c.JustApplied));
+        var saved = new NightBatchStore(_project).Find(state.Id)!;
+        Assert.Equal(NightBatchPhase.Applied, saved.Phase);
+        Assert.Equal(44, saved.Outcome!.Translated);
+        Assert.NotNull(saved.Outcome.RestorePointId);
+        Assert.Equal(0.021m, AiUsageLog.Load(_project).Dollars);
+        Assert.Single(new RestorePointStore(_project, _clock).List());
     }
 
     [Fact]
@@ -124,5 +196,19 @@ public sealed class NightBatchServiceTests : IDisposable
         Assert.Contains("foi cancelado na API", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, _client.Creates);
         Assert.Equal(1, _client.Cancels);
+    }
+
+    [Fact]
+    public async Task Se_o_estado_nao_puder_ser_guardado_e_o_cancelamento_tambem_falha_a_mensagem_diz_como_cancelar()
+    {
+        Directory.CreateDirectory(_project.CacheDirectory);
+        File.WriteAllText(Path.Combine(_project.CacheDirectory, "lote-noturno"), "no lugar da pasta");
+        _client.CancelFails = new HttpRequestException("sem rede");
+
+        var error = await Assert.ThrowsAsync<NightBatchException>(() => Service().SubmitAsync(Order(), TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain("nada será cobrado", error.Message, StringComparison.Ordinal);
+        Assert.Contains("pode seguir rodando na API", error.Message, StringComparison.Ordinal);
+        Assert.Contains("vnf translate --cancel-batch msgbatch_fake0001", error.Message, StringComparison.Ordinal);
     }
 }
