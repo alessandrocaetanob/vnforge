@@ -57,13 +57,13 @@ public sealed class ScreenSmokeTests(HeadlessFixture fixture, ScreenSmokeTests.D
 
     /// <summary>
     /// A janela fechada ainda segura superfícies do Skia até o finalizador rodar. Sem coletar aqui o processo do App passa de 900 MB só com o smoke,
-    /// porque o coletor não tem pressa em um computador com memória sobrando.
+    /// porque o coletor não tem pressa em um computador com memória sobrando. Uma coleta e os finalizadores bastam: é o finalizador que solta a memória
+    /// nativa, e a segunda coleta só varria os objetos gerenciados que ele deixou para trás (medido: o mesmo pico, uma coleta completa a menos por tela).
     /// </summary>
     private static void ReleaseNativeMemory()
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        GC.Collect();
     }
 
     /// <summary>A pasta do projeto de demonstração, gravada uma vez por classe de teste e apagada no fim.</summary>
