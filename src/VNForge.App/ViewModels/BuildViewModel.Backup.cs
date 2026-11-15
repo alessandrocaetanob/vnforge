@@ -194,6 +194,33 @@ public sealed partial class BuildViewModel
         await RefreshAsync();
     }
 
+    /// <summary>
+    /// "Restaurar este" numa linha de backup à mão: a mesma confirmação da restauração da injeção, com a lista do que volta ao jogo. Só devolve o que aquele backup guarda.
+    /// </summary>
+    [RelayCommand]
+    private void RestoreBackup(BackupRow? row)
+    {
+        if (row is not { CanRestore: true } || IsBusy || Project is not { IsSample: false } summary)
+        {
+            return;
+        }
+
+        try
+        {
+            var plan = GameInjector.PlanRestoreFrom(OpenProject(summary.Root), row.Directory);
+            ReleasePatch();
+            confirmedRestore = plan;
+            confirmedInject = null;
+            SetConfirmationFiles(plan.Manifest.Files.Select(DescribeRestoredFile));
+            ConfirmationText = $"Restaurar os originais na pasta do jogo? Devolve {ProjectLabels.Number(plan.Manifest.Files.Count)} arquivo(s) do backup à mão {row.Name} e apaga os que a injeção criou.";
+            Pending = BuildConfirmation.Restore;
+        }
+        catch (VNForge.Core.VNForgeException e)
+        {
+            Fail("Não foi possível restaurar o backup", e.Message);
+        }
+    }
+
     [RelayCommand]
     private void OpenBackupSettings() => BackupSettingsRequested?.Invoke(this, EventArgs.Empty);
 

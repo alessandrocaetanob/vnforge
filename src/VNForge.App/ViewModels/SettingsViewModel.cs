@@ -414,7 +414,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     /// <summary>Índice da aba aberta (0 IA, 1 Estilo, 2 Formatação, 3 Acentos, 4 Dicionários, 5 Aparência, 6 Privacidade, 7 Jogos, 8 Backups, 9 VNDB).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab))]
+    [NotifyPropertyChangedFor(nameof(PageMaxWidth), nameof(IsPrivacyTab), nameof(IsBackupsTab), nameof(IsProjectCaption))]
     public partial int SelectedTab { get; set; }
 
     /// <summary>A aba Privacidade (o modo do conteúdo adulto); nula, a aba fica escondida. O shell a liga à Biblioteca.</summary>
@@ -426,6 +426,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     /// <summary>A aba Privacidade está aberta: o aviso de cima fala da Biblioteca, não do projeto.</summary>
     public bool IsPrivacyTab => SelectedTab == PrivacyTab;
+
+    /// <summary>A aba Backups está aberta: a pasta vale para todos os projetos.</summary>
+    public bool IsBackupsTab => SelectedTab == BackupsTab;
+
+    /// <summary>A legenda "Valem só para este projeto" só vale nas abas que são do projeto.</summary>
+    public bool IsProjectCaption => !IsPrivacyTab && !IsBackupsTab;
 
     /// <summary>Índice da aba Privacidade, logo depois de Aparência.</summary>
     public const int PrivacyTab = 6;

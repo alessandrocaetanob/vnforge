@@ -41,7 +41,7 @@ public sealed record BuildLogLine(string Time, string Message, string Date)
 public sealed record ResultFact(string Label, string Value);
 
 /// <summary>Uma linha da lista de backups: a pasta, quanto ocupa e o que guarda; <c>Tag</c> é a etiqueta "à mão" ou "pasta anterior".</summary>
-public sealed record BackupRow(string Name, string SizeText, string Note, string? Tag = null, bool TagIsManual = false, string? Warning = null)
+public sealed record BackupRow(string Name, string SizeText, string Note, string? Tag = null, bool TagIsManual = false, string? Warning = null, string Directory = "", bool CanRestore = false)
 {
     public bool HasTag => Tag is not null;
 }
@@ -775,7 +775,8 @@ public sealed partial class BuildViewModel : ObservableObject
     /// <summary>Recusa a restauração se os backups mudaram depois do plano confirmado (surgiu um mais novo, por exemplo): restaurar o antigo devolveria o jogo a um estado velho.</summary>
     private void EnsureBackupsMatchPlan(string root, RestorePlan plan)
     {
-        var current = GameInjector.PlanRestore(OpenProject(root));
+        var project = OpenProject(root);
+        var current = plan.Manifest.Kind == BackupManifest.ManualKind ? GameInjector.PlanRestoreFrom(project, plan.BackupDirectory) : GameInjector.PlanRestore(project);
         if (!SameRestore(current, plan))
         {
             throw new InjectionException($"Os backups mudaram depois da conferência (há um backup mais novo, {current.BackupDirectory}). Nada foi restaurado; confira o backup e restaure de novo.");
@@ -1339,7 +1340,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var current = IsInCurrentRoot(backup, state);
         var name = string.Equals(backup.Root, state.DefaultRoot, StringComparison.OrdinalIgnoreCase) ? BackupRelative(backup.Name) : backup.Name;
         var tag = backup.IsManual ? "à mão" : !current ? "pasta anterior" : null;
-        return new BackupRow(name, FormatSize(backup.SizeBytes), DescribeBackup(backup), tag, backup.IsManual);
+        return new BackupRow(name, FormatSize(backup.SizeBytes), DescribeBackup(backup), tag, backup.IsManual, Directory: backup.Directory, CanRestore: backup.IsManual && !backup.Restored && backup.Problem is null && backup.OriginalFiles.Count > 0);
     }
 
     private static string SummarizeBackups(IReadOnlyList<BackupInfo> backups)
@@ -1471,7 +1472,7 @@ public sealed partial class BuildViewModel : ObservableObject
         var stale = Pending switch
         {
             BuildConfirmation.Inject => injectionPlan is null || confirmedInject is null || !SameInjection(injectionPlan, confirmedInject),
-            BuildConfirmation.Restore => restorePlan is null || confirmedRestore is null || !SameRestore(restorePlan, confirmedRestore),
+            BuildConfirmation.Restore => confirmedRestore is null || (confirmedRestore.Manifest.Kind != BackupManifest.ManualKind && (restorePlan is null || !SameRestore(restorePlan, confirmedRestore))),
             _ => false,
         };
         if (stale)

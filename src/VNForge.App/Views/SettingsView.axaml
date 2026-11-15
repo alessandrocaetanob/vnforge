@@ -213,7 +213,9 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
         <StackPanel>
           <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding !IsPrivacyTab}"/>
+                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding IsProjectCaption}"/>
+          <TextBlock Name="BackupsCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsBackupsTab}"
+                     Text="Valem para todos os projetos. Ficam guardados com a sua lista de jogos."/>
           <TextBlock Name="PrivacyCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsPrivacyTab}"
                      Text="Vale para toda a Biblioteca, em qualquer projeto. Fica guardado com a sua lista de jogos."/>
           <!-- O título de 34 tem entrelinha de 50 por causa das descendentes da Zen Kaku; o quadro tem 40, então a diferença sai das margens. -->
@@ -1124,7 +1126,7 @@
             <TextBlock Name="BackupFolderError" Classes="caption" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource Vnf.SignalErrorFg}"
                        Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"/>
             <TextBlock Classes="caption secondary" TextWrapping="Wrap" Margin="0,8,0,0">
-              <Run Text="Cada projeto guarda os backups numa subpasta com o nome dele:"/>
+              <Run Text="Cada projeto guarda os backups numa subpasta com o nome dele e um código curto do caminho:"/>
               <Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding ExampleText, Mode=OneWay}"/><Run Text=". Vale para toda a Biblioteca."/>
             </TextBlock>
             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">

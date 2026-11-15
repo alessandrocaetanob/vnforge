@@ -99,7 +99,8 @@ public sealed partial class BackupSettingsViewModel : ObservableObject
     {
         try
         {
-            file.Update(library => library.SetBackupFolder(PathText.Trim()));
+            var game = OpenGameFolder();
+            file.Update(library => library.SetBackupFolder(PathText.Trim(), game is null ? null : [game]));
         }
         catch (LibraryException e)
         {
@@ -128,6 +129,25 @@ public sealed partial class BackupSettingsViewModel : ObservableObject
     }
 
     partial void OnPathTextChanged(string value) => ErrorMessage = null;
+
+    /// <summary>A pasta do jogo do projeto aberto, que pode não estar na Biblioteca e também não serve para guardar backup.</summary>
+    private string? OpenGameFolder()
+    {
+        if (projectRoot is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var project = ProjectFolder.Open(projectRoot);
+            return Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
+        }
+        catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     private void ReadExisting()
     {
