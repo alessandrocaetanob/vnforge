@@ -2,8 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VNForge.Cli\VNForge.Cli.csproj" />
-    <!-- O BuildScreenTests confere a tela de build do App contra o vnf build. -->
-    <ProjectReference Include="..\..\src\VNForge.App\VNForge.App.csproj" />
   </ItemGroup>
 
   <ItemGroup>
