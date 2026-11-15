@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNForge.App.ViewModels"
+             xmlns:c="using:VNForge.App.Controls"
+             x:Class="VNForge.App.Views.FoldersDialogView"
+             x:DataType="vm:FoldersViewModel">
+
+  <!-- Os diálogos da pasta de dados (quadro da #694): a pergunta da primeira abertura (640), a troca, a unidade de rede, a falha e a pasta que sumiu (560). Um aberto por vez. -->
+  <c:ScreenDialog DialogWidth="{Binding DialogWidth}" IsOpen="{Binding IsDialogOpen, Mode=TwoWay}">
+    <StackPanel Spacing="16" Margin="0,-16,0,0" AutomationProperties.Name="{Binding DialogTitle}">
+      <TextBlock Name="FolderDialogTitle" Classes="lib-h2" TextWrapping="Wrap" Text="{Binding DialogTitle}"/>
+      <TextBlock Name="FolderDialogText" Classes="lib-sub" TextWrapping="Wrap" Text="{Binding DialogText}" IsVisible="{Binding !IsFailed}"/>
+
+      <!-- Primeira abertura: as duas pastas sugeridas e o que cada uma guarda. -->
+      <StackPanel Spacing="16" IsVisible="{Binding IsFirstRun}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="lib-lbl" Text="DADOS E CONFIGURAÇÃO"/>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Border Classes="folder-field"><TextBlock Name="DraftConfigPath" Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding DraftConfig}"/></Border>
+            <Button Name="ChooseConfigButton" Grid.Column="1" Command="{Binding ChooseConfigDraftCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}"/><TextBlock Text="Trocar"/></StackPanel>
+            </Button>
+          </Grid>
+          <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="{Binding ConfigHint}"/>
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Classes="lib-lbl" Text="CACHE, CAPTURAS E REGISTROS"/>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Border Classes="folder-field"><TextBlock Name="DraftCachePath" Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding DraftCache}"/></Border>
+            <Button Name="ChooseCacheButton" Grid.Column="1" Command="{Binding ChooseCacheDraftCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}"/><TextBlock Text="Trocar"/></StackPanel>
+            </Button>
+          </Grid>
+          <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" Text="Imagens baixadas do VNDB, capturas de tela dos jogos e registros de erro."/>
+        </StackPanel>
+        <Border Classes="folder-note">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Key}"/>
+            <TextBlock Grid.Column="1" Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="As chaves ficam cifradas pelo Windows e só abrem na sua conta."/>
+          </Grid>
+        </Border>
+      </StackPanel>
+
+      <!-- Unidade de rede ou montada: o risco e a caixa que liga o botão. -->
+      <Border Name="NetworkWarning" Classes="folder-warn" IsVisible="{Binding IsNetwork}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap"
+                     Text="O VNForge grava a lista de jogos trocando arquivos e usa um arquivo de trava para não abrir duas vezes. Essas unidades costumam ser lentas e nem sempre respeitam a trava, então os dados podem ficar corrompidos. Uma pasta em disco local é mais segura."/>
+        </Grid>
+      </Border>
+      <Grid ColumnDefinitions="52,*" ColumnSpacing="8" IsVisible="{Binding IsNetwork}">
+        <TextBlock Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="Para"/>
+        <Border Grid.Column="1" Classes="folder-field to"><TextBlock Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding ToPath}"/></Border>
+      </Grid>
+      <CheckBox Name="AcceptRiskCheck" CornerRadius="5" IsChecked="{Binding AcceptRisk}" IsVisible="{Binding IsNetwork}" Content="Entendo o risco, usar mesmo assim"/>
+
+      <!-- Confirmar a troca: de onde, para onde e o que acontece com a pasta antiga. -->
+      <Grid Name="SwapFolders" ColumnDefinitions="52,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8" IsVisible="{Binding IsConfirm}">
+        <TextBlock Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="De"/>
+        <Border Grid.Column="1" Classes="folder-field"><TextBlock Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding FromPath}"/></Border>
+        <TextBlock Grid.Row="1" Classes="lib-dim" FontSize="12" VerticalAlignment="Center" Text="Para"/>
+        <Border Grid.Row="1" Grid.Column="1" Classes="folder-field to"><TextBlock Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding ToPath}"/></Border>
+      </Grid>
+      <CheckBox Name="DeleteOldCheck" CornerRadius="5" IsChecked="{Binding DeleteOld}" IsVisible="{Binding IsConfirm}" Content="Apagar a pasta antiga depois de conferir a cópia"/>
+      <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" IsVisible="{Binding IsConfirm}" Text="Desmarcado, a pasta antiga fica onde está e você apaga quando quiser."/>
+
+      <!-- A cópia em andamento: a barra ocupa o lugar dos botões. -->
+      <StackPanel Name="MovingProgress" Spacing="8" IsVisible="{Binding IsMoving}">
+        <c:FractionBar Height="8" Radius="4" Value="{Binding MoveFraction}"/>
+        <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" Text="{Binding MoveText}"/>
+      </StackPanel>
+
+      <!-- Falha: nada mudou, e a barra diz até onde a cópia foi. -->
+      <Border Name="FailureNote" Classes="folder-error" IsVisible="{Binding IsFailed}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Error}"/>
+          <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap">
+            <Run FontWeight="SemiBold" Text="{Binding FailureHeadline}"/>
+            <Run Text=" "/>
+            <Run Text="{Binding FailureDetail}"/>
+          </TextBlock>
+        </Grid>
+      </Border>
+      <TextBlock Classes="lib-sub" TextWrapping="Wrap" IsVisible="{Binding IsFailed}" Text="{Binding FailureSummary}"/>
+      <c:FractionBar Name="FailureBar" Height="8" Radius="4" Fill="{DynamicResource Vnf.SignalErrorFg}" Value="{Binding FailureFraction}" IsVisible="{Binding HasFailureBar}"/>
+      <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" IsVisible="{Binding HasFailureBar}" Text="{Binding FailureWhere}"/>
+
+      <!-- Pasta que sumiu na abertura. -->
+      <Border Name="MissingWarning" Classes="folder-warn" IsVisible="{Binding IsMissing}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Warning}"/>
+          <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding MissingWarning}"/>
+        </Grid>
+      </Border>
+      <TextBlock Name="RetryNoteText" Classes="lib-dim" FontSize="12" LineHeight="16" IsVisible="{Binding RetryNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding RetryNote}"/>
+    </StackPanel>
+
+    <c:ScreenDialog.Footer>
+      <Panel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" IsVisible="{Binding IsFirstRun}">
+          <Button Name="ContinueButton" Classes="accent" MinHeight="40" Padding="20,0" Command="{Binding ContinueCommand}" Content="Continuar"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsConfirm}">
+          <Button Name="CancelMoveButton" Content="Cancelar" Command="{Binding CancelDialogCommand}"/>
+          <Button Name="ConfirmMoveButton" Classes="accent" Content="Mover e reiniciar" Command="{Binding ConfirmMoveCommand}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsNetwork}">
+          <Button Name="ChooseOtherNetworkButton" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}"/>
+          <Button Name="ContinueNetworkButton" Classes="accent" Content="{Binding ProceedLabel}" Command="{Binding ContinueNetworkCommand}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" IsVisible="{Binding IsFailed}">
+          <Button Name="UseAsIsButton" Content="Usar esta pasta como está" Command="{Binding UseAsIsCommand}" IsVisible="{Binding CanUseAsIs}"/>
+          <Button Name="CloseFailureButton" Content="Fechar" Command="{Binding BackToContextCommand}"/>
+          <Button Name="ChooseOtherFailureButton" Classes="accent" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}"/>
+        </StackPanel>
+        <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsMissing}">
+          <Button Name="UseDefaultButton" Classes="link" FontWeight="SemiBold" Padding="8,0" Content="Usar a pasta padrão" Command="{Binding UseDefaultCommand}"/>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+            <Button Name="ChooseOtherMissingButton" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}"/>
+            <Button Name="RetryButton" Classes="accent" Content="Tentar de novo" Command="{Binding RetryCommand}"/>
+          </StackPanel>
+        </Grid>
+      </Panel>
+    </c:ScreenDialog.Footer>
+  </c:ScreenDialog>
+</UserControl>

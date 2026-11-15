@@ -7,8 +7,11 @@ using VNForge.Patching;
 namespace VNForge.Core.UserData;
 
 /// <summary>A troca não pôde ser feita. A mensagem é em português; <see cref="Percent"/> e <see cref="Folder"/> dizem onde a cópia parou, quando ela chegou a começar.</summary>
-public sealed class UserFolderException(string message, int? percent = null, string? folder = null, Exception? innerException = null) : VNForgeException(message, innerException)
+public sealed class UserFolderException(string message, int? percent = null, string? folder = null, Exception? innerException = null, bool destinationHasData = false) : VNForgeException(message, innerException)
 {
+    /// <summary>A pasta nova já guarda uma biblioteca do VNForge: a pessoa ainda pode usá-la como está, sem copiar.</summary>
+    public bool DestinationHasData { get; } = destinationHasData;
+
     public int? Percent { get; } = percent;
 
     /// <summary>A pasta (ou o arquivo, se estava na raiz) que a cópia estava copiando.</summary>
@@ -217,7 +220,7 @@ public static partial class UserFolderMover
         var holdsLibrary = kind == UserFolderKind.Config && UsageMarkers.Any(name => File.Exists(Path.Combine(target, name)));
         if (holdsLibrary || incoming.Any(relative => File.Exists(Path.Combine(target, relative))))
         {
-            throw new UserFolderException($"{target} já tem uma biblioteca do VNForge. Use esta pasta como está ou escolha outra.");
+            throw new UserFolderException($"{target} já tem uma biblioteca do VNForge. Use esta pasta como está ou escolha outra.", destinationHasData: true);
         }
     }
 

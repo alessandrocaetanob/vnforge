@@ -13,6 +13,7 @@ using VNForge.Core.Jmdict;
 using VNForge.Core.Library;
 using VNForge.Core.Memory;
 using VNForge.Core.Projects;
+using VNForge.Core.UserData;
 using VNForge.Engines.YuRis;
 using VNForge.Platform.Windows;
 
@@ -42,7 +43,9 @@ public sealed class App : Application
             }
 #endif
 
-            var configDirectory = RecentProjectsFile.DefaultDirectory();
+            // As pastas primeiro, antes de qualquer serviço: a pergunta da primeira abertura só vale enquanto nada foi gravado na pasta padrão.
+            var folders = UserFolders.Resolve();
+            var configDirectory = folders.Config.Path;
             VndbImages.Source = VndbImages.CreateDefault(configDirectory);
             var window = new MainWindow();
             Controls.TechnicalDetails.SetMemory(window, new TechnicalDetailsMemory(configDirectory));
@@ -51,6 +54,7 @@ public sealed class App : Application
             var appSettings = new AppSettingsFile(configDirectory);
             var settings = new SettingsViewModel(new DpapiApiKeyStore(configDirectory), appSettings);
             settings.LocaleEmulator = new LocaleEmulatorSettingsViewModel(new LibraryFile(configDirectory), picker);
+            settings.Folders = new FoldersViewModel(folders, picker, MainWindowViewModel.OpenInFileManager, () => Restart(desktop), new FoldersServices { Post = a => Avalonia.Threading.Dispatcher.UIThread.Post(a) });
             RequestedThemeVariant = (settings.SelectedTheme?.Value ?? ThemeChoice.System).ToVariant();
             settings.ThemeChanged += (_, choice) => RequestedThemeVariant = choice.ToVariant();
             var tasks = new BackgroundTaskService(a => Avalonia.Threading.Dispatcher.UIThread.Post(a));
@@ -132,10 +136,42 @@ public sealed class App : Application
             window.DataContext = main;
             desktop.MainWindow = window;
             // Os recentes primeiro: a Biblioteca liga cada projeto de tradução ao jogo dele por essa lista.
-            window.Opened += async (_, _) => await main.Library.OpenAsync(() => start.LoadAsync());
+            var openLibrary = () => main.Library.OpenAsync(() => start.LoadAsync());
+            if (folders.Problem is { Source: UserFolderSource.Pointer } problem)
+            {
+                // A pasta escolhida sumiu (disco ou unidade desconectada): o app não abre uma biblioteca vazia por conta própria, e todas as saídas do diálogo reiniciam.
+                settings.Folders.ShowMissing(problem);
+            }
+            else
+            {
+                if (folders.MustAsk)
+                {
+                    settings.Folders.ShowFirstRun();
+                }
+
+                window.Opened += async (_, _) => await openLibrary();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>Abre o app de novo e fecha este: a troca de pasta monta tudo a partir da pasta nova.</summary>
+    private static void Restart(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        try
+        {
+            if (Environment.ProcessPath is { } path)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = false });
+            }
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // Sem relançar, o app só fecha; a escolha já está gravada e vale na próxima abertura.
+        }
+
+        desktop.Shutdown();
     }
 
     /// <summary>A Biblioteca do app: o mesmo <c>library.json</c> da CLI e do cache de imagens, a varredura e o casamento com o VNDB pelo cliente com cache que o chamador passa.</summary>

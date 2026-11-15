@@ -213,9 +213,11 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
         <StackPanel>
           <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding !IsPrivacyTab}"/>
+                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding ShowProjectCaption}"/>
           <TextBlock Name="PrivacyCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsPrivacyTab}"
                      Text="Vale para toda a Biblioteca, em qualquer projeto. Fica guardado com a sua lista de jogos."/>
+          <TextBlock Name="FoldersCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsFoldersTab}"
+                     Text="Valem para o VNForge inteiro, em qualquer projeto."/>
           <!-- O título de 34 tem entrelinha de 50 por causa das descendentes da Zen Kaku; o quadro tem 40, então a diferença sai das margens. -->
           <TextBlock Classes="title-xl" Margin="0,-5" Text="Ajustes"/>
         </StackPanel>
@@ -1115,6 +1117,64 @@
         <!-- VNDB: o token da conta, no cofre do Windows, e a sincronização da lista (#550). Sem o serviço ligado, a aba não aparece. -->
         <TabItem Header="VNDB" IsVisible="{Binding Vndb, Converter={x:Static ObjectConverters.IsNotNull}}">
           <v:VndbSettingsView DataContext="{Binding Vndb}"/>
+        </TabItem>
+
+        <!-- Pastas (#694): onde ficam os dados, a configuração e o cache; abrir no Explorer, trocar de pasta e como a linha de comando acha a mesma escolha. -->
+        <TabItem Header="Pastas" IsVisible="{Binding HasFolders}">
+          <StackPanel Margin="0,16,0,0" Spacing="16" DataContext="{Binding Folders}" x:DataType="vm:FoldersViewModel">
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Text="As pastas em uso agora. O VNForge e a linha de comando usam as mesmas."/>
+            <ItemsControl Name="FolderCards" ItemsSource="{Binding Cards}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="16"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FolderCardViewModel">
+                  <StackPanel Spacing="8">
+                    <c:OverlineText Classes="overline" Margin="0,4,0,0" Text="{Binding Title}"/>
+                    <Border Padding="16" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+                      <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+                          <TextBlock Classes="body-strong" VerticalAlignment="Center" Text="{Binding Title}"/>
+                          <Border Classes="folder-tag" VerticalAlignment="Center"><TextBlock Classes="caption" Text="{Binding Tag}"/></Border>
+                        </StackPanel>
+                        <TextBlock Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                          <Border Classes="lib-input" Padding="10,0">
+                            <TextBlock Name="FolderPath" VerticalAlignment="Center" Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding Path}"/>
+                          </Border>
+                          <Button Name="OpenFolderButton" Grid.Column="1" Command="{Binding OpenCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}"/>
+                              <TextBlock Text="Abrir no Explorer"/>
+                            </StackPanel>
+                          </Button>
+                          <Button Name="ChangeFolderButton" Grid.Column="2" Command="{Binding ChangeCommand}" ToolTip.Tip="{Binding ChangeTip}" Content="Trocar pasta…"/>
+                        </Grid>
+                        <TextBlock Name="FolderSize" Classes="caption secondary" FontSize="13" LineHeight="18" Text="{Binding SizeText}"/>
+                        <Border Classes="folder-note" IsVisible="{Binding IsConfig}">
+                          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Key}"/>
+                            <TextBlock Grid.Column="1" Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding KeyNote}"/>
+                          </Grid>
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Name="FoldersCommandCard" Padding="16" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="body-strong" Text="Pela linha de comando"/>
+                <TextBlock Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="A CLI lê as mesmas pastas. A variável de ambiente vale mais que a escolha feita no app."/>
+                <Border Classes="rule-sample">
+                  <StackPanel>
+                    <TextBlock Classes="mono" FontSize="12.5" LineHeight="20" Text="{Binding CommandText}"/>
+                    <TextBlock Classes="mono" FontSize="12.5" LineHeight="20" Text="{Binding VariableText}"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </StackPanel>
         </TabItem>
       </TabControl>
 
