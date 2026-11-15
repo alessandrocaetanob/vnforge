@@ -51,13 +51,8 @@ public sealed partial class GameInjector
 
     private static IEnumerable<(string Directory, BackupManifest Manifest)> ManifestsElsewhere(ProjectFolder project, string gameDirectory)
     {
-        if (!Directory.Exists(project.BackupDirectory))
-        {
-            yield break;
-        }
-
         var wanted = GameLibrary.NormalizeFolder(gameDirectory);
-        foreach (var directory in Directory.EnumerateDirectories(project.BackupDirectory).Order(StringComparer.Ordinal))
+        foreach (var directory in BackupDirectories(project).Reverse())
         {
             var manifestPath = Path.Combine(directory, BackupManifest.FileName);
             if (!ManifestExists(manifestPath, out _) || TryReadManifest(manifestPath).Manifest is not { } manifest)

@@ -138,7 +138,7 @@ public sealed partial class GameInjector
             files.Add(PlanReplacement(relative, stagedPath, target, stagedHash, targetHash, history));
         }
 
-        return new InjectionPlan(gameDirectory, project.BackupDirectory, files, unchanged);
+        return new InjectionPlan(gameDirectory, project.Backups.CurrentRoot(project), files, unchanged);
     }
 
     private static void ResetDirectory(string path)

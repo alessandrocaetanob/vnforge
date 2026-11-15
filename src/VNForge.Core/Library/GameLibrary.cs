@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using VNForge.Core.Injection;
 
 namespace VNForge.Core.Library;
 
@@ -24,13 +25,16 @@ public sealed class GameLibrary
 {
     private readonly List<LibraryGame> _games;
     private readonly List<LibraryRoot> _roots;
+    private readonly List<string> _previousBackupFolders;
 
-    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null, string? localeEmulatorPath = null, IEnumerable<LibraryRoot>? roots = null)
+    public GameLibrary(IEnumerable<LibraryGame>? games = null, LibraryPrivacy? privacy = null, string? localeEmulatorPath = null, IEnumerable<LibraryRoot>? roots = null, string? backupFolder = null, IEnumerable<string>? previousBackupFolders = null)
     {
         _games = [.. games ?? []];
         _roots = [.. (roots ?? []).Where(r => !string.IsNullOrWhiteSpace(r.Path)).Select(r => r with { Path = NormalizeFolder(r.Path) })];
         Privacy = privacy ?? new LibraryPrivacy();
         LocaleEmulatorPath = string.IsNullOrWhiteSpace(localeEmulatorPath) ? null : localeEmulatorPath;
+        BackupFolder = string.IsNullOrWhiteSpace(backupFolder) ? null : NormalizeFolder(backupFolder);
+        _previousBackupFolders = [.. (previousBackupFolders ?? []).Where(f => !string.IsNullOrWhiteSpace(f)).Select(NormalizeFolder)];
     }
 
     public LibraryPrivacy Privacy { get; set; }
@@ -40,6 +44,55 @@ public sealed class GameLibrary
     /// fica aqui para o app e a CLI lerem o mesmo valor. <see langword="null"/> enquanto a pessoa não informou.
     /// </summary>
     public string? LocaleEmulatorPath { get; set; }
+
+    /// <summary>A pasta dos backups de todos os projetos (cada um numa subpasta), ou nulo para o padrão: <c>backup/</c> dentro de cada projeto. Muda por <see cref="SetBackupFolder"/>.</summary>
+    public string? BackupFolder { get; private set; }
+
+    /// <summary>As pastas de backup usadas antes de <see cref="BackupFolder"/>, da mais recente para a mais antiga. Os backups que ficaram nelas continuam na lista e na restauração.</summary>
+    public IReadOnlyList<string> PreviousBackupFolders => _previousBackupFolders;
+
+    /// <summary>A pasta dos backups e as anteriores, no formato que os projetos usam para achar os backups.</summary>
+    public BackupLocations BackupLocations => new(BackupFolder, PreviousBackupFolders);
+
+    /// <summary>
+    /// Troca a pasta dos backups; nulo ou vazio volta ao padrão. A pasta de antes vira uma das anteriores: nenhum arquivo de backup é movido nem apagado.
+    /// </summary>
+    /// <exception cref="LibraryException">A pasta não existe, ou fica dentro da pasta de um jogo da biblioteca (o backup sumiria junto com o jogo).</exception>
+    public void SetBackupFolder(string? folder)
+    {
+        var next = string.IsNullOrWhiteSpace(folder) ? null : NormalizeFolder(folder);
+        if (next is not null)
+        {
+            if (!Directory.Exists(next))
+            {
+                throw new LibraryException($"Não encontrei {next}. O disco está conectado? Escolha uma pasta que exista.");
+            }
+
+            if (_games.Any(g => IsInside(g.Folder, next)))
+            {
+                throw new LibraryException("Esta pasta fica dentro da pasta do jogo. Um backup ali some junto com o jogo. Escolha uma pasta fora dele.");
+            }
+        }
+
+        if (BackupFolder is { } current && (next is null || !SamePath(current, next)))
+        {
+            _previousBackupFolders.RemoveAll(f => SamePath(f, current));
+            _previousBackupFolders.Insert(0, current);
+        }
+
+        if (next is not null)
+        {
+            _previousBackupFolders.RemoveAll(f => SamePath(f, next));
+        }
+
+        BackupFolder = next;
+    }
+
+    private static bool IsInside(string parent, string child)
+    {
+        var relative = Path.GetRelativePath(NormalizeFolder(parent), child);
+        return relative == "." || (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
+    }
 
     public IReadOnlyList<LibraryGame> Games => _games;
 

@@ -8,17 +8,25 @@ namespace VNForge.Core.Injection;
 /// O que uma injeção fez, gravado em <c>backup/&lt;data&gt;/vnforge-backup.json</c> antes de qualquer escrita no jogo.
 /// É por ele que <c>restore</c> sabe o que devolver, mesmo quando a injeção morreu no meio.
 /// <c>RestoredAt</c> é gravado quando uma restauração devolveu os arquivos dele: o backup não entra mais no plano de restauração nem no histórico da injeção.
+/// <c>Kind</c> é <see cref="ManualKind"/> no backup que a pessoa pediu (<see cref="GameInjector.BackUpNow"/>); nulo no que a injeção fez.
 /// </summary>
 public sealed record BackupManifest(
     int Version,
     DateTimeOffset CreatedAt,
     string GameDirectory,
     IReadOnlyList<BackupEntry> Files,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? RestoredAt = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? RestoredAt = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Kind = null)
 {
     public const string FileName = "vnforge-backup.json";
 
     public const int CurrentVersion = 1;
+
+    /// <summary>O valor de <see cref="Kind"/> do backup feito à mão.</summary>
+    public const string ManualKind = "manual";
+
+    /// <summary>Nome da subpasta de um backup à mão que leva a cópia do projeto.</summary>
+    public const string ProjectFolderName = "projeto";
 
     private static readonly JsonSerializerOptions Options = new()
     {
