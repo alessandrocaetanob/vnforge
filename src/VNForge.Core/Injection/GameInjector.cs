@@ -94,7 +94,7 @@ public sealed partial class GameInjector
             files.Add(PlanReplacement(relative, buildPath, target, buildHash, targetHash, history));
         }
 
-        return new InjectionPlan(gameDirectory, project.Backups.CurrentRoot(project), files, unchanged);
+        return new InjectionPlan(gameDirectory, project.Backups.CurrentRoot(project), files, unchanged) { BackupFolder = project.Backups.Folder };
     }
 
     /// <summary>
@@ -153,16 +153,18 @@ public sealed partial class GameInjector
         }
 
         phases?.Report(InjectionPhase.Backup);
-        var backupDirectory = CreateBackupDirectory(plan.BackupRoot);
+        var required = plan.Files.Where(f => f.ReplacesExisting).Sum(f => SizeOf(f.OriginalSource!));
+        var backupDirectory = CreateBackupDirectory(plan.BackupRoot, plan.BackupFolder, required);
         BackupManifest manifest;
         try
         {
-            BackUpOriginals(plan, backupDirectory);
+            var copied = BackUpOriginals(plan, backupDirectory);
             manifest = new BackupManifest(
                 BackupManifest.CurrentVersion,
                 _timeProvider.GetUtcNow(),
                 plan.GameDirectory,
-                plan.Files.Select(f => new BackupEntry(f.RelativePath, f.ReplacesExisting, f.OriginalSha256, f.BuildSha256)).ToList());
+                plan.Files.Select(f => new BackupEntry(f.RelativePath, f.ReplacesExisting, f.OriginalSha256, f.BuildSha256)).ToList(),
+                SizeBytes: copied);
             WriteManifest(backupDirectory, manifest);
             ReleaseClaim(backupDirectory);
         }
@@ -466,6 +468,12 @@ public sealed partial class GameInjector
             details.Add(new ChangedGameFile(original.Path, original.Sha256, current));
         }
 
+        if (changed.Count > 0 && project.Backups.Unreachable(project) is { Count: > 0 } offline)
+        {
+            // Um jogo já injetado só confere com o backup dele; sem a pasta, "mudou" pode ser só o build antigo, e mandar extrair de novo estragaria o projeto.
+            throw Unavailable(offline[0], null, $"Não deu para conferir o jogo: ele pode estar com a tradução de uma injeção anterior, e o backup dela está na pasta {offline[0]}, que não está acessível.");
+        }
+
         if (changed.Count > 0)
         {
             throw new InjectionException(
@@ -497,7 +505,8 @@ public sealed partial class GameInjector
         return new PlannedFile(relative, buildPath, target, buildHash, targetHash, target, targetHash);
     }
 
-    private void BackUpOriginals(InjectionPlan plan, string backupDirectory, Action<int, int, PlannedFile>? progress = null, CancellationToken cancellationToken = default)
+    /// <returns>Quantos bytes os originais copiados ocupam no backup.</returns>
+    private long BackUpOriginals(InjectionPlan plan, string backupDirectory, Action<int, int, PlannedFile>? progress = null, CancellationToken cancellationToken = default)
     {
         foreach (var file in plan.Files)
         {
@@ -505,6 +514,7 @@ public sealed partial class GameInjector
         }
 
         var replaced = plan.Files.Where(f => f.ReplacesExisting).ToList();
+        long total = 0;
         for (var i = 0; i < replaced.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -518,7 +528,11 @@ public sealed partial class GameInjector
                 throw new InjectionException(
                     $"A cópia de backup de '{file.RelativePath}' não confere com o original (o jogo pode ter mudado durante a operação). Nada foi gravado no jogo.");
             }
+
+            total += new FileInfo(copy).Length;
         }
+
+        return total;
     }
 
     private static void CheckTargetUnchanged(PlannedFile file)
@@ -639,8 +653,11 @@ public sealed partial class GameInjector
         }
     }
 
-    private string CreateBackupDirectory(string backupRoot)
+    /// <param name="backupFolder">A pasta escolhida nos Ajustes (o pai da subpasta do projeto), ou nulo com o padrão.</param>
+    /// <param name="requiredBytes">O que o backup vai ocupar, para recusar antes de copiar se o disco não comporta.</param>
+    private string CreateBackupDirectory(string backupRoot, string? backupFolder, long requiredBytes)
     {
+        EnsureFolderAvailable(backupRoot, backupFolder, requiredBytes);
         var stamp = _timeProvider.GetLocalNow().ToString(StampFormat, CultureInfo.InvariantCulture);
         var attempt = 1;
         while (true)
@@ -665,7 +682,7 @@ public sealed partial class GameInjector
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex);
+                throw new InjectionException($"Não foi possível criar a pasta de backup '{path}': {ex.Message}", ex) { FolderProblem = BackupFolderProblem.Unavailable };
             }
 
             return path;
@@ -703,7 +720,8 @@ public sealed partial class GameInjector
                 continue;
             }
 
-            backups.Add(new BackupInfo(Path.GetFileName(directory), directory, manifest, BackupSize(directory), problem?.Message));
+            // O tamanho vem do manifesto; só o backup antigo, de antes de ele ser gravado, paga a soma dos arquivos.
+            backups.Add(new BackupInfo(Path.GetFileName(directory), directory, manifest, manifest?.SizeBytes ?? BackupSize(directory), problem?.Message));
         }
 
         return backups;
@@ -786,7 +804,44 @@ public sealed partial class GameInjector
             }
         }
 
+        found.AddRange(LegacyBackupDirectories(project));
+
         return found.OrderByDescending(d => Path.GetFileName(d), StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>Backups nas subpastas só com o nome do projeto que os manifestos dizem ser deste projeto (pela pasta do jogo).</summary>
+    private static List<string> LegacyBackupDirectories(ProjectFolder project)
+    {
+        var found = new List<string>();
+        string? game = null;
+        foreach (var root in project.Backups.LegacyRoots(project))
+        {
+            try
+            {
+                if (!Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                game ??= GameLibrary.NormalizeFolder(Path.GetFullPath(project.LoadConfig().Game.Path, project.Root));
+                foreach (var directory in Directory.EnumerateDirectories(root))
+                {
+                    var manifestPath = Path.Combine(directory, BackupManifest.FileName);
+                    if (ManifestExists(manifestPath, out _)
+                        && TryReadManifest(manifestPath).Manifest is { } manifest
+                        && string.Equals(GameLibrary.NormalizeFolder(manifest.GameDirectory), game, PathComparison))
+                    {
+                        found.Add(directory);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or VNForgeException)
+            {
+                // Sem ler o jogo do projeto ou a pasta, nada dali é dele.
+            }
+        }
+
+        return found;
     }
 
     /// <summary>Pastas de jogo que as injeções do projeto registraram nos manifestos, restauradas ou não; manifesto ilegível é ignorado.</summary>

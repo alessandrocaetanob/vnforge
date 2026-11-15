@@ -921,7 +921,8 @@ internal static partial class LibraryCommand
         if (!remove)
         {
             var projectFolder = Path.GetFullPath(project!, cli.CurrentDirectory);
-            moved = LibraryProjectLinker.FollowGame(FileOf(cli).Load().Find(reference), projectFolder);
+            var current = FileOf(cli).Load();
+            moved = LibraryProjectLinker.FollowGame(current.Find(reference), projectFolder, current.BackupLocations);
         }
 
         var (library, changed) = FileOf(cli).Update(current =>

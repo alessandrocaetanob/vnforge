@@ -25,11 +25,11 @@ internal static class BackupCommand
     private static int Run(VnfCli cli, ParseResult parseResult)
     {
         var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
-        var plan = GameInjector.PlanBackup(project);
         var output = parseResult.InvocationConfiguration.Output;
         var json = parseResult.GetValue(cli.Options.Json);
 
         using var projectLock = ProjectLock.Acquire(project);
+        var plan = GameInjector.PlanBackup(project);
         var result = new GameInjector().BackUpNow(project, plan);
         if (json)
         {

@@ -57,8 +57,12 @@ public sealed class GameLibrary
     /// <summary>
     /// Troca a pasta dos backups; nulo ou vazio volta ao padrão. A pasta de antes vira uma das anteriores: nenhum arquivo de backup é movido nem apagado.
     /// </summary>
-    /// <exception cref="LibraryException">A pasta não existe, ou fica dentro da pasta de um jogo da biblioteca (o backup sumiria junto com o jogo).</exception>
-    public void SetBackupFolder(string? folder)
+    /// <param name="folder">A pasta nova; nulo ou vazio volta ao padrão.</param>
+    /// <param name="otherGameFolders">Pastas de jogo que não estão na biblioteca (o jogo do projeto aberto, por exemplo) e também não servem para guardar backup.</param>
+    /// <exception cref="LibraryException">
+    /// A pasta não existe, fica dentro da pasta de um jogo (o backup sumiria junto com o jogo) ou dentro de um projeto de tradução (o backup à mão copiaria os backups para dentro de si).
+    /// </exception>
+    public void SetBackupFolder(string? folder, IEnumerable<string>? otherGameFolders = null)
     {
         var next = string.IsNullOrWhiteSpace(folder) ? null : NormalizeFolder(folder);
         if (next is not null)
@@ -68,9 +72,14 @@ public sealed class GameLibrary
                 throw new LibraryException($"Não encontrei {next}. O disco está conectado? Escolha uma pasta que exista.");
             }
 
-            if (_games.Any(g => IsInside(g.Folder, next)))
+            if (_games.Select(g => g.Folder).Concat(otherGameFolders ?? []).Any(g => !string.IsNullOrWhiteSpace(g) && IsInside(g, next)))
             {
                 throw new LibraryException("Esta pasta fica dentro da pasta do jogo. Um backup ali some junto com o jogo. Escolha uma pasta fora dele.");
+            }
+
+            if (_games.Any(g => !string.IsNullOrWhiteSpace(g.ProjectPath) && IsInside(g.ProjectPath, next)))
+            {
+                throw new LibraryException("Esta pasta fica dentro de um projeto de tradução. O backup à mão copiaria os backups para dentro de si mesmo. Escolha uma pasta fora dele.");
             }
         }
 

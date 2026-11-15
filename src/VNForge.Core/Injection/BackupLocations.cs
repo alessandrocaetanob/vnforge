@@ -58,10 +58,35 @@ public sealed record BackupLocations(string? Folder = null, IReadOnlyList<string
         return missing;
     }
 
-    /// <summary>O nome da subpasta do projeto dentro da pasta dos backups: o nome da pasta do projeto.</summary>
+    /// <summary>
+    /// As pastas dos Ajustes (a atual e as anteriores), sem a subpasta do projeto: o que o backup à mão não pode copiar para dentro de si mesmo
+    /// quando a pessoa escolhe uma pasta dentro de um projeto.
+    /// </summary>
+    public IReadOnlyList<string> ConfiguredFolders() =>
+        [.. new[] { Folder }.Concat(PreviousFolders ?? []).Where(f => !string.IsNullOrWhiteSpace(f)).Select(f => f!)];
+
+    /// <summary>
+    /// As subpastas só com o nome do projeto, de antes de o código do caminho entrar no nome. Dois projetos com a mesma pasta
+    /// dividiam essa subpasta; quem lê só leva dali o que o manifesto diz ser deste projeto.
+    /// </summary>
+    internal IReadOnlyList<string> LegacyRoots(ProjectFolder project) =>
+        [.. ConfiguredFolders().Select(f => Path.Combine(f, FolderName(project))).Except(Roots(project), PathComparer)];
+
+    /// <summary>
+    /// O nome da subpasta do projeto dentro da pasta dos backups: o nome da pasta do projeto e oito dígitos do SHA-256 do caminho dela,
+    /// para dois projetos com a mesma pasta (<c>traducao</c>) em lugares diferentes não dividirem os backups.
+    /// </summary>
     public static string ProjectSubfolder(ProjectFolder project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        var path = GameLibrary.NormalizeFolder(project.Root);
+        var key = OperatingSystem.IsWindows() ? path.ToLowerInvariant() : path;
+        var code = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key)))[..8];
+        return $"{FolderName(project)}-{code}";
+    }
+
+    private static string FolderName(ProjectFolder project)
+    {
         var name = Path.GetFileName(project.Root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         foreach (var invalid in Path.GetInvalidFileNameChars())
         {
@@ -70,6 +95,8 @@ public sealed record BackupLocations(string? Folder = null, IReadOnlyList<string
 
         return string.IsNullOrWhiteSpace(name) ? "projeto" : name;
     }
+
+    private static StringComparer PathComparer => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private static string RootIn(string? folder, ProjectFolder project) =>
         string.IsNullOrWhiteSpace(folder) ? project.BackupDirectory : Path.Combine(folder, ProjectSubfolder(project));

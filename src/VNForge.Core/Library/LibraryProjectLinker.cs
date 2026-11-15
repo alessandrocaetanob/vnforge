@@ -1,3 +1,4 @@
+using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Library;
@@ -77,14 +78,15 @@ public static class LibraryProjectLinker
     /// <returns>A troca feita; nula quando o projeto já apontava para a pasta do jogo ou o <c>vnforge.json</c> não pode ser lido (nada a trocar).</returns>
     /// <exception cref="LibraryException">A pasta não é um projeto do VNForge.</exception>
     /// <exception cref="VNForgeException">A pasta do jogo da biblioteca não existe ou não é o mesmo jogo do projeto.</exception>
-    public static GameRelocation? FollowGame(LibraryGame game, string projectFolder)
+    /// <param name="backups">Onde os backups do projeto estão (<see cref="GameLibrary.BackupLocations"/>): a troca regrava os manifestos de lá também. Sem isso vale o <c>backup/</c> do projeto.</param>
+    public static GameRelocation? FollowGame(LibraryGame game, string projectFolder, BackupLocations? backups = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         var root = RequireProject(projectFolder);
         var configured = TryReadGameFolder(root, out _);
         return configured is null || SameFolder(configured, game.Folder)
             ? null
-            : ProjectGameRelocator.Move(ProjectFolder.Open(root), game.Folder);
+            : ProjectGameRelocator.Move(ProjectFolder.Open(root).WithBackups(backups ?? BackupLocations.Default), game.Folder);
     }
 
     /// <summary>
@@ -93,12 +95,13 @@ public static class LibraryProjectLinker
     /// </summary>
     /// <exception cref="LibraryException">A pasta não é um projeto do VNForge.</exception>
     /// <exception cref="VNForgeException">A pasta do jogo da biblioteca não existe, ou o projeto não guardou arquivos do jogo para comparar.</exception>
-    public static GameRelocationPreview? PreviewFollowGame(LibraryGame game, string projectFolder)
+    /// <param name="backups">Como em <see cref="FollowGame"/>.</param>
+    public static GameRelocationPreview? PreviewFollowGame(LibraryGame game, string projectFolder, BackupLocations? backups = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         var root = RequireProject(projectFolder);
         var configured = TryReadGameFolder(root, out _);
-        return configured is null || SameFolder(configured, game.Folder) ? null : ProjectGameRelocator.Inspect(ProjectFolder.Open(root), game.Folder);
+        return configured is null || SameFolder(configured, game.Folder) ? null : ProjectGameRelocator.Inspect(ProjectFolder.Open(root).WithBackups(backups ?? BackupLocations.Default), game.Folder);
     }
 
     private static bool SameFolder(string a, string b) => GameLibrary.IsUnder(a, b) && GameLibrary.IsUnder(b, a);

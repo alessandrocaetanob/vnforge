@@ -58,14 +58,14 @@ public sealed class BackupManualTests : IDisposable
         var original = SnapshotOfGame();
         _project.WithBackups(new BackupLocations(_external));
         var injection = Injector().Inject(GameInjector.Plan(_project));
-        Assert.Equal(Path.Combine(_external, "Minha VN"), Path.GetDirectoryName(injection.BackupDirectory));
+        Assert.Equal(Path.Combine(_external, BackupLocations.ProjectSubfolder(_project)), Path.GetDirectoryName(injection.BackupDirectory));
         _clock.Advance(TimeSpan.FromMinutes(5));
 
         var result = Injector().BackUpNow(_project, GameInjector.PlanBackup(_project), cancellationToken: TestContext.Current.CancellationToken);
 
         var manual = Assert.Single(GameInjector.ListBackups(_project), b => b.IsManual);
         Assert.Equal(result.BackupDirectory, manual.Directory);
-        Assert.Equal(Path.Combine(_external, "Minha VN"), manual.Root);
+        Assert.Equal(Path.Combine(_external, BackupLocations.ProjectSubfolder(_project)), manual.Root);
         Assert.Equal("original-ysbin", File.ReadAllText(Path.Combine(manual.Directory, "ysbin.ypf")));
         Assert.Equal("{\"linhas\":[]}", File.ReadAllText(Path.Combine(manual.Directory, "projeto", "text", "cena01.json")));
         Assert.False(Directory.Exists(Path.Combine(manual.Directory, "projeto", "build")));
@@ -105,6 +105,47 @@ public sealed class BackupManualTests : IDisposable
 
         Injector().Restore(GameInjector.PlanRestore(_project));
         Assert.All(original, pair => Assert.Equal(pair.Value, File.ReadAllBytes(Path.Combine(_game, pair.Key))));
+    }
+
+    // R1: o backup à mão feito com o jogo ainda original continua restaurável depois de uma injeção: o jogo volta byte a byte ao original.
+    [Fact]
+    public void R1_backup_a_mao_antes_da_injecao_restaura_o_original_depois_dela()
+    {
+        var original = SnapshotOfGame();
+        _project.WithBackups(new BackupLocations(_external));
+        var manual = Injector().BackUpNow(_project, GameInjector.PlanBackup(_project), cancellationToken: TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        Injector().Inject(GameInjector.Plan(_project));
+        Assert.Equal("traduzido-ysbin", File.ReadAllText(Path.Combine(_game, "ysbin.ypf")));
+
+        Injector().Restore(GameInjector.PlanRestoreFrom(_project, manual.BackupDirectory));
+
+        var restored = SnapshotOfGame();
+        Assert.Equal(original.Keys.Order(), restored.Keys.Order());
+        Assert.All(original, pair => Assert.Equal(pair.Value, restored[pair.Key]));
+    }
+
+    // R2: dois projetos com a mesma pasta (Minha VN) em lugares diferentes, na mesma pasta de backups, não veem os backups um do outro.
+    [Fact]
+    public void R2_projetos_com_o_mesmo_nome_de_pasta_nao_dividem_os_backups()
+    {
+        var otherGame = Path.Combine(_temp.Path, "outro-jogo");
+        Directory.CreateDirectory(otherGame);
+        Write(otherGame, "ysbin.ypf", "original-do-outro");
+        var other = ProjectFolder.Create(
+            Path.Combine(_temp.Path, "outro", "Minha VN"),
+            new ProjectConfig("Outro", new GameConfig(otherGame, "jogo.exe"), new EngineConfig("yuris"), new LanguagesConfig("ja", "pt-BR"), new EncodingConfig("fold"), AiConfig.Default));
+        Write(other.BuildDirectory, "ysbin.ypf", "traduzido-do-outro");
+        var locations = new BackupLocations(_external);
+        _project.WithBackups(locations);
+        other.WithBackups(locations);
+
+        var mine = Injector().BackUpNow(_project, GameInjector.PlanBackup(_project), cancellationToken: TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        var theirs = Injector().BackUpNow(other, GameInjector.PlanBackup(other), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal([mine.BackupDirectory], GameInjector.ListBackups(_project).Select(b => b.Directory));
+        Assert.Equal([theirs.BackupDirectory], GameInjector.ListBackups(other).Select(b => b.Directory));
     }
 
     private sealed class ClockStub(DateTimeOffset now) : TimeProvider

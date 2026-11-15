@@ -112,8 +112,7 @@ public sealed partial class GameInjector
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(plan);
 
-        EnsureFolderAvailable(project, plan);
-        var backupDirectory = CreateManualBackupDirectory(project, plan.BackupRoot);
+        var backupDirectory = CreateBackupDirectory(plan.BackupRoot, project.Backups.Folder, plan.TotalBytes);
         try
         {
             if (plan.Game is { } game)
@@ -121,12 +120,19 @@ public sealed partial class GameInjector
                 BackUpOriginals(game, backupDirectory, (done, total, file) => progress?.Report(new ManualBackupProgress(ManualBackupStage.Game, done, total, file.RelativePath)), cancellationToken);
             }
 
-            CopyProject(project, plan, backupDirectory, progress, cancellationToken);
+            var projectFiles = CopyProject(project, plan, backupDirectory, progress, cancellationToken);
             var gameDirectory = plan.Game?.GameDirectory ?? Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
             var entries = plan.Game?.Files.Where(f => f.ReplacesExisting)
-                .Select(f => new BackupEntry(f.RelativePath, true, f.OriginalSha256, f.TargetSha256 ?? f.BuildSha256)).ToList() ?? [];
-            WriteManifest(backupDirectory, new BackupManifest(BackupManifest.CurrentVersion, _timeProvider.GetUtcNow(), gameDirectory, entries, null, BackupManifest.ManualKind));
+                .Select(f => new BackupEntry(f.RelativePath, true, f.OriginalSha256, InjectedHashOf(f))).ToList() ?? [];
+            WriteManifest(
+                backupDirectory,
+                new BackupManifest(BackupManifest.CurrentVersion, _timeProvider.GetUtcNow(), gameDirectory, entries, null, BackupManifest.ManualKind, projectFiles, plan.TotalBytes));
             ReleaseClaim(backupDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            TryDeleteDirectory(backupDirectory);
+            throw new InjectionException($"Não foi possível gravar o backup: {ex.Message} Nada foi alterado no jogo.", ex) { FolderProblem = BackupFolderProblem.Unavailable };
         }
         catch
         {
@@ -137,8 +143,16 @@ public sealed partial class GameInjector
         return new ManualBackupResult(backupDirectory, plan.GameFileCount, plan.GameBytes, plan.ProjectFiles.Count, plan.ProjectBytes);
     }
 
-    private void CopyProject(ProjectFolder project, ManualBackupPlan plan, string backupDirectory, IProgress<ManualBackupProgress>? progress, CancellationToken cancellationToken)
+    /// <summary>
+    /// O hash que o restore espera ver no jogo além do original: o build, com o jogo ainda original (uma injeção depois deste backup é o que o restore desfaz),
+    /// ou o que o jogo tem agora quando já está com outra versão (o original, então, veio de um backup anterior).
+    /// </summary>
+    private static string InjectedHashOf(PlannedFile file) =>
+        file.TargetSha256 == file.OriginalSha256 ? file.BuildSha256 : file.TargetSha256!;
+
+    private List<BackupProjectFile> CopyProject(ProjectFolder project, ManualBackupPlan plan, string backupDirectory, IProgress<ManualBackupProgress>? progress, CancellationToken cancellationToken)
     {
+        var copied = new List<BackupProjectFile>(plan.ProjectFiles.Count);
         var target = Path.Combine(backupDirectory, BackupManifest.ProjectFolderName);
         for (var i = 0; i < plan.ProjectFiles.Count; i++)
         {
@@ -148,14 +162,24 @@ public sealed partial class GameInjector
             progress?.Report(new ManualBackupProgress(ManualBackupStage.Project, i, plan.ProjectFiles.Count, relative.Replace('\\', '/')));
             var copy = Path.Combine(target, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+            var hash = FileHash.Sha256(source);
             _fileSystem.CopyFile(source, copy);
+            if (FileHash.Sha256(copy) != hash)
+            {
+                throw new InjectionException($"A cópia de '{relative}' no backup não confere com o arquivo do projeto (ele mudou durante a cópia?). Nada foi alterado no jogo.");
+            }
+
+            copied.Add(new BackupProjectFile(relative.Replace('\\', '/'), hash));
         }
+
+        return copied;
     }
 
     /// <summary>Todos os arquivos do projeto menos <c>build/</c>, <c>.cache/</c>, <c>backup/</c> e qualquer pasta de backup que esteja dentro do projeto.</summary>
     private static List<string> ProjectFilesToBackUp(ProjectFolder project)
     {
-        var skipped = project.Backups.Roots(project).Select(GameLibrary.NormalizeFolder).ToList();
+        // A pasta dos Ajustes inteira fica de fora, não só a subpasta deste projeto: dentro do projeto ela guardaria os backups dos outros.
+        var skipped = project.Backups.Roots(project).Concat(project.Backups.ConfiguredFolders()).Select(GameLibrary.NormalizeFolder).ToList();
         var files = new List<string>();
         Walk(project.Root, isTop: true);
         return files;
@@ -181,29 +205,27 @@ public sealed partial class GameInjector
         }
     }
 
-    private static void EnsureFolderAvailable(ProjectFolder project, ManualBackupPlan plan)
+    private static void EnsureFolderAvailable(string root, string? folder, long requiredBytes)
     {
-        var root = plan.BackupRoot;
-        var missing = project.Backups.Unreachable(project).Any(m => string.Equals(m, root, PathComparison));
-        if (missing)
+        if (!string.IsNullOrWhiteSpace(folder) && !Directory.Exists(folder))
         {
-            throw Unavailable(project.Backups.Folder!, null);
+            throw Unavailable(folder, null);
         }
 
         var free = FreeSpace(root);
-        if (free is { } available && available < plan.TotalBytes)
+        if (free is { } available && available < requiredBytes)
         {
-            var drive = Path.GetPathRoot(root)!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var drive = Path.GetPathRoot(Path.GetFullPath(root))!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             throw new InjectionException(
-                $"Falta espaço em {drive}. O backup precisa de {Megabytes(plan.TotalBytes)} e o disco tem {Megabytes(available)} livres. Libere espaço ou escolha outra pasta nos Ajustes.")
+                $"Falta espaço em {drive}. O backup precisa de {Megabytes(requiredBytes)} e o disco tem {Megabytes(available)} livres. Libere espaço ou escolha outra pasta nos Ajustes.")
             {
                 FolderProblem = BackupFolderProblem.NotEnoughSpace,
             };
         }
     }
 
-    private static InjectionException Unavailable(string folder, Exception? cause) =>
-        new($"Não deu para gravar em {folder}. O disco não está conectado ou a pasta está protegida. Escolha outra pasta nos Ajustes. Nada foi alterado no jogo.", cause)
+    private static InjectionException Unavailable(string folder, Exception? cause, string? message = null) =>
+        new(message ?? $"Não deu para gravar em {folder}. O disco não está conectado ou a pasta está protegida. Escolha outra pasta nos Ajustes. Nada foi alterado no jogo.", cause)
         {
             FolderProblem = BackupFolderProblem.Unavailable,
         };
@@ -219,18 +241,6 @@ public sealed partial class GameInjector
         catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
         {
             return null;
-        }
-    }
-
-    private string CreateManualBackupDirectory(ProjectFolder project, string backupRoot)
-    {
-        try
-        {
-            return CreateBackupDirectory(backupRoot);
-        }
-        catch (InjectionException ex) when (ex.FolderProblem == BackupFolderProblem.None)
-        {
-            throw Unavailable(project.Backups.Folder ?? backupRoot, ex);
         }
     }
 
