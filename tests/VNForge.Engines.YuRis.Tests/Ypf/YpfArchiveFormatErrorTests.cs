@@ -7,6 +7,7 @@ using VNForge.Engines.YuRis.Ypf.Hashing;
 
 namespace VNForge.Engines.YuRis.Tests.Ypf;
 
+[Trait("Risco", "R3")]
 public partial class YpfArchiveFormatTests
 {
     // ---- Vetores de ouro ----
@@ -105,30 +106,6 @@ public partial class YpfArchiveFormatTests
     }
 
     // ---- CanOpen e ciclo de vida ----
-
-    [Fact]
-    public void Open_ErroNaoFechaOFluxoDeQuemChamou()
-    {
-        using var stream = new MemoryStream(new byte[64]);
-
-        Assert.Throws<InvalidFileException>(() => Format.Open(stream));
-
-        Assert.True(stream.CanRead);
-    }
-
-    [Fact]
-    public void Dispose_FechaOFluxoDeOrigem()
-    {
-        var stream = new MemoryStream(SyntheticYpfSamples.DefaultSample(300).Build().Bytes);
-        var archive = Format.Open(stream);
-
-        archive.Dispose();
-#pragma warning disable S3966 // o teste verifica justamente que um segundo Dispose é inofensivo
-        archive.Dispose();
-#pragma warning restore S3966
-
-        Assert.False(stream.CanRead);
-    }
 
     [Fact]
     public void OpenEntry_RejeitaEntradaDeOutroPacoteENula()

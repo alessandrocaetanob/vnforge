@@ -12,6 +12,7 @@ using VNForge.Engines.YuRis.Yscm;
 namespace VNForge.Engines.YuRis.Tests;
 
 /// <summary>O YU-RIS no kit de conformidade (#541): só entrega os dados sintéticos, os testes vêm de <see cref="EngineConformanceTests"/>.</summary>
+[Trait("Risco", "R3")]
 public sealed class YuRisEngineConformanceTests : EngineConformanceTests
 {
     private const string Title = "テストの題名";

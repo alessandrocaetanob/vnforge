@@ -10,6 +10,8 @@ using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Engines.YuRis.Tests.Text;
 
+[Trait("Risco", "R3")]
+[Trait("Risco", "R4")]
 public class YstbTextInjectorTests
 {
     private const string ScriptName = "ybin/YST00001.ybn";

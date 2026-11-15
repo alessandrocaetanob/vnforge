@@ -8,6 +8,7 @@ using VNForge.Engines.YuRis.Yscm;
 
 namespace VNForge.Engines.YuRis.Tests.Ystb;
 
+[Trait("Risco", "R3")]
 public class YstbReaderTests
 {
     private const string ResourcesDir = "recursos";

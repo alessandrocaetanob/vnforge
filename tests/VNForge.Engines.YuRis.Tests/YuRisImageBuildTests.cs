@@ -11,6 +11,7 @@ namespace VNForge.Engines.YuRis.Tests;
 /// O teste de ida e volta do editor de imagens (#535) sobre um YPF sintético: uma imagem trocada no <c>img.ypf</c>, e todo o resto do arquivo
 /// (cabeçalho, entradas e bytes armazenados das outras entradas) igual ao original (regra 3 do <c>CLAUDE.md</c>).
 /// </summary>
+[Trait("Risco", "R3")]
 public sealed class YuRisImageBuildTests : IDisposable
 {
     private const string ImgYpf = "img.ypf";

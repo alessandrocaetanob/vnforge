@@ -8,6 +8,7 @@ using VNForge.Engines.YuRis.Yscm;
 
 namespace VNForge.Engines.YuRis.Tests.Ystb;
 
+[Trait("Risco", "R3")]
 public class YstbScriptFormatTests
 {
     private const string Yst1Ybn = "yst00001.ybn";
