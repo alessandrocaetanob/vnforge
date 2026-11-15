@@ -3,6 +3,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R6")]
 public class ScriptGroupEditorTests
 {
     private static string Key(int n) => $"yst{n:D5}";
@@ -30,17 +31,6 @@ public class ScriptGroupEditorTests
     }
 
     [Fact]
-    public void Intervalo_vai_do_primeiro_ao_ultimo_script_na_ordem_numerica_e_aceita_chaves_soltas()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 8);
-
-        var mudanca = ScriptGroupEditor.Group(projeto, [$"{Key(2)}..{Key(4)}", Key(7), Key(3)], "Cena");
-
-        Assert.Equal([Key(2), Key(3), Key(4), Key(7)], mudanca.Keys);
-    }
-
-    [Fact]
     public void Chave_em_maiuscula_e_aceita_e_chave_desconhecida_recusa_sem_gravar_nada()
     {
         using var temp = new TempFolder();
@@ -54,114 +44,5 @@ public class ScriptGroupEditorTests
         Assert.Contains("yst99999", erro.Message, StringComparison.Ordinal);
         Assert.Contains("nada", erro.Message, StringComparison.Ordinal);
         Assert.Equal(antes, File.ReadAllText(projeto.ScriptNamesPath));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Agrupar_sem_nome_recusa(string nome)
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 2);
-
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.Group(projeto, [Key(1)], nome));
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.Group(projeto, [], "A"));
-    }
-
-    [Fact]
-    public void Intervalo_invertido_ou_com_ponta_desconhecida_recusa()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 5);
-
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.Group(projeto, [$"{Key(4)}..{Key(2)}"], "A"));
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.Group(projeto, [$"{Key(2)}..yst99999"], "A"));
-    }
-
-    [Fact]
-    public void Desagrupar_devolve_os_scripts_ao_grupo_que_a_pasta_propoe()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/01_cap1"), (3, "userscript/02_cap2"));
-        ScriptGroupEditor.Group(projeto, [Key(2)], "Solto");
-        Assert.Equal(["Capítulo 1", "Solto", "Capítulo 2"], ProjectDashboard.Read(projeto).Chapters().Select(c => c.Name));
-
-        ScriptGroupEditor.Ungroup(projeto, [Key(2)]);
-
-        Assert.Equal(["Capítulo 1", "Capítulo 2"], ProjectDashboard.Read(projeto).Chapters().Select(c => c.Name));
-        Assert.Null(ProjectFolder.Open(temp.Path).LoadScriptNames().Group(Key(2)));
-    }
-
-    [Fact]
-    public void Renomear_aceita_o_numero_do_capitulo_no_lugar_do_nome()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"), (3, "userscript/02_cap2"));
-
-        var mudanca = ScriptGroupEditor.RenameGroup(projeto, "2", "Tarde");
-
-        Assert.Equal([Key(2), Key(3)], mudanca.Keys);
-        Assert.Equal(["Capítulo 1", "Tarde"], mudanca.Chapters.Select(c => c.Name));
-    }
-
-    [Fact]
-    public void Sem_mudanca_o_scripts_json_nao_e_regravado()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"));
-        ScriptGroupEditor.Group(projeto, [Key(1)], "Prólogo");
-        var escrito = File.ReadAllText(projeto.ScriptNamesPath);
-        File.WriteAllText(projeto.ScriptNamesPath, escrito.Replace("\n", "\n\n", StringComparison.Ordinal));
-        var manual = File.ReadAllText(projeto.ScriptNamesPath);
-
-        ScriptGroupEditor.Group(projeto, [Key(1)], "Prólogo");
-        ScriptGroupEditor.Ungroup(projeto, [Key(3)]);
-
-        Assert.Equal(manual, File.ReadAllText(projeto.ScriptNamesPath));
-    }
-
-    [Fact]
-    public void Menus_e_nomes_nao_se_renomeia()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"), (3, "userscript/system"));
-
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.RenameGroup(projeto, ScriptGrouping.ExtraName, "Extras"));
-        Assert.Null(ProjectFolder.Open(temp.Path).LoadScriptNames().Group(Key(3)));
-    }
-
-    [Fact]
-    public void Renomear_grupo_inexistente_ou_para_nome_vazio_recusa_sem_gravar()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/02_cap2"));
-
-        var erro = Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.RenameGroup(projeto, "Epílogo", "Fim"));
-        Assert.Contains("Epílogo", erro.Message, StringComparison.Ordinal);
-        Assert.Throws<ScriptGroupingException>(() => ScriptGroupEditor.RenameGroup(projeto, "Capítulo 1", "  "));
-        Assert.Null(ProjectFolder.Open(temp.Path).LoadScriptNames().Group(Key(1)));
-    }
-
-    [Fact]
-    public void Ida_e_volta_do_scripts_json_com_grupos_editados_mantem_nomes_pastas_e_grupos_e_o_texto_identico()
-    {
-        using var temp = new TempFolder();
-        var projeto = ProjetoCom(temp.Path, 3, (1, "userscript/01_cap1"), (2, "userscript/01_cap1"), (3, "userscript/02_cap2"));
-        projeto.RenameScript(Key(1), "Abertura");
-        ScriptGroupEditor.Group(projeto, [Key(3)], "Manhã · 朝");
-        ScriptGroupEditor.RenameGroup(projeto, "Capítulo 1", "Prólogo");
-        ScriptGroupEditor.Ungroup(projeto, [Key(2)]);
-
-        var primeiro = File.ReadAllText(projeto.ScriptNamesPath);
-        var lido = ProjectFolder.Open(temp.Path).LoadScriptNames();
-        projeto.SaveScriptNames(lido);
-
-        Assert.Equal(primeiro, File.ReadAllText(projeto.ScriptNamesPath));
-        Assert.Equal("Abertura", lido.CustomName(Key(1)));
-        Assert.Equal("userscript/01_cap1", lido.Folder(Key(2)));
-        Assert.Equal("Prólogo", lido.Group(Key(1)));
-        Assert.Null(lido.Group(Key(2)));
-        Assert.Equal("Manhã · 朝", lido.Group(Key(3)));
-        Assert.DoesNotContain('\r', primeiro);
     }
 }

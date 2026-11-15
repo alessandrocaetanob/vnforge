@@ -32,9 +32,6 @@ internal sealed class FakeEngine : IEngine, IGameUnpacker, IGameRepacker, IGameP
 
     public int RebuildCalls => _format.Calls;
 
-    /// <summary>Nomes de script que a engine pede para reconstruir mesmo sem tradução (<see cref="IScriptFormat.RequiresRebuild"/>).</summary>
-    public HashSet<string> ScriptsRequiringRebuild => _format.RequiringRebuild;
-
     public IReadOnlyList<TextUnit> LastRebuiltUnits => _format.LastUnits;
 
     /// <summary>O codificador que o build entregou à engine na última chamada.</summary>

@@ -16,6 +16,10 @@ namespace VNForge.Cli.Tests;
 /// Os cinco cenários de ponta a ponta do plano de testes (T3, #700): cada um roda os comandos do CLI de verdade sobre um jogo YU-RIS sintético
 /// (um <c>ysbin.ypf</c> e um <c>bgm.ypf</c> montados em código), com o provedor falso no lugar da IA.
 /// </summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R2")]
+[Trait("Risco", "R3")]
+[Trait("Risco", "R4")]
 public sealed class CenarioDePontaAPontaTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -223,7 +227,8 @@ public sealed class CenarioDePontaAPontaTests : IDisposable
         Assert.Contains(Path.Combine(ProjectPath, "text"), result.Error);
         var after = Snapshot(ProjectPath);
         Assert.DoesNotContain(after, file => file.Value.Length == 0);
-        // A copia .bak que a troca deixa ao lado e o log do comando ficam de fora; cada arquivo do projeto tem de estar como estava.
+        // A copia .bak que a troca deixa ao lado e o log do comando ficam de fora; o conjunto de arquivos e o conteudo de cada um tem de ser o de antes (nenhum arquivo novo, nem vazio, nem o cache).
+        Assert.Equal(before.Keys.Order(), after.Keys.Order());
         foreach (var (name, content) in before)
         {
             Assert.Equal(content, after[name]);

@@ -2,6 +2,8 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using VNForge.Core.Library;
 using VNForge.Core.Text;
 
@@ -16,6 +18,9 @@ namespace VNForge.Core.Factsheet;
 /// </summary>
 public sealed partial class SheetStore(string directory)
 {
+    /// <summary>Onde a leitura registra o que ignorou (um termo de tipo desconhecido); sem ele, nada é registrado.</summary>
+    public ILogger Log { get; init; } = NullLogger.Instance;
+
     public const string FolderName = "sheets";
     public const int CurrentVersion = 1;
 
@@ -92,9 +97,17 @@ public sealed partial class SheetStore(string directory)
         var file = Read<TermsFile>(TermsPath, "as traduções de tags e traços", f => f);
         foreach (var entry in file?.Terms ?? [])
         {
-            if (entry is null || !Enum.TryParse<SheetTermKind>(entry.Kind, ignoreCase: true, out var kind) || string.IsNullOrWhiteSpace(entry.Id) || string.IsNullOrWhiteSpace(entry.Source))
+            if (entry is null || string.IsNullOrWhiteSpace(entry.Kind) || string.IsNullOrWhiteSpace(entry.Id) || string.IsNullOrWhiteSpace(entry.Source))
             {
                 throw new LibraryException($"O arquivo '{TermsPath}' tem um termo sem tipo, id ou original.");
+            }
+
+            if (!Enum.TryParse<SheetTermKind>(entry.Kind, ignoreCase: true, out var kind))
+            {
+                // Um tipo de termo de uma versão mais nova não derruba o arquivo inteiro: fica de lado, volta intacto na próxima gravação e esta versão não o usa.
+                Log.LogWarning("O arquivo '{Path}' tem um termo de tipo desconhecido ('{Kind}', id {Id}); ele é mantido e ignorado.", TermsPath, entry.Kind, entry.Id);
+                terms.Unrecognized.Add(entry);
+                continue;
             }
 
             terms.Put(new SheetTerm(kind, entry.Id, entry.Context, new SheetText(entry.Source, entry.Target, entry.Status, entry.Outdated)));
@@ -107,7 +120,7 @@ public sealed partial class SheetStore(string directory)
     public void SaveTerms(SheetTerms terms)
     {
         ArgumentNullException.ThrowIfNull(terms);
-        List<TermEntry?> entries = [.. terms.All.Select(t => new TermEntry(SheetTerms.KindName(t.Kind), t.Id, t.Context, t.Text.Source, t.Text.Target, t.Text.Status, t.Text.Outdated))];
+        List<TermEntry?> entries = [.. terms.All.Select(t => new TermEntry(SheetTerms.KindName(t.Kind), t.Id, t.Context, t.Text.Source, t.Text.Target, t.Text.Status, t.Text.Outdated)), .. terms.Unrecognized];
         Write(TermsPath, new TermsFile(entries), "As traduções de tags e traços");
     }
 
@@ -212,5 +225,5 @@ public sealed partial class SheetStore(string directory)
 
     private sealed record TermsFile(List<TermEntry?>? Terms);
 
-    private sealed record TermEntry(string? Kind, string? Id, string? Context, string? Source, string? Target, TranslationStatus Status, bool Outdated);
+    internal sealed record TermEntry(string? Kind, string? Id, string? Context, string? Source, string? Target, TranslationStatus Status, bool Outdated);
 }

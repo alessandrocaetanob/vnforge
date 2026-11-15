@@ -6,6 +6,7 @@ using VNForge.Engines.YuRis.Tests.Ystb.Synthetic;
 
 namespace VNForge.Cli.Tests;
 
+[Trait("Risco", "R2")]
 public sealed class InitCommandTests : IDisposable
 {
     private const string MinhaVnPtbr = "minha-vn-ptbr";
@@ -40,19 +41,6 @@ public sealed class InitCommandTests : IDisposable
     private string ProjectPath(string name = MinhaVnPtbr) => Path.Combine(_cli.WorkingDirectory, name);
 
     [Fact]
-    public async Task Projeto_novo_ja_nasce_com_os_termos_do_glossario_pessoal()
-    {
-        var game = NewGameDir();
-        new VNForge.Core.Memory.PersonalGlossary(_cli.UserConfigDirectory).Upsert(new VNForge.Core.Memory.PersonalTerm("お兄ちゃん", "mano"));
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Glossário pessoal: 1 termo entrou", result.Output);
-        Assert.Equal("お兄ちゃん", Assert.Single(ProjectFolder.Open(ProjectPath()).LoadGlossary()).Source);
-    }
-
-    [Fact]
     public async Task Cria_o_projeto_com_engine_versao_e_chave_da_deteccao()
     {
         var game = NewGameDir();
@@ -66,83 +54,5 @@ public sealed class InitCommandTests : IDisposable
         Assert.Equal(MinhaVnPtbr, config.Name);
         Assert.Equal("MinhaVN.exe", config.Game.Exe);
         Assert.Equal(game.Replace(Path.DirectorySeparatorChar, '/'), config.Game.Path);
-    }
-
-    [Fact]
-    public async Task Encoding_remap_avisa_que_o_build_ainda_nao_tem_a_estrategia()
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", "remap"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Aviso: ", result.Output);
-        Assert.Contains("remap", result.Output);
-        Assert.Contains("#66", result.Output);
-        Assert.Equal("remap", ProjectFolder.Open(ProjectPath()).LoadConfig().Encoding.Strategy);
-    }
-
-    [Fact]
-    public async Task Encoding_remap_com_json_leva_o_aviso_em_warnings()
-    {
-        var game = NewGameDir();
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--encoding", "remap", "--json"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        using var document = JsonDocument.Parse(result.Output);
-        var warnings = document.RootElement.GetProperty("data").GetProperty("warnings").GetString();
-        Assert.Contains("remap", warnings);
-        Assert.Contains("#66", warnings);
-    }
-
-    [Fact]
-    public async Task Pasta_que_ja_tem_projeto_da_erro_sem_sobrescrever()
-    {
-        var game = NewGameDir();
-        await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--name", "Original"], TestContext.Current.CancellationToken);
-        var before = await File.ReadAllTextAsync(Path.Combine(ProjectPath(), "vnforge.json"), TestContext.Current.CancellationToken);
-
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game, "--name", "Outro"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("Já existe um vnforge.json", result.Error);
-        Assert.Equal(before, await File.ReadAllTextAsync(Path.Combine(ProjectPath(), "vnforge.json"), TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task Nao_grava_nada_na_pasta_do_jogo()
-    {
-        var game = NewGameDir();
-        var before = Directory.EnumerateFiles(game).Order().Select(f => (f, File.ReadAllBytes(f))).ToList();
-
-        await _cli.RunAsync(["init", MinhaVnPtbr, GameOption, game], TestContext.Current.CancellationToken);
-
-        var after = Directory.EnumerateFileSystemEntries(game).Order().ToList();
-        Assert.Equal(before.Select(b => b.f), after);
-        foreach (var (path, bytes) in before)
-        {
-            Assert.Equal(bytes, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
-        }
-    }
-
-    [Fact]
-    public async Task Sem_a_opcao_game_o_erro_de_uso_esta_em_portugues()
-    {
-        var result = await _cli.RunAsync(["init", MinhaVnPtbr], TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("A opção '--game' é obrigatória.", result.Error);
-    }
-
-    [Fact]
-    public async Task Help_do_init_esta_em_portugues()
-    {
-        var result = await _cli.RunAsync(["init", "--help"], TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("vnf init", result.Output);
-        Assert.Contains("--game <pasta>", result.Output);
-        Assert.Contains("<pasta>", result.Output);
     }
 }

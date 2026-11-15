@@ -181,7 +181,7 @@ public sealed partial class BuildViewModel
         var timer = StartTimer();
         try
         {
-            var project = ProjectFolder.Open(summary.Root);
+            var project = OpenProject(summary.Root);
             var tester = new GameTester(engines, starter, qa, clock, injectionFiles);
             AppendLog(options.AccentTest
                 ? "Teste de acentos: só a frase fixa vai para o jogo."
@@ -272,7 +272,7 @@ public sealed partial class BuildViewModel
         var timer = StartTimer();
         try
         {
-            var project = ProjectFolder.Open(summary.Root);
+            var project = OpenProject(summary.Root);
             var tester = new GameTester(engines, starter, qa, clock);
             var run = await RunAsync("Voltar ao jogo original", "Devolvendo os arquivos originais ao jogo", (_, _) => tester.ReturnToOriginal(project));
             if (mine != epoch)
@@ -507,8 +507,8 @@ public sealed partial class BuildViewModel
                 return;
             }
 
-            var folder = ProjectFolder.Open(project.Root);
-            if (GameInjector.ListBackups(folder).FirstOrDefault(b => b.Manifest is not null && !b.Restored) is { Manifest: { } manifest } newest)
+            var folder = OpenProject(project.Root);
+            if (GameInjector.ListBackups(folder, includeManual: false).FirstOrDefault(b => b.Manifest is not null && !b.Restored) is { Manifest: { } manifest } newest)
             {
                 GameStatusText = ShortGameStatus(Effective(GameStateFile.Load(folder).InGame, manifest.CreatedAt, newest.Name));
             }

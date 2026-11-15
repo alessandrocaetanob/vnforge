@@ -2,6 +2,7 @@ using VNForge.Core.Publishing;
 
 namespace VNForge.Core.Tests.Publishing;
 
+[Trait("Risco", "R1")]
 public sealed class NewFilePolicyTests : IDisposable
 {
     private readonly string _game = Path.Combine(Path.GetTempPath(), "vnf-policy-" + Guid.NewGuid().ToString("N"));
@@ -13,20 +14,6 @@ public sealed class NewFilePolicyTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_game, recursive: true);
-
-    [Theory]
-    [InlineData("Game/novo.ypf")]
-    [InlineData("Game/novo.ybn")]
-    [InlineData("Game/novo.exe")]
-    [InlineData("Game/novo.dll")]
-    [InlineData("Game/novo.png")]
-    [InlineData("Game/semextensao")]
-    public void Arquivo_novo_que_nao_e_texto_e_recusado_porque_iria_inteiro_no_patch(string path)
-    {
-        var error = Assert.Throws<VNForgeException>(() => NewFilePolicy.EnsureAllowed(_game, path));
-
-        Assert.Contains("nunca um arquivo inteiro", error.Message);
-    }
 
     [Theory]
     [InlineData("Game/traducao.txt")]

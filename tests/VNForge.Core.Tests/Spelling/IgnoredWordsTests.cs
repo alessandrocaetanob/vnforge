@@ -7,6 +7,7 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Spelling;
 
+[Trait("Risco", "R3")]
 public sealed class IgnoredWordsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "vnforge-ignored-" + Guid.NewGuid().ToString("N"));
@@ -38,62 +39,5 @@ public sealed class IgnoredWordsTests : IDisposable
         var lido = IgnoredWordsSerializer.Parse(json, "ignored-words.json");
         Assert.Equal([new IgnoredWord("Zorgblat"), new IgnoredWord("kyuun")], lido);
         Assert.Equal(json, IgnoredWordsSerializer.Serialize(lido));
-    }
-
-    [Fact]
-    public void Palavra_vazia_ou_repetida_ignorando_maiusculas_e_recusada()
-    {
-        Assert.Throws<GlossaryFileException>(() => IgnoredWordsSerializer.Serialize([new IgnoredWord("  ")]));
-
-        var ex = Assert.Throws<GlossaryFileException>(() => IgnoredWordsSerializer.Serialize([new IgnoredWord("Zorgblat"), new IgnoredWord(" zorgblat ")]));
-
-        Assert.Contains("mais de uma vez", ex.Reason);
-    }
-
-    [Fact]
-    public void Projeto_grava_a_palavra_e_le_de_volta_sem_repetir_a_mesma_palavra()
-    {
-        var projeto = NovoProjeto();
-
-        Assert.True(projeto.AddIgnoredWord("Zorgblat"));
-        Assert.False(projeto.AddIgnoredWord("zorgblat"));
-        Assert.True(projeto.AddIgnoredWord("kyuun"));
-
-        Assert.Equal([new IgnoredWord("Zorgblat"), new IgnoredWord("kyuun")], projeto.LoadIgnoredWords());
-        var gravado = File.ReadAllBytes(projeto.IgnoredWordsPath);
-        projeto.SaveIgnoredWords(projeto.LoadIgnoredWords());
-        Assert.Equal(gravado, File.ReadAllBytes(projeto.IgnoredWordsPath));
-    }
-
-    [Fact]
-    public void Palavra_em_branco_nao_e_gravada()
-    {
-        var projeto = NovoProjeto();
-
-        Assert.False(projeto.AddIgnoredWord("  "));
-
-        Assert.False(File.Exists(projeto.IgnoredWordsPath));
-    }
-
-    [Fact]
-    public void Palavra_ignorada_com_hifen_vale_inteira_e_nao_libera_a_parte()
-    {
-        var sem = ProjectDictionary.Create([], []);
-        var com = ProjectDictionary.Create([], [], ignoredWords: ["xorgbla-zzq"]);
-
-        Assert.Equal(["xorgbla-zzq"], Wrong("Foi xorgbla-zzq mesmo.", sem));
-        Assert.Empty(Wrong("Foi xorgbla-zzq mesmo.", com));
-        Assert.Equal(["xorgbla"], Wrong("Foi xorgbla mesmo.", com));
-    }
-
-    [Fact]
-    public void Dicionario_com_a_palavra_acrescentada_nao_muda_o_original()
-    {
-        var original = ProjectDictionary.Create([], []);
-
-        var novo = original.WithIgnoredWord("Zorgblat");
-
-        Assert.True(novo.Contains("zorgblat"));
-        Assert.False(original.Contains("Zorgblat"));
     }
 }

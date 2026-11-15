@@ -21,6 +21,15 @@ internal static class CharactersSamples
 
     internal static VndbTrait Nude => new("i3", "Nude", "i40", "Sexual Content", 0, false, Sexual: true);
 
+    internal static VndbTrait BlackHair => new("i4", "Black", "i10", "Hair", 0, false, Sexual: false);
+
+    internal static VndbTrait BlackEyes => new("i109", "Black", "i11", "Eyes", 0, false, Sexual: false);
+
+    /// <summary>Os dois "Black" de grupos diferentes, que o filtro e o cartão têm de distinguir.</summary>
+    internal static VndbTrait[] Homonyms => [BlackHair, BlackEyes];
+
+    private static VndbTrait[] HanaExtras(bool many) => many ? [.. Homonyms, .. ExtraTraits] : [];
+
     internal static VndbTrait Ghost => new("i2", "Ghost", "i20", "Personality", 2, false, Sexual: false);
 
     internal static VndbVisualNovel Game(string id, string title) =>
@@ -29,8 +38,8 @@ internal static class CharactersSamples
     internal static VndbCharacter Character(string id, string name, string? original, string? gender, VndbCharacterAppearance[] appearances, VndbTrait[] traits) =>
         new(id, name, original, name == "Hana Tsukino" ? ["Hanako"] : [], $"{name}.", null, gender is null ? null : new VndbGender(gender, gender), appearances, traits, name == "Hana Tsukino" ? 17 : null);
 
-    /// <summary>Cinco traços a mais para a Hana (sete no total): com mais de seis, o filtro ganha o link "Ver os N traços".</summary>
-    internal static VndbTrait[] ExtraTraits => [.. Enumerable.Range(1, 5).Select(n => new VndbTrait($"i{100 + n}", $"Traço {n}", "i30", "Roupa", 0, false, Sexual: false))];
+    /// <summary>Cinco traços a mais para a Hana: com mais de seis, o filtro ganha o link "Ver os N traços". Com <see cref="BlackHair"/> e <see cref="BlackEyes"/> (dois "Black" de grupos diferentes) são nove.</summary>
+    internal static VndbTrait[] ExtraTraits => [.. Enumerable.Range(1, 5).Select(n => new VndbTrait($"i{100 + n}", $"Traço {n}", "i30", "Clothes", 0, false, Sexual: false))];
 
     private static VndbImage? HanaImage(bool adultPortrait, bool portrait)
     {
@@ -48,10 +57,10 @@ internal static class CharactersSamples
     internal static FakeVndbCatalog Catalog(bool manyTraits, bool adultPortrait = false, bool portrait = false) => new(
         [Game(Moon, "Moon Flower"), Game(Star, "Star Garden"), Game(Outside, "Outside Game")],
         [
-            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. manyTraits ? ExtraTraits : [], .. adultPortrait ? new[] { Nude } : []]) with { Image = HanaImage(adultPortrait, portrait) },
-            Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair]),
+            Character("c101", "Hana Tsukino", "月野 花", "f", [new(Moon, "main", 0, null), new(Star, "side", 0, null), new(Outside, "primary", 0, null)], [LongHair, Ghost, .. HanaExtras(manyTraits), .. adultPortrait ? new[] { Nude } : []]) with { Image = HanaImage(adultPortrait, portrait) },
+            Character("c102", "Mika Aoba", null, "f", [new(Moon, "main", 2, "r2"), new(Moon, "side", 0, "r1")], [LongHair, .. manyTraits ? Homonyms : []]),
             Character("c103", "Kai Ono", null, "m", [new(Outside, "main", 0, null)], []),
-            Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], []),
+            Character("c104", "Sora Mori", null, "m", [new(Star, "side", 0, null)], [.. manyTraits ? new[] { BlackEyes } : []]),
             Character("c105", "Fantasma", null, null, [new(Star, "side", 2, null)], []),
         ]);
 

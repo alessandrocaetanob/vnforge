@@ -111,6 +111,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool editorStale;
     private string? lineNotFoundMessage;
 
+    /// <summary>Onde os backups dos projetos estão (a pasta dos Ajustes); passa para as telas que leem backup: Testar, Início, Imagens e Lançar. Sem isso vale o <c>backup/</c> de cada projeto.</summary>
+    public void UseBackupLocations(Func<VNForge.Core.Injection.BackupLocations> source)
+    {
+        Build.BackupLocationsSource = source;
+        Dashboard.BackupLocationsSource = source;
+        Images.BackupLocationsSource = source;
+        Release.BackupLocationsSource = source;
+    }
+
     public MainWindowViewModel(StartViewModel start, ResolvedApiKey? apiKey = null, BackgroundTaskService? taskService = null, SettingsViewModel? settings = null, ToastService? toasts = null, Action<string>? openFolder = null, LibraryViewModel? library = null)
     {
         this.openFolder = openFolder ?? OpenInFileManager;
@@ -140,7 +149,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         batchRequests = NewBatchRequestService();
         Conference.History = History;
         Tasks = new TaskBarViewModel(TaskService, history: History);
-        Build = new BuildViewModel(TaskService);
+        Build = new BuildViewModel(TaskService) { OpenFolder = this.openFolder };
+        Build.BackupSettingsRequested += (_, _) =>
+        {
+            Settings.SelectedTab = SettingsViewModel.BackupsTab;
+            SelectedNav = settingsItem;
+        };
         Release = new ReleaseViewModel(TaskService, openFolder: this.openFolder);
         Build.PropertyChanged += (_, e) =>
         {

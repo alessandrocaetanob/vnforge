@@ -986,11 +986,14 @@ public sealed partial class ImagesViewModel : ObservableObject, IDisposable
         Refilter();
     }
 
+    /// <summary>Onde os backups do projeto estão: com o jogo já injetado, o original de cada arquivo vem de lá.</summary>
+    public Func<BackupLocations> BackupLocationsSource { get; set; } = () => BackupLocations.Default;
+
     private sealed record LoadedProject(ProjectFolder Folder, string GameDirectory, Func<string, string> OriginalOf, IReadOnlyList<ImageTextEntry> Inventory, IReadOnlyList<ImageEdit> Edits);
 
-    private static LoadedProject ReadProject(string root)
+    private LoadedProject ReadProject(string root)
     {
-        var project = ProjectFolder.Open(root);
+        var project = ProjectFolder.Open(root).WithBackups(BackupLocationsSource());
         var game = Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
         return new LoadedProject(project, game, GameInjector.CreateOriginalResolver(project, game), project.LoadImageInventory(), project.LoadImageEdits());
     }

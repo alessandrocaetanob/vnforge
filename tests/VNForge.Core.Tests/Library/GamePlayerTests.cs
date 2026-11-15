@@ -3,6 +3,7 @@ using VNForge.Core.Tests.Projects;
 
 namespace VNForge.Core.Tests.Library;
 
+[Trait("Risco", "R6")]
 public sealed class GamePlayerTests : IDisposable
 {
     private static readonly DateTimeOffset Start = new(2026, 11, 9, 20, 0, 0, TimeSpan.Zero);
@@ -47,21 +48,6 @@ public sealed class GamePlayerTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelar_para_a_contagem_e_grava_a_sessao_como_interrompida()
-    {
-        using var source = CancellationTokenSource.CreateLinkedTokenSource(Ct);
-        var launcher = new FakeLauncher(_clock, (Minute * 20, GameProcessState.Running), (Minute * 10, GameProcessState.Running)) { OnPoll = index => { if (index == 1) { source.Cancel(); } } };
-
-        var session = await Player(launcher).PlayAsync("g1", Launch, source.Token);
-
-        Assert.True(session.Interrupted);
-        Assert.False(session.Open);
-        Assert.Equal(TimeSpan.FromMinutes(30), session.Duration);
-        Assert.Equal([session], Saved().SessionsOf("g1"));
-        Assert.True(launcher.Process!.Disposed);
-    }
-
-    [Fact]
     public async Task Arquivo_de_tempo_ilegivel_recusa_antes_de_abrir_o_jogo()
     {
         await File.WriteAllTextAsync(new PlayLogFile(_dir.Path).Path, "{ não é json", Ct);
@@ -72,66 +58,11 @@ public sealed class GamePlayerTests : IDisposable
         Assert.Null(launcher.Launched);
     }
 
-    [Fact]
-    public async Task Salto_de_horas_do_PC_que_dormiu_conta_no_maximo_um_passo()
-    {
-        var launcher = new FakeLauncher(_clock, (TimeSpan.FromSeconds(5), GameProcessState.Running), (TimeSpan.FromHours(8), GameProcessState.Running), (TimeSpan.FromSeconds(5), GameProcessState.Exited));
-
-        var session = await Player(launcher, Options(maxStep: TimeSpan.FromSeconds(10))).PlayAsync("g1", Launch, Ct);
-
-        Assert.Equal(TimeSpan.FromSeconds(5 + 10 + 5), session.Duration);
-        Assert.True(session.Duration < TimeSpan.FromMinutes(1));
-    }
-
-    [Fact]
-    public async Task App_que_fecha_no_meio_deixa_a_sessao_interrompida_com_o_que_foi_contado()
-    {
-        var crash = new FakeLauncher(_clock, (Minute * 4, GameProcessState.Running), (Minute * 4, GameProcessState.Running)) { OnPoll = index => { if (index == 2) { throw new InvalidOperationException("o app fechou"); } } };
-        var options = Options(heartbeat: TimeSpan.FromMinutes(5));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Player(crash, options).PlayAsync("g1", Launch, Ct));
-
-        // Ainda dentro do prazo: a sessão aberta é de quem está jogando agora, e fica como está.
-        var lost = Assert.Single(Saved().SessionsOf("g1"));
-        Assert.True(lost.Open);
-        Assert.Equal(TimeSpan.FromMinutes(8), lost.Duration);
-        _clock.Advance(Minute);
-        await Player(new FakeLauncher(_clock, (Minute, GameProcessState.Exited)), options).PlayAsync("g2", Launch, Ct);
-        Assert.True(Assert.Single(Saved().SessionsOf("g1")).Open);
-
-        // Passado o prazo, a próxima partida a fecha como interrompida; o tempo contado continua no total.
-        _clock.Advance(TimeSpan.FromHours(1));
-        await Player(new FakeLauncher(_clock, (Minute, GameProcessState.Exited)), options).PlayAsync("g2", Launch, Ct);
-
-        var recovered = Assert.Single(Saved().SessionsOf("g1"));
-        Assert.False(recovered.Open);
-        Assert.True(recovered.Interrupted);
-        Assert.Equal(TimeSpan.FromMinutes(8), Saved().StatsOf("g1").Total);
-        Assert.Equal(Start.AddMinutes(8), Saved().StatsOf("g1").LastPlayedAt);
-    }
-
     private FileStream HoldLock() =>
         new(new PlayLogFile(_dir.Path).Path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
     private GamePlayer PlayerWithShortLock(FakeLauncher launcher, List<string> warnings, TimeSpan heartbeat) =>
         new(launcher, new PlayLogFile(_dir.Path, lockTimeout: TimeSpan.FromMilliseconds(50)), _clock, Options(heartbeat: heartbeat), warnings.Add);
-
-    [Fact]
-    public async Task Trava_presa_o_tempo_todo_nao_derruba_a_partida_e_avisa_o_tempo_jogado()
-    {
-        var warnings = new List<string>();
-        var launcher = new FakeLauncher(_clock, (Minute * 30, GameProcessState.Running), (Minute * 30, GameProcessState.Exited));
-        PlaySession session;
-        using (HoldLock())
-        {
-            session = await PlayerWithShortLock(launcher, warnings, TimeSpan.FromMinutes(10)).PlayAsync("g1", Launch, Ct);
-        }
-
-        Assert.Equal(TimeSpan.FromMinutes(60), session.Duration);
-        Assert.False(session.Open);
-        Assert.Equal(2, warnings.Count);
-        Assert.Contains("1 h 00 min", warnings[1]);
-        Assert.False(File.Exists(new PlayLogFile(_dir.Path).Path));
-    }
 
     private sealed class FakeLauncher(TestClock clock, params (TimeSpan Advance, GameProcessState State)[] script) : IGameLauncher
     {

@@ -84,9 +84,4 @@ internal static class SyntheticGames
                 ? EngineDetection.Matched("marcador reconhecido")
                 : EngineDetection.NotDetected;
     }
-
-    internal sealed class FixedTitles(string? title) : IGameWindowTitleReader
-    {
-        public string? Read(string gameFolder, string? exe) => title;
-    }
 }

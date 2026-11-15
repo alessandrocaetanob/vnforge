@@ -191,7 +191,7 @@ internal static partial class LibraryCommand
             WriteCharacterDescription(output, description);
         }
 
-        output.WriteLine("  Traços: " + (card.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", card.Traits.Select(t => t.Name)))
+        output.WriteLine("  Traços: " + (card.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", SheetViewer.TraitLabels(card.Traits)))
             + (card.HiddenTraits > 0 ? $" ({CliFormat.Count(card.HiddenTraits, "escondido", "escondidos")} por spoiler ou conteúdo adulto)" : string.Empty));
         output.WriteLine("  Aparece em:");
         foreach (var appearance in card.AppearsIn)

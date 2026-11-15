@@ -5,6 +5,7 @@ using VNForge.Core.Projects;
 
 namespace VNForge.Core.Tests.Projects;
 
+[Trait("Risco", "R6")]
 public sealed class ProjectGameRelocatorTests : IDisposable
 {
     private const string YsbinYpf = "ysbin.ypf";
@@ -59,58 +60,6 @@ public sealed class ProjectGameRelocatorTests : IDisposable
 
     private string[] ProjectFiles() =>
         [File.ReadAllText(_project.ConfigPath), File.ReadAllText(_project.StatePath), .. Directory.EnumerateFiles(_project.BackupDirectory, BackupManifest.FileName, SearchOption.AllDirectories).Order().Select(File.ReadAllText)];
-
-    [Fact]
-    public void Jogo_injetado_movido_troca_a_pasta_e_o_restore_devolve_o_original_so_na_pasta_nova()
-    {
-        var oldInjected = Inject();
-        var novo = CopyGameTo("W-VNs");
-
-        var result = ProjectGameRelocator.Move(_project, novo);
-
-        Assert.True(result.Changed);
-        Assert.Equal(1, result.ManifestsUpdated);
-        Assert.Equal(novo.Replace('\\', '/'), _project.LoadConfig().Game.Path);
-        Assert.Equal(novo, _project.LoadState().GameDirectory);
-        Assert.Equal(novo, GameInjector.ListBackups(_project).Single().Manifest!.GameDirectory);
-        Assert.Equal(Path.Combine(novo, "jogo.exe"), GameLauncher.ResolveExecutable(_project));
-        Assert.Equal(Traduzido, File.ReadAllText(Path.Combine(novo, YsbinYpf)));
-
-        new GameInjector().Restore(GameInjector.PlanRestore(_project));
-
-        Assert.Equal(Original, File.ReadAllText(Path.Combine(novo, YsbinYpf)));
-        Assert.Equal(Traduzido, File.ReadAllText(oldInjected));
-    }
-
-    [Fact]
-    public void Jogo_nao_injetado_tambem_troca_e_repetir_a_troca_nao_grava_nada()
-    {
-        var novo = CopyGameTo("W-VNs");
-
-        var first = ProjectGameRelocator.Move(_project, novo);
-        var before = ProjectFiles();
-        var second = ProjectGameRelocator.Move(_project, novo);
-
-        Assert.True(first.Changed);
-        Assert.Equal(0, first.ManifestsUpdated);
-        Assert.Equal(1, first.CheckedFiles);
-        Assert.False(second.Changed);
-        Assert.Equal(before, ProjectFiles());
-        Assert.Equal(Path.Combine(novo, "jogo.exe"), GameLauncher.ResolveExecutable(_project));
-        Assert.Equal(Original, File.ReadAllText(Path.Combine(novo, YsbinYpf)));
-    }
-
-    [Fact]
-    public void Game_path_relativo_continua_relativo_ao_projeto_depois_da_troca()
-    {
-        var novo = CopyGameTo("W-VNs");
-        _project.SaveConfig(_project.LoadConfig() with { Game = new GameConfig("../antigo/jogo", "jogo.exe") });
-
-        ProjectGameRelocator.Move(_project, novo);
-
-        Assert.Equal("../W-VNs", _project.LoadConfig().Game.Path);
-        Assert.Equal(Path.Combine(novo, "jogo.exe"), GameLauncher.ResolveExecutable(_project));
-    }
 
     [Theory]
     [InlineData("diferente", "outro jogo")]

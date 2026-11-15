@@ -2,6 +2,7 @@ using VNForge.AI.Settings;
 
 namespace VNForge.AI.Tests.Settings;
 
+[Trait("Risco", "R5")]
 public sealed class ApiKeyResolverTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "vnforge-ai-tests-" + Guid.NewGuid().ToString("N"));

@@ -118,7 +118,7 @@ public sealed class LibraryFile(string directory)
     public static string Serialize(GameLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
-        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games], library.LocaleEmulatorPath, library.Roots.Count == 0 ? null : [.. library.Roots]), Json);
+        return JsonSerializer.Serialize(new Envelope(CurrentVersion, library.Privacy, [.. library.Games], library.LocaleEmulatorPath, library.Roots.Count == 0 ? null : [.. library.Roots], library.BackupFolder, library.PreviousBackupFolders.Count == 0 ? null : [.. library.PreviousBackupFolders]), Json);
     }
 
     /// <exception cref="LibraryException">JSON malformado, versão desconhecida, jogo sem id ou pasta, ou o mesmo id duas vezes.</exception>
@@ -160,7 +160,7 @@ public sealed class LibraryFile(string directory)
             }
         }
 
-        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy(), envelope.LocaleEmulatorPath, envelope.Roots);
+        return new GameLibrary(games.Select(Normalize), envelope.Privacy ?? new LibraryPrivacy(), envelope.LocaleEmulatorPath, envelope.Roots, envelope.BackupFolder, envelope.PreviousBackupFolders);
     }
 
     private static LibraryGame Normalize(LibraryGame game) => game with
@@ -168,5 +168,5 @@ public sealed class LibraryFile(string directory)
         Candidates = game.Candidates ?? [],
     };
 
-    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games, string? LocaleEmulatorPath = null, List<LibraryRoot>? Roots = null);
+    private sealed record Envelope(int Version, LibraryPrivacy? Privacy, List<LibraryGame>? Games, string? LocaleEmulatorPath = null, List<LibraryRoot>? Roots = null, string? BackupFolder = null, List<string>? PreviousBackupFolders = null);
 }

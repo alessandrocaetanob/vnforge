@@ -213,9 +213,13 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
         <StackPanel>
           <TextBlock Classes="caption secondary" TextWrapping="Wrap"
-                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding !IsPrivacyTab}"/>
+                     Text="Valem só para este projeto. A chave do Claude fica guardada no Windows." IsVisible="{Binding ShowProjectCaption}"/>
+          <TextBlock Name="BackupsCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsBackupsTab}"
+                     Text="Valem para todos os projetos. Ficam guardados com a sua lista de jogos."/>
           <TextBlock Name="PrivacyCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsPrivacyTab}"
                      Text="Vale para toda a Biblioteca, em qualquer projeto. Fica guardado com a sua lista de jogos."/>
+          <TextBlock Name="FoldersCaption" Classes="caption secondary" TextWrapping="Wrap" IsVisible="{Binding IsFoldersTab}"
+                     Text="Valem para o VNForge inteiro, em qualquer projeto."/>
           <!-- O título de 34 tem entrelinha de 50 por causa das descendentes da Zen Kaku; o quadro tem 40, então a diferença sai das margens. -->
           <TextBlock Classes="title-xl" Margin="0,-5" Text="Ajustes"/>
         </StackPanel>
@@ -1115,6 +1119,95 @@
         <!-- VNDB: o token da conta, no cofre do Windows, e a sincronização da lista (#550). Sem o serviço ligado, a aba não aparece. -->
         <TabItem Header="VNDB" IsVisible="{Binding Vndb, Converter={x:Static ObjectConverters.IsNotNull}}">
           <v:VndbSettingsView DataContext="{Binding Vndb}"/>
+        </TabItem>
+
+        <!-- Pastas (#694): onde ficam os dados, a configuração e o cache; abrir no Explorer, trocar de pasta e como a linha de comando acha a mesma escolha. -->
+        <TabItem Header="Pastas" IsVisible="{Binding HasFolders}">
+          <StackPanel Margin="0,16,0,0" Spacing="16" DataContext="{Binding Folders}" x:DataType="vm:FoldersViewModel">
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Text="As pastas em uso agora. O VNForge e a linha de comando usam as mesmas."/>
+            <ItemsControl Name="FolderCards" ItemsSource="{Binding Cards}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="16"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FolderCardViewModel">
+                  <StackPanel Spacing="8">
+                    <c:OverlineText Classes="overline" Margin="0,4,0,0" Text="{Binding Title}"/>
+                    <Border Padding="16" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+                      <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <PathIcon Width="20" Height="20" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Folder}"/>
+                          <TextBlock Classes="body-strong" VerticalAlignment="Center" Text="{Binding Title}"/>
+                          <Border Classes="folder-tag" VerticalAlignment="Center"><TextBlock Classes="caption" Text="{Binding Tag}"/></Border>
+                        </StackPanel>
+                        <TextBlock Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding Detail}"/>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                          <Border Classes="lib-input" Padding="10,0">
+                            <TextBlock Name="FolderPath" VerticalAlignment="Center" Classes="mono" FontSize="12.5" TextTrimming="CharacterEllipsis" Text="{Binding Path}"/>
+                          </Border>
+                          <Button Name="OpenFolderButton" Grid.Column="1" Command="{Binding OpenCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <PathIcon Width="20" Height="20" Data="{StaticResource Icon.Folder}"/>
+                              <TextBlock Text="Abrir no Explorer"/>
+                            </StackPanel>
+                          </Button>
+                          <Button Name="ChangeFolderButton" Grid.Column="2" Command="{Binding ChangeCommand}" ToolTip.Tip="{Binding ChangeTip}" Content="Trocar pasta…"/>
+                        </Grid>
+                        <TextBlock Name="FolderSize" Classes="caption secondary" FontSize="13" LineHeight="18" Text="{Binding SizeText}"/>
+                        <Border Classes="folder-note" IsVisible="{Binding IsConfig}">
+                          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <PathIcon Width="20" Height="20" VerticalAlignment="Top" Foreground="{DynamicResource Vnf.TextSecondary}" Data="{StaticResource Icon.Key}"/>
+                            <TextBlock Grid.Column="1" Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding KeyNote}"/>
+                          </Grid>
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Name="FoldersCommandCard" Padding="16" Background="{DynamicResource Vnf.BgCard}" BorderBrush="{DynamicResource Vnf.StrokeSubtle}" BorderThickness="1" CornerRadius="{DynamicResource Vnf.RadiusLg}">
+              <StackPanel Spacing="12">
+                <TextBlock Classes="body-strong" Text="Pela linha de comando"/>
+                <TextBlock Classes="caption secondary" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="A CLI lê as mesmas pastas. A variável de ambiente vale mais que a escolha feita no app."/>
+                <Border Classes="rule-sample">
+                  <StackPanel>
+                    <TextBlock Classes="mono" FontSize="12.5" LineHeight="20" Text="{Binding CommandText}"/>
+                    <TextBlock Classes="mono" FontSize="12.5" LineHeight="20" Text="{Binding VariableText}"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
+
+        <!-- Backups (#693): a pasta onde ficam os backups de todos os projetos, com o mesmo desenho do campo da aba Jogos. -->
+        <TabItem Header="Backups" IsVisible="{Binding HasBackups}">
+          <StackPanel Margin="0,16,0,0" Spacing="0" DataContext="{Binding Backups}" x:DataType="vm:BackupSettingsViewModel">
+            <c:OverlineText Classes="overline" Text="Pasta dos backups"/>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+              <TextBox Name="BackupFolderPath" Text="{Binding PathText}" PlaceholderText="D:\Backups\VNForge" AutomationProperties.Name="Pasta dos backups"/>
+              <Button Grid.Column="1" Command="{Binding ChooseCommand}" Content="Escolher a pasta"/>
+              <Button Grid.Column="2" Classes="accent" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" Content="Salvar"/>
+            </Grid>
+            <TextBlock Name="BackupFolderError" Classes="caption" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource Vnf.SignalErrorFg}"
+                       Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"/>
+            <TextBlock Classes="caption secondary" TextWrapping="Wrap" Margin="0,8,0,0">
+              <Run Text="Cada projeto guarda os backups numa subpasta com o nome dele e um código curto do caminho:"/>
+              <Run FontFamily="{DynamicResource Vnf.FontMono}" FontSize="12" Text="{Binding ExampleText, Mode=OneWay}"/><Run Text=". Vale para toda a Biblioteca."/>
+            </TextBlock>
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+              <TextBlock Classes="caption secondary" VerticalAlignment="Center" Text="Deixe vazio para usar o padrão de hoje: a pasta backup\ dentro de cada projeto."/>
+              <Button Classes="subtle sm" Command="{Binding UseDefaultCommand}" Content="Usar o padrão"/>
+            </StackPanel>
+            <StackPanel Spacing="8" Margin="0,28,0,0" IsVisible="{Binding HasExisting}">
+              <c:OverlineText Classes="overline" Text="Backups que já existem"/>
+              <Border Classes="infobar">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0" Data="{StaticResource Icon.Info}"/>
+                  <TextBlock Name="BackupExisting" Grid.Column="1" Classes="body-sm" TextWrapping="Wrap" Text="{Binding ExistingText}"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </StackPanel>
         </TabItem>
       </TabControl>
 

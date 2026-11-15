@@ -1,3 +1,4 @@
+using VNForge.Core.Injection;
 using VNForge.Core.Projects;
 
 namespace VNForge.Core.Library;
@@ -23,9 +24,10 @@ public sealed record LibraryTranslationSwitch(LibraryTranslationAction Action, L
 /// (<see cref="GameTester.ReturnToOriginal"/>, a mesma de <c>vnf restore</c>) e a ida é o teste no jogo sem abrir o executável (<see cref="GameTester.Run"/>: conferir, montar
 /// o <c>build/</c>, backup, injetar), então a regra 2 do CLAUDE.md vale como em qualquer outra injeção. Só troca quando o estado é conhecido.
 /// </summary>
-public sealed class LibraryTranslationSwitcher(GameTester tester)
+public sealed class LibraryTranslationSwitcher(GameTester tester, Func<BackupLocations>? backups = null)
 {
     private readonly GameTester _tester = tester ?? throw new ArgumentNullException(nameof(tester));
+    private readonly Func<BackupLocations>? _backups = backups;
 
     /// <summary>Devolve os arquivos originais à pasta do jogo. A tradução continua no projeto.</summary>
     /// <exception cref="LibraryException">O estado do jogo é desconhecido (sem projeto, projeto de outra pasta, backup que sumiu).</exception>
@@ -33,15 +35,15 @@ public sealed class LibraryTranslationSwitcher(GameTester tester)
     public LibraryTranslationSwitch ToOriginal(LibraryGame game)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var project = LibraryTranslationReader.OpenProject(game);
-        var before = LibraryTranslationReader.Read(game);
+        var project = LibraryTranslationReader.OpenProject(game, _backups?.Invoke());
+        var before = LibraryTranslationReader.Read(game, _backups?.Invoke());
         if (before.Kind == LibraryTranslationKind.Original)
         {
             return new LibraryTranslationSwitch(LibraryTranslationAction.Unchanged, before, before);
         }
 
         _tester.ReturnToOriginal(project);
-        return new LibraryTranslationSwitch(LibraryTranslationAction.ReturnedToOriginal, before, LibraryTranslationReader.Read(game));
+        return new LibraryTranslationSwitch(LibraryTranslationAction.ReturnedToOriginal, before, LibraryTranslationReader.Read(game, _backups?.Invoke()));
     }
 
     /// <summary>
@@ -56,14 +58,14 @@ public sealed class LibraryTranslationSwitcher(GameTester tester)
     public LibraryTranslationSwitch ToTranslated(LibraryGame game, IProgress<GameTestStep>? steps = null, IProgress<ScriptWorkProgress>? scripts = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var project = LibraryTranslationReader.OpenProject(game);
-        var before = LibraryTranslationReader.Read(game);
+        var project = LibraryTranslationReader.OpenProject(game, _backups?.Invoke());
+        var before = LibraryTranslationReader.Read(game, _backups?.Invoke());
         if (before is { PatchRecorded: true, Patch: { Kind: GameTestKind.Translation, ScriptKey: null } })
         {
             return new LibraryTranslationSwitch(LibraryTranslationAction.Unchanged, before, before);
         }
 
         _tester.Run(project, new GameTestOptions(OpenGame: false), steps, scripts, cancellationToken);
-        return new LibraryTranslationSwitch(LibraryTranslationAction.AppliedTranslation, before, LibraryTranslationReader.Read(game));
+        return new LibraryTranslationSwitch(LibraryTranslationAction.AppliedTranslation, before, LibraryTranslationReader.Read(game, _backups?.Invoke()));
     }
 }

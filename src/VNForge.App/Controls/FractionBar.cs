@@ -14,7 +14,9 @@ public sealed class FractionBar : Control
     public static readonly StyledProperty<double> RadiusProperty = AvaloniaProperty.Register<FractionBar, double>(nameof(Radius));
     public static readonly StyledProperty<IBrush?> TrackProperty = AvaloniaProperty.Register<FractionBar, IBrush?>(nameof(Track));
 
-    static FractionBar() => AffectsRender<FractionBar>(ValueProperty, RadiusProperty, TrackProperty);
+    public static readonly StyledProperty<IBrush?> FillProperty = AvaloniaProperty.Register<FractionBar, IBrush?>(nameof(Fill));
+
+    static FractionBar() => AffectsRender<FractionBar>(ValueProperty, RadiusProperty, TrackProperty, FillProperty);
 
     public double Value
     {
@@ -26,6 +28,13 @@ public sealed class FractionBar : Control
     {
         get => GetValue(RadiusProperty);
         set => SetValue(RadiusProperty, value);
+    }
+
+    /// <summary>O trecho cheio; nulo vale <c>accent</c> (a barra de cópia que parou numa falha usa a cor de erro).</summary>
+    public IBrush? Fill
+    {
+        get => GetValue(FillProperty);
+        set => SetValue(FillProperty, value);
     }
 
     /// <summary>O trilho; nulo vale <c>bg-inset</c>.</summary>
@@ -43,7 +52,7 @@ public sealed class FractionBar : Control
         base.Render(context);
         var full = new Rect(Bounds.Size);
         var track = Track ?? Brush("Vnf.BgInset");
-        var fill = Brush("Vnf.Accent");
+        var fill = Fill ?? Brush("Vnf.Accent");
         using (context.PushClip(new RoundedRect(full, Radius)))
         {
             context.DrawRectangle(track, null, full);

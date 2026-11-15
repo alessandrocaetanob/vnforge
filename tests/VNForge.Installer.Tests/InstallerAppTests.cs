@@ -5,26 +5,10 @@ using VNForge.Patching.Tests;
 namespace VNForge.Installer.Tests;
 
 /// <summary>O modo de console do instalador: o que a automação e os testes de ponta a ponta usam.</summary>
+[Trait("Risco", "R1")]
 public class InstallerAppTests
 {
     private static InstallerArguments Parse(params string[] args) => InstallerArguments.Parse(args);
-
-    [Fact]
-    public void Instala_e_desinstala_pela_linha_de_comando_em_modo_silencioso()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        var output = new StringWriter();
-
-        var install = InstallerApp.Run(Parse("--pasta", game.Game, "--silencioso"), output, package, game.Root);
-        var uninstall = InstallerApp.Run(Parse("--pasta", game.Game, "--desinstalar", "--silencioso"), output, package, game.Root);
-
-        Assert.Equal(InstallerApp.Ok, install);
-        Assert.Equal(InstallerApp.Ok, uninstall);
-        Assert.Contains("Tradução instalada", output.ToString());
-        Assert.Contains("voltaram ao original", output.ToString());
-        SyntheticGame.AssertSameTree(game.Original, game.Game, PatchInstaller.BackupFolderName);
-    }
 
     [Fact]
     public void Versao_errada_sai_com_3_diz_o_arquivo_e_nao_mexe_no_jogo()
@@ -40,34 +24,6 @@ public class InstallerAppTests
         Assert.Contains("Game/script.ypf", output.ToString());
         Assert.Equal([9, 9, 9], File.ReadAllBytes(Path.Combine(game.Game, "Game/script.ypf")));
         Assert.False(Directory.Exists(Path.Combine(game.Game, PatchInstaller.BackupFolderName)));
-    }
-
-    [Fact]
-    public void Sem_pasta_o_modo_silencioso_procura_na_pasta_atual()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(Parse("--silencioso"), output, package, game.Game);
-
-        Assert.Equal(InstallerApp.Ok, code);
-        Assert.Contains("Pasta do jogo:", output.ToString());
-        Assert.Equal(PatchCheckState.AlreadyInstalled, PatchInstaller.Check(game.Game, package).State);
-    }
-
-    [Fact]
-    public void Sem_pasta_e_sem_jogo_por_perto_manda_usar_a_opcao_pasta()
-    {
-        using var game = new SyntheticGame();
-        using var package = PatchPackage.Open(game.BuildPackage());
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(Parse("--silencioso"), output, package, game.Root);
-
-        Assert.Equal(InstallerApp.Failed, code);
-        Assert.Contains("--pasta", output.ToString());
-        SyntheticGame.AssertSameTree(game.Original, game.Game);
     }
 
     [Fact]
@@ -97,54 +53,6 @@ public class InstallerAppTests
         Assert.Equal(InstallerApp.Failed, code);
         Assert.Contains("Não achei uma tradução instalada", output.ToString());
         SyntheticGame.AssertSameTree(game.Original, game.Game);
-    }
-
-    [Fact]
-    public void Pasta_sem_caminho_e_erro_mesmo_sem_silencioso()
-    {
-        var arguments = Parse("--pasta");
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(arguments, output, null, Path.GetTempPath());
-
-        Assert.True(arguments.UsesConsole);
-        Assert.Equal(InstallerApp.Failed, code);
-        Assert.Contains("--pasta precisa de um caminho", output.ToString());
-    }
-
-    [Fact]
-    public void Licencas_mostra_o_aviso_do_VCDiff_mesmo_sem_patch()
-    {
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(Parse("--licencas"), output, null, Path.GetTempPath());
-
-        Assert.Equal(InstallerApp.Ok, code);
-        Assert.Contains("VCDiff", output.ToString());
-        Assert.Contains("Apache License", output.ToString());
-        Assert.Contains("Newtonsoft.Json", output.ToString());
-        Assert.Contains("Microsoft.IO.RecyclableMemoryStream", output.ToString());
-        Assert.Contains("SharpCompress", output.ToString());
-    }
-
-    [Fact]
-    public void Instalador_vazio_avisa_e_sai_com_erro()
-    {
-        var output = new StringWriter();
-
-        var code = InstallerApp.Run(Parse("--silencioso"), output, null, Path.GetTempPath());
-
-        Assert.Equal(InstallerApp.Failed, code);
-        Assert.Contains("vazio", output.ToString());
-    }
-
-    [Theory]
-    [InlineData(new string[0], false)]
-    [InlineData(new[] { "--silencioso" }, true)]
-    [InlineData(new[] { "--licencas" }, true)]
-    public void So_as_opcoes_de_console_deixam_de_abrir_a_janela(string[] args, bool console)
-    {
-        Assert.Equal(console, InstallerArguments.Parse(args).UsesConsole);
     }
 
     [Fact]

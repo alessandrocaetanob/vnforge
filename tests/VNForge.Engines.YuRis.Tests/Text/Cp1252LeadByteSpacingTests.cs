@@ -7,6 +7,7 @@ namespace VNForge.Engines.YuRis.Tests.Text;
 /// Na <c>cp1252</c> o exe do jogo ainda lê <c>0xE0</c> a <c>0xFC</c> como lead byte: a letra acentuada se junta ao byte seguinte, e um <c>EF</c> de controle
 /// nessa posição se perde (#435). O <see cref="ControlMarkers.ToBytes"/> grava um <c>0x20</c> entre a letra e o <c>EF</c>; texto comum depois do acento, espaço incluído, não muda.
 /// </summary>
+[Trait("Risco", "R4")]
 public class Cp1252LeadByteSpacingTests
 {
     private static readonly ITextEncoder Cp1252 = new Cp1252TextEncoder();

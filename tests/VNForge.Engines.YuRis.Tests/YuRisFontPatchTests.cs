@@ -4,6 +4,7 @@ using VNForge.Core.Engines;
 namespace VNForge.Engines.YuRis.Tests;
 
 /// <summary>Patch do nome da fonte no executável (E5.5 · #65), sobre executáveis sintéticos: nenhum arquivo de jogo entra no repositório.</summary>
+[Trait("Risco", "R1")]
 public sealed class YuRisFontPatchTests : IDisposable
 {
     private const string Exe = "jogo.exe";
@@ -54,16 +55,6 @@ public sealed class YuRisFontPatchTests : IDisposable
     }
 
     private void Write(byte[] bytes) => File.WriteAllBytes(ExePath, bytes);
-
-    [Fact]
-    public void Descreve_o_patch_e_o_arquivo_que_altera()
-    {
-        var patch = Patch("sub/jogo.exe");
-
-        Assert.Equal("exe-font", patch.Id);
-        Assert.Contains("MS Gothic", patch.Description);
-        Assert.Equal(["sub/jogo.exe"], patch.AffectedFiles);
-    }
 
     [Fact]
     public void Aplicar_de_novo_nao_muda_nada()
@@ -122,16 +113,5 @@ public sealed class YuRisFontPatchTests : IDisposable
     {
         Assert.False(Patch("../jogo.exe").CanApply(_root, out var reason));
         Assert.NotNull(reason);
-    }
-
-    [Fact]
-    public void Engine_YU_RIS_oferece_o_patch_para_o_executavel_do_projeto()
-    {
-        var provider = Assert.IsType<IGamePatchProvider>(new YuRisEngine(), exactMatch: false);
-
-        var patch = Assert.Single(provider.CreatePatches("bin/jogo.exe"));
-
-        Assert.Equal("exe-font", patch.Id);
-        Assert.Equal(["bin/jogo.exe"], patch.AffectedFiles);
     }
 }

@@ -1,5 +1,6 @@
 namespace VNForge.Patching.Tests;
 
+[Trait("Risco", "R3")]
 public class InstallerBundleTests
 {
     [Fact]

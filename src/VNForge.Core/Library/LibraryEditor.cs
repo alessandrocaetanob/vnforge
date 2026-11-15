@@ -72,7 +72,7 @@ public sealed class LibraryEditor(LibraryFile file, Func<LibraryMatcher> matcher
     /// <exception cref="VNForgeException">A pasta do jogo não é o jogo do projeto (nada foi gravado).</exception>
     public LibraryGame LinkProject(string gameId, string projectFolder)
     {
-        LibraryProjectLinker.FollowGame(Get(gameId), projectFolder);
+        LibraryProjectLinker.FollowGame(Get(gameId), projectFolder, file.Load().BackupLocations);
         return file.Update(library => LibraryProjectLinker.Link(library, library.Find(gameId), projectFolder));
     }
 

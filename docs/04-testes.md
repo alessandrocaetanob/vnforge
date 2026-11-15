@@ -64,17 +64,17 @@ A cobertura é medida e aparece no relatório, mas é número informativo. Nenhu
 
 ## Orçamento
 
-O alvo foi aprovado em 14/11. Os números de hoje são os da T8 da #620 (12/11), antes dos PRs #684 a #696, menos o App, que a #701 já cortou (14/11). O corte dos outros projetos entra na #702 e nas seguintes.
+O alvo foi aprovado em 14/11. A coluna "Antes" é a contagem de 14/11, medida com `tools/medir-testes.ps1` antes do corte de cada projeto; "Depois" é a contagem depois do corte (App na #701, os outros na #702). Cada projeto de teste conta um teste a mais, o `RiskTraitTests`.
 
-| Projeto | Hoje | Alvo | O que fica |
-|---|---|---|---|
-| App | 214 | 120 | 41 smoke de tela, uma jornada por fluxo principal, o resto lógica de risco (gasto, gravação, oráculos, R9); o alvo de 120 não fecha porque as regras de "fica sempre" já somam mais |
-| Core | 1.562 | 300 | Gravação, backup, injeção, codificação, falha de disco |
-| Engines.YuRis | 277 | 250 | Oráculos de formato, quase todos |
-| Cli | 566 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava |
-| AI | 304 | 60 | Chave, gasto, preço, ids, formato da requisição |
-| Vndb, Installer, Platform.Windows, Patching | 169 | 60 | Patch e desinstalação byte a byte, cofre, recusa de caminho inválido |
-| Total | ~4.200 | ~850 | |
+| Projeto | Antes | Depois | Alvo | O que fica |
+|---|---|---|---|---|
+| App | 1.334 | 215 | 120 | 41 smoke de tela, uma jornada por fluxo principal, o resto lógica de risco (gasto, gravação, oráculos, R9); o alvo de 120 não fecha porque as regras de "fica sempre" já somam mais |
+| Core | 1.589 | 392 | 300 | Gravação e falha de disco, injeção e backup byte a byte, chave e gasto, oráculos de codificação e de formato, R9 da biblioteca; o alvo de 300 não fecha porque as regras de "fica sempre" já somam mais |
+| Engines.YuRis | 277 | 250 | 250 | Oráculos de formato, quase todos |
+| Cli | 575 | 68 | 60 | Os 5 cenários, código de saída e erro em português por comando que grava (um Theory de entrada inválida cobre os que não têm teste próprio), chave e gasto, o `vnf release` |
+| AI | 314 | 83 | 60 | Chave, gasto, preço, ids, formato da requisição, limite de gasto do arquivo do app, lote noturno (gravação única, resposta cortada, cancelamento), preço da Bíblia, cache ilegível; passa do alvo porque tudo o que sobra é R5 |
+| Vndb, Installer, Platform.Windows, Patching | 185 | 69 | 60 | Patch e desinstalação byte a byte, desinstalação sem cópia ou com arquivo mexido, cofre, recusa de caminho inválido, os testes que só rodam no Windows |
+| Total | ~4.300 | 1.077 | ~850 | |
 
 Metas de tempo: o job `linux` do CI em até 5 minutos, a suíte local em até 2 minutos e a do App em até 60 s.
 
@@ -124,7 +124,7 @@ O App roda inteiro num processo, com uns 55 s sem cobertura (214 testes, uns 600
 
 ### O trait Risco
 
-Cada classe de teste do App leva um ou mais `[Trait("Risco", "R5")]` com o id da tabela de riscos (R1 a R9); o primeiro é o risco principal. Para rodar só um risco: `dotnet tests/VNForge.App.Tests/bin/Release/net10.0/VNForge.App.Tests.dll -trait "Risco=R5"`. Classe nova sem trait de risco não entra: o `RiskTraitTests` falha se uma classe com teste não leva `Risco` de R1 a R9.
+Cada classe de teste leva um ou mais `[Trait("Risco", "R5")]` com o id da tabela de riscos (R1 a R9); o primeiro é o risco principal. Para rodar só um risco: `dotnet tests/VNForge.App.Tests/bin/Release/net10.0/VNForge.App.Tests.dll -trait "Risco=R5"`. Classe nova sem trait de risco não entra: o `RiskTraitTests` falha se uma classe com teste não leva `Risco` de R1 a R9. O App tem o seu `RiskTraitTests`; os outros projetos de teste compilam o de `tests/Shared/RiskTraitTests.cs`, incluído por `tests/Directory.Build.props`.
 
 ### O trait Tipo=Tela
 

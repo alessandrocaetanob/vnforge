@@ -12,8 +12,11 @@ public sealed record SheetShownText(string Text, TranslationStatus Status, bool 
 
 public sealed record SheetTagCard(string Id, string Name, string OriginalName, string Category, double Rating, int Spoiler, TranslationStatus Status);
 
+/// <param name="Group">O nome do grupo para mostrar (Cabelo, Olhos), pela ordem de <see cref="SheetTerms.ShownGroup"/>; vazio quando o VNDB não disse o grupo.</param>
 /// <param name="Lie">O VNDB marca o traço como mentira da história; só aparece com os spoilers no máximo.</param>
-public sealed record SheetTraitCard(string Id, string Name, string OriginalName, string Group, int Spoiler, TranslationStatus Status, bool Lie = false);
+/// <param name="GroupId">O id do grupo no VNDB (<c>i10</c>), que separa dois traços de mesmo nome em grupos diferentes; vazio em ficha gravada sem ele.</param>
+/// <param name="GroupOriginal">O nome do grupo como o VNDB o escreve, em inglês; é ele que dá a ordem dos grupos.</param>
+public sealed record SheetTraitCard(string Id, string Name, string OriginalName, string Group, int Spoiler, TranslationStatus Status, bool Lie = false, string GroupId = "", string GroupOriginal = "");
 
 /// <summary>Um personagem que a privacidade escondeu: o cartão fica no lugar, sem nome, e <paramref name="Spoiler"/> diz de que nível é o spoiler.</summary>
 public sealed record SheetHiddenCharacter(string Id, int Spoiler);
@@ -70,7 +73,7 @@ public sealed record SheetStatusCounts(int Pending, int Machine, int Translated,
 /// A ficha do jogo depois de esconder o que a <see cref="SheetVisibility"/> esconde. <paramref name="HiddenTags"/> e <paramref name="HiddenCharacters"/> contam o que sumiu;
 /// <paramref name="HiddenSpoilerTags"/> e <paramref name="HiddenAdultTags"/> separam as tags escondidas pelo motivo, e <paramref name="HiddenCharacterCards"/> diz quais personagens
 /// sumiram e de que nível. <paramref name="TagsStatus"/> é a etapa mais atrasada entre os nomes das tags que aparecem; nulo quando não há tag.
-/// <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, valem como nível 2 e somem até a ficha ser buscada de novo.
+/// <paramref name="GroupCounts"/> conta à parte os nomes dos grupos de traços que a revisão oferece: o nome do grupo tem o dicionário como reserva, então não entra em <paramref name="Counts"/> nem na etapa do personagem. <paramref name="StaleCharacters"/> conta os personagens de ficha gravada antes de as edições serem guardadas: o spoiler deles é desconhecido, valem como nível 2 e somem até a ficha ser buscada de novo.
 /// </summary>
 public sealed record GameSheetCard(
     string VisualNovelId,
@@ -91,7 +94,8 @@ public sealed record GameSheetCard(
     string? Released,
     string? Rating,
     TranslationStatus? TagsStatus,
-    int StaleCharacters = 0);
+    int StaleCharacters = 0,
+    SheetStatusCounts? GroupCounts = null);
 
 /// <summary>
 /// Aplica a privacidade da biblioteca à ficha. O spoiler se esconde pelo nível que o VNDB marca (0 nenhum, 1 pequeno, 2 grande): acima de <see cref="SheetVisibility.SpoilerLevel"/>
@@ -154,7 +158,8 @@ public static class SheetViewer
             SheetLabels.Released(game.Released, game.OriginalLanguage),
             VndbRating.Score(game.Rating),
             visibleTags.Count == 0 ? null : visibleTags.Min(t => t.Status),
-            all.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)));
+            all.Count(c => c.HasUnknownSpoiler(game.VisualNovelId)),
+            SheetStatusCounts.Of(SheetBlocks.GroupItems(shown.SelectMany(c => SheetBlocks.ReviewTraits(c, visibility)), terms).Select(g => g.Term!.Text)));
     }
 
     /// <summary>A visibilidade esconde a tag: nível de spoiler acima do liberado, ou tag erótica sem o conteúdo adulto liberado.</summary>
@@ -262,9 +267,20 @@ public static class SheetViewer
             statuses.Count == 0 ? null : statuses.Min());
     }
 
+    /// <summary>
+    /// Os nomes dos traços para uma linha de texto (a CLI): o nome sozinho, e com o grupo entre parênteses quando dois traços de ids diferentes têm o mesmo nome ("Black (Cabelo)",
+    /// "Black (Olhos)"), porque só o nome não diz qual é qual.
+    /// </summary>
+    public static IReadOnlyList<string> TraitLabels(IReadOnlyList<SheetTraitCard> traits)
+    {
+        ArgumentNullException.ThrowIfNull(traits);
+        var homonyms = traits.GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. traits.Select(t => homonyms.Contains(t.Name) && t.Group.Length > 0 ? $"{t.Name} ({t.Group})" : t.Name)];
+    }
+
     internal static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
     {
         var term = terms.Find(SheetTermKind.Trait, trait.Id);
-        return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, trait.GroupName, trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated, trait.Lie);
+        return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, terms.ShownGroup(trait.GroupId, trait.GroupName), trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated, trait.Lie, trait.GroupId ?? string.Empty, trait.GroupName ?? string.Empty);
     }
 }

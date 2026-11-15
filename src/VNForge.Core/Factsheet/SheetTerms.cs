@@ -2,15 +2,16 @@ using VNForge.Core.Library;
 
 namespace VNForge.Core.Factsheet;
 
-/// <summary>O que um termo traduzido nomeia: uma tag do jogo ou um traço de personagem.</summary>
+/// <summary>O que um termo traduzido nomeia: uma tag do jogo, um traço de personagem ou o grupo do VNDB a que o traço pertence (Hair, Eyes...).</summary>
 public enum SheetTermKind
 {
     Tag,
     Trait,
+    Group,
 }
 
 /// <summary>
-/// Um nome do VNDB traduzido uma vez. <paramref name="Id"/> é o id do VNDB (<c>g123</c>, <c>i45</c>); <paramref name="Context"/> é o que ajuda a IA a escolher o sentido
+/// Um nome do VNDB traduzido uma vez. <paramref name="Id"/> é o id do VNDB (<c>g123</c>, <c>i45</c>; o grupo de traços também é <c>i</c>, como <c>i10</c>); <paramref name="Context"/> é o que ajuda a IA a escolher o sentido
 /// (a categoria da tag, o grupo do traço) e não faz parte da tradução.
 /// </summary>
 public sealed record SheetTerm(SheetTermKind Kind, string Id, string? Context, SheetText Text);
@@ -23,18 +24,40 @@ public sealed class SheetTerms
 {
     private readonly Dictionary<string, SheetTerm> _terms = new(StringComparer.Ordinal);
 
+    /// <summary>Os termos do arquivo cujo tipo esta versão não conhece; <see cref="SheetStore"/> os devolve ao gravar.</summary>
+    internal List<SheetStore.TermEntry> Unrecognized { get; } = [];
+
     public IReadOnlyList<SheetTerm> All => [.. _terms.Values.OrderBy(t => t.Kind).ThenBy(t => t.Id, StringComparer.Ordinal)];
 
-    /// <summary>A chave de um termo na ficha e na CLI: <c>tag:g12</c> ou <c>trait:i34</c>.</summary>
+    /// <summary>A chave de um termo na ficha e na CLI: <c>tag:g12</c>, <c>trait:i34</c> ou <c>group:i10</c>.</summary>
     public static string KeyOf(SheetTermKind kind, string id) => $"{KindName(kind)}:{id}";
 
-    public static string KindName(SheetTermKind kind) => kind == SheetTermKind.Tag ? "tag" : "trait";
+    public static string KindName(SheetTermKind kind) => kind switch
+    {
+        SheetTermKind.Tag => "tag",
+        SheetTermKind.Group => "group",
+        _ => "trait",
+    };
+
+    /// <summary>O id de um grupo de traços como o VNDB o escreve (<c>i10</c>); qualquer outro texto não vira termo, porque <see cref="SheetField.Parse"/> não o aceitaria.</summary>
+    internal static bool IsGroupId(string? id) => id is { Length: > 1 and <= 10 } && id[0] == 'i' && id.AsSpan(1).IndexOfAnyExceptInRange('0', '9') < 0;
+
+    /// <summary>Os ids dos grupos de traços dos personagens, sem repetir e em ordem; traço de ficha gravada sem o id do grupo não conta.</summary>
+    internal static IEnumerable<string> GroupIdsOf(IEnumerable<CharacterSheet> characters) =>
+        characters.SelectMany(c => c.Traits).Select(t => t.GroupId).Where(IsGroupId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
     public SheetTerm? Find(SheetTermKind kind, string id) => _terms.GetValueOrDefault(KeyOf(kind, id));
 
     /// <summary>O nome para mostrar: a tradução quando há, senão o nome do VNDB.</summary>
     public string Shown(SheetTermKind kind, string id, string vndbName) =>
         Find(kind, id) is { Text.HasTarget: true } term ? term.Text.Target! : vndbName;
+
+    /// <summary>
+    /// O nome do grupo de traços para mostrar, nesta ordem: a tradução da ficha (<c>group:i10</c>), o nome em português do dicionário fixo do app
+    /// (<see cref="SheetLabels.TraitGroup"/>) e, por último, o nome do VNDB em inglês.
+    /// </summary>
+    public string ShownGroup(string groupId, string vndbName) =>
+        !string.IsNullOrWhiteSpace(groupId) && Find(SheetTermKind.Group, groupId) is { Text.HasTarget: true } term ? term.Text.Target! : SheetLabels.TraitGroup(vndbName);
 
     /// <summary>
     /// Garante o termo com o nome que o VNDB tem agora. Termo novo entra pendente; um que já existe mantém a tradução, com as regras de <see cref="SheetText.WithSource"/>

@@ -1,16 +1,17 @@
 namespace VNForge.Core.Factsheet;
 
-/// <summary>O que um item a traduzir é: o texto corrido (sinopse, descrição de personagem) ou um nome curto (tag, traço).</summary>
+/// <summary>O que um item a traduzir é: o texto corrido (sinopse, descrição de personagem) ou um nome curto (tag, traço, grupo de traços).</summary>
 public enum SheetItemKind
 {
     Synopsis,
     CharacterDescription,
     TagName,
     TraitName,
+    TraitGroupName,
 }
 
 /// <summary>
-/// Um item a traduzir. <paramref name="Key"/> identifica o item na resposta (<c>synopsis</c>, <c>character:c12</c>, <c>tag:g7</c>, <c>trait:i34</c>) e volta igual.
+/// Um item a traduzir. <paramref name="Key"/> identifica o item na resposta (<c>synopsis</c>, <c>character:c12</c>, <c>tag:g7</c>, <c>trait:i34</c>, <c>group:i10</c>) e volta igual.
 /// <paramref name="Context"/> ajuda a escolher o sentido e não se traduz: o nome do personagem, a categoria da tag, o grupo do traço.
 /// </summary>
 public sealed record SheetTranslationItem(string Key, SheetItemKind Kind, string Source, string? Context)

@@ -53,7 +53,7 @@ internal static class StatusCommand
 
     private static int Run(VnfCli cli, ParseResult parseResult, TextWriter output)
     {
-        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory));
+        var project = ProjectFolder.Open(Path.GetFullPath(parseResult.GetValue(cli.Options.Project) ?? ".", cli.CurrentDirectory)).WithUserBackups(cli);
         if (parseResult.GetValue(RiskOption))
         {
             return RiskStatusReport.Run(cli, project, parseResult.GetValue(TopOption), parseResult.GetValue(cli.Options.Json), output);

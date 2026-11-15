@@ -31,7 +31,7 @@ internal static partial class LibraryCommand
 
     private static readonly Option<bool> SheetIdsOption = new("--ids")
     {
-        Description = "Mostra o id de cada texto (character:c12, tag:g7, trait:i34), que review, approve e edit aceitam.",
+        Description = "Mostra o id de cada texto (character:c12, tag:g7, trait:i34, group:i10), que review, approve e edit aceitam.",
     };
 
     private static readonly Option<bool> SheetForceOption = new("--force")
@@ -112,7 +112,7 @@ internal static partial class LibraryCommand
     {
         var game = SheetGameArgument();
         var ai = new AiOptions();
-        var command = new Command("translate", "Traduz pela IA o que falta da ficha: sinopse, personagens e nomes de tag e de traço.");
+        var command = new Command("translate", "Traduz pela IA o que falta da ficha: sinopse, personagens e nomes de tag, de traço e de grupo.");
         command.Arguments.Add(game);
         command.Options.Add(ai.Model);
         command.Options.Add(ai.Effort);
@@ -195,6 +195,7 @@ internal static partial class LibraryCommand
                         characters = plan.Count(SheetItemKind.CharacterDescription),
                         tags = plan.Count(SheetItemKind.TagName),
                         traits = plan.Count(SheetItemKind.TraitName),
+                        groups = plan.Count(SheetItemKind.TraitGroupName),
                     },
                     estimate = estimate is null ? null : new { calls = estimate.Calls, dollars = estimate.Dollars, brl },
                     translated = result?.Translated,
@@ -214,7 +215,8 @@ internal static partial class LibraryCommand
         }
 
         var parts = $"{CliFormat.Count(plan.Count(SheetItemKind.Synopsis), "sinopse", "sinopses")}, {CliFormat.Count(plan.Count(SheetItemKind.CharacterDescription), "descrição de personagem", "descrições de personagem")}, "
-            + $"{CliFormat.Count(plan.Count(SheetItemKind.TagName), "nome de tag", "nomes de tag")}, {CliFormat.Count(plan.Count(SheetItemKind.TraitName), "nome de traço", "nomes de traço")}";
+            + $"{CliFormat.Count(plan.Count(SheetItemKind.TagName), "nome de tag", "nomes de tag")}, {CliFormat.Count(plan.Count(SheetItemKind.TraitName), "nome de traço", "nomes de traço")}, "
+            + CliFormat.Count(plan.Count(SheetItemKind.TraitGroupName), "nome de grupo de traços", "nomes de grupo de traços");
         if (dryRun)
         {
             output.WriteLine($"Ficha de {game.Title} ({settings.Model}): falta traduzir {parts}.");
@@ -331,7 +333,7 @@ internal static partial class LibraryCommand
 
         if (character.Traits.Count > 0 || character.HiddenTraits > 0)
         {
-            output.WriteLine("      Traços: " + (character.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", character.Traits.Select(t => t.Name + ShowId(ids, SheetField.OfTrait(t.Id).Key))))
+            output.WriteLine("      Traços: " + (character.Traits.Count == 0 ? "nenhum à vista" : string.Join(", ", character.Traits.Zip(SheetViewer.TraitLabels(character.Traits), (t, label) => label + ShowId(ids, SheetField.OfTrait(t.Id).Key))))
                 + (character.HiddenTraits > 0 ? $" ({CliFormat.Count(character.HiddenTraits, "escondido", "escondidos")})" : string.Empty));
         }
     }
@@ -353,7 +355,7 @@ internal static partial class LibraryCommand
         var game = SheetGameArgument();
         var fields = new Argument<string[]>("texto")
         {
-            Description = "Os textos: synopsis, character:c12 (ou c12), tag:g7, trait:i34. Sem eles, todos os que podem passar a esta etapa. Veja os ids com vnf library sheet show --ids.",
+            Description = "Os textos: synopsis, character:c12 (ou c12), tag:g7, trait:i34, group:i10. Sem eles, todos os que podem passar a esta etapa. Veja os ids com vnf library sheet show --ids.",
             Arity = ArgumentArity.ZeroOrMore,
         };
         var command = new Command(name, description);
@@ -386,7 +388,7 @@ internal static partial class LibraryCommand
     private static Command CreateSheetEdit(VnfCli cli)
     {
         var game = SheetGameArgument();
-        var field = new Argument<string>("texto") { Description = "O texto a corrigir: synopsis, character:c12 (ou c12), tag:g7 ou trait:i34." };
+        var field = new Argument<string>("texto") { Description = "O texto a corrigir: synopsis, character:c12 (ou c12), tag:g7, trait:i34 ou group:i10 (o grupo de traços)." };
         var text = new Argument<string>("traducao") { Description = "A tradução. Precisa manter os mesmos trechos [spoiler]...[/spoiler] do original." };
         var command = new Command("edit", "Escreve ou corrige à mão a tradução de um texto da ficha; ele volta a pedir revisão.");
         command.Arguments.Add(game);

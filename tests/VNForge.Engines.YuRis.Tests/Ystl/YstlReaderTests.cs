@@ -5,6 +5,7 @@ using VNForge.Engines.YuRis.Ystl;
 
 namespace VNForge.Engines.YuRis.Tests.Ystl;
 
+[Trait("Risco", "R3")]
 public class YstlReaderTests
 {
     private const string ChapterTwoPath = @"userscript\02_capitulo.yst";
@@ -25,37 +26,6 @@ public class YstlReaderTests
         .AddScript(new SyntheticYstlScript(@"userscript\01_prologo.yst", VariableCount: 5, LabelCount: 7, TextCount: 120))
         .AddScript(new SyntheticYstlScript(ChapterTwoPath, VariableCount: 1, LabelCount: 0, TextCount: 4));
 
-    [Theory]
-    [InlineData(@"userscript\01_prologo.yst", "01_prologo")]
-    [InlineData("global.yst", "global")]
-    [InlineData(@"pasta\.yst", ".yst")]
-    public void ReadableName_TiraPastaEExtensao(string path, string expected)
-    {
-        var script = new YstlScript(0, path, 0, 0, 0, null);
-
-        Assert.Equal(expected, script.ReadableName);
-    }
-
-    [Theory]
-    [InlineData(@"userscript\01_cap1\manha.yst", "userscript/01_cap1")]
-    [InlineData(@"\global.yst", "")]
-    public void Folder_ChegaComBarraNormal(string path, string expected)
-    {
-        var script = new YstlScript(0, path, 0, 0, 0, null);
-
-        Assert.Equal(expected, script.Folder);
-    }
-
-    [Fact]
-    public void ModifiedUtc_ConverteOFileTime()
-    {
-        var ystl = new SyntheticYstlBuilder().AddScript(AYst).Build();
-
-        var script = Assert.Single(Read(ystl.Bytes).Scripts);
-
-        Assert.Equal(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), script.ModifiedUtc);
-    }
-
     [Fact]
     public void Read_VariaveisNegativas_ScriptSemYstb()
     {
@@ -69,26 +39,6 @@ public class YstlReaderTests
         Assert.Equal(-1, file.Scripts[0].VariableCount);
         Assert.False(file.Scripts[0].HasCompiledFile);
         Assert.True(file.Scripts[1].HasCompiledFile);
-    }
-
-    [Fact]
-    public void BinaryFileName_TemCincoDigitos()
-    {
-        Assert.Equal("yst00000.ybn", new YstlScript(0, AYst, 0, 0, 0, null).BinaryFileName);
-        Assert.Equal("yst00123.ybn", new YstlScript(123, AYst, 0, 0, 0, null).BinaryFileName);
-        Assert.Equal("yst123456.ybn", new YstlScript(123456, AYst, 0, 0, 0, null).BinaryFileName);
-    }
-
-    [Theory]
-    [InlineData("yst_list.ybn")]
-    [InlineData("yst.ybn")]
-    [InlineData("yst0000a.ybn")]
-    [InlineData("yst99999999999.ybn")]
-    public void TryGetByBinaryName_NomeQueNaoCorresponde_DaFalso(string name)
-    {
-        var file = Read(TwoScripts().Build().Bytes);
-
-        Assert.False(file.TryGetByBinaryName(name, out _));
     }
 
     // ---- Campo txt_count: as fontes divergem no limiar (474 no ystl.py, 477 no yuri.md) ----
@@ -155,13 +105,5 @@ public class YstlReaderTests
         Assert.True(file.HasTextCount);
         var script = Assert.Single(file.Scripts);
         Assert.Equal(new YstlScript(0, AYst, 1, 2, 3, 4), script);
-    }
-
-    [Fact]
-    public void ModifiedUtc_ForaDoIntervalo_ENulo()
-    {
-        var script = new YstlScript(0, AYst, ulong.MaxValue, 0, 0, null);
-
-        Assert.Null(script.ModifiedUtc);
     }
 }

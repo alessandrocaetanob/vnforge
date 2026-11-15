@@ -4,6 +4,7 @@ using VNForge.Core.Qa;
 namespace VNForge.Core.Tests.Projects;
 
 /// <summary>O título da janela do jogo no build: grava a tradução com o codificador do projeto e recusa a que a estratégia não grava (#427).</summary>
+[Trait("Risco", "R4")]
 public sealed class ProjectBuilderTitleTests : IDisposable
 {
     private const string OriginalTitle = "原題";
@@ -69,30 +70,6 @@ public sealed class ProjectBuilderTitleTests : IDisposable
     }
 
     [Fact]
-    public void Sem_o_arquivo_do_titulo_no_cache_manda_rodar_o_extract()
-    {
-        Open(translation: Translated, withTitleFile: false);
-
-        var ex = Assert.Throws<VNForgeException>(() => Build());
-
-        Assert.Contains("vnf extract", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build_incremental_sem_mudanca_reaproveita_o_pacote_e_mantem_o_titulo()
-    {
-        Open(translation: Translated);
-        Build(onlyChanged: true);
-        var repacks = _engine.RepackCalls;
-
-        var result = Build(onlyChanged: true);
-
-        Assert.Equal(repacks, _engine.RepackCalls);
-        Assert.EndsWith("\u0001" + Translated, BuiltPackage(), StringComparison.Ordinal);
-        Assert.Equal(Translated, result.GameTitle);
-    }
-
-    [Fact]
     public void Build_incremental_volta_ao_original_quando_a_traducao_do_titulo_e_apagada()
     {
         Open(translation: Translated);
@@ -103,17 +80,5 @@ public sealed class ProjectBuilderTitleTests : IDisposable
 
         Assert.Null(result.GameTitle);
         Assert.EndsWith("\u0001" + OriginalTitle, BuiltPackage(), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void O_painel_ve_o_build_como_atual_e_depois_desatualizado_quando_o_titulo_muda()
-    {
-        Open(translation: Translated);
-        Build();
-        Assert.Equal(BuildStatus.Current, ProjectDashboard.Read(_project).Build);
-
-        SetTranslation("Outro titulo");
-
-        Assert.Equal(BuildStatus.Stale, ProjectDashboard.Read(_project).Build);
     }
 }

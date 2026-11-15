@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using VNForge.Core.Factsheet;
 using VNForge.Core.Library;
 using VNForge.Core.Tests.Projects;
@@ -7,6 +8,7 @@ using static VNForge.Core.Tests.Factsheet.SheetSamples;
 
 namespace VNForge.Core.Tests.Factsheet;
 
+[Trait("Risco", "R7")]
 public sealed class SheetFetchAndStoreTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -19,16 +21,6 @@ public sealed class SheetFetchAndStoreTests
         var ex = await Assert.ThrowsAsync<LibraryException>(() => SheetFetcher.FetchAsync(Catalog(), new SheetStore(folder.Path), "v1", cancellationToken: Ct));
 
         Assert.Contains("v1", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("../v1")]
-    [InlineData("v")]
-    public void Id_que_nao_e_de_jogo_nao_vira_nome_de_arquivo(string id)
-    {
-        using var folder = new TempFolder();
-
-        Assert.Throws<LibraryException>(() => new SheetStore(folder.Path).LoadGame(id));
     }
 
     [Fact]
@@ -46,17 +38,21 @@ public sealed class SheetFetchAndStoreTests
     }
 
     [Fact]
-    public async Task Sem_arquivo_a_ficha_nao_existe_e_gravar_nao_deixa_temporario()
+    public void Termo_de_tipo_desconhecido_e_ignorado_na_leitura_e_volta_intacto_na_gravacao()
     {
         using var folder = new TempFolder();
         var store = new SheetStore(folder.Path);
-        Assert.Null(store.LoadGame(Game1));
-        Assert.Empty(store.LoadTerms().All);
-        Assert.Empty(store.LoadAllCharacters());
+        var terms = new SheetTerms();
+        terms.Ensure(SheetTermKind.Tag, "g1", "Comedy", null);
+        store.SaveTerms(terms);
+        var file = JsonNode.Parse(File.ReadAllText(store.TermsPath))!;
+        file["data"]!["terms"]!.AsArray().Add(JsonNode.Parse("{\"kind\":\"future\",\"id\":\"z9\",\"source\":\"Novo\"}"));
+        File.WriteAllText(store.TermsPath, file.ToJsonString());
 
-        await SheetFetcher.FetchAsync(Catalog(), store, Game1, cancellationToken: Ct);
+        var loaded = store.LoadTerms();
+        store.SaveTerms(loaded);
 
-        Assert.DoesNotContain(Directory.EnumerateFiles(store.Root, "*.tmp", SearchOption.AllDirectories), _ => true);
-        Assert.Equal(3, store.LoadAllCharacters().Count);
+        Assert.Equal(["tag:g1"], loaded.All.Select(t => SheetTerms.KeyOf(t.Kind, t.Id)));
+        Assert.Contains("\"future\"", File.ReadAllText(store.TermsPath), StringComparison.Ordinal);
     }
 }

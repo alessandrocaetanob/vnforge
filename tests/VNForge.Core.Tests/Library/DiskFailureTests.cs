@@ -13,6 +13,9 @@ namespace VNForge.Core.Tests.Library;
 /// O esperado é erro em português e o arquivo anterior com os mesmos bytes, nunca sucesso com dado perdido. Um caso por tipo de falha, e cada caso percorre todos os
 /// caminhos da sua área e junta o que deu errado, para um teste só dizer quais caminhos falharam.
 /// </summary>
+[Trait("Risco", "R1")]
+[Trait("Risco", "R2")]
+[Trait("Risco", "R7")]
 public sealed class DiskFailureTests : IDisposable
 {
     private const string Key = "yst00001";
@@ -242,21 +245,39 @@ public sealed class DiskFailureTests : IDisposable
         Assert.Equal("antigo", File.ReadAllText(destination));
     }
 
-    // R2: a conferência só vale se nenhum caminho do Core grava sem passar pela costura. Quem entra aqui sem passar por AtomicFile precisa dizer por que está certo.
-    [Fact]
-    public void R2_nenhum_caminho_do_core_grava_arquivo_sem_passar_pela_gravacao_conferida()
-    {
-        var core = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "VNForge.Core"));
-        Assert.True(Directory.Exists(core), $"Pasta do Core não encontrada: {core}");
-        var write = new Regex(
-            @"(?<![A-Za-z])File\.(WriteAll\w*|Create|Move|Copy|AppendAll\w*|OpenWrite)\(|Directory\.Move\(|new StreamWriter\(|new FileStream\([^)]*(FileMode\.(Create|CreateNew|OpenOrCreate|Append|Truncate)|FileAccess\.Write)",
-            RegexOptions.CultureInvariant);
+    // Projetos de src que gravam dado da pessoa ou o jogo. O Installer fica de fora: roda na máquina de quem joga e só escreve o LEIA-ME na pasta temporária.
+    private static readonly string[] GuardedProjects = ["VNForge.Core", "VNForge.AI", "VNForge.Vndb", "VNForge.Cli", "VNForge.Patching", "VNForge.Engines.YuRis", "VNForge.App"];
 
-        var found = Directory.EnumerateFiles(core, "*.cs", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
-            .Select(file => (File: Path.GetRelativePath(core, file).Replace('\\', '/'), Count: File.ReadLines(file).Count(line => write.IsMatch(line) && !line.TrimStart().StartsWith("///", StringComparison.Ordinal))))
-            .Where(entry => entry.Count > 0 && entry.File != "Library/AtomicFile.cs")
-            .ToDictionary(entry => entry.File, entry => entry.Count);
+    // R2: a conferência só vale se nenhum caminho que grava no projeto passa por fora da costura. Quem entra aqui sem passar por AtomicFile precisa dizer por que está certo.
+    [Fact]
+    public void R2_nenhum_caminho_do_src_grava_arquivo_sem_passar_pela_gravacao_conferida()
+    {
+        var src = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src"));
+        Assert.True(Directory.Exists(src), $"Pasta do src não encontrada: {src}");
+        // O texto do arquivo inteiro (sem as linhas de comentário) é varrido de uma vez, porque um FileStream ou File.Open costuma ter os argumentos em várias linhas; [^;] não passa do fim da instrução.
+        var write = new Regex(
+            @"(?<![A-Za-z])File\.(WriteAll\w*|Create\w*|Move|Copy|Replace|AppendAll\w*|AppendText|OpenWrite)\(|Directory\.Move\(|new StreamWriter\(|new FileInfo\([^;]*\)\.(CopyTo|MoveTo|Replace)\("
+            + @"|(new FileStream|(?<![A-Za-z])File\.Open)\([^;]*?(FileMode\.(Create|CreateNew|OpenOrCreate|Append|Truncate)|FileAccess\.(Write|ReadWrite))",
+            RegexOptions.CultureInvariant);
+        var separator = Path.DirectorySeparatorChar;
+
+        var found = new Dictionary<string, int>();
+        foreach (var project in GuardedProjects)
+        {
+            var root = Path.Combine(src, project);
+            Assert.True(Directory.Exists(root), $"Projeto não encontrado: {root}");
+            foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+                .Where(file => !file.Contains($"{separator}obj{separator}") && !file.Contains($"{separator}bin{separator}")))
+            {
+                var key = $"{project}/{Path.GetRelativePath(root, file).Replace('\\', '/')}";
+                var code = string.Join(Environment.NewLine, File.ReadLines(file).Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+                var count = write.Count(code);
+                if (count > 0 && key != "VNForge.Core/Library/AtomicFile.cs")
+                {
+                    found[key] = count;
+                }
+            }
+        }
 
         var unexpected = found.Where(entry => !Allowed.TryGetValue(entry.Key, out var allowed) || allowed.Count != entry.Value)
             .Select(entry => $"{entry.Key}: {entry.Value} gravação(ões) direta(s); use AtomicFile.WriteAllText/WriteAllBytes/Replace/Copy ou liste aqui com o motivo.");
@@ -268,16 +289,36 @@ public sealed class DiskFailureTests : IDisposable
     // Cada entrada é uma gravação que não pode (ou não precisa) passar por AtomicFile, com o motivo.
     private static readonly Dictionary<string, (int Count, string Reason)> Allowed = new()
     {
-        ["Demo/SampleProject.cs"] = (2, "projeto de exemplo montado numa pasta de preparo e movido inteiro; marca de reuso dentro da pasta nova"),
-        ["Images/ImageBuild.cs"] = (1, "o fluxo vai para um temporário que AtomicFile.Replace troca e confere logo depois"),
-        ["Jmdict/JmdictImporter.cs"] = (1, "índice reconstruível do dicionário, gerado num temporário e trocado por JmdictInstaller"),
-        ["Jmdict/JmdictInstaller.cs"] = (2, "índice do dicionário (centenas de MB, reconstruível): a releitura SHA-256 dobraria a instalação"),
-        ["Projects/BuildState.cs"] = (1, "scripts guardados no cache do build: regeneráveis, ReadScript confere o tamanho, e a releitura SHA-256 custaria duas leituras por script num build de milhares"),
-        ["Library/FileLock.cs"] = (1, "arquivo de trava, sem conteúdo"),
-        ["Library/UserTagsFile.cs"] = (1, "arquivo de trava, sem conteúdo"),
-        ["Logging/FileLoggerProvider.cs"] = (1, "log em modo append; perder uma linha não perde trabalho"),
-        ["Projects/ProjectBuilder.cs"] = (3, "build/ é montado numa pasta de preparo e trocado por inteiro, com a anterior devolvida se falhar; é regenerado por vnf build"),
-        ["Projects/RestorePointStore.cs"] = (4, "arquivos de uma pasta de ponto de restauração nova; o manifesto, gravado por AtomicFile por último, é o que faz o ponto existir"),
-        ["Publishing/ReleaseService.cs"] = (2, "pacote do patch e textos do release numa pasta de saída que o vnf release regenera; o pacote é reaberto e conferido em seguida"),
+        ["VNForge.Core/Demo/SampleProject.cs"] = (2, "projeto de exemplo montado numa pasta de preparo e movido inteiro; marca de reuso dentro da pasta nova"),
+        ["VNForge.Core/Images/ImageBuild.cs"] = (1, "o fluxo vai para um temporário que AtomicFile.Replace troca e confere logo depois"),
+        ["VNForge.Core/Jmdict/JmdictImporter.cs"] = (1, "índice reconstruível do dicionário, gerado num temporário e trocado por JmdictInstaller"),
+        ["VNForge.Core/Jmdict/JmdictInstaller.cs"] = (2, "índice do dicionário (centenas de MB, reconstruível): a releitura SHA-256 dobraria a instalação"),
+        ["VNForge.Core/Projects/BuildState.cs"] = (1, "scripts guardados no cache do build: regeneráveis, ReadScript confere o tamanho, e a releitura SHA-256 custaria duas leituras por script num build de milhares"),
+        ["VNForge.Core/Injection/GameInjector.cs"] = (1, "arquivo de posse da pasta de backup, criado vazio com CreateNew: a posse é a existência dele, sem conteúdo"),
+        ["VNForge.Core/Projects/NightBatch.cs"] = (1, "arquivo de trava do lote noturno, sem conteúdo"),
+        ["VNForge.Core/Projects/ProjectLock.cs"] = (1, "arquivo de trava do projeto, sem conteúdo"),
+        ["VNForge.Core/Library/FileLock.cs"] = (1, "arquivo de trava, sem conteúdo"),
+        ["VNForge.Core/Library/UserTagsFile.cs"] = (1, "arquivo de trava, sem conteúdo"),
+        ["VNForge.Core/Logging/FileLoggerProvider.cs"] = (1, "log em modo append; perder uma linha não perde trabalho"),
+        ["VNForge.Core/Projects/ProjectBuilder.cs"] = (3, "build/ é montado numa pasta de preparo e trocado por inteiro, com a anterior devolvida se falhar; é regenerado por vnf build"),
+        ["VNForge.Core/Projects/RestorePointStore.cs"] = (4, "arquivos de uma pasta de ponto de restauração nova; o manifesto, gravado por AtomicFile por último, é o que faz o ponto existir"),
+        ["VNForge.Core/Publishing/ReleaseService.cs"] = (2, "pacote do patch e textos do release numa pasta de saída que o vnf release regenera; o pacote é reaberto e conferido em seguida"),
+        ["VNForge.AI/Settings/AiUserSettings.cs"] = (1, "preferência de modelo na pasta de configuração da pessoa, não no projeto; perder o arquivo volta ao modelo padrão"),
+        ["VNForge.AI/Settings/ApiKeyStore.cs"] = (1, "chave da API protegida na pasta de configuração da pessoa, não no projeto; perdê-la pede a chave de novo"),
+        ["VNForge.Vndb/VndbCache.cs"] = (2, "cache de respostas do VNDB, regenerável: temporário com nome único e troca, e a falha de disco é engolida de propósito"),
+        ["VNForge.Vndb/VndbTokenStore.cs"] = (1, "token do VNDB protegido na pasta de configuração da pessoa, não no projeto; perdê-lo pede o login de novo"),
+        ["VNForge.Cli/YpfCommand.cs"] = (1, "o pacote vai para um temporário que FileSwap.Replace troca e confere em seguida"),
+        ["VNForge.Patching/InstallerBundle.cs"] = (1, "instalador gerado por vnf release numa pasta de saída que o comando regenera"),
+        ["VNForge.Patching/PatchInstaller.cs"] = (3, "instalação na máquina de quem joga: cada arquivo vai para um temporário, o SHA-256 é conferido e o manifesto troca por FileSwap.Replace"),
+        ["VNForge.Patching/PatchVerifier.cs"] = (1, "cópia numa pasta de trabalho descartável para ensaiar o patch"),
+        ["VNForge.Patching/PhysicalProjectDisk.cs"] = (1, "é a costura: o disco real por baixo de AtomicFile"),
+        ["VNForge.Patching/ProjectDisk.cs"] = (2, "é a costura: o comportamento padrão que o teste troca"),
+        ["VNForge.Engines.YuRis/YuRisFontPatch.cs"] = (1, "Apply roda sobre a cópia de trabalho: GameInjector.Patches copia o executável para uma pasta de preparo, aplica ali e só então grava no jogo com backup, manifesto e conferência de hash"),
+        ["VNForge.Engines.YuRis/YuRisRepacker.cs"] = (1, "o pacote novo vai para a pasta de preparo do build, que ProjectBuilder troca por inteiro; o jogo só é tocado pela injeção, com backup"),
+        ["VNForge.Engines.YuRis/Ypf/YpfFolder.cs"] = (1, "extração para o .cache/game do projeto ou para a pasta que a pessoa escolheu em vnf ypf unpack: regenerável a partir do jogo, e uma extração parcial é declarada no erro"),
+        ["VNForge.App/Services/AppSettingsFile.cs"] = (3, "app.json fica na pasta de configuração da pessoa, não no projeto: temporário e troca, com cópia .bad do arquivo ilegível"),
+        ["VNForge.App/Services/BoolMemory.cs"] = (1, "estado de painéis na pasta de configuração; sem gravar, vale até o app fechar"),
+        ["VNForge.App/Services/VndbSyncSettings.cs"] = (1, "escolhas de sincronização na pasta de configuração, não no projeto; perdê-las volta ao padrão"),
+        ["VNForge.App/ViewModels/ImagesViewModel.cs"] = (1, "a imagem editada vai para um temporário que FileSwap.Replace troca e confere"),
     };
 }

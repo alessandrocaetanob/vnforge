@@ -157,6 +157,9 @@ public sealed partial class ReleaseViewModel : ObservableObject
     private bool gameVersionEdited;
     private int loadVersion;
     private int generationEpoch;
+    /// <summary>Onde os backups do projeto estão; o jogo já injetado tem o original de cada arquivo no backup, e o patch do release parte dele.</summary>
+    public Func<VNForge.Core.Injection.BackupLocations> BackupLocationsSource { get; set; } = () => VNForge.Core.Injection.BackupLocations.Default;
+
     private ReleaseStepRow? runningStep;
     private long runningSince;
     private string? installerPath;
@@ -169,7 +172,7 @@ public sealed partial class ReleaseViewModel : ObservableObject
         Action<string>? openFolder = null)
     {
         this.tasks = tasks;
-        this.publisher = publisher ?? new ReleasePublisher([new VNForge.Engines.YuRis.YuRisEngine()]);
+        this.publisher = publisher ?? new ReleasePublisher([new VNForge.Engines.YuRis.YuRisEngine()], backups: () => BackupLocationsSource());
         this.clock = clock ?? TimeProvider.System;
         this.starter = starter ?? new ShellGameProcessStarter();
         this.openFolder = openFolder ?? (_ => { });

@@ -6,7 +6,11 @@ namespace VNForge.Core.Injection;
 /// <param name="GameDirectory">Pasta do jogo (<c>game.path</c> do projeto, relativa à pasta do projeto quando não é absoluta).</param>
 /// <param name="Files">Arquivos que serão gravados no jogo.</param>
 /// <param name="UnchangedCount">Arquivos do build que já são idênticos aos do jogo e ficam de fora.</param>
-public sealed record InjectionPlan(string GameDirectory, string BackupRoot, IReadOnlyList<PlannedFile> Files, int UnchangedCount);
+public sealed record InjectionPlan(string GameDirectory, string BackupRoot, IReadOnlyList<PlannedFile> Files, int UnchangedCount)
+{
+    /// <summary>A pasta dos backups escolhida nos Ajustes, quando há; a injeção confere que ela existe antes de criar o backup.</summary>
+    public string? BackupFolder { get; init; }
+}
 
 /// <param name="RelativePath">Caminho relativo à pasta do jogo, com <c>/</c>.</param>
 /// <param name="BuildPath">Arquivo em <c>build/</c>.</param>

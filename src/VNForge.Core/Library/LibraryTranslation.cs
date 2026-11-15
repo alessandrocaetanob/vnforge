@@ -30,17 +30,19 @@ public sealed record LibraryTranslationState(LibraryTranslationKind Kind, GameIn
 /// </summary>
 public static class LibraryTranslationReader
 {
-    public static LibraryTranslationState Read(LibraryGame game)
+    /// <param name="game">O jogo da Biblioteca.</param>
+    /// <param name="backups">Onde os backups do projeto estão (<see cref="GameLibrary.BackupLocations"/>); sem isso vale o <c>backup/</c> do projeto.</param>
+    public static LibraryTranslationState Read(LibraryGame game, BackupLocations? backups = null)
     {
         ArgumentNullException.ThrowIfNull(game);
-        return Read(game, out _);
+        return Read(game, backups, out _);
     }
 
     /// <summary>Abre o projeto ligado a <paramref name="game"/> para quem vai gravar, ou recusa com o motivo.</summary>
     /// <exception cref="LibraryException">Não há projeto ligado, ele não abre, ou aponta para outra pasta de jogo.</exception>
-    internal static ProjectFolder OpenProject(LibraryGame game)
+    internal static ProjectFolder OpenProject(LibraryGame game, BackupLocations? backups = null)
     {
-        var state = Read(game, out var project);
+        var state = Read(game, backups, out var project);
         return project is not null && state.Kind != LibraryTranslationKind.Unknown
             ? project
             : throw new LibraryException(Refusal(game, state));
@@ -49,7 +51,7 @@ public static class LibraryTranslationReader
     internal static string Refusal(LibraryGame game, LibraryTranslationState state) =>
         $"Não dá para trocar {game.Title}: {state.Reason ?? "o estado do jogo é desconhecido."}";
 
-    private static LibraryTranslationState Read(LibraryGame game, out ProjectFolder? opened)
+    private static LibraryTranslationState Read(LibraryGame game, BackupLocations? backups, out ProjectFolder? opened)
     {
         opened = null;
         if (string.IsNullOrWhiteSpace(game.ProjectPath))
@@ -61,7 +63,7 @@ public static class LibraryTranslationReader
         string configured;
         try
         {
-            project = ProjectFolder.Open(game.ProjectPath);
+            project = ProjectFolder.Open(game.ProjectPath).WithBackups(backups ?? BackupLocations.Default);
             configured = Path.GetFullPath(project.LoadConfig().Game.Path, project.Root);
         }
         catch (Exception e) when (e is VNForgeException or IOException or UnauthorizedAccessException or ArgumentException)
@@ -92,7 +94,7 @@ public static class LibraryTranslationReader
     /// </summary>
     private static LibraryTranslationState StateOf(ProjectFolder project, string gameFolder)
     {
-        var backups = GameInjector.ListBackups(project);
+        var backups = GameInjector.ListBackups(project, includeManual: false);
         var saved = GameStateFile.Load(project).InGame;
         foreach (var backup in backups)
         {

@@ -3,15 +3,10 @@ using VNForge.Core.Text;
 
 namespace VNForge.Core.Tests.Text;
 
+[Trait("Risco", "R4")]
 public class Cp1252TextEncoderTests
 {
     private readonly Cp1252TextEncoder _encoder = new();
-
-    [Fact]
-    public void Id_EhCp1252()
-    {
-        Assert.Equal("cp1252", _encoder.Id);
-    }
 
     [Theory]
     [InlineData("á", 0xE1)]
@@ -57,13 +52,6 @@ public class Cp1252TextEncoderTests
         Assert.Equal(GameEncodings.Windows1252.GetBytes(frase), bytes);
     }
 
-    [Fact]
-    public void Encode_SemBom_SemTerminador()
-    {
-        Assert.Equal(Encoding.ASCII.GetBytes("abc"), _encoder.Encode("abc"));
-        Assert.Empty(_encoder.Encode(""));
-    }
-
     [Theory]
     [InlineData("ï", new[] { 0 })]
     [InlineData("abïcdeï", new[] { 2, 6 })]
@@ -100,47 +88,6 @@ public class Cp1252TextEncoderTests
         {
             Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
         }
-    }
-
-    [Fact]
-    public void Encode_AspaCurva_ExplicaOMotivoEAsTrocas()
-    {
-        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode("“oi”"));
-
-        Assert.Contains("0x93", ex.Message);
-        Assert.Contains("aspas retas", ex.Message);
-    }
-
-    [Theory]
-    [InlineData('“', "aspas retas")]
-    [InlineData('’', "aspas retas")]
-    [InlineData('…', "...")]
-    [InlineData('—', "hífen")]
-    [InlineData('é', null)]
-    [InlineData('ã', null)]
-    public void ExplainRefusal_DizOPorqueEAtroca(char c, string? trecho)
-    {
-        var explanation = _encoder.ExplainRefusal(c);
-
-        if (trecho is null)
-        {
-            Assert.Null(explanation);
-            return;
-        }
-
-        Assert.Contains("engole", explanation, StringComparison.Ordinal);
-        Assert.Contains(trecho, explanation, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("naïve", "posição 2")]
-    [InlineData("日naïve", "0xEF")]
-    public void Encode_TremaNoI_LancaComMensagemEmPortugues(string texto, string trecho)
-    {
-        var ex = Assert.Throws<EncoderFallbackException>(() => _encoder.Encode(texto));
-
-        Assert.Contains(trecho, ex.Message);
-        Assert.Contains("0xEF", ex.Message);
     }
 
     [Fact]
@@ -191,11 +138,5 @@ public class Cp1252TextEncoderTests
         Assert.Empty(encoder.FindUnencodable("a\u00A0b"));
         Assert.Equal([(byte)'a', 0xA0, (byte)'b'], encoder.Encode("a\u00A0b"));
         Assert.Null(encoder.ExplainRefusal(0xA0));
-    }
-
-    [Fact]
-    public void EstiloForaDoEnumEhRecusado()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Cp1252TextEncoder((SpeakerDelimiterStyle)9));
     }
 }

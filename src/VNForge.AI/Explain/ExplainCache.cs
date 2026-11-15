@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using VNForge.Core;
+using VNForge.Core.Library;
 
 namespace VNForge.AI.Explain;
 
@@ -13,14 +15,15 @@ public sealed record ExplainedPart(string Source, string Meaning);
 public sealed record LineExplanation(IReadOnlyList<ExplainedPart> Parts, string Model, bool FromCache);
 
 /// <summary>
-/// <c>.cache/explain.json</c>: as explicações já pedidas, pelo hash do original. Um cache que não abre vira vazio, porque
-/// refazer uma explicação custa uma fração de centavo e nada nele é insubstituível.
+/// <c>.cache/explain.json</c>: as explicações já pedidas, pelo hash do original. Um cache que não abre é recusado com <see cref="InvalidFileException"/>
+/// e o arquivo fica como está: seguir com um cache vazio faria o próximo Save gravar por cima das explicações já pagas (R7).
 /// </summary>
 internal sealed class ExplainCache
 {
     private readonly Dictionary<string, LineExplanation> entries = new(StringComparer.Ordinal);
     private readonly Lock gate = new();
 
+    /// <exception cref="InvalidFileException">O arquivo existe e está vazio, corrompido ou fora do formato; não é alterado.</exception>
     public static ExplainCache Load(string path)
     {
         var cache = new ExplainCache();
@@ -40,9 +43,9 @@ internal sealed class ExplainCache
                 }
             }
         }
-        catch (Exception e) when (e is JsonException or IOException or InvalidOperationException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
         {
-            cache.entries.Clear();
+            throw new InvalidFileException(path, "o cache de explicações está vazio ou corrompido. O arquivo não foi alterado; apague-o para refazer o cache, e as explicações já pagas serão cobradas de novo.", e);
         }
 
         return cache;
@@ -64,25 +67,20 @@ internal sealed class ExplainCache
         }
     }
 
-    /// <summary>Grava num arquivo temporário e o move por cima do destino, para uma queda no meio não corromper o anterior.</summary>
+    /// <summary>Grava por <see cref="AtomicFile"/> (temporário, troca e releitura), para uma queda ou um disco que zera o rename não perder o anterior.</summary>
     public void Save(string path)
     {
+        string json;
         lock (gate)
         {
             var snapshot = new SortedDictionary<string, object>(entries.ToDictionary(
                 e => e.Key,
                 e => (object)new { model = e.Value.Model, parts = e.Value.Parts.Select(p => new { source = p.Source, meaning = p.Meaning }) },
                 StringComparer.Ordinal), StringComparer.Ordinal);
-
-            if (Path.GetDirectoryName(Path.GetFullPath(path)) is { } directory)
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            var temporary = path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
-            File.Move(temporary, path, overwrite: true);
+            json = JsonSerializer.Serialize(snapshot);
         }
+
+        AtomicFile.WriteAllText(path, json);
     }
 
     private static LineExplanation? Read(JsonElement element)

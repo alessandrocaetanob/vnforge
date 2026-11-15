@@ -149,7 +149,7 @@ public sealed partial class MainWindowViewModel
                 }
                 catch (Exception e)
                 {
-                    failure = e is IOException or UnauthorizedAccessException ? e.Message : ClaudeErrorMessages.Describe(e);
+                    failure = e is IOException or UnauthorizedAccessException or VNForgeException ? e.Message : ClaudeErrorMessages.Describe(e);
                     throw new InvalidOperationException(failure, e);
                 }
             }, usesAi: true);

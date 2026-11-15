@@ -11,6 +11,15 @@ public sealed record BackupInfo(string Name, string Directory, BackupManifest? M
     /// <summary>Uma restauração já devolveu os arquivos deste backup.</summary>
     public bool Restored => Manifest?.RestoredAt is not null;
 
+    /// <summary>A pessoa pediu este backup (<c>vnf backup</c> ou "Fazer backup agora"); não é de uma injeção.</summary>
+    public bool IsManual => Manifest?.Kind == BackupManifest.ManualKind;
+
+    /// <summary>A pasta onde este backup está: a pasta dos backups do projeto naquele momento.</summary>
+    public string Root => System.IO.Path.GetDirectoryName(Directory) ?? string.Empty;
+
+    /// <summary>O backup guarda uma cópia do projeto (subpasta <c>projeto/</c>).</summary>
+    public bool HasProject => System.IO.Directory.Exists(System.IO.Path.Combine(Directory, BackupManifest.ProjectFolderName));
+
     /// <summary>Caminhos (relativos ao jogo) dos arquivos que existiam antes da injeção e foram copiados para o backup.</summary>
     public IReadOnlyList<string> OriginalFiles => [.. Manifest?.Files.Where(f => f.Existed).Select(f => f.Path) ?? []];
 

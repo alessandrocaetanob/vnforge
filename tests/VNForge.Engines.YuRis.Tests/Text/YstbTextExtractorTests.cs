@@ -9,6 +9,8 @@ using VNForge.Engines.YuRis.Ystb;
 
 namespace VNForge.Engines.YuRis.Tests.Text;
 
+[Trait("Risco", "R3")]
+[Trait("Risco", "R4")]
 public class YstbTextExtractorTests
 {
     private const string PartsKey = "parts";

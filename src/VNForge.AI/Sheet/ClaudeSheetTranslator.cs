@@ -21,7 +21,8 @@ public sealed class ClaudeSheetTranslator(IClaudeMessageClient client, ClaudeOpt
         Os tipos de item são:
         - "synopsis" e "character_description": texto corrido. Traduza com naturalidade, no tom do original, sem acrescentar nem cortar informação.
         - "tag_name": o nome de uma tag de gênero do VNDB ("Comedy", "Time Travel"). Use o nome que catálogos brasileiros de visual novel usam; o "context" é a categoria da tag (cont: conteúdo, ero: sexual, tech: técnica).
-        - "trait_name": o nome de um traço de personagem ("Long Hair", "Tsundere"). Mantenha o termo de gíria de anime quando o público brasileiro o usa assim (tsundere, kuudere); o "context" é o grupo do traço (Hair, Personality...).
+        - "trait_name": o nome de um traço de personagem ("Long Hair", "Tsundere"). Mantenha o termo de gíria de anime quando o público brasileiro o usa assim (tsundere, kuudere); o "context" é o grupo do traço (Hair, Personality...). Dois traços de mesmo nome em grupos diferentes (Black em Hair e em Eyes) vêm como itens separados: traduza cada um pelo grupo.
+        - "trait_group_name": o nome de um grupo de traços do VNDB ("Hair", "Eyes", "Personality"). Escreva o nome curto que um catálogo brasileiro usa como título de seção ("Cabelo", "Olhos", "Personalidade").
         Regras:
         - Mantenha exatamente os marcadores [spoiler] e [/spoiler], nos mesmos lugares do original, e traduza o que está dentro deles. Nunca remova, acrescente nem una trechos de spoiler.
         - Não traduza nomes próprios de pessoas, lugares e do jogo; escreva-os como no original.
@@ -72,6 +73,7 @@ public sealed class ClaudeSheetTranslator(IClaudeMessageClient client, ClaudeOpt
         SheetItemKind.Synopsis => "synopsis",
         SheetItemKind.CharacterDescription => "character_description",
         SheetItemKind.TagName => "tag_name",
+        SheetItemKind.TraitGroupName => "trait_group_name",
         _ => "trait_name",
     };
 
