@@ -53,7 +53,7 @@ public sealed class VndbImageCache : IDisposable
     }
 
     /// <summary>A pasta de cache de imagens do usuário, dentro da pasta de cache de <see cref="UserData.UserFolders"/> (padrão: <c>%LOCALAPPDATA%/VNForge/cache/vndb-images</c>).</summary>
-    public static string DefaultDirectory() => UserData.UserFolders.Resolve().ImageCacheDirectory;
+    public static string DefaultDirectory() => UserData.UserFolders.Current.ImageCacheDirectory;
 
     /// <summary>O arquivo da imagem se ela já está no disco e a privacidade deixa ver; nulo senão. Não usa a rede.</summary>
     public string? Find(VndbImageRef image)

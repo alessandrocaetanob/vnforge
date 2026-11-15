@@ -215,7 +215,7 @@ public sealed class VnfCli
         CliTerminal? terminal = null,
         IVndbTokenStore? vndbTokenStore = null)
     {
-        var folders = userConfigDirectory is null ? UserFolders.Resolve() : null;
+        var folders = userConfigDirectory is null ? UserFolders.Current : null;
         var configDirectory = userConfigDirectory ?? folders!.Config.Path;
         var cli = new VnfCli(
             currentDirectory ?? Directory.GetCurrentDirectory(),

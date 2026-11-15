@@ -52,20 +52,26 @@ public static partial class UserFolderMover
 {
     private static readonly string[] UsageMarkers = [LibraryFile.FileName, "recent.json", "app.json", "apikey.dat"];
 
-    /// <summary>Os arquivos que não entram na cópia: o ponteiro (mora na pasta Local, que é o cache padrão), as travas e os temporários de uma gravação interrompida.</summary>
-    private static bool IsLeftBehind(string relative) =>
+    /// <summary>
+    /// Os arquivos que não entram na cópia: o ponteiro (mora na pasta Local, que é o cache padrão), as travas, os temporários de uma gravação interrompida e, no cache, a pasta <c>logs</c>:
+    /// o log do app e do <c>vnf</c> está aberto e cresce durante a cópia, e uma troca não pode falhar por isso. Os registros antigos ficam na pasta antiga; os novos nascem na nova.
+    /// </summary>
+    private static bool IsLeftBehind(UserFolderKind kind, string relative) =>
         relative.Equals(UserFolders.PointerFileName, StringComparison.OrdinalIgnoreCase)
         || relative.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)
-        || TemporaryName().IsMatch(relative);
+        || TemporaryName().IsMatch(relative)
+        || (kind == UserFolderKind.Cache && (relative.StartsWith("logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || relative.StartsWith("logs/", StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>
-    /// Confere a pasta nova e conta o que vai ser copiado.
+    /// Confere a pasta nova e conta o que vai ser copiado. <paramref name="other"/> é a outra pasta do usuário (a de cache quando se troca a de dados, e o contrário): as duas não podem ser a
+    /// mesma nem ficar uma dentro da outra, senão apagar a antiga levaria o que a outra tem em uso.
     /// </summary>
-    /// <exception cref="UserFolderException">O caminho não é completo, é a pasta atual ou fica dentro dela, já guarda dados do VNForge, não aceita gravação ou não tem espaço.</exception>
-    public static UserFolderMovePlan Prepare(UserFolderKind kind, string from, string to)
+    /// <exception cref="UserFolderException">O caminho não é completo, é a pasta atual, fica dentro dela ou a contém, se sobrepõe à outra pasta, já guarda dados do VNForge, não aceita gravação ou não tem espaço.</exception>
+    public static UserFolderMovePlan Prepare(UserFolderKind kind, string from, string to, string? other = null)
     {
         var target = Normalize(to);
         var source = Normalize(from);
+        var sibling = string.IsNullOrWhiteSpace(other) ? null : Normalize(other);
         if (target.Equals(source, StringComparison.OrdinalIgnoreCase))
         {
             throw new UserFolderException("Essa já é a pasta em uso. Escolha outra.");
@@ -76,10 +82,21 @@ public static partial class UserFolderMover
             throw new UserFolderException("A pasta nova não pode ficar dentro da pasta atual. Escolha outra.");
         }
 
+        if (IsInside(source, target))
+        {
+            throw new UserFolderException("A pasta nova não pode conter a pasta atual. Escolha outra.");
+        }
+
+        if (sibling is not null && (target.Equals(sibling, StringComparison.OrdinalIgnoreCase) || IsInside(target, sibling) || IsInside(sibling, target)))
+        {
+            throw new UserFolderException("A pasta de dados e a de cache não podem ser a mesma nem ficar uma dentro da outra. Escolha outra.");
+        }
+
         var files = Directory.Exists(source)
             ? Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+                .Where(file => sibling is null || !IsInside(file, sibling))
                 .Select(file => Path.GetRelativePath(source, file))
-                .Where(relative => !IsLeftBehind(relative))
+                .Where(relative => !IsLeftBehind(kind, relative))
                 .ToList()
             : [];
         var bytes = files.Sum(relative => new FileInfo(Path.Combine(source, relative)).Length);
@@ -97,9 +114,10 @@ public static partial class UserFolderMover
     /// <summary>
     /// Copia, confere e grava o ponteiro. <paramref name="deleteOld"/> apaga da pasta antiga os arquivos que foram copiados, depois de tudo conferido (a pasta fica se sobrar algo que não é do VNForge).
     /// </summary>
+    /// <returns>Um aviso em português quando a troca valeu mas a pasta antiga não pôde ser apagada por inteiro; nulo senão. Apagar a antiga nunca desfaz a troca.</returns>
     /// <exception cref="UserFolderException">A cópia falhou: nada mudou, o ponteiro é o de antes e a cópia parcial foi removida.</exception>
     /// <exception cref="OperationCanceledException">A pessoa cancelou: mesmo efeito de uma falha.</exception>
-    public static void Move(UserFolders current, UserFolderMovePlan plan, bool deleteOld, Action<UserFolderMoveProgress>? progress = null, CancellationToken cancellationToken = default)
+    public static string? Move(UserFolders current, UserFolderMovePlan plan, bool deleteOld, Action<UserFolderMoveProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(plan);
@@ -121,17 +139,24 @@ public static partial class UserFolderMover
                 cancellationToken.ThrowIfCancellationRequested();
                 var source = Path.Combine(plan.From, relative);
                 var destination = Path.Combine(plan.To, relative);
+                if (!File.Exists(source))
+                {
+                    // O cache de imagens muda enquanto o app roda: o arquivo que saiu desde o Prepare não faz falta.
+                    continue;
+                }
+
                 folder = TopLevel(relative);
                 file = Path.GetFileName(relative);
                 progress?.Invoke(new UserFolderMoveProgress(percent, folder));
                 MarkCreated(Path.GetDirectoryName(destination)!, createdDirectories, plan.To);
                 AtomicFile.Copy(source, destination);
                 copied.Add(destination);
-                done += new FileInfo(source).Length;
+                done += new FileInfo(destination).Length;
                 percent = plan.Bytes == 0 ? 100 : (int)Math.Min(100, done * 100 / plan.Bytes);
             }
 
-            Confirm(plan);
+            Confirm(plan, copied);
+            Directory.CreateDirectory(plan.To);
             var (config, cache) = current.PointerWith(plan.Kind, plan.To);
             UserFolderPointer.Save(current.PointerPath, config, cache);
         }
@@ -147,10 +172,7 @@ public static partial class UserFolderMover
         }
 
         progress?.Invoke(new UserFolderMoveProgress(100, folder));
-        if (deleteOld)
-        {
-            DeleteOld(plan);
-        }
+        return deleteOld ? DeleteOld(plan) : null;
     }
 
     /// <summary>Usa <paramref name="to"/> como está, sem copiar nada: a pasta já guarda uma biblioteca do VNForge (um segundo PC, uma pasta sincronizada) ou a anterior sumiu.</summary>
@@ -163,6 +185,7 @@ public static partial class UserFolderMover
         var (config, cache) = current.PointerWith(kind, target);
         try
         {
+            Directory.CreateDirectory(target);
             UserFolderPointer.Save(current.PointerPath, config, cache);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -176,13 +199,16 @@ public static partial class UserFolderMover
     {
         ArgumentNullException.ThrowIfNull(current);
         var (config, cache) = current.PointerWith(kind, path);
-        UserFolderPointer.Save(current.PointerPath, config, cache);
+        Choose(current, config, cache);
     }
 
     /// <summary>Grava o ponteiro com as duas pastas de uma vez: a primeira pergunta confirma o par que a pessoa viu.</summary>
     public static void Choose(UserFolders current, string config, string cache)
     {
         ArgumentNullException.ThrowIfNull(current);
+        // Um ponteiro para pasta que não existe faria o próximo início dizer "pasta sumiu" e o vnf recusar tudo: a pasta nasce antes dele.
+        Directory.CreateDirectory(config);
+        Directory.CreateDirectory(cache);
         UserFolderPointer.Save(current.PointerPath, config, cache);
     }
 
@@ -265,15 +291,17 @@ public static partial class UserFolderMover
         }
     }
 
-    /// <summary>Releitura final: toda cópia existe e tem o tamanho da origem. A conferência por conteúdo já foi feita por <see cref="AtomicFile.Copy"/>.</summary>
-    private static void Confirm(UserFolderMovePlan plan)
+    /// <summary>
+    /// Releitura final: toda cópia existe. A conferência por conteúdo já foi feita por <see cref="AtomicFile.Copy"/>, contra a origem lida naquele momento; comparar com o tamanho de agora
+    /// falharia por um arquivo que cresceu durante a cópia.
+    /// </summary>
+    private static void Confirm(UserFolderMovePlan plan, IReadOnlyList<string> copied)
     {
-        foreach (var relative in plan.Files)
+        foreach (var destination in copied)
         {
-            var copy = new FileInfo(Path.Combine(plan.To, relative));
-            if (!copy.Exists || copy.Length != new FileInfo(Path.Combine(plan.From, relative)).Length)
+            if (!File.Exists(destination))
             {
-                throw new UserFolderException($"A cópia de {relative} não bate com o original. Tente de novo.");
+                throw new UserFolderException($"A cópia de {Path.GetRelativePath(plan.To, destination)} sumiu antes de a troca valer. Tente de novo.");
             }
         }
     }
@@ -344,30 +372,29 @@ public static partial class UserFolderMover
         }
     }
 
-    private static void DeleteOld(UserFolderMovePlan plan)
+    /// <summary>Apaga da pasta antiga o que foi copiado. A troca já valeu: o que não puder ser apagado (arquivo preso, pasta que sumiu) vira aviso, nunca erro.</summary>
+    private static string? DeleteOld(UserFolderMovePlan plan)
     {
+        if (!Directory.Exists(plan.From))
+        {
+            return null;
+        }
+
         foreach (var relative in plan.Files)
         {
             ProjectFileIo.DeleteQuietly(Path.Combine(plan.From, relative));
         }
 
-        foreach (var directory in Directory.EnumerateDirectories(plan.From, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
+        try
         {
-            try
+            foreach (var directory in Directory.EnumerateDirectories(plan.From, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length).ToList())
             {
                 if (!Directory.EnumerateFileSystemEntries(directory).Any())
                 {
                     Directory.Delete(directory);
                 }
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                // A pasta antiga fica com o que sobrou; a pessoa apaga quando quiser.
-            }
-        }
 
-        try
-        {
             if (!Directory.EnumerateFileSystemEntries(plan.From).Any())
             {
                 Directory.Delete(plan.From);
@@ -375,8 +402,12 @@ public static partial class UserFolderMover
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // Idem.
+            // A pasta antiga fica com o que sobrou; o aviso abaixo diz se sobrou arquivo copiado.
         }
+
+        return plan.Files.Any(relative => File.Exists(Path.Combine(plan.From, relative)))
+            ? $"Não consegui apagar tudo de {plan.From}. Apague o que sobrou quando quiser."
+            : null;
     }
 
     [GeneratedRegex(@"\.[0-9a-f]{32}\.tmp$")]

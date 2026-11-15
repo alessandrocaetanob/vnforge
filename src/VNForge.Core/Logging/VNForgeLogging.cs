@@ -10,7 +10,7 @@ public static class VNForgeLogging
     public static string GetLogDirectory(string projectRoot) => Path.Combine(projectRoot, ".cache", "logs");
 
     /// <summary>Diretório de logs fora de qualquer projeto: <c>logs</c> na pasta de cache do usuário (padrão: <c>%LOCALAPPDATA%/VNForge/logs</c>), pela regra única de <see cref="UserData.UserFolders"/>.</summary>
-    public static string GetUserLogDirectory() => UserData.UserFolders.Resolve().LogDirectory;
+    public static string GetUserLogDirectory() => UserData.UserFolders.Current.LogDirectory;
 
     /// <summary>Como <see cref="GetUserLogDirectory()"/>, mas usa a pasta temporária se <paramref name="localApplicationData"/> vier vazia ou relativa, para nunca gravar relativo ao diretório atual.</summary>
     public static string GetUserLogDirectory(string? localApplicationData)

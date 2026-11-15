@@ -26,7 +26,8 @@ public enum UserFolderKind
 public sealed record UserFolder(string Path, UserFolderSource Source);
 
 /// <summary>Uma pasta escolhida que não pode ser usada agora; <see cref="Message"/> é em português e vai direto à pessoa.</summary>
-public sealed record UserFolderProblem(UserFolderKind Kind, UserFolderSource Source, string Path, string Message);
+/// <param name="PointerUnreadable">O problema é o próprio <c>pasta.json</c> que não pôde ser lido (arquivo preso, acesso negado): trocar de pasta não resolve, só tentar de novo.</param>
+public sealed record UserFolderProblem(UserFolderKind Kind, UserFolderSource Source, string Path, string Message, bool PointerUnreadable = false);
 
 /// <summary>
 /// Onde o VNForge guarda o que é do usuário, achado por uma regra só (o app e o <c>vnf</c> usam o mesmo Core). Ordem de busca, para cada uma das duas pastas:
@@ -45,15 +46,22 @@ public sealed class UserFolders
     /// <summary>Quem já usou o app deixou ao menos um destes na pasta padrão; sem nenhum, nem variável nem ponteiro, a pergunta da primeira abertura aparece. <c>ai.json</c> e os registros não contam, para um teste do CLI antes do app não esconder a pergunta.</summary>
     private static readonly string[] UsageMarkers = [LibraryFile.FileName, "recent.json", "app.json", "apikey.dat"];
 
-    private UserFolders(UserFolder config, UserFolder cache, string defaultConfig, string defaultCache, string pointerPath, string? storedConfig, string? storedCache)
+    private static readonly Lock CurrentGate = new();
+
+    private static UserFolders? current;
+
+    private readonly string? _pointerError;
+
+    private UserFolders(UserFolder config, UserFolder cache, string defaultConfig, string defaultCache, string pointerPath, (string? Config, string? Cache) stored, string? pointerError)
     {
+        _pointerError = pointerError;
         Config = config;
         Cache = cache;
         DefaultConfig = defaultConfig;
         DefaultCache = defaultCache;
         PointerPath = pointerPath;
-        StoredConfig = storedConfig;
-        StoredCache = storedCache;
+        StoredConfig = stored.Config;
+        StoredCache = stored.Cache;
     }
 
     /// <summary>Os dados e a configuração: a lista de jogos, os recentes, as fichas, a memória de tradução, o dicionário e as chaves.</summary>
@@ -95,6 +103,11 @@ public sealed class UserFolders
     {
         get
         {
+            if (_pointerError is not null)
+            {
+                return new UserFolderProblem(UserFolderKind.Config, UserFolderSource.Pointer, PointerPath, _pointerError, PointerUnreadable: true);
+            }
+
             foreach (var kind in new[] { UserFolderKind.Config, UserFolderKind.Cache })
             {
                 var folder = Of(kind);
@@ -122,7 +135,30 @@ public sealed class UserFolders
         && Cache.Source == UserFolderSource.Default
         && !UsageMarkers.Any(name => File.Exists(System.IO.Path.Combine(Config.Path, name)));
 
-    /// <summary>A regra aplicada ao sistema de hoje: as variáveis do processo e as pastas do Windows.</summary>
+    /// <summary>
+    /// As pastas deste processo, achadas uma vez e guardadas: quem pergunta de novo (as cinco classes com <c>DefaultDirectory</c>, o <c>vnf</c>) não relê o <c>pasta.json</c>, que pode estar numa unidade lenta.
+    /// Gravar o ponteiro (<see cref="UserFolderPointer.Save"/>) invalida o que foi guardado.
+    /// </summary>
+    public static UserFolders Current
+    {
+        get
+        {
+            lock (CurrentGate)
+            {
+                return current ??= Resolve();
+            }
+        }
+    }
+
+    internal static void Invalidate()
+    {
+        lock (CurrentGate)
+        {
+            current = null;
+        }
+    }
+
+    /// <summary>A regra aplicada ao sistema de hoje, relendo o ponteiro: as variáveis do processo e as pastas do Windows. Para o resto do código, <see cref="Current"/>.</summary>
     public static UserFolders Resolve() =>
         Resolve(
             Environment.GetEnvironmentVariable,
@@ -139,7 +175,7 @@ public sealed class UserFolders
         var defaultConfig = System.IO.Path.Combine(Rooted(roaming), "VNForge");
         var localRoot = System.IO.Path.Combine(Rooted(local), "VNForge");
         var pointerPath = System.IO.Path.Combine(localRoot, PointerFileName);
-        var (storedConfig, storedCache) = UserFolderPointer.Read(pointerPath);
+        var (storedConfig, storedCache) = UserFolderPointer.Read(pointerPath, out var pointerError);
 
         return new UserFolders(
             Choose(environment(ConfigVariable), storedConfig, defaultConfig),
@@ -147,8 +183,8 @@ public sealed class UserFolders
             defaultConfig,
             localRoot,
             pointerPath,
-            storedConfig,
-            storedCache);
+            (storedConfig, storedCache),
+            pointerError);
     }
 
     private static string Rooted(string? folder) =>
@@ -167,13 +203,17 @@ public sealed class UserFolders
     }
 }
 
-/// <summary>O <c>pasta.json</c>: <c>{ "dados": "D:\\Dados\\VNForge", "cache": "..." }</c>. Arquivo ilegível vale como sem ponteiro: a pasta antiga não é tocada e a pergunta volta.</summary>
+/// <summary>
+/// O <c>pasta.json</c>: um objeto com as chaves "dados" e "cache". Só o JSON inválido vale como sem ponteiro (a pasta antiga não é tocada e a pergunta volta). Falha de leitura
+/// (arquivo preso, acesso negado, unidade fora do ar) não: cair no padrão abriria uma biblioteca vazia e a pergunta sobrescreveria o ponteiro, então ela vira problema com mensagem.
+/// </summary>
 public static class UserFolderPointer
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
-    public static (string? Config, string? Cache) Read(string pointerPath)
+    public static (string? Config, string? Cache) Read(string pointerPath, out string? error)
     {
+        error = null;
         try
         {
             if (!File.Exists(pointerPath))
@@ -186,15 +226,23 @@ public static class UserFolderPointer
                 ? (Text(document.RootElement, "dados"), Text(document.RootElement, "cache"))
                 : (null, null);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        catch (JsonException)
         {
+            return (null, null);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            error = $"Não consegui ler {pointerPath}. Feche as outras janelas do VNForge, confira a unidade e tente de novo.";
             return (null, null);
         }
     }
 
     /// <summary>Grava o ponteiro trocando o arquivo por inteiro e conferindo o resultado, como toda gravação do Core.</summary>
-    public static void Save(string pointerPath, string config, string cache) =>
+    public static void Save(string pointerPath, string config, string cache)
+    {
         AtomicFile.WriteAllText(pointerPath, JsonSerializer.Serialize(new Dictionary<string, string> { ["dados"] = config, ["cache"] = cache }, Json));
+        UserFolders.Invalidate();
+    }
 
     private static string? Text(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;

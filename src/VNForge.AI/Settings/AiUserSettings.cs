@@ -23,7 +23,7 @@ public sealed class AiUserSettingsFile(string directory)
     public string Path { get; } = System.IO.Path.Combine(directory, FileName);
 
     /// <summary>A pasta de dados e configuração do usuário, pela regra única de <c>UserFolders</c> no Core (variável, ponteiro, <c>%APPDATA%/VNForge</c>).</summary>
-    public static string DefaultDirectory() => VNForge.Core.UserData.UserFolders.Resolve().Config.Path;
+    public static string DefaultDirectory() => VNForge.Core.UserData.UserFolders.Current.Config.Path;
 
     public AiUserSettings Load()
     {

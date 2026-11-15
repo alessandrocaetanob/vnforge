@@ -30,7 +30,13 @@ internal static class ConfigCommand
     private static int RunFolder(VnfCli cli, ParseResult parseResult)
     {
         var output = parseResult.InvocationConfiguration.Output;
-        var folders = cli.Folders ?? UserFolders.Resolve();
+        var folders = cli.Folders ?? UserFolders.Current;
+        if (folders.Problem is { } problem)
+        {
+            // Um caminho só para a falha (o envelope de erro com --json, a mensagem sem ele): nada de imprimir o sucesso antes de lançar.
+            throw new UserFolderException(problem.Message);
+        }
+
         if (parseResult.GetValue(cli.Options.Json))
         {
             output.WriteLine(JsonEnvelope.Result(new
@@ -44,11 +50,6 @@ internal static class ConfigCommand
         {
             output.WriteLine($"Dados e configuração: {folders.Config.Path} ({DescribeFolder(folders, UserFolderKind.Config)})");
             output.WriteLine($"Cache, capturas e registros: {folders.Cache.Path} ({DescribeFolder(folders, UserFolderKind.Cache)})");
-        }
-
-        if (folders.Problem is { } problem)
-        {
-            throw new UserFolderException(problem.Message);
         }
 
         return ErrorHandler.OkExitCode;

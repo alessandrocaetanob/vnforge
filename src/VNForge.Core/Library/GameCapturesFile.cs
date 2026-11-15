@@ -52,7 +52,7 @@ public sealed class GameCapturesFile
     public string Path { get; }
 
     /// <summary><c>captures</c> dentro da pasta de cache do usuário, pela regra única de <see cref="UserData.UserFolders"/> (padrão: <c>%LOCALAPPDATA%/VNForge</c>).</summary>
-    public static string DefaultDirectory() => UserData.UserFolders.Resolve().CaptureDirectory;
+    public static string DefaultDirectory() => UserData.UserFolders.Current.CaptureDirectory;
 
     /// <exception cref="LibraryException">O índice existe e não pôde ser lido ou não segue o formato; a mensagem cita o arquivo.</exception>
     public GameCaptures Load() => _store.Load();

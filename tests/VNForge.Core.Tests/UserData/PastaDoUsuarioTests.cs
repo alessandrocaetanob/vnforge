@@ -76,6 +76,10 @@ public sealed class PastaDoUsuarioTests : IDisposable
         {
             UserFolderMover.Choose(folders, folders.DefaultConfig, folders.DefaultCache);
             Assert.False(Resolve().MustAsk);
+
+            // O ponteiro nunca aponta para pasta que não existe: o próximo início não diz "pasta sumiu" e o vnf não recusa tudo.
+            Assert.Null(Resolve().Problem);
+            Assert.True(Directory.Exists(folders.DefaultConfig) && Directory.Exists(folders.DefaultCache));
         }
     }
 
@@ -117,6 +121,27 @@ public sealed class PastaDoUsuarioTests : IDisposable
         var moved = Resolve();
         Assert.Equal((destination, UserFolderSource.Pointer), (moved.Config.Path, moved.Config.Source));
         Assert.Equal(moved.DefaultCache, moved.Cache.Path);
+    }
+
+    // R2: a troca não pode apagar o que a outra pasta tem em uso, e mover os dados de uma origem vazia também deixa o ponteiro apontando para pasta que existe.
+    [Fact]
+    public void R2_a_pasta_nova_nao_se_sobrepoe_a_outra_nem_contem_a_atual_e_a_origem_vazia_deixa_a_pasta_criada()
+    {
+        var folders = Resolve();
+        var cache = folders.Cache.Path;
+        var inside = Path.Combine(_temp.Path, "dentro");
+
+        Assert.Contains("não podem ser a mesma", Assert.Throws<UserFolderException>(() => UserFolderMover.Prepare(UserFolderKind.Config, folders.Config.Path, cache, cache)).Message);
+        Assert.Contains("uma dentro da outra", Assert.Throws<UserFolderException>(() => UserFolderMover.Prepare(UserFolderKind.Config, folders.Config.Path, Path.Combine(cache, "dados"), cache)).Message);
+        Assert.Contains("uma dentro da outra", Assert.Throws<UserFolderException>(() => UserFolderMover.Prepare(UserFolderKind.Config, folders.Config.Path, Path.Combine(_temp.Path, "pai"), Path.Combine(_temp.Path, "pai", "x"))).Message);
+        Assert.Contains("conter a pasta atual", Assert.Throws<UserFolderException>(() => UserFolderMover.Prepare(UserFolderKind.Config, Path.Combine(_temp.Path, "a", "b"), Path.Combine(_temp.Path, "a"))).Message);
+
+        var plan = UserFolderMover.Prepare(UserFolderKind.Config, folders.Config.Path, inside, cache);
+        Assert.Equal(0, plan.FileCount);
+        Assert.False(Directory.Exists(inside), "conferir a pasta nova não deixa pasta para trás");
+        UserFolderMover.Move(folders, plan, deleteOld: true, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(Directory.Exists(inside));
+        Assert.Null(Resolve().Problem);
     }
 
     private static void Seed(string folder, string relative, string text)
