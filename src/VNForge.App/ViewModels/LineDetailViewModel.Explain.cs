@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Claude;
 using VNForge.App.Controls;
 using VNForge.App.Services;
+using VNForge.Core;
 
 namespace VNForge.App.ViewModels;
 
@@ -100,7 +101,7 @@ public sealed partial class LineDetailViewModel
         {
             if (!cancellation.IsCancellationRequested)
             {
-                ExplainError = e is LineExplanationException ? e.Message : ClaudeErrorMessages.Describe(e);
+                ExplainError = e is LineExplanationException or VNForgeException ? e.Message : ClaudeErrorMessages.Describe(e);
             }
         }
         finally

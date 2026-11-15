@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using VNForge.AI.Translation;
+using VNForge.Core;
+using VNForge.Core.Library;
 using VNForge.Core.Text;
 
 namespace VNForge.AI.Cost;
@@ -68,6 +70,10 @@ public sealed class TranslationCache
             _entries[key] = translation;
     }
 
+    /// <summary>
+    /// Lê o cache. Arquivo vazio ou fora do formato recusa com <see cref="VNForgeException"/> em português e não toca no arquivo: quem chama não segue com um cache vazio,
+    /// que o próximo Save gravaria por cima das traduções já pagas (R7).
+    /// </summary>
     public static TranslationCache Load(string path)
     {
         if (!File.Exists(path))
@@ -80,22 +86,36 @@ public sealed class TranslationCache
         }
         catch (JsonException e)
         {
-            throw new InvalidDataException($"O cache de traduções '{path}' está corrompido; apague o arquivo para refazê-lo.", e);
+            throw new InvalidFileException(path, "o cache de traduções está vazio ou corrompido. O arquivo não foi alterado; apague-o para refazer o cache, e as traduções já pagas serão cobradas de novo.", e);
         }
     }
 
-    /// <summary>Grava o cache num arquivo temporário e o move por cima do destino, para uma queda no meio não corromper o anterior.</summary>
+    /// <summary>
+    /// Como <see cref="Save"/>, mas devolve a falha de disco em vez de lançá-la, para quem grava num <c>finally</c> e não pode esconder a exceção que já está subindo.
+    /// Só grava se o cache tem alguma entrada. Devolve <c>null</c> quando gravou ou não havia o que gravar.
+    /// </summary>
+    public IOException? TrySave(string path)
+    {
+        if (Count == 0)
+            return null;
+        try
+        {
+            Save(path);
+            return null;
+        }
+        catch (IOException e)
+        {
+            return e;
+        }
+    }
+
+    /// <summary>Grava o cache por <see cref="AtomicFile"/>: temporário ao lado, troca e releitura, para uma queda ou um disco que zera o rename não deixar o anterior perdido.</summary>
     public void Save(string path)
     {
         SortedDictionary<string, string> snapshot;
         lock (_gate)
             snapshot = new(_entries, StringComparer.Ordinal);
 
-        var dir = Path.GetDirectoryName(Path.GetFullPath(path));
-        if (dir is not null)
-            Directory.CreateDirectory(dir);
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(snapshot), new UTF8Encoding(false));
-        File.Move(tmp, path, overwrite: true);
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(snapshot));
     }
 }

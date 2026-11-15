@@ -133,6 +133,7 @@ internal static partial class TranslateCommand
         }
 
         TranslationRunResult run;
+        IOException? cacheError = null;
         try
         {
             run = await reporter.RunAsync(
@@ -143,12 +144,9 @@ internal static partial class TranslateCommand
         }
         finally
         {
-            if (cache.Count > 0)
-            {
-                cache.Save(cachePath);
-            }
-
+            // O gasto entra primeiro e o Save não lança aqui: se a execução falhou, é a exceção dela que sobe, não a do cache.
             tracker.Record();
+            cacheError = cache.TrySave(cachePath);
         }
 
         summary.Cached = ledger.CacheHits;
@@ -159,6 +157,11 @@ internal static partial class TranslateCommand
         if (run.CallbackError is { } callbackError)
         {
             throw new VNForgeException($"Não foi possível gravar a tradução em text/: {callbackError.Message}", callbackError);
+        }
+
+        if (cacheError is not null)
+        {
+            throw new VNForgeException($"A tradução foi gravada, mas não foi possível gravar o cache de traduções: {cacheError.Message}", cacheError);
         }
 
         if (run.Canceled)

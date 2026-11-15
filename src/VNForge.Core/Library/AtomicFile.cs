@@ -9,16 +9,21 @@ namespace VNForge.Core.Library;
 /// usa o caminho com <c>.bak</c> em volume que não é local (a causa e a estratégia estão lá). Destino vazio ou diferente lança <see cref="FileWriteVerificationException"/>,
 /// uma <see cref="IOException"/>: os catches de IOException do Core (rollback da injeção, laço do restore, gasto da IA) tratam a falha como qualquer falha de disco.
 /// </summary>
-internal static class AtomicFile
+public static class AtomicFile
 {
     private static readonly UTF8Encoding Utf8SemBom = new(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>Grava o texto (UTF-8 sem BOM). <paramref name="wait"/> é a espera entre as tentativas da troca (padrão: dormir); <paramref name="overwrite"/> falso recusa um destino existente.</summary>
-    public static void WriteAllText(string path, string text, Action<int>? wait = null, bool overwrite = true, Func<string>? newTemporaryPath = null) =>
+    /// <summary>Grava o texto (UTF-8 sem BOM), trocando o arquivo por inteiro e conferindo o resultado.</summary>
+    public static void WriteAllText(string path, string text) => WriteAllText(path, text, null);
+
+    /// <summary>Como <see cref="WriteAllText(string, string)"/>, para bytes (uma imagem não pode aparecer pela metade).</summary>
+    public static void WriteAllBytes(string path, byte[] bytes) => WriteAllBytes(path, bytes, null);
+
+    /// <summary><paramref name="wait"/> é a espera entre as tentativas da troca (padrão: dormir); <paramref name="overwrite"/> falso recusa um destino existente.</summary>
+    internal static void WriteAllText(string path, string text, Action<int>? wait, bool overwrite = true, Func<string>? newTemporaryPath = null) =>
         WriteAllBytes(path, Utf8SemBom.GetBytes(text), wait, overwrite, newTemporaryPath);
 
-    /// <summary>Como <see cref="WriteAllText"/>, para bytes (uma imagem não pode aparecer pela metade).</summary>
-    public static void WriteAllBytes(string path, byte[] bytes, Action<int>? wait = null, bool overwrite = true, Func<string>? newTemporaryPath = null)
+    internal static void WriteAllBytes(string path, byte[] bytes, Action<int>? wait, bool overwrite = true, Func<string>? newTemporaryPath = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         // newTemporaryPath existe para o teste prender o temporário antes da escrita: o nome real leva um Guid que ninguém conhece de antemão.
@@ -52,16 +57,13 @@ internal static class AtomicFile
     /// Quem grava por conta própria (um arquivo grande, um fluxo) chama isto no fim.
     /// </summary>
     /// <exception cref="FileWriteVerificationException">O destino relido não bate com o que foi gravado.</exception>
-    public static void Replace(string temporary, string path, bool overwrite = true, Action<int>? wait = null)
-    {
-        var sleep = wait ?? Thread.Sleep;
-        FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, sleep), file => ProjectFileIo.Delete(file, sleep));
-    }
+    public static void Replace(string temporary, string path, bool overwrite = true) =>
+        FileSwap.Replace(temporary, path, overwrite, (source, destination, over) => ProjectFileIo.Move(source, destination, over, Thread.Sleep), file => ProjectFileIo.Delete(file, Thread.Sleep));
 
     /// <summary>Copia <paramref name="source"/> sobre <paramref name="destination"/> pelo mesmo caminho conferido: a cópia vazia ou diferente da origem vira <see cref="FileWriteVerificationException"/>.</summary>
-    public static void Copy(string source, string destination, Action<int>? wait = null)
+    public static void Copy(string source, string destination)
     {
-        var sleep = wait ?? Thread.Sleep;
+        Action<int> sleep = Thread.Sleep;
         FileSwap.Copy(
             source,
             destination,

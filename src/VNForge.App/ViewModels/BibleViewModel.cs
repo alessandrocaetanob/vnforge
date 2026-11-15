@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNForge.AI.Bible;
@@ -11,6 +10,7 @@ using VNForge.App.Controls;
 using VNForge.Core;
 using VNForge.Core.Bible;
 using VNForge.Core.Glossary;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Vndb;
 
@@ -992,8 +992,15 @@ public sealed partial class BibleViewModel : ObservableObject
         }
 
         var path = Path.Combine(current.Root, "biblia.md");
-        File.WriteAllText(path, BibleMarkdown.Render(bible, current.Name), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        Notice = $"Bíblia exportada em {path}.";
+        try
+        {
+            AtomicFile.WriteAllText(path, BibleMarkdown.Render(bible, current.Name));
+            Notice = $"Bíblia exportada em {path}.";
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = e.Message;
+        }
     }
 
     private sealed class InlineProgress(Action<BibleProgress> report) : IProgress<BibleProgress>

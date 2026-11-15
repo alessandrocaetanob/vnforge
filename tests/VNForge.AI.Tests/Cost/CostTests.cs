@@ -1,7 +1,9 @@
 using VNForge.AI.Claude;
 using VNForge.AI.Cost;
 using VNForge.AI.Translation;
+using VNForge.Core;
 using VNForge.Core.Text;
+using VNForge.Patching;
 
 namespace VNForge.AI.Tests.Cost;
 
@@ -64,6 +66,66 @@ public class CostTests
         }
     }
 
+    // Disco que não é local e zera o destino depois do rename (rclone com cache em modo full, #697): o Save tem que recusar e deixar o cache anterior como estava.
+    private sealed class ZeroingDisk : IProjectDisk
+    {
+        public bool IsLocal(string path) => false;
+
+        public void Move(string source, string destination, bool overwrite)
+        {
+            File.Move(source, destination, overwrite);
+            File.WriteAllBytes(destination, []);
+        }
+    }
+
+    [Fact]
+    public void R2_cache_gravado_num_disco_que_zera_o_rename_recusa_e_mantem_o_anterior()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"vnf-cache-{Guid.NewGuid():N}");
+        var path = Path.Combine(folder, "translations.json");
+        try
+        {
+            var cache = new TranslationCache();
+            cache.Set("a", "paga");
+            cache.Save(path);
+            var before = File.ReadAllBytes(path);
+            cache.Set("b", "nova");
+
+            Exception? error;
+            using (ProjectDisk.Use(new ZeroingDisk()))
+            {
+                error = Record.Exception(() => cache.Save(path));
+            }
+
+            Assert.IsAssignableFrom<IOException>(error);
+            Assert.Equal(before, File.ReadAllBytes(path));
+            Assert.Empty(Directory.GetFiles(folder, "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void R7_cache_vazio_na_leitura_recusa_em_portugues_e_nao_mexe_no_arquivo()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vnf-cache-{Guid.NewGuid():N}.json");
+        File.WriteAllBytes(path, []);
+        try
+        {
+            var error = Assert.Throws<InvalidFileException>(() => TranslationCache.Load(path));
+
+            Assert.Contains("apague", error.Message);
+            Assert.True(File.Exists(path));
+            Assert.Empty(File.ReadAllBytes(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public void Cache_corrompido_vira_erro_claro()
     {
@@ -71,7 +133,7 @@ public class CostTests
         File.WriteAllText(path, "{ nao e json");
         try
         {
-            Assert.Throws<InvalidDataException>(() => TranslationCache.Load(path));
+            Assert.Throws<InvalidFileException>(() => TranslationCache.Load(path));
         }
         finally
         {

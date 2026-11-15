@@ -13,6 +13,7 @@ using VNForge.App.Services;
 using VNForge.Core;
 using VNForge.Core.Engines;
 using VNForge.Core.Formatting;
+using VNForge.Core.Library;
 using VNForge.Core.Projects;
 using VNForge.Core.Text;
 using VNForge.Engines.YuRis;
@@ -1430,7 +1431,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        File.WriteAllText(path, StyleGuide);
+        AtomicFile.WriteAllText(path, StyleGuide);
     }
 
     private void RefreshPreview()
