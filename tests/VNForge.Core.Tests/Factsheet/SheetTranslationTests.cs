@@ -72,7 +72,7 @@ public sealed class SheetTranslationTests : IDisposable
 
         var failure = Assert.Single(result.Failures);
         Assert.Contains("recusou", failure.Message, StringComparison.Ordinal);
-        Assert.Equal(11 - failure.Keys.Count, result.Translated);
+        Assert.Equal(14 - failure.Keys.Count, result.Translated);
         Assert.True(result.Calls >= 2);
     }
 
@@ -90,7 +90,7 @@ public sealed class SheetTranslationTests : IDisposable
         Assert.Equal("Amiga de infância (minha versão).", Store.LoadCharacter("c2")!.Description!.Target);
         Assert.Equal("PT: Comedy", Store.LoadTerms().Find(SheetTermKind.Tag, "g10")!.Text.Target);
         Assert.Equal("NOVO: The hero. [spoiler]He is a ghost.[/spoiler]", Store.LoadCharacter("c1")!.Description!.Target);
-        Assert.Equal(9, result.Translated);
+        Assert.Equal(12, result.Translated);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class SheetTranslationTests : IDisposable
         await new SheetTranslationRunner(translator, Store).RunAsync(Game1, new SheetTranslationOptions { NamesPerCall = 3, TextsPerCall = 2 }, cancellationToken: Ct);
 
         var sizes = translator.Requests.Select(r => r.Items.Count).ToList();
-        Assert.Equal([3, 3, 1, 2, 2], sizes);
+        Assert.Equal([3, 3, 3, 1, 2, 2], sizes);
         Assert.All(translator.Requests, r => Assert.True(r.Items.All(i => i.IsProse) || r.Items.All(i => !i.IsProse)));
     }
 

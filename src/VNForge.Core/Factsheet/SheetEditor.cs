@@ -46,6 +46,14 @@ public static class SheetEditor
             }
         }
 
+        foreach (var id in SheetTerms.GroupIdsOf(characters))
+        {
+            if (terms.Find(SheetTermKind.Group, id) is { } term)
+            {
+                result.Add((SheetField.OfGroup(id), term.Text));
+            }
+        }
+
         return result;
     }
 
@@ -119,6 +127,17 @@ public static class SheetEditor
                 }
 
                 ChangeTerm(store, kind, field, change);
+                break;
+            }
+
+            case SheetFieldKind.Group:
+            {
+                if (!store.LoadCharacters(game.CharacterIds).Any(c => c.Traits.Any(t => t.GroupId == field.Id)))
+                {
+                    throw NotInSheet(field);
+                }
+
+                ChangeTerm(store, SheetTermKind.Group, field, change);
                 break;
             }
 

@@ -13,9 +13,10 @@ public enum SheetBlockKind
 
 /// <summary>
 /// Um texto ou uma lista de nomes da ficha, com o original do VNDB e a tradução lado a lado. Os nomes de tags e de traços formam uma lista (<paramref name="IsList"/>): o original e a
-/// tradução saem separados por vírgula, na mesma ordem de <paramref name="Fields"/>. <paramref name="Texts"/> traz o texto de cada campo, na mesma ordem.
+/// tradução saem separados por vírgula, na mesma ordem de <paramref name="Fields"/>. <paramref name="Texts"/> traz o texto de cada campo, na mesma ordem. <paramref name="Notes"/>, quando há,
+/// diz de cada campo o que o nome sozinho não explica (o grupo do traço, em inglês) e a tela o mostra entre parênteses depois do original.
 /// </summary>
-public sealed record SheetPair(string Title, IReadOnlyList<SheetField> Fields, IReadOnlyList<SheetText> Texts, bool IsList)
+public sealed record SheetPair(string Title, IReadOnlyList<SheetField> Fields, IReadOnlyList<SheetText> Texts, bool IsList, IReadOnlyList<string>? Notes = null)
 {
     /// <summary>O original, com os marcadores <c>[spoiler]</c> como estão guardados; uma lista vai separada por vírgula.</summary>
     public string Original => string.Join(", ", Texts.Select(t => t.Source));
@@ -90,10 +91,22 @@ public static class SheetBlocks
                 pairs.Add(new SheetPair($"Descrição de {character.Name}", [SheetField.OfCharacter(character.Id)], [description], false));
             }
 
-            var traits = character.Traits.Where(t => t.Spoiler == 0 && !t.Lie && !SheetViewer.IsTraitHidden(t, visibility)).Select(t => (Field: SheetField.OfTrait(t.Id), t.Name, Term: terms.Find(SheetTermKind.Trait, t.Id))).ToList();
+            var visible = character.Traits.Where(t => t.Spoiler == 0 && !t.Lie && !SheetViewer.IsTraitHidden(t, visibility)).ToList();
+            var traits = visible.Select(t => (Field: SheetField.OfTrait(t.Id), t.Name, Term: terms.Find(SheetTermKind.Trait, t.Id))).ToList();
             if (traits.Count > 0)
             {
-                pairs.Add(List($"Traços de {character.Name}", traits));
+                pairs.Add(List($"Traços de {character.Name}", traits, [.. visible.Select(t => t.GroupName ?? string.Empty)]));
+            }
+
+            var groups = visible
+                .Where(t => !string.IsNullOrWhiteSpace(t.GroupId))
+                .DistinctBy(t => t.GroupId, StringComparer.Ordinal)
+                .Select(t => (Field: SheetField.OfGroup(t.GroupId), Name: t.GroupName ?? string.Empty, Term: terms.Find(SheetTermKind.Group, t.GroupId)))
+                .Where(g => g.Term is not null)
+                .ToList();
+            if (groups.Count > 0)
+            {
+                pairs.Add(List($"Grupos dos traços de {character.Name}", groups));
             }
 
             if (pairs.Count > 0)
@@ -137,6 +150,6 @@ public static class SheetBlocks
         }
     }
 
-    private static SheetPair List(string title, IReadOnlyList<(SheetField Field, string Name, SheetTerm? Term)> items) =>
-        new(title, [.. items.Select(i => i.Field)], [.. items.Select(i => i.Term?.Text ?? SheetText.Pending(i.Name))], true);
+    private static SheetPair List(string title, IReadOnlyList<(SheetField Field, string Name, SheetTerm? Term)> items, IReadOnlyList<string>? notes = null) =>
+        new(title, [.. items.Select(i => i.Field)], [.. items.Select(i => i.Term?.Text ?? SheetText.Pending(i.Name))], true, notes);
 }

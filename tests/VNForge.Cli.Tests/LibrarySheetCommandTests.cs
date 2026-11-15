@@ -69,7 +69,7 @@ public sealed class LibrarySheetCommandTests : IDisposable
         var review = await Run("library", "sheet", "review", "CLANNAD");
         var json = await Run("library", "sheet", "review", "CLANNAD", "--json");
 
-        Assert.Contains("6 textos revisados; 0 ainda não tinham tradução ou já estavam revisados.", review.Output, StringComparison.Ordinal);
+        Assert.Contains("8 textos revisados; 0 ainda não tinham tradução ou já estavam revisados.", review.Output, StringComparison.Ordinal);
         Assert.Contains("1 texto desatualizado ficou de fora", review.Output, StringComparison.Ordinal);
         Assert.Equal(1, Data(json).GetProperty("skippedOutdated").GetInt32());
         Assert.True(Store.LoadCharacter("c1")!.Description!.Outdated);
@@ -195,12 +195,12 @@ public sealed class LibrarySheetCommandTests : IDisposable
         Assert.Contains("Revise", early.Error, StringComparison.Ordinal);
         Assert.Equal(0, edit.ExitCode);
         Assert.Contains("traduzido à mão", edit.Output, StringComparison.Ordinal);
-        Assert.Contains("7 textos revisados", review.Output, StringComparison.Ordinal);
-        Assert.Contains("7 textos aprovados", approve.Output, StringComparison.Ordinal);
+        Assert.Contains("9 textos revisados", review.Output, StringComparison.Ordinal);
+        Assert.Contains("9 textos aprovados", approve.Output, StringComparison.Ordinal);
         Assert.Contains("[synopsis]", show.Output, StringComparison.Ordinal);
         Assert.Contains("[character:c1]", show.Output, StringComparison.Ordinal);
         Assert.Contains("[tag:g10]", show.Output, StringComparison.Ordinal);
-        Assert.Contains("0 sem tradução, 0 traduzidos pela IA, 0 à mão, 0 revisados, 7 aprovados", show.Output, StringComparison.Ordinal);
+        Assert.Contains("0 sem tradução, 0 traduzidos pela IA, 0 à mão, 0 revisados, 9 aprovados", show.Output, StringComparison.Ordinal);
         Assert.Contains("O herói. [spoiler escondido]", show.Output, StringComparison.Ordinal);
     }
 

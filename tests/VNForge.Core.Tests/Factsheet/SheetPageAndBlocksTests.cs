@@ -147,7 +147,7 @@ public sealed class SheetPageAndBlocksTests : IDisposable
         Assert.Equal(["Sinopse", "Gêneros e tags", "Kenta Aizawa", "Aoi Sakura", "Ghost"], all.Select(b => b.Title));
         Assert.Equal(["Gêneros e tags"], hidden[1].Pairs.Select(p => p.Title));
         Assert.Equal(["PT: Comedy"], hidden[1].Pairs[0].Target!.Split(", "));
-        Assert.Equal(["Descrição de Kenta Aizawa", "Traços de Kenta Aizawa"], hidden[2].Pairs.Select(p => p.Title));
+        Assert.Equal(["Descrição de Kenta Aizawa", "Traços de Kenta Aizawa", "Grupos dos traços de Kenta Aizawa"], hidden[2].Pairs.Select(p => p.Title));
         Assert.Equal(["Comedy", "Plot Twist"], all[1].Pairs[0].Original.Split(", "));
     }
 
@@ -159,11 +159,11 @@ public sealed class SheetPageAndBlocksTests : IDisposable
 
         var kenta = Blocks(new SheetVisibility())[2];
 
-        Assert.Equal([TranslationStatus.Reviewed, TranslationStatus.Machine], kenta.Pairs.Select(p => p.Status));
+        Assert.Equal([TranslationStatus.Reviewed, TranslationStatus.Machine, TranslationStatus.Machine], kenta.Pairs.Select(p => p.Status));
         Assert.Equal(TranslationStatus.Machine, kenta.Status);
         Assert.True(kenta.Pairs[0].HasSpoilers);
         Assert.False(kenta.Pairs[1].HasSpoilers);
-        Assert.Equal([SheetField.OfCharacter("c1"), SheetField.OfTrait("i1")], kenta.Fields);
+        Assert.Equal([SheetField.OfCharacter("c1"), SheetField.OfTrait("i1"), SheetField.OfGroup("i10")], kenta.Fields);
     }
 
     [Fact]

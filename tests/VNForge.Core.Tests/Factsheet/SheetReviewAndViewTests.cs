@@ -36,12 +36,12 @@ public sealed class SheetReviewAndViewTests : IDisposable
     {
         await Translated();
 
-        Assert.Equal(new SheetStatusCounts(0, 11, 0, 0, 0), Card().Counts);
-        Assert.Equal(new SheetMarkResult(11, 0), SheetEditor.Review(Store, Game1));
-        Assert.Equal(new SheetStatusCounts(0, 0, 0, 11, 0), Card().Counts);
-        Assert.Equal(new SheetMarkResult(11, 0), SheetEditor.Approve(Store, Game1));
-        Assert.Equal(new SheetStatusCounts(0, 0, 0, 0, 11), Card().Counts);
-        Assert.Equal(new SheetMarkResult(0, 11), SheetEditor.Approve(Store, Game1));
+        Assert.Equal(new SheetStatusCounts(0, 14, 0, 0, 0), Card().Counts);
+        Assert.Equal(new SheetMarkResult(14, 0), SheetEditor.Review(Store, Game1));
+        Assert.Equal(new SheetStatusCounts(0, 0, 0, 14, 0), Card().Counts);
+        Assert.Equal(new SheetMarkResult(14, 0), SheetEditor.Approve(Store, Game1));
+        Assert.Equal(new SheetStatusCounts(0, 0, 0, 0, 14), Card().Counts);
+        Assert.Equal(new SheetMarkResult(0, 14), SheetEditor.Approve(Store, Game1));
     }
 
     [Fact]

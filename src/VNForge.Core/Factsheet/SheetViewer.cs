@@ -12,8 +12,11 @@ public sealed record SheetShownText(string Text, TranslationStatus Status, bool 
 
 public sealed record SheetTagCard(string Id, string Name, string OriginalName, string Category, double Rating, int Spoiler, TranslationStatus Status);
 
+/// <param name="Group">O nome do grupo para mostrar (Cabelo, Olhos), pela ordem de <see cref="SheetTerms.ShownGroup"/>; vazio quando o VNDB não disse o grupo.</param>
 /// <param name="Lie">O VNDB marca o traço como mentira da história; só aparece com os spoilers no máximo.</param>
-public sealed record SheetTraitCard(string Id, string Name, string OriginalName, string Group, int Spoiler, TranslationStatus Status, bool Lie = false);
+/// <param name="GroupId">O id do grupo no VNDB (<c>i10</c>), que separa dois traços de mesmo nome em grupos diferentes; vazio em ficha gravada sem ele.</param>
+/// <param name="GroupOriginal">O nome do grupo como o VNDB o escreve, em inglês; é ele que dá a ordem dos grupos.</param>
+public sealed record SheetTraitCard(string Id, string Name, string OriginalName, string Group, int Spoiler, TranslationStatus Status, bool Lie = false, string GroupId = "", string GroupOriginal = "");
 
 /// <summary>Um personagem que a privacidade escondeu: o cartão fica no lugar, sem nome, e <paramref name="Spoiler"/> diz de que nível é o spoiler.</summary>
 public sealed record SheetHiddenCharacter(string Id, int Spoiler);
@@ -134,6 +137,7 @@ public static class SheetViewer
         texts.AddRange(all.Select(c => c.Description).OfType<SheetText>());
         texts.AddRange(game.Tags.Select(t => terms.Find(SheetTermKind.Tag, t.Id)?.Text).OfType<SheetText>());
         texts.AddRange(all.SelectMany(c => c.Traits).Select(t => t.Id).Distinct(StringComparer.Ordinal).Select(id => terms.Find(SheetTermKind.Trait, id)?.Text).OfType<SheetText>());
+        texts.AddRange(SheetTerms.GroupIdsOf(all).Select(id => terms.Find(SheetTermKind.Group, id)?.Text).OfType<SheetText>());
 
         return new GameSheetCard(
             game.VisualNovelId,
@@ -240,6 +244,7 @@ public static class SheetViewer
         var visible = character.Gender?.Visible;
         var real = character.Gender?.Spoiler;
         var statuses = traits.Select(t => t.Status).ToList();
+        statuses.AddRange(traits.Where(t => t.GroupId.Length > 0).DistinctBy(t => t.GroupId, StringComparer.Ordinal).Select(t => terms.Find(SheetTermKind.Group, t.GroupId)?.Text.Status).OfType<TranslationStatus>());
         if (character.Description is { } description)
         {
             statuses.Add(description.Status);
@@ -262,9 +267,20 @@ public static class SheetViewer
             statuses.Count == 0 ? null : statuses.Min());
     }
 
+    /// <summary>
+    /// Os nomes dos traços para uma linha de texto (a CLI): o nome sozinho, e com o grupo entre parênteses quando dois traços de ids diferentes têm o mesmo nome ("Black (Cabelo)",
+    /// "Black (Olhos)"), porque só o nome não diz qual é qual.
+    /// </summary>
+    public static IReadOnlyList<string> TraitLabels(IReadOnlyList<SheetTraitCard> traits)
+    {
+        ArgumentNullException.ThrowIfNull(traits);
+        var homonyms = traits.GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. traits.Select(t => homonyms.Contains(t.Name) && t.Group.Length > 0 ? $"{t.Name} ({t.Group})" : t.Name)];
+    }
+
     internal static SheetTraitCard TraitCard(VndbTrait trait, SheetTerms terms)
     {
         var term = terms.Find(SheetTermKind.Trait, trait.Id);
-        return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, trait.GroupName, trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated, trait.Lie);
+        return new SheetTraitCard(trait.Id, term?.Text.Shown ?? trait.Name, trait.Name, terms.ShownGroup(trait.GroupId, trait.GroupName), trait.Spoiler, term?.Text.Status ?? TranslationStatus.Untranslated, trait.Lie, trait.GroupId ?? string.Empty, trait.GroupName ?? string.Empty);
     }
 }
