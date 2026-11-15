@@ -120,7 +120,7 @@ pwsh tools/medir-testes.ps1 -Dll tests/VNForge.Core.Tests/bin/Release/net10.0/VN
 
 Ele imprime a saída, o tempo de parede, o pico do conjunto de trabalho do processo e a contagem do JUnit. No Linux, `/usr/bin/time -v dotnet <dll> -noLogo` dá o pico em "Maximum resident set size". Meça sem cobertura (a cobertura aumenta a memória) e com a máquina parada: outros processos pesados distorcem o tempo.
 
-O App roda inteiro num processo, com uns 55 s sem cobertura (214 testes, uns 600 MB). Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
+O App roda inteiro num processo, com uns 55 s sem cobertura (223 testes, uns 490 MB, medidos na #687). O projeto de testes desliga o `TieredPGO` e liga `System.GC.ConserveMemory=5`: o primeiro tira uns 15% de CPU, o segundo derruba o pico de uns 535 para uns 480 MB. Para medir um subconjunto de classes, use `-ClassesFile` (um nome de classe por linha) no `tools/medir-testes.ps1`.
 
 ### O trait Risco
 
