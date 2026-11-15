@@ -20,8 +20,8 @@ public sealed partial class FoldersViewModel : ObservableObject
     private readonly Action<Action> post;
     private readonly Func<UserFolders> resolve;
     private readonly Func<string, (int Files, long Bytes)> measure;
-    private readonly Func<UserFolderKind, string, string, UserFolderMovePlan> prepare;
-    private readonly Action<UserFolders, UserFolderMovePlan, bool, Action<UserFolderMoveProgress>?, CancellationToken> move;
+    private readonly Func<UserFolderKind, string, string, string?, UserFolderMovePlan> prepare;
+    private readonly Func<UserFolders, UserFolderMovePlan, bool, Action<UserFolderMoveProgress>?, CancellationToken, string?> move;
 
     /// <param name="restart">Fecha o app e o abre de novo; os testes passam um contador.</param>
     /// <param name="services">As costuras que a captura de tela e os testes trocam; sem elas valem o disco e a thread da tela.</param>
@@ -43,7 +43,6 @@ public sealed partial class FoldersViewModel : ObservableObject
         Cards = [Config, Cache];
         DraftConfig = folders.Config.Path;
         DraftCache = folders.Cache.Path;
-        Loading = Task.Run(Measure, CancellationToken.None);
     }
 
     public FolderCardViewModel Config { get; }
@@ -53,8 +52,8 @@ public sealed partial class FoldersViewModel : ObservableObject
     /// <summary>Os dois cartões da aba, na ordem do quadro.</summary>
     public IReadOnlyList<FolderCardViewModel> Cards { get; }
 
-    /// <summary>Termina quando o tamanho de cada pasta foi contado.</summary>
-    public Task Loading { get; private set; }
+    /// <summary>Termina quando o tamanho de cada pasta foi contado. A contagem só roda quando a aba Pastas abre (<see cref="RefreshAsync"/>): percorrer as duas árvores a cada abertura do app custaria caro numa unidade lenta.</summary>
+    public Task Loading { get; private set; } = Task.CompletedTask;
 
     /// <summary>O comando de terminal que mostra de onde veio cada pasta, e a variável que vale mais que a escolha do app.</summary>
     public string CommandText => "vnf config pasta";
@@ -130,10 +129,10 @@ public sealed class FoldersServices
     public Func<string, (int Files, long Bytes)>? Measure { get; init; }
 
     /// <summary>Confere a pasta nova e conta o que vai ser copiado; a captura de tela troca por um plano pronto.</summary>
-    public Func<UserFolderKind, string, string, UserFolderMovePlan>? Prepare { get; init; }
+    public Func<UserFolderKind, string, string, string?, UserFolderMovePlan>? Prepare { get; init; }
 
     /// <summary>A cópia conferida; a captura de tela troca por uma que falha aos 38%.</summary>
-    public Action<UserFolders, UserFolderMovePlan, bool, Action<UserFolderMoveProgress>?, CancellationToken>? Move { get; init; }
+    public Func<UserFolders, UserFolderMovePlan, bool, Action<UserFolderMoveProgress>?, CancellationToken, string?>? Move { get; init; }
 }
 
 /// <summary>Uma das duas pastas na aba Pastas: o caminho, a etiqueta de onde veio, o tamanho e os botões.</summary>

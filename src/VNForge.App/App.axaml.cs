@@ -44,7 +44,7 @@ public sealed class App : Application
 #endif
 
             // As pastas primeiro, antes de qualquer serviço: a pergunta da primeira abertura só vale enquanto nada foi gravado na pasta padrão.
-            var folders = UserFolders.Resolve();
+            var folders = UserFolders.Current;
             var configDirectory = folders.Config.Path;
             VndbImages.Source = VndbImages.CreateDefault(configDirectory);
             var window = new MainWindow();
@@ -137,18 +137,20 @@ public sealed class App : Application
             desktop.MainWindow = window;
             // Os recentes primeiro: a Biblioteca liga cada projeto de tradução ao jogo dele por essa lista.
             var openLibrary = () => main.Library.OpenAsync(() => start.LoadAsync());
-            if (folders.Problem is { Source: UserFolderSource.Pointer } problem)
+            if (folders.Problem is { } problem)
             {
-                // A pasta escolhida sumiu (disco ou unidade desconectada): o app não abre uma biblioteca vazia por conta própria, e todas as saídas do diálogo reiniciam.
+                // A pasta escolhida (ponteiro ou variável) não existe, ou o ponteiro não abre: o app recusa como o vnf, sem criar a pasta nem abrir uma biblioteca vazia por conta própria.
+                // Todas as saídas do diálogo reiniciam.
                 settings.Folders.ShowMissing(problem);
+            }
+            else if (folders.MustAsk)
+            {
+                // Abrir a Biblioteca grava library.json e recent.json na pasta padrão: só depois da resposta, e só se ela não reiniciar o app.
+                settings.Folders.ShowFirstRun();
+                settings.Folders.Continued += async (_, _) => await openLibrary();
             }
             else
             {
-                if (folders.MustAsk)
-                {
-                    settings.Folders.ShowFirstRun();
-                }
-
                 window.Opened += async (_, _) => await openLibrary();
             }
         }

@@ -47,7 +47,7 @@ public sealed partial class FoldersViewModel
     private CancellationTokenSource? moving;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDialogOpen), nameof(IsFirstRun), nameof(IsConfirm), nameof(IsNetwork), nameof(IsMoving), nameof(IsFailed), nameof(IsMissing), nameof(DialogWidth))]
+    [NotifyPropertyChangedFor(nameof(IsDialogOpen), nameof(IsFirstRun), nameof(IsConfirm), nameof(IsNetwork), nameof(IsMoving), nameof(IsFailed), nameof(IsMissing), nameof(ShowMissingWarning), nameof(DialogWidth))]
     public partial FolderDialogMode Mode { get; private set; }
 
     /// <summary>Aberto enquanto há um diálogo. Fechar de fora (Escape) escolhe a saída segura de cada um: a sugestão na primeira pergunta, a volta no resto, o cancelamento da cópia.</summary>
@@ -187,8 +187,28 @@ public sealed partial class FoldersViewModel
             ? $"Se você usar a pasta padrão, o VNForge começa vazio, sem a sua lista de jogos. Os dados em {missing.Path} não são apagados."
             : $"Se você usar a pasta padrão, o cache e as capturas começam vazios. O que está em {missing.Path} não é apagado.";
         RetryNote = string.Empty;
+        OnlyRetry = missing.Source == UserFolderSource.Environment || missing.PointerUnreadable;
+        if (missing.PointerUnreadable)
+        {
+            DialogTitle = "Não consegui ler a escolha de pasta";
+            DialogText = missing.Message;
+        }
+        else if (missing.Source == UserFolderSource.Environment)
+        {
+            DialogText = missing.Message;
+        }
+
         Mode = FolderDialogMode.Missing;
     }
+
+    /// <summary>A pasta que falta vem de uma variável de ambiente ou o próprio ponteiro não abre: trocar ou voltar ao padrão não resolve (a variável vale mais, o ponteiro está preso), só tentar de novo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowMissingWarning), nameof(CanChooseOther))]
+    public partial bool OnlyRetry { get; private set; }
+
+    public bool ShowMissingWarning => IsMissing && !OnlyRetry;
+
+    public bool CanChooseOther => !OnlyRetry;
 
     /// <summary>Escolhe a pasta nova de <paramref name="kind"/>, confere e pede a confirmação da troca.</summary>
     internal Task ChangeAsync(UserFolderKind kind)
@@ -229,10 +249,10 @@ public sealed partial class FoldersViewModel
         // A pessoa escolhe "D:\Dados" e o VNForge usa "D:\Dados\VNForge", sem misturar os arquivos dele com os dela.
         var target = string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(picked)), "VNForge", StringComparison.OrdinalIgnoreCase) ? picked : Path.Combine(picked, "VNForge");
         pendingTarget = target;
-        pendingFrom = context == Context.FirstRun ? (kind == UserFolderKind.Config ? folders.DefaultConfig : folders.DefaultCache) : problem is not null && context == Context.Missing ? problem.Path : folders.Of(kind).Path;
+        pendingFrom = SourceOf(kind);
         try
         {
-            plan = prepare(kind, pendingFrom, target);
+            plan = prepare(kind, pendingFrom, target, OtherFolderOf(kind));
         }
         catch (UserFolderException e)
         {
@@ -253,6 +273,19 @@ public sealed partial class FoldersViewModel
 
         Proceed();
     }
+
+    /// <summary>A pasta de onde a troca parte: o padrão na primeira pergunta, a que sumiu no aviso, a em uso nos Ajustes.</summary>
+    private string SourceOf(UserFolderKind kind) => context switch
+    {
+        Context.FirstRun => kind == UserFolderKind.Config ? folders.DefaultConfig : folders.DefaultCache,
+        Context.Missing when problem is not null => problem.Path,
+        _ => folders.Of(kind).Path,
+    };
+
+    /// <summary>A outra pasta do usuário, contra a qual a nova não pode se sobrepor: o rascunho da primeira pergunta, ou a em uso.</summary>
+    private string OtherFolderOf(UserFolderKind kind) => context == Context.FirstRun
+        ? (kind == UserFolderKind.Config ? DraftCache : DraftConfig)
+        : folders.Of(kind == UserFolderKind.Config ? UserFolderKind.Cache : UserFolderKind.Config).Path;
 
     private void Proceed()
     {
@@ -318,7 +351,8 @@ public sealed partial class FoldersViewModel
         Mode = FolderDialogMode.Moving;
         try
         {
-            await Task.Run(
+            // O aviso de "não consegui apagar tudo da pasta antiga" não tem onde aparecer: o app reinicia logo em seguida, e a troca já valeu.
+            _ = await Task.Run(
                 () => move(
                     folders,
                     chosen,

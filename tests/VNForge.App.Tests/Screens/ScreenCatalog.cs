@@ -237,7 +237,7 @@ internal static class ScreenCatalog
         return new FoldersViewModel(folders, new FakeFolderPicker(picked), _ => { }, () => { }, new FoldersServices
         {
             Measure = path => path.Contains("Roaming", StringComparison.Ordinal) ? (26, 31L * 1024 * 1024) : (3, 248L * 1024),
-            Prepare = (kind, from, to) => new UserFolderMovePlan(kind, from, to, [.. Enumerable.Range(1, 26).Select(i => $"arquivo{i}.json")], 31L * 1024 * 1024, to.StartsWith("W:", StringComparison.Ordinal)),
+            Prepare = (kind, from, to, _) => new UserFolderMovePlan(kind, from, to, [.. Enumerable.Range(1, 26).Select(i => $"arquivo{i}.json")], 31L * 1024 * 1024, to.StartsWith("W:", StringComparison.Ordinal)),
             Move = (_, _, _, _, _) => throw new UserFolderException("Faltou espaço em D:. A pasta nova precisa de 32 MB livres e tem 12 MB.", 38, "dictionary"),
         });
     }
@@ -484,12 +484,15 @@ internal static class ScreenCatalog
 
             if (folders is not null)
             {
-                var sample = folders();
-                host.Vm.Settings.Folders = sample;
-                await sample.Loading;
+                host.Vm.Settings.Folders = folders();
             }
 
             host.Vm.Settings.SelectedTab = tab;
+            if (host.Vm.Settings.Folders is { } measured)
+            {
+                await measured.Loading;
+            }
+
             if (dialog is not null)
             {
                 await dialog(host.Vm.Settings.Folders!);

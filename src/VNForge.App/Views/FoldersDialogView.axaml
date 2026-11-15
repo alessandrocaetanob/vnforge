@@ -87,7 +87,7 @@
       <TextBlock Classes="lib-dim" FontSize="12" LineHeight="16" TextWrapping="Wrap" IsVisible="{Binding HasFailureBar}" Text="{Binding FailureWhere}"/>
 
       <!-- Pasta que sumiu na abertura. -->
-      <Border Name="MissingWarning" Classes="folder-warn" IsVisible="{Binding IsMissing}">
+      <Border Name="MissingWarning" Classes="folder-warn" IsVisible="{Binding ShowMissingWarning}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
           <PathIcon Width="20" Height="20" VerticalAlignment="Top" Data="{StaticResource Icon.Warning}"/>
           <TextBlock Grid.Column="1" FontSize="13" LineHeight="18" TextWrapping="Wrap" Text="{Binding MissingWarning}"/>
@@ -115,9 +115,9 @@
           <Button Name="ChooseOtherFailureButton" Classes="accent" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}"/>
         </StackPanel>
         <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsMissing}">
-          <Button Name="UseDefaultButton" Classes="link" FontWeight="SemiBold" Padding="8,0" Content="Usar a pasta padrão" Command="{Binding UseDefaultCommand}"/>
+          <Button Name="UseDefaultButton" Classes="link" FontWeight="SemiBold" Padding="8,0" Content="Usar a pasta padrão" Command="{Binding UseDefaultCommand}" IsVisible="{Binding CanChooseOther}"/>
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-            <Button Name="ChooseOtherMissingButton" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}"/>
+            <Button Name="ChooseOtherMissingButton" Content="Escolher outra pasta" Command="{Binding ChooseOtherCommand}" IsVisible="{Binding CanChooseOther}"/>
             <Button Name="RetryButton" Classes="accent" Content="Tentar de novo" Command="{Binding RetryCommand}"/>
           </StackPanel>
         </Grid>

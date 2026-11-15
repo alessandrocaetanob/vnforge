@@ -429,6 +429,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Índice da aba Privacidade, logo depois de Aparência.</summary>
     public const int PrivacyTab = 6;
 
+    partial void OnSelectedTabChanged(int value)
+    {
+        if (value == FoldersTab)
+        {
+            _ = Folders?.RefreshAsync();
+        }
+    }
+
     /// <summary>A aba Pastas (as pastas de dados e de cache, e a troca delas); nula, a aba fica escondida. O App liga as pastas reais ao montar a janela.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFolders))]
